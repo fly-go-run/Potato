@@ -1,0 +1,102 @@
+/* ============================================================
+ * QwenPaw design tokens — 本文件只由 Claude（架构方）修改。
+ * 语义变量在 :root / .dark 定义，经 @theme inline 映射为
+ * Tailwind 工具类（bg-surface、text-ink、border-line …）。
+ * 组件代码一律使用语义类，禁止硬编码色值。
+ * ============================================================ */
+
+:root {
+  /* -- 中性色（浅色主题） -- */
+  --bg: #f7f7f8;            /* 应用底色（侧栏） */
+  --surface: #ffffff;       /* 主内容区 / 卡片 */
+  --surface-raised: #ffffff;/* 弹层、菜单 */
+  --ink: #1a1a1e;           /* 主文本 */
+  --ink-secondary: #55555e; /* 次级文本 */
+  --ink-muted: #8e8e96;     /* 弱化文本 / 占位符 */
+  --line: #e6e6ea;          /* 分隔线 / 描边 */
+  --line-strong: #d4d4da;   /* 输入框描边 hover */
+
+  /* -- 强调色（单一） -- */
+  --accent: #3d6df2;
+  --accent-hover: #3059d6;
+  --accent-soft: #eef2fe;   /* 强调色浅底（选中态、徽标底） */
+
+  /* -- 状态色（仅用于状态反馈，不作装饰） -- */
+  --ok: #1f9d5b;
+  --warn: #b7791f;
+  --danger: #d64545;
+  --danger-soft: #fdf0f0;
+
+  /* -- 气泡 -- */
+  --bubble-user: #ececf1;   /* 用户消息底色 */
+  --bubble-tool: #fafafb;   /* 工具卡片底色 */
+
+  /* -- 几何 -- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-bubble: 18px;
+
+  /* -- 阴影 -- */
+  --shadow-raised: 0 4px 24px rgba(0, 0, 0, 0.08);
+
+  /* -- 字体 -- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+
+.dark {
+  --bg: #1b1b1f;
+  --surface: #212126;
+  --surface-raised: #2a2a30;
+  --ink: #ececf1;
+  --ink-secondary: #b4b4bc;
+  --ink-muted: #7d7d86;
+  --line: #34343a;
+  --line-strong: #45454d;
+
+  --accent: #7aa2ff;
+  --accent-hover: #93b4ff;
+  --accent-soft: #263352;
+
+  --ok: #3fbf7f;
+  --warn: #d9a441;
+  --danger: #e06c6c;
+  --danger-soft: #3a2626;
+
+  --bubble-user: #2f2f36;
+  --bubble-tool: #26262c;
+
+  --shadow-raised: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-bubble-user: var(--bubble-user);
+  --color-bubble-tool: var(--bubble-tool);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-bubble: var(--radius-bubble);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --shadow-raised: var(--shadow-raised);
+}

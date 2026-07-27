@@ -1,0 +1,102 @@
+data: {"id":"response_9a5d8929bbd94d5a892de5c757ac1015","output":[],"status":"created","created_at":"2026-07-27T13:17:00+00:00","completed_at":null,"metadata":null,"object":"response","session_id":"console:fixture-capture-2","sequence_number":1}
+
+data: {"id":"response_9a5d8929bbd94d5a892de5c757ac1015","output":[],"status":"in_progress","created_at":"2026-07-27T13:17:00+00:00","completed_at":null,"metadata":null,"object":"response","session_id":"console:fixture-capture-2","sequence_number":2}
+
+data: {"id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","type":"plugin_call","role":"assistant","content":[],"status":"in_progress","metadata":null,"name":"assistant","object":"message","sequence_number":3}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"call_id":"call_Skh97fTOjOxJBALqRqQAgoM2","name":"execute_shell_command","arguments":""},"sequence_number":4}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":""},"sequence_number":5}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"{\""},"sequence_number":6}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"command"},"sequence_number":7}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"\":\""},"sequence_number":8}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"echo"},"sequence_number":9}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":" q"},"sequence_number":10}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"wen"},"sequence_number":11}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"paw"},"sequence_number":12}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"-fi"},"sequence_number":13}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"xture"},"sequence_number":14}
+
+data: {"type":"data","delta":true,"index":0,"status":"in_progress","object":"content","msg_id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","data":{"arguments":"\"}"},"sequence_number":15}
+
+data: {"type":"data","delta":false,"index":null,"status":"completed","object":"content","msg_id":null,"data":{"call_id":"call_Skh97fTOjOxJBALqRqQAgoM2","name":"execute_shell_command","arguments":"{\"command\":\"echo qwenpaw-fixture\"}"},"sequence_number":16}
+
+data: {"id":"msg_0ea5fec19b0b41f1b8d50c46f2cf0db8","type":"plugin_call","role":"assistant","content":[{"type":"data","delta":false,"index":null,"status":"completed","object":"content","msg_id":null,"data":{"call_id":"call_Skh97fTOjOxJBALqRqQAgoM2","name":"execute_shell_command","arguments":"{\"command\":\"echo qwenpaw-fixture\"}"},"sequence_number":16}],"status":"completed","metadata":null,"name":"assistant","object":"message","sequence_number":17}
+
+data: {"id":"msg_b4a90aea1c424f6e809481eff7f2c2e1","type":"plugin_call_output","role":"tool","content":[],"status":"in_progress","metadata":null,"name":"assistant","object":"message","sequence_number":18}
+
+data: {"type":"data","delta":false,"index":0,"status":"in_progress","object":"content","msg_id":"msg_b4a90aea1c424f6e809481eff7f2c2e1","data":{"call_id":"call_Skh97fTOjOxJBALqRqQAgoM2","name":"execute_shell_command","output":""},"sequence_number":19}
+
+data: {"type":"data","delta":false,"index":0,"status":"in_progress","object":"content","msg_id":"msg_b4a90aea1c424f6e809481eff7f2c2e1","data":{"call_id":"call_Skh97fTOjOxJBALqRqQAgoM2","name":"execute_shell_command","output":"qwenpaw-fixture"},"sequence_number":20}
+
+data: {"type":"data","delta":false,"index":0,"status":"completed","object":"content","msg_id":null,"data":{"call_id":"call_Skh97fTOjOxJBALqRqQAgoM2","name":"execute_shell_command","output":"qwenpaw-fixture","state":"success"},"sequence_number":21}
+
+data: {"id":"msg_b4a90aea1c424f6e809481eff7f2c2e1","type":"plugin_call_output","role":"tool","content":[{"type":"data","delta":false,"index":0,"status":"completed","object":"content","msg_id":null,"data":{"call_id":"call_Skh97fTOjOxJBALqRqQAgoM2","name":"execute_shell_command","output":"qwenpaw-fixture","state":"success"},"sequence_number":21}],"status":"completed","metadata":null,"name":"assistant","object":"message","sequence_number":22}
+
+data: {"id":"msg_10c6dadbef904657b687c6535e210680","type":"message","role":"assistant","content":[],"status":"in_progress","metadata":null,"name":"assistant","object":"message","sequence_number":23}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"输出","sequence_number":24}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"是","sequence_number":25}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":" `","sequence_number":26}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"q","sequence_number":27}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"wen","sequence_number":28}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"paw","sequence_number":29}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"-fi","sequence_number":30}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"xture","sequence_number":31}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"`","sequence_number":32}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"。","sequence_number":33}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"  \n","sequence_number":34}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"<!--","sequence_number":35}
+
+data: {"type": "text", "delta": true, "index": 0, "status": null, "object": "content", "msg_id": "msg_10c6dadbef904657b687c6535e210680", "text": " ⟦", "sequence_number": 36}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":" echo","sequence_number":37}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":" 命","sequence_number":38}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"令","sequence_number":39}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"输出","sequence_number":40}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":" q","sequence_number":41}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"wen","sequence_number":42}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"paw","sequence_number":43}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"-fi","sequence_number":44}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":"xture","sequence_number":45}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":" ⟧","sequence_number":46}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_10c6dadbef904657b687c6535e210680","text":" -->","sequence_number":47}
+
+data: {"type": "text", "delta": false, "index": 0, "status": null, "object": "content", "msg_id": "msg_10c6dadbef904657b687c6535e210680", "text": "输出是 `qwenpaw-fixture`。", "sequence_number": 48}
+
+data: {"id": "msg_10c6dadbef904657b687c6535e210680", "type": "message", "role": "assistant", "content": [{"type": "text", "delta": false, "index": 0, "status": null, "object": "content", "msg_id": null, "text": "输出是 `qwenpaw-fixture`。"}], "status": "completed", "metadata": null, "name": "assistant", "object": "message", "sequence_number": 49, "usage": {"input_tokens": 15957, "output_tokens": 33}}
+
+data: {"id": "response_9a5d8929bbd94d5a892de5c757ac1015", "output": [{"id": "msg_0ea5fec19b0b41f1b8d50c46f2cf0db8", "type": "plugin_call", "role": "assistant", "content": [{"type": "data", "delta": false, "index": null, "status": "completed", "object": "content", "msg_id": null, "data": {"call_id": "call_Skh97fTOjOxJBALqRqQAgoM2", "name": "execute_shell_command", "arguments": "{\"command\":\"echo qwenpaw-fixture\"}"}, "sequence_number": 16}], "status": "completed", "metadata": null, "name": "assistant", "object": "message", "sequence_number": 17}, {"id": "msg_b4a90aea1c424f6e809481eff7f2c2e1", "type": "plugin_call_output", "role": "tool", "content": [{"type": "data", "delta": false, "index": 0, "status": "completed", "object": "content", "msg_id": null, "data": {"call_id": "call_Skh97fTOjOxJBALqRqQAgoM2", "name": "execute_shell_command", "output": "qwenpaw-fixture", "state": "success"}, "sequence_number": 21}], "status": "completed", "metadata": null, "name": "assistant", "object": "message", "sequence_number": 22}, {"id": "msg_10c6dadbef904657b687c6535e210680", "type": "message", "role": "assistant", "content": [{"type": "text", "delta": false, "index": 0, "status": null, "object": "content", "msg_id": null, "text": "输出是 `qwenpaw-fixture`。"}], "status": "completed", "metadata": null, "name": "assistant", "object": "message", "sequence_number": 49, "usage": {"input_tokens": 15957, "output_tokens": 33}}], "status": "completed", "created_at": "2026-07-27T13:17:00+00:00", "completed_at": "2026-07-27T13:17:07+00:00", "metadata": null, "object": "response", "session_id": "console:fixture-capture-2", "sequence_number": 50, "usage": {"input_tokens": 15957, "output_tokens": 33}}
+
+data: {"type": "turn_usage", "session_id": "console:fixture-capture-2", "usage": {"provider_id": "sub2api", "model_name": "gpt-5.6-sol", "prompt_tokens": 15957, "completion_tokens": 33, "total_tokens": 15990, "context_size": 272000, "compact_threshold": 0.8}, "context_usage": {"estimated_tokens": 63, "max_input_length": 272000, "context_usage_ratio": 0.023161764705882354}}
+

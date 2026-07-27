@@ -1,0 +1,393 @@
+import type {
+  PendingApproval,
+  PushMessagesResponse,
+} from "./approvals";
+import type {
+  CronDispatchTarget,
+  CronExecutionRecord,
+  CronJobSpec,
+  CronJobState,
+} from "./crons";
+import { t } from "./i18n";
+import type { InboxEvent, InboxTrace } from "./inbox";
+import type {
+  CodingProject,
+  CodingProjectInfo,
+  DirectoryListing,
+} from "./projects";
+
+export const AUTH_TOKEN_KEY = "qwenpaw_auth_token";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+export function getAuthToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthToken(token: string) {
+  if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+  else localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+export function authHeaders(headers?: HeadersInit) {
+  const result = new Headers(headers);
+  const token = getAuthToken();
+  if (token) result.set("Authorization", `Bearer ${token}`);
+  return result;
+}
+
+export async function apiFetch(
+  input: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const response = await fetch(input, {
+    ...init,
+    headers: authHeaders(init.headers),
+  });
+
+  if (response.status === 401) {
+    setAuthToken("");
+    if (window.location.hash !== "#/login") {
+      window.location.hash = "#/login";
+    }
+  }
+  if (!response.ok) {
+    throw new ApiError(await responseErrorMessage(response), response.status);
+  }
+  return response;
+}
+
+export async function apiJson<T>(
+  input: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body && !(init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  const response = await apiFetch(input, { ...init, headers });
+  return (await response.json()) as T;
+}
+
+async function responseErrorMessage(response: Response) {
+  try {
+    const body = (await response.json()) as {
+      detail?: string;
+      message?: string;
+      error?: string;
+    };
+    return (
+      body.detail ||
+      body.message ||
+      body.error ||
+      t("api.requestFailed", { status: response.status })
+    );
+  } catch {
+    return (
+      response.statusText ||
+      t("api.requestFailed", { status: response.status })
+    );
+  }
+}
+
+export interface AuthStatus {
+  enabled: boolean;
+  has_users: boolean;
+}
+
+export interface ActiveModel {
+  provider_id: string;
+  model: string;
+}
+
+export interface ActiveModelInfo {
+  active_llm: ActiveModel | null;
+  effective_max_input_length: number | null;
+}
+
+export interface ChatSpec {
+  id: string;
+  name: string;
+  session_id: string;
+  user_id: string;
+  channel: string;
+  created_at: string;
+  updated_at: string;
+  status: "idle" | "running" | string;
+  pinned: boolean;
+  archived?: boolean;
+  archived_at?: string | null;
+}
+
+export interface ChatHistory {
+  messages: unknown[];
+  status: "idle" | "running" | string;
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  supports_multimodal?: boolean | null;
+  supports_image?: boolean | null;
+  supports_video?: boolean | null;
+  is_free?: boolean;
+  max_tokens?: number;
+  max_input_length?: number;
+}
+
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  base_url: string;
+  api_key: string;
+  chat_model: string;
+  models: ModelInfo[];
+  extra_models: ModelInfo[];
+  api_key_prefix: string;
+  api_key_prefixes: string[];
+  is_local: boolean;
+  freeze_url: boolean;
+  require_api_key: boolean;
+  is_custom: boolean;
+}
+
+export interface UploadResponse {
+  url: string;
+  file_name: string;
+  size: number;
+}
+
+export interface UploadLimit {
+  upload_max_size_mb: number | null;
+}
+
+export const authApi = {
+  status: () => apiJson<AuthStatus>("/api/auth/status"),
+  authenticate: (
+    mode: "login" | "register",
+    username: string,
+    password: string,
+  ) =>
+    apiJson<{ token: string; username: string }>(`/api/auth/${mode}`, {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+};
+
+export const chatApi = {
+  list: () => apiJson<ChatSpec[]>("/api/chats?archived=false"),
+  get: (id: string, signal?: AbortSignal) =>
+    apiJson<ChatHistory>(`/api/chats/${encodeURIComponent(id)}`, { signal }),
+  update: (id: string, update: { name?: string; pinned?: boolean }) =>
+    apiJson<ChatSpec>(`/api/chats/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(update),
+    }),
+  delete: (id: string) =>
+    apiJson<{ deleted: boolean }>(`/api/chats/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  stop: (id: string) =>
+    apiJson<{ stopped: boolean }>(
+      `/api/console/chat/stop?chat_id=${encodeURIComponent(id)}`,
+      { method: "POST" },
+    ),
+  stream: (body: Record<string, unknown>, signal: AbortSignal) =>
+    apiFetch("/api/console/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    }),
+  pushMessages: (sessionId: string, signal?: AbortSignal) =>
+    apiJson<PushMessagesResponse>(
+      `/api/console/push-messages?session_id=${encodeURIComponent(sessionId)}`,
+      { signal },
+    ),
+  upload: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return apiJson<UploadResponse>("/api/console/upload", {
+      method: "POST",
+      body,
+    });
+  },
+};
+
+export const modelApi = {
+  active: () => apiJson<ActiveModelInfo>("/api/models/active"),
+  list: () => apiJson<ProviderInfo[]>("/api/models"),
+  setActive: (providerId: string, model: string) =>
+    apiJson<ActiveModelInfo>("/api/models/active", {
+      method: "PUT",
+      body: JSON.stringify({
+        provider_id: providerId,
+        model,
+        scope: "global",
+      }),
+    }),
+  configure: async (
+    providerId: string,
+    config: { api_key?: string; base_url?: string },
+  ) => {
+    const path = `/api/models/${encodeURIComponent(providerId)}/config`;
+    const request = (method: "POST" | "PUT") =>
+      apiJson<ProviderInfo>(path, {
+        method,
+        body: JSON.stringify(config),
+      });
+    try {
+      return await request("POST");
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 405) throw error;
+      return request("PUT");
+    }
+  },
+};
+
+export const approvalApi = {
+  act: (
+    action: "approve" | "deny",
+    approval: Pick<PendingApproval, "request_id" | "root_session_id">,
+    scope: "exact" | "similar" = "exact",
+  ) =>
+    apiJson<{
+      success: boolean;
+      message: string;
+      tool_name: string | null;
+      request_id: string;
+    }>(`/api/approval/${action}`, {
+      method: "POST",
+      body: JSON.stringify({
+        request_id: approval.request_id,
+        session_id: approval.root_session_id,
+        scope,
+      }),
+    }),
+};
+
+export const workspaceApi = {
+  runningConfig: () =>
+    apiJson<{ approval_level?: string }>("/api/workspace/running-config"),
+};
+
+export const projectApi = {
+  current: () =>
+    apiJson<CodingProjectInfo>("/api/workspace/coding-project"),
+  list: () =>
+    apiJson<CodingProject[]>("/api/workspace/coding-project/list"),
+  browse: (path = "~") =>
+    apiJson<DirectoryListing>(
+      `/api/workspace/coding-project/browse-dirs?path=${encodeURIComponent(path)}`,
+    ),
+  create: (name: string) =>
+    apiJson<{ path: string; name: string }>(
+      "/api/workspace/coding-project/create",
+      {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      },
+    ),
+};
+
+export const cronApi = {
+  list: () => apiJson<CronJobSpec[]>("/api/cron/jobs"),
+  create: (spec: CronJobSpec) =>
+    apiJson<CronJobSpec>("/api/cron/jobs", {
+      method: "POST",
+      body: JSON.stringify(spec),
+    }),
+  replace: (jobId: string, spec: CronJobSpec) =>
+    apiJson<CronJobSpec>(`/api/cron/jobs/${encodeURIComponent(jobId)}`, {
+      method: "PUT",
+      body: JSON.stringify(spec),
+    }),
+  delete: (jobId: string) =>
+    apiJson<{ deleted: boolean }>(
+      `/api/cron/jobs/${encodeURIComponent(jobId)}`,
+      { method: "DELETE" },
+    ),
+  state: (jobId: string) =>
+    apiJson<CronJobState>(
+      `/api/cron/jobs/${encodeURIComponent(jobId)}/state`,
+    ),
+  history: (jobId: string) =>
+    apiJson<CronExecutionRecord[]>(
+      `/api/cron/jobs/${encodeURIComponent(jobId)}/history`,
+    ),
+  action: (jobId: string, action: "pause" | "resume" | "run") =>
+    apiJson<Record<string, boolean>>(
+      `/api/cron/jobs/${encodeURIComponent(jobId)}/${action}`,
+      { method: "POST" },
+    ),
+  dispatchTargets: () =>
+    apiJson<{ channels: string[]; items: CronDispatchTarget[] }>(
+      "/api/cron/dispatch-targets",
+    ),
+};
+
+export const inboxApi = {
+  events: (options?: { unreadOnly?: boolean; limit?: number }) => {
+    const query = new URLSearchParams();
+    query.set("unread_only", String(options?.unreadOnly ?? false));
+    query.set("limit", String(options?.limit ?? 100));
+    return apiJson<{ events: InboxEvent[] }>(
+      `/api/console/inbox/events?${query.toString()}`,
+    );
+  },
+  markRead: (payload: { all?: boolean; event_ids?: string[] }) =>
+    apiJson<{ updated: number }>("/api/console/inbox/read", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  delete: (eventId: string) =>
+    apiJson<{ deleted: boolean; trace_deleted: boolean; run_id: string | null }>(
+      `/api/console/inbox/events/${encodeURIComponent(eventId)}`,
+      { method: "DELETE" },
+    ),
+  trace: (runId: string) =>
+    apiJson<InboxTrace>(
+      `/api/console/inbox/traces/${encodeURIComponent(runId)}`,
+    ),
+};
+
+export interface SandboxStatus {
+  enabled: boolean;
+  /** 配置开启但本会话是否真正生效（Windows 非管理员 / 平台不支持时为 false）。 */
+  effective: boolean;
+  /** effective !== enabled 时的原因：not_admin | unsupported。 */
+  reason: string | null;
+}
+
+export const settingsApi = {
+  uploadLimit: () => apiJson<UploadLimit>("/api/settings/upload-limit"),
+  sandboxStatus: () =>
+    apiJson<SandboxStatus>("/api/config/security/sandbox"),
+  setSandbox: (enabled: boolean) =>
+    apiJson<SandboxStatus>("/api/config/security/sandbox", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    }),
+};
+
+export function filePreviewUrl(value: string): string {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  const cleaned = value.replace(/^file:\/\//, "").replace(/^\/+/, "");
+  const path = cleaned
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const token = getAuthToken();
+  return `/api/files/preview/${path}${
+    token ? `?token=${encodeURIComponent(token)}` : ""
+  }`;
+}

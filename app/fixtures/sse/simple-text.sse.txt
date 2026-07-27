@@ -1,0 +1,30 @@
+data: {"id":"response_f6ddba29c4d442348819c2f23cc3c6ae","output":[],"status":"created","created_at":"2026-07-27T13:16:43+00:00","completed_at":null,"metadata":null,"object":"response","session_id":"console:fixture-capture-1","sequence_number":1}
+
+data: {"id":"response_f6ddba29c4d442348819c2f23cc3c6ae","output":[],"status":"in_progress","created_at":"2026-07-27T13:16:43+00:00","completed_at":null,"metadata":null,"object":"response","session_id":"console:fixture-capture-1","sequence_number":2}
+
+data: {"id":"msg_7166eff0a583405685e6e8b2cbc3ca82","type":"message","role":"assistant","content":[],"status":"in_progress","metadata":null,"name":"assistant","object":"message","sequence_number":3}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"你好","sequence_number":4}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"，我","sequence_number":5}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"是","sequence_number":6}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":" Q","sequence_number":7}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"wen","sequence_number":8}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"P","sequence_number":9}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"aw","sequence_number":10}
+
+data: {"type":"text","delta":true,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"。","sequence_number":11}
+
+data: {"type":"text","delta":false,"index":0,"status":null,"object":"content","msg_id":"msg_7166eff0a583405685e6e8b2cbc3ca82","text":"你好，我是 QwenPaw。","sequence_number":12}
+
+data: {"id":"msg_7166eff0a583405685e6e8b2cbc3ca82","type":"message","role":"assistant","content":[{"type":"text","delta":false,"index":0,"status":null,"object":"content","msg_id":null,"text":"你好，我是 QwenPaw。"}],"status":"completed","metadata":null,"name":"assistant","object":"message","sequence_number":13,"usage":{"input_tokens":15913,"output_tokens":12}}
+
+data: {"id":"response_f6ddba29c4d442348819c2f23cc3c6ae","output":[{"id":"msg_7166eff0a583405685e6e8b2cbc3ca82","type":"message","role":"assistant","content":[{"type":"text","delta":false,"index":0,"status":null,"object":"content","msg_id":null,"text":"你好，我是 QwenPaw。"}],"status":"completed","metadata":null,"name":"assistant","object":"message","sequence_number":13,"usage":{"input_tokens":15913,"output_tokens":12}}],"status":"completed","created_at":"2026-07-27T13:16:43+00:00","completed_at":"2026-07-27T13:16:47+00:00","metadata":null,"object":"response","session_id":"console:fixture-capture-1","sequence_number":14,"usage":{"input_tokens":15913,"output_tokens":12}}
+
+data: {"type": "turn_usage", "session_id": "console:fixture-capture-1", "usage": {"provider_id": "sub2api", "model_name": "gpt-5.6-sol", "prompt_tokens": 15913, "completion_tokens": 12, "total_tokens": 15925, "context_size": 272000, "compact_threshold": 0.8}, "context_usage": {"estimated_tokens": 26, "max_input_length": 272000, "context_usage_ratio": 0.009558823529411765}}
+

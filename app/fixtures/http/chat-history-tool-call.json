@@ -1,0 +1,159 @@
+{
+    "messages": [
+        {
+            "id": "22ea606185c34021b2c4699dd59dd0a1",
+            "type": "message",
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "delta": false,
+                    "index": null,
+                    "status": null,
+                    "object": "content",
+                    "msg_id": null,
+                    "text": "\u8bf7\u7528 shell \u5de5\u5177\u6267\u884c\u547d\u4ee4 echo history-fixture\uff0c\u7136\u540e\u7528\u4e00\u53e5\u8bdd\u544a\u8bc9\u6211\u8f93\u51fa\u3002"
+                }
+            ],
+            "status": "completed",
+            "metadata": {
+                "original_id": "14d19b9f20eb4cfd8d9485ba6adf842d",
+                "original_name": "user",
+                "metadata": {
+                    "qwenpaw_tag": "external_user_query"
+                },
+                "timestamp": "2026-07-27T21:17:48.939256+08:00"
+            }
+        },
+        {
+            "id": "70a90debbe594afc8787e2ff6b97b2b9",
+            "type": "plugin_call",
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "data",
+                    "delta": false,
+                    "index": null,
+                    "status": null,
+                    "object": "content",
+                    "msg_id": null,
+                    "data": {
+                        "call_id": "call_LigXnEiNEikMBxxRJ5Zp9qB1",
+                        "name": "execute_shell_command",
+                        "arguments": "{\"command\":\"echo history-fixture\",\"cwd\":\"/Users/liuxu/.qwenpaw/workspaces/default\"}"
+                    }
+                }
+            ],
+            "status": "completed",
+            "metadata": {
+                "original_id": "d16ebe605e94419d9db0698eb48a0132",
+                "original_name": "Default",
+                "metadata": {
+                    "qwenpaw_turn_usage": {
+                        "usage": {
+                            "provider_id": "sub2api",
+                            "model_name": "gpt-5.6-sol",
+                            "prompt_tokens": 15966,
+                            "completion_tokens": 32,
+                            "total_tokens": 15998,
+                            "context_size": 272000,
+                            "compact_threshold": 0.8
+                        },
+                        "context_usage": {
+                            "estimated_tokens": 79,
+                            "max_input_length": 272000,
+                            "context_usage_ratio": 0.029044117647058824
+                        }
+                    }
+                },
+                "timestamp": "2026-07-27T21:17:53.713278+08:00"
+            }
+        },
+        {
+            "id": "a859867c528948eba65403415b71ae5a",
+            "type": "plugin_call_output",
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "data",
+                    "delta": false,
+                    "index": null,
+                    "status": null,
+                    "object": "content",
+                    "msg_id": null,
+                    "data": {
+                        "call_id": "call_LigXnEiNEikMBxxRJ5Zp9qB1",
+                        "name": "execute_shell_command",
+                        "output": "[{\"type\": \"text\", \"text\": \"history-fixture\", \"id\": \"975e7bc1394140128853f6f284751bb8\"}]",
+                        "state": "success"
+                    }
+                }
+            ],
+            "status": "completed",
+            "metadata": {
+                "original_id": "d16ebe605e94419d9db0698eb48a0132",
+                "original_name": "Default",
+                "metadata": {
+                    "qwenpaw_turn_usage": {
+                        "usage": {
+                            "provider_id": "sub2api",
+                            "model_name": "gpt-5.6-sol",
+                            "prompt_tokens": 15966,
+                            "completion_tokens": 32,
+                            "total_tokens": 15998,
+                            "context_size": 272000,
+                            "compact_threshold": 0.8
+                        },
+                        "context_usage": {
+                            "estimated_tokens": 79,
+                            "max_input_length": 272000,
+                            "context_usage_ratio": 0.029044117647058824
+                        }
+                    }
+                },
+                "timestamp": "2026-07-27T21:17:53.713278+08:00"
+            }
+        },
+        {
+            "id": "13a75ab220154ef99ccd8a1e6438643e",
+            "type": "message",
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "text",
+                    "delta": false,
+                    "index": null,
+                    "status": null,
+                    "object": "content",
+                    "msg_id": null,
+                    "text": "\u547d\u4ee4\u8f93\u51fa\u662f\uff1a`history-fixture`\u3002"
+                }
+            ],
+            "status": "completed",
+            "metadata": {
+                "original_id": "d16ebe605e94419d9db0698eb48a0132",
+                "original_name": "Default",
+                "metadata": {
+                    "qwenpaw_turn_usage": {
+                        "usage": {
+                            "provider_id": "sub2api",
+                            "model_name": "gpt-5.6-sol",
+                            "prompt_tokens": 15966,
+                            "completion_tokens": 32,
+                            "total_tokens": 15998,
+                            "context_size": 272000,
+                            "compact_threshold": 0.8
+                        },
+                        "context_usage": {
+                            "estimated_tokens": 79,
+                            "max_input_length": 272000,
+                            "context_usage_ratio": 0.029044117647058824
+                        }
+                    }
+                },
+                "timestamp": "2026-07-27T21:17:53.713278+08:00"
+            }
+        }
+    ],
+    "status": "idle"
+}
