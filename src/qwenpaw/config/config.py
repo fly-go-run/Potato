@@ -2301,14 +2301,15 @@ class SecurityConfig(BaseModel):
         default_factory=SkillScannerConfig,
     )
     sandbox_enabled: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Global switch for governance sandbox execution. Defaults to "
-            "False (sandbox off). When True, shell tools with no matching "
+            "True (sandbox on). When True, shell tools with no matching "
             "rule run inside the sandbox (no user prompt). When False, such "
             "calls run directly without the sandbox (no prompt). Phase 0-2 "
             "protections (secret-file / dangerous-command blocking) are "
-            "unaffected either way."
+            "unaffected either way. On platforms without a supported sandbox "
+            "backend the runtime degrades gracefully (see ResourceGovernor)."
         ),
     )
     allow_no_auth_hosts: List[str] = Field(
