@@ -29,7 +29,7 @@ export function ToolCard({ pair }: { pair: ToolPair }) {
   const summary = argumentSummary(pair.arguments);
 
   return (
-    <details className="group my-2 rounded-md bg-bubble-tool">
+    <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool">
       <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
         <ChevronRight
           size={14}

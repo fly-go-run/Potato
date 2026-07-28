@@ -15,6 +15,20 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Banner } from "../components/ui/Banner";
 import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  IconButton,
+  Input,
+  PageContainer,
+  PageHeader,
+  SegmentedControl,
+  SkeletonRows,
+  Switch,
+} from "../components/ui";
+import {
   mergeCatalogInstalled,
   pluginApi,
   pluginToolCount,
@@ -47,6 +61,9 @@ export function SkillsView() {
   const [busyPlugin, setBusyPlugin] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<
+    { type: "skill"; item: SkillInfo } | { type: "plugin"; item: PluginInfo } | null
+  >(null);
 
   const load = async () => {
     setLoading(true);
@@ -108,9 +125,6 @@ export function SkillsView() {
   };
 
   const deleteSkill = async (skill: SkillInfo) => {
-    if (!window.confirm(t("skills.deleteConfirm", { name: skill.name }))) {
-      return;
-    }
     setBusySkill(skill.name);
     setError(null);
     try {
@@ -118,6 +132,7 @@ export function SkillsView() {
       setSkills((items) => items.filter((item) => item.name !== skill.name));
       setSelectedSkill(null);
       setNotice(t("skills.deleted", { name: skill.name }));
+      setPendingDelete(null);
     } catch (reason) {
       setError(readableError(reason));
     } finally {
@@ -126,15 +141,13 @@ export function SkillsView() {
   };
 
   const deletePlugin = async (plugin: PluginInfo) => {
-    if (!window.confirm(t("plugins.deleteConfirm", { name: plugin.name }))) {
-      return;
-    }
     setBusyPlugin(plugin.id);
     setError(null);
     try {
       await pluginApi.delete(plugin.id);
       setPlugins((items) => items.filter((item) => item.id !== plugin.id));
       setNotice(t("plugins.deleted", { name: plugin.name }));
+      setPendingDelete(null);
     } catch (reason) {
       setError(readableError(reason));
     } finally {
@@ -143,51 +156,37 @@ export function SkillsView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-surface">
-      <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-medium tracking-tight text-ink">
-              {t("skills.title")}
-            </h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              {t("skills.subtitle")}
-            </p>
-          </div>
-          <button
-            type="button"
+    <>
+      <PageContainer width="wide">
+        <PageHeader
+          title={t("skills.title")}
+          subtitle={t("skills.subtitle")}
+          actions={
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-line-strong hover:text-ink"
           >
             <Plus size={15} />
             {t("skills.add")}
-          </button>
-        </header>
+          </Button>
+          }
+        />
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1">
-            {(["skills", "plugins"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => {
-                  setTab(value);
-                  setQuery("");
-                  setError(null);
-                  setNotice(null);
-                }}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  tab === value
-                    ? "bg-line/60 text-ink"
-                    : "text-ink-secondary hover:bg-line/30 hover:text-ink"
-                }`}
-              >
-                {value === "skills"
-                  ? `${t("skills.tab.skills")} ${skills.length}`
-                  : `${t("skills.tab.plugins")} ${plugins.length}`}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SegmentedControl
+            value={tab}
+            options={[
+              { value: "skills", label: t("skills.tab.skills"), count: skills.length },
+              { value: "plugins", label: t("skills.tab.plugins"), count: plugins.length },
+            ]}
+            onChange={(value) => {
+              setTab(value);
+              setQuery("");
+              setError(null);
+              setNotice(null);
+            }}
+          />
           {tab === "skills" && (
             <SearchField value={query} onChange={setQuery} />
           )}
@@ -201,19 +200,21 @@ export function SkillsView() {
         {notice && (
           <div
             role="status"
-            className="mt-4 rounded-md bg-accent-soft px-3 py-2 text-xs text-accent"
+            className="mt-4 rounded-md bg-fill-active px-3 py-2 text-xs text-ok"
           >
             {notice}
           </div>
         )}
 
         {loading ? (
-          <LoadingBlock label={t("skills.loading")} />
+          <Card className="mt-5 p-4">
+            <SkeletonRows rows={6} />
+          </Card>
         ) : tab === "skills" ? (
           <section className="mt-5">
             {filteredSkills.length === 0 ? (
               <EmptyState
-                icon={<PackageOpen size={28} />}
+                icon={<PackageOpen size={20} />}
                 title={t(query ? "skills.noResults" : "skills.empty")}
                 description={t(
                   query
@@ -222,7 +223,7 @@ export function SkillsView() {
                 )}
               />
             ) : (
-              <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+              <Card className="divide-y divide-line overflow-hidden">
                 {filteredSkills.map((skill) => (
                   <SkillRow
                     key={skill.name}
@@ -232,34 +233,36 @@ export function SkillsView() {
                     onToggle={() => void toggleSkill(skill)}
                   />
                 ))}
-              </div>
+              </Card>
             )}
           </section>
         ) : plugins.length === 0 ? (
-          <EmptyState
-            icon={<Puzzle size={28} />}
-            title={t("plugins.empty")}
-            description={t("plugins.emptyDescription")}
-          />
+          <div className="mt-5">
+            <EmptyState
+              icon={<Puzzle size={20} />}
+              title={t("plugins.empty")}
+              description={t("plugins.emptyDescription")}
+            />
+          </div>
         ) : (
-          <div className="mt-5 divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+          <Card className="mt-5 divide-y divide-line overflow-hidden">
             {plugins.map((plugin) => (
               <PluginRow
                 key={plugin.id}
                 plugin={plugin}
                 busy={busyPlugin === plugin.id}
-                onDelete={() => void deletePlugin(plugin)}
+                onDelete={() => setPendingDelete({ type: "plugin", item: plugin })}
               />
             ))}
-          </div>
+          </Card>
         )}
-      </div>
+      </PageContainer>
 
       <SkillDetails
         skill={selectedSkill}
         busy={selectedSkill?.name === busySkill}
         onOpenChange={(open) => !open && setSelectedSkill(null)}
-        onDelete={(skill) => void deleteSkill(skill)}
+        onDelete={(skill) => setPendingDelete({ type: "skill", item: skill })}
       />
       <AddCapabilityDialog
         open={addOpen}
@@ -272,7 +275,29 @@ export function SkillsView() {
           await load();
         }}
       />
-    </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={
+          pendingDelete?.type === "plugin"
+            ? t("plugins.uninstall")
+            : t("skills.delete")
+        }
+        description={
+          pendingDelete?.type === "plugin"
+            ? t("plugins.deleteConfirm", { name: pendingDelete.item.name })
+            : pendingDelete?.type === "skill"
+              ? t("skills.deleteConfirm", { name: pendingDelete.item.name })
+              : undefined
+        }
+        tone="danger"
+        busy={busySkill !== null || busyPlugin !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete?.type === "skill") void deleteSkill(pendingDelete.item);
+          if (pendingDelete?.type === "plugin") void deletePlugin(pendingDelete.item);
+        }}
+      />
+    </>
   );
 }
 
@@ -300,9 +325,9 @@ function SkillRow({
           onOpen();
         }
       }}
-      className="group flex cursor-pointer items-center gap-3 px-4 py-3 outline-none transition-colors hover:bg-line/30 focus-visible:bg-accent-soft"
+      className="group flex cursor-pointer items-center gap-3.5 px-5 py-4 outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover focus-visible:bg-fill-active"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-lg">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base saturate-0 opacity-80">
         {skill.emoji || "✦"}
       </span>
       <div className="min-w-0 flex-1">
@@ -311,33 +336,32 @@ function SkillRow({
             {skill.name}
           </span>
           {skill.version_text && (
-            <span className="shrink-0 text-[11px] text-ink-muted">
+            <Badge tone="neutral" className="shrink-0">
               {skill.version_text}
-            </span>
+            </Badge>
           )}
           {source && (
-            <span className="truncate text-xs text-ink-muted">{source}</span>
+            <Badge tone="neutral" className="max-w-32 truncate">
+              {source}
+            </Badge>
           )}
         </div>
-        <p className="line-clamp-1 text-xs text-ink-muted">
+        <p className="line-clamp-1 text-[13px] text-ink-tertiary">
           {skill.description || t("skills.noDescription")}
         </p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={skill.enabled}
-        aria-label={t("skills.toggleLabel", { name: skill.name })}
-        disabled={busy}
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggle();
-        }}
-        className="flex shrink-0 items-center gap-2 disabled:opacity-40"
+      <span
+        className="flex shrink-0 items-center gap-2"
+        onClick={(event) => event.stopPropagation()}
       >
         {busy && <LoaderCircle size={14} className="animate-spin text-accent" />}
-        <SwitchTrack checked={skill.enabled} />
-      </button>
+        <Switch
+          checked={skill.enabled}
+          disabled={busy}
+          onChange={onToggle}
+          aria-label={t("skills.toggleLabel", { name: skill.name })}
+        />
+      </span>
     </div>
   );
 }
@@ -355,8 +379,8 @@ function PluginRow({
   const toolCount = pluginToolCount(plugin);
   const source = plugin.installed_from || plugin.source;
   return (
-    <div className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-line/30">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-accent">
+    <div className="flex items-center gap-3.5 px-5 py-4 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-muted">
         <Puzzle size={18} />
       </span>
       <div className="min-w-0 flex-1">
@@ -365,12 +389,14 @@ function PluginRow({
             {plugin.name}
           </span>
           {plugin.version && (
-            <span className="shrink-0 text-[11px] text-ink-muted">
+            <Badge tone="neutral" className="shrink-0">
               {plugin.version}
-            </span>
+            </Badge>
           )}
           {source && (
-            <span className="truncate text-xs text-ink-muted">{source}</span>
+            <Badge tone="neutral" className="max-w-32 truncate">
+              {source}
+            </Badge>
           )}
           {toolCount !== null && (
             <span className="text-[11px] text-ink-muted">
@@ -378,15 +404,15 @@ function PluginRow({
             </span>
           )}
         </div>
-        <p className="line-clamp-1 text-xs text-ink-muted">
+        <p className="line-clamp-1 text-[13px] text-ink-tertiary">
           {plugin.description || t("skills.noDescription")}
         </p>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="danger"
+        size="sm"
         disabled={busy}
         onClick={onDelete}
-        className="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-danger transition-colors hover:bg-danger-soft disabled:opacity-40"
       >
         {busy ? (
           <LoaderCircle size={14} className="animate-spin" />
@@ -394,7 +420,7 @@ function PluginRow({
           <Trash2 size={14} />
         )}
         {t("plugins.uninstall")}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -414,10 +440,12 @@ function SkillDetails({
   return (
     <Dialog.Root open={skill !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/20" />
-        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(29rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-raised outline-none">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(29rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
-            <span className="text-xl">{skill?.emoji || "✦"}</span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base saturate-0 opacity-80">
+              {skill?.emoji || "✦"}
+            </span>
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
                 {skill?.name}
@@ -427,7 +455,7 @@ function SkillDetails({
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <IconButton label={t("skills.close")}>
+              <IconButton size="sm" title={t("skills.close")}>
                 <X size={16} />
               </IconButton>
             </Dialog.Close>
@@ -457,13 +485,13 @@ function SkillDetails({
                 {skill?.tags?.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {skill.tags.map((tag) => (
-                      <span
+                      <Badge
                         key={tag}
-                        className="flex items-center gap-1 rounded-md bg-accent-soft px-2 py-1 text-xs text-accent"
+                        tone="neutral"
                       >
                         <Tags size={11} />
                         {tag}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 ) : (
@@ -475,11 +503,11 @@ function SkillDetails({
             </div>
           </div>
           <footer className="border-t border-line p-4">
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
               disabled={!skill || busy}
               onClick={() => skill && onDelete(skill)}
-              className="flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger-soft disabled:opacity-40"
             >
               {busy ? (
                 <LoaderCircle size={14} className="animate-spin" />
@@ -487,7 +515,7 @@ function SkillDetails({
                 <Trash2 size={14} />
               )}
               {t("skills.delete")}
-            </button>
+            </Button>
           </footer>
         </Dialog.Content>
       </Dialog.Portal>
@@ -684,8 +712,8 @@ function AddCapabilityDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/20" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[min(44rem,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-line bg-raised shadow-raised outline-none">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 flex max-h-[min(44rem,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
@@ -700,32 +728,21 @@ function AddCapabilityDialog({
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <IconButton label={t("skills.close")}>
+              <IconButton size="sm" title={t("skills.close")}>
                 <X size={16} />
               </IconButton>
             </Dialog.Close>
           </header>
-          <div className="border-b border-line px-5 pt-3">
-            <div className="flex gap-5">
-              {tabs.map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() =>
-                    mode === "skills"
-                      ? setSkillTab(value as SkillSourceTab)
-                      : setPluginTab(value as PluginSourceTab)
-                  }
-                  className={`border-b-2 px-0.5 pb-2 text-xs font-medium transition-colors ${
-                    activeTab === value
-                      ? "border-accent text-accent"
-                      : "border-transparent text-ink-muted hover:text-ink"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          <div className="border-b border-line px-5 py-3">
+            <SegmentedControl
+              value={activeTab}
+              options={tabs.map(([value, label]) => ({ value, label }))}
+              onChange={(value) =>
+                mode === "skills"
+                  ? setSkillTab(value as SkillSourceTab)
+                  : setPluginTab(value as PluginSourceTab)
+              }
+            />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             {error && (
@@ -734,7 +751,7 @@ function AddCapabilityDialog({
               </div>
             )}
             {loading ? (
-              <LoadingBlock label={t("skills.loading")} compact />
+              <SkeletonRows rows={5} />
             ) : mode === "skills" && skillTab === "pool" ? (
               <CapabilitySourceList
                 items={pool.map((skill) => ({
@@ -762,18 +779,18 @@ function AddCapabilityDialog({
                     void searchHub();
                   }}
                 >
-                  <input
+                  <Input
                     value={hubQuery}
                     onChange={(event) => setHubQuery(event.target.value)}
                     placeholder={t("skills.add.hubPlaceholder")}
-                    className={inputClassName}
                   />
-                  <button
+                  <Button
                     type="submit"
-                    className="rounded-md border border-line px-3 py-2 text-xs font-medium text-ink-secondary hover:border-line-strong hover:text-ink"
+                    variant="secondary"
+                    size="sm"
                   >
                     {t("skills.search")}
-                  </button>
+                  </Button>
                 </form>
                 {hubTask &&
                   (hubTask.status === "pending" ||
@@ -785,13 +802,13 @@ function AddCapabilityDialog({
                           name: hubTask.skillName,
                         })}
                       </span>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => void cancelHub()}
-                        className="font-medium hover:underline"
                       >
                         {t("skills.add.cancel")}
-                      </button>
+                      </Button>
                     </div>
                   )}
                 {hubResults.length === 0 ? (
@@ -860,25 +877,26 @@ function AddCapabilityDialog({
               >
                 <label className="text-xs font-medium text-ink-secondary">
                   {t("plugins.add.urlLabel")}
-                  <input
+                  <Input
                     type="url"
                     value={url}
                     onChange={(event) => setUrl(event.target.value)}
                     placeholder={t("plugins.add.urlPlaceholder")}
-                    className={`${inputClassName} mt-1.5`}
+                    className="mt-1.5"
                   />
                 </label>
                 <div className="mt-4 flex justify-end">
-                  <button
+                  <Button
                     type="submit"
+                    variant="primary"
+                    size="sm"
                     disabled={!url.trim() || busy !== null}
-                    className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-2 text-xs font-medium text-surface hover:bg-accent-hover disabled:opacity-40"
                   >
                     {busy === url.trim() && (
                       <LoaderCircle size={14} className="animate-spin" />
                     )}
                     {t("plugins.add.install")}
-                  </button>
+                  </Button>
                 </div>
               </form>
             ) : (
@@ -920,11 +938,11 @@ function CapabilitySourceList({
     );
   }
   return (
-    <div className="divide-y divide-line rounded-md border border-line">
+    <Card className="divide-y divide-line overflow-hidden rounded-[var(--radius-md)]">
       {items.map((item) => (
         <div key={item.key} className="flex items-center gap-3 px-3 py-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bubble-tool">
-            {item.icon || <Box size={16} className="text-accent" />}
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool saturate-0 opacity-80">
+            {item.icon || <Box size={16} className="text-ink-muted" />}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
@@ -932,25 +950,25 @@ function CapabilitySourceList({
                 {item.name}
               </span>
               {item.version && (
-                <span className="shrink-0 text-[11px] text-ink-muted">
+                <Badge tone="neutral" className="shrink-0">
                   {item.version}
-                </span>
+                </Badge>
               )}
             </div>
-            <p className="line-clamp-1 text-xs text-ink-muted">
+            <p className="line-clamp-1 text-[13px] text-ink-tertiary">
               {item.description || t("skills.noDescription")}
             </p>
           </div>
           {item.installed ? (
-            <span className="shrink-0 rounded-md bg-accent-soft px-2 py-1 text-[11px] font-medium text-accent">
+            <Badge tone="ok">
               {t("skills.add.installedMark")}
-            </span>
+            </Badge>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={busy !== null}
               onClick={() => onInstall(item.key)}
-              className="flex shrink-0 items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-ink-secondary hover:border-line-strong hover:text-ink disabled:opacity-40"
             >
               {busy === item.key ? (
                 <LoaderCircle size={13} className="animate-spin" />
@@ -958,11 +976,11 @@ function CapabilitySourceList({
                 <Download size={13} />
               )}
               {t("skills.add.import")}
-            </button>
+            </Button>
           )}
         </div>
       ))}
-    </div>
+    </Card>
   );
 }
 
@@ -1018,29 +1036,13 @@ function SearchField({
         size={15}
         className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
       />
-      <input
+      <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={t("skills.searchPlaceholder")}
-        className={`${inputClassName} pl-9`}
+        className="rounded-full pl-9"
       />
     </label>
-  );
-}
-
-function SwitchTrack({ checked }: { checked: boolean }) {
-  return (
-    <span
-      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
-        checked ? "bg-accent" : "bg-line-strong"
-      }`}
-    >
-      <span
-        className={`absolute left-0 top-0.5 h-4 w-4 rounded-full bg-surface shadow-sm transition-transform ${
-          checked ? "translate-x-[1.125rem]" : "translate-x-0.5"
-        }`}
-      />
-    </span>
   );
 }
 
@@ -1060,64 +1062,6 @@ function Detail({
     </section>
   );
 }
-
-function IconButton({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      className="rounded-md p-1 text-ink-muted hover:bg-line/50 hover:text-ink"
-    >
-      {children}
-    </button>
-  );
-}
-
-function LoadingBlock({
-  label,
-  compact = false,
-}: {
-  label: string;
-  compact?: boolean;
-}) {
-  return (
-    <div
-      className={`flex items-center justify-center gap-2 text-sm text-ink-muted ${
-        compact ? "py-12" : "mt-5 rounded-lg border border-line py-16"
-      }`}
-    >
-      <LoaderCircle size={16} className="animate-spin" />
-      {label}
-    </div>
-  );
-}
-
-function EmptyState({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="mt-5 flex flex-col items-center rounded-lg border border-dashed border-line px-6 py-16 text-center text-ink-muted">
-      {icon}
-      <h2 className="mt-4 font-medium text-ink">{title}</h2>
-      <p className="mt-1 max-w-sm text-sm">{description}</p>
-    </div>
-  );
-}
-
-const inputClassName =
-  "block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-line-strong disabled:cursor-not-allowed disabled:bg-bubble-tool disabled:text-ink-muted";
 
 function readableError(error: unknown) {
   return error instanceof Error ? error.message : String(error);

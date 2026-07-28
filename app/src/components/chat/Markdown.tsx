@@ -10,7 +10,7 @@ interface MarkdownProps {
 
 export function Markdown({ children }: MarkdownProps) {
   return (
-    <div className="min-w-0 text-sm leading-7 text-ink">
+    <div className="min-w-0 text-[15px] leading-[1.75] text-ink">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

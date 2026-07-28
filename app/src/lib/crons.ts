@@ -1,8 +1,16 @@
-export interface CronSchedule {
-  type: "cron";
-  cron: string;
-  timezone?: string;
-}
+export type CronSchedule =
+  | {
+      type: "cron";
+      cron: string;
+      timezone?: string;
+    }
+  | {
+      type: "once";
+      run_at?: string;
+      at?: string;
+      timezone?: string;
+      [key: string]: unknown;
+    };
 
 export interface CronDispatchTarget {
   channel: string;
@@ -27,13 +35,13 @@ export interface CronJobSpec {
   name: string;
   enabled: boolean;
   schedule: CronSchedule;
-  task_type: "agent";
+  task_type: "agent" | "text" | string;
   request: {
     input: unknown;
     session_id?: string | null;
     user_id?: string | null;
     [key: string]: unknown;
-  };
+  } | null;
   dispatch: CronDispatch;
   save_result_to_inbox?: boolean;
   runtime?: Record<string, unknown>;
@@ -129,6 +137,7 @@ export function buildCronSpec(
 }
 
 export function promptFromSpec(spec: CronJobSpec): string {
+  if (!spec.request) return "";
   const input = spec.request.input;
   if (!Array.isArray(input)) return "";
   for (const message of input) {
@@ -147,4 +156,17 @@ export function promptFromSpec(spec: CronJobSpec): string {
     }
   }
   return "";
+}
+
+/** The compact editor only round-trips recurring agent jobs safely. */
+export function isCronJobEditable(spec: CronJobSpec): boolean {
+  return (
+    spec.schedule.type === "cron" &&
+    spec.task_type === "agent" &&
+    spec.request !== null
+  );
+}
+
+export function cronExpression(spec: CronJobSpec): string | null {
+  return spec.schedule.type === "cron" ? spec.schedule.cron : null;
 }

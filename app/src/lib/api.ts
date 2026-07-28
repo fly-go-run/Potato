@@ -225,15 +225,22 @@ export const chatApi = {
 export const modelApi = {
   active: () => apiJson<ActiveModelInfo>("/api/models/active"),
   list: () => apiJson<ProviderInfo[]>("/api/models"),
-  setActive: (providerId: string, model: string) =>
-    apiJson<ActiveModelInfo>("/api/models/active", {
+  setActive: async (providerId: string, model: string) => {
+    // The unscoped GET resolves the current agent's effective model. Persist
+    // to that same agent scope so an existing override cannot mask the update.
+    const { agent_id } = await apiJson<{ agent_id: string }>(
+      "/api/workspace/language",
+    );
+    return apiJson<ActiveModelInfo>("/api/models/active", {
       method: "PUT",
       body: JSON.stringify({
         provider_id: providerId,
         model,
-        scope: "global",
+        scope: "agent",
+        agent_id,
       }),
-    }),
+    });
+  },
   configure: async (
     providerId: string,
     config: { api_key?: string; base_url?: string },

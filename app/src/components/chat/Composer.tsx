@@ -15,6 +15,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Button, IconButton } from "../ui";
 import { useTranslation } from "../../lib/i18n";
 import {
   useChatStore,
@@ -33,6 +34,7 @@ export function Composer() {
     isStreaming,
     isSubmitting,
     pendingImages,
+    stream,
     approvalLevel,
     sendMessage,
     stop,
@@ -86,7 +88,7 @@ export function Composer() {
           </Link>
         </div>
       )}
-      <div className="mx-auto max-w-3xl rounded-xl border border-line bg-surface shadow-sm transition-colors focus-within:border-line-strong">
+      <div className="mx-auto max-w-3xl rounded-[22px] border border-line bg-surface shadow-[var(--shadow-md)] transition-colors duration-[var(--dur-fast)] focus-within:border-line-strong">
         {pendingImages.length > 0 && (
           <div className="flex gap-2 overflow-x-auto px-3 pt-3">
             {pendingImages.map((attachment) => (
@@ -108,15 +110,15 @@ export function Composer() {
                     </span>
                   </div>
                 )}
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
                   disabled={busy}
                   title={t("composer.removeAttachment")}
                   onClick={() => removeImage(attachment.id)}
-                  className="absolute right-1 top-1 rounded-sm bg-raised p-0.5 text-ink-secondary shadow-sm hover:text-ink disabled:opacity-40"
+                  className="absolute right-1 top-1 h-6 w-6 bg-raised shadow-[var(--shadow-sm)]"
                 >
                   <X size={12} />
-                </button>
+                </IconButton>
               </div>
             ))}
           </div>
@@ -136,7 +138,7 @@ export function Composer() {
                 ? t("composer.generating")
                 : t("composer.placeholder")
           }
-          className="block w-full resize-none bg-transparent px-4 pt-3 text-sm text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed"
+          className="block w-full resize-none bg-transparent px-4.5 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed"
         />
         <div className="flex items-center gap-1 px-2 pb-2">
           <input
@@ -149,15 +151,14 @@ export function Composer() {
               event.target.value = "";
             }}
           />
-          <button
-            type="button"
+          <IconButton
+            size="sm"
             disabled={busy}
             title={t("composer.addAttachment")}
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-md p-2 text-ink-muted transition-colors hover:bg-line/50 hover:text-ink-secondary disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Paperclip size={16} />
-          </button>
+          </IconButton>
 
           <ProjectPicker />
 
@@ -168,7 +169,7 @@ export function Composer() {
                 ? `${model.provider_id} / ${model.model}`
                 : t("composer.selectModel")
             }
-            className="max-w-48 truncate rounded-md px-2 py-1.5 text-xs text-ink-secondary transition-colors hover:bg-line/50"
+            className="max-w-48 truncate rounded-md px-2 py-1.5 text-xs text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
           >
             {modelLoading
               ? t("composer.loadingModel")
@@ -177,28 +178,29 @@ export function Composer() {
 
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <button
-                type="button"
-                className="hidden items-center gap-1 rounded-md px-2 py-1.5 text-xs text-ink-secondary transition-colors hover:bg-line/50 sm:flex"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden px-2 sm:flex"
               >
                 {
                   approvalLevels.find((item) => item.value === approvalLevel)
                     ?.label
                 }
                 <ChevronDown size={13} />
-              </button>
+              </Button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content
                 sideOffset={6}
                 align="start"
-                className="z-50 min-w-36 rounded-md border border-line bg-raised p-1 shadow-raised"
+                className="qp-pop z-50 min-w-36 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
               >
                 {approvalLevels.map((item) => (
                   <DropdownMenu.Item
                     key={item.value}
                     onSelect={() => setApprovalLevel(item.value)}
-                    className="flex cursor-default items-center justify-between rounded-sm px-2 py-1.5 text-xs text-ink-secondary outline-none hover:bg-line/50 focus:bg-line/50"
+                    className="flex cursor-default items-center justify-between rounded-sm px-2 py-1.5 text-xs text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
                   >
                     {item.label}
                     {approvalLevel === item.value && (
@@ -212,25 +214,37 @@ export function Composer() {
 
           <div className="flex-1" />
 
+          {stream.turnUsage?.context_usage?.context_usage_ratio !== undefined && (
+            <span className="hidden text-[11px] text-ink-muted sm:inline">
+              {t("chat.contextUsed", {
+                ratio: (
+                  stream.turnUsage.context_usage.context_usage_ratio * 100
+                ).toFixed(1),
+              })}
+            </span>
+          )}
+
           {isStreaming ? (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               title={t("composer.stop")}
               onClick={() => void stop()}
-              className="rounded-md bg-ink p-2 text-surface transition-opacity hover:opacity-80"
+              className="w-8 px-0"
             >
               <Square size={14} fill="currentColor" />
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               title={t("composer.send")}
               disabled={!canSend}
               onClick={submit}
-              className="rounded-md bg-accent p-2 text-surface transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-8 px-0"
             >
               <ArrowUp size={16} />
-            </button>
+            </Button>
           )}
         </div>
       </div>

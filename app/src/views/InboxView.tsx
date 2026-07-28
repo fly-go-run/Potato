@@ -9,6 +9,18 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  IconButton,
+  PageContainer,
+  PageHeader,
+  Skeleton,
+  SkeletonRows,
+} from "../components/ui";
 import { inboxApi } from "../lib/api";
 import {
   countUnread,
@@ -33,6 +45,7 @@ export function InboxView() {
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<InboxEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
@@ -86,7 +99,6 @@ export function InboxView() {
   };
 
   const remove = async (event: InboxEvent) => {
-    if (!window.confirm(t("inbox.deleteConfirm"))) return;
     setDeletingId(event.id);
     setError(null);
     try {
@@ -97,6 +109,7 @@ export function InboxView() {
         return next;
       });
       if (expandedId === event.id) setExpandedId(null);
+      setPendingDelete(null);
     } catch (reason) {
       setError(readableError(reason));
     } finally {
@@ -125,22 +138,17 @@ export function InboxView() {
   const unreadCount = countUnread(events);
 
   return (
-    <div className="h-full overflow-y-auto bg-surface">
-      <div className="mx-auto max-w-4xl px-6 py-8 sm:px-10">
-        <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-medium tracking-tight text-ink">
-              {t("inbox.title")}
-            </h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              {t("inbox.subtitle")}
-            </p>
-          </div>
-          <button
-            type="button"
+    <>
+      <PageContainer width="reading">
+        <PageHeader
+          title={t("inbox.title")}
+          subtitle={t("inbox.subtitle")}
+          actions={
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={unreadCount === 0 || marking}
             onClick={() => void markAllRead()}
-            className="flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
           >
             {marking ? (
               <LoaderCircle size={15} className="animate-spin" />
@@ -148,8 +156,9 @@ export function InboxView() {
               <CheckCheck size={15} />
             )}
             {marking ? t("inbox.marking") : t("inbox.allRead")}
-          </button>
-        </header>
+          </Button>
+          }
+        />
 
         {error && (
           <div className="mb-5 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger">
@@ -158,22 +167,17 @@ export function InboxView() {
         )}
 
         {loading && events.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-line py-16 text-sm text-ink-muted">
-            <LoaderCircle size={16} className="animate-spin" />
-            {t("inbox.loading")}
-          </div>
+          <Card className="p-4">
+            <SkeletonRows rows={6} />
+          </Card>
         ) : events.length === 0 ? (
-          <div className="flex flex-col items-center rounded-lg border border-dashed border-line px-6 py-16 text-center">
-            <Inbox size={28} className="text-ink-muted" />
-            <h2 className="mt-4 font-medium text-ink">
-              {t("inbox.emptyTitle")}
-            </h2>
-            <p className="mt-1 max-w-sm text-sm text-ink-muted">
-              {t("inbox.emptyDescription")}
-            </p>
-          </div>
+          <EmptyState
+            icon={<Inbox size={20} />}
+            title={t("inbox.emptyTitle")}
+            description={t("inbox.emptyDescription")}
+          />
         ) : (
-          <div className="divide-y divide-line overflow-hidden rounded-lg border border-line">
+          <Card className="divide-y divide-line overflow-hidden">
             {events.map((event) => {
               const expanded = expandedId === event.id;
               const runId = eventRunId(event);
@@ -187,7 +191,7 @@ export function InboxView() {
                     <button
                       type="button"
                       onClick={() => void expand(event)}
-                      className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3.5 text-left hover:bg-line/30"
+                      className="flex min-w-0 flex-1 items-start gap-3.5 px-5 py-4 text-left transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
                     >
                       <span className="mt-1.5 flex h-3 w-3 shrink-0 items-center justify-center">
                         {!event.read && (
@@ -209,10 +213,10 @@ export function InboxView() {
                           </span>
                           <EventStatus status={event.status} />
                         </span>
-                        <span className="mt-1 line-clamp-2 text-xs leading-5 text-ink-muted">
+                        <span className="mt-1 line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
                           {event.body || t("inbox.details")}
                         </span>
-                        <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-ink-muted">
+                        <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-ink-tertiary">
                           <span>
                             {t("inbox.source", { source: event.source_type })}
                           </span>
@@ -232,19 +236,20 @@ export function InboxView() {
                         />
                       )}
                     </button>
-                    <button
-                      type="button"
+                    <IconButton
+                      tone="danger"
+                      size="sm"
                       disabled={deletingId === event.id}
                       title={t("inbox.delete")}
-                      onClick={() => void remove(event)}
-                      className="m-2 self-start rounded-md p-2 text-ink-muted hover:bg-danger-soft hover:text-danger disabled:opacity-30"
+                      onClick={() => setPendingDelete(event)}
+                      className="m-2 self-start"
                     >
                       {deletingId === event.id ? (
                         <LoaderCircle size={15} className="animate-spin" />
                       ) : (
                         <Trash2 size={15} />
                       )}
-                    </button>
+                    </IconButton>
                   </div>
 
                   {expanded && (
@@ -267,12 +272,10 @@ export function InboxView() {
                           {traceOpen[event.id] && (
                             <div className="mt-3 rounded-md border border-line bg-surface p-3">
                               {traceLoading === event.id ? (
-                                <div className="flex items-center gap-2 py-3 text-xs text-ink-muted">
-                                  <LoaderCircle
-                                    size={14}
-                                    className="animate-spin"
-                                  />
-                                  {t("inbox.traceLoading")}
+                                <div className="space-y-2 py-2">
+                                  <Skeleton className="h-3 w-1/3" />
+                                  <Skeleton className="h-3 w-4/5" />
+                                  <Skeleton className="h-3 w-3/5" />
                                 </div>
                               ) : trace ? (
                                 <>
@@ -313,25 +316,30 @@ export function InboxView() {
                 </article>
               );
             })}
-          </div>
+          </Card>
         )}
-      </div>
-    </div>
+      </PageContainer>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={t("inbox.delete")}
+        description={t("inbox.deleteConfirm")}
+        tone="danger"
+        busy={deletingId !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        onConfirm={() => pendingDelete && void remove(pendingDelete)}
+      />
+    </>
   );
 }
 
 function EventStatus({ status }: { status: string }) {
   const tone =
     status === "success"
-      ? "bg-accent-soft text-ok"
+      ? "ok"
       : status === "error" || status === "failed"
-        ? "bg-danger-soft text-danger"
-        : "bg-bubble-tool text-ink-secondary";
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tone}`}>
-      {status}
-    </span>
-  );
+        ? "danger"
+        : "neutral";
+  return <Badge tone={tone}>{status}</Badge>;
 }
 
 function formatTimestamp(value: number, language: "zh" | "en") {

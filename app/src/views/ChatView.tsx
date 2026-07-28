@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import { Composer } from "../components/chat/Composer";
 import { MessageList } from "../components/chat/MessageList";
 import { Banner } from "../components/ui/Banner";
+import { Button, Card, SkeletonRows } from "../components/ui";
 import { getChatBanner } from "../lib/chatBanner";
 import { useTranslation } from "../lib/i18n";
 import { shortcutLabel } from "../lib/shortcuts";
@@ -114,9 +115,10 @@ export function ChatView() {
               ? banner.alternatives.map((alternative) => {
                   const key = `${alternative.provider_id}/${alternative.model_id}`;
                   return (
-                    <button
+                    <Button
                       key={key}
-                      type="button"
+                      variant="secondary"
+                      size="sm"
                       disabled={switchingModel !== null}
                       onClick={() => {
                         setSwitchingModel(key);
@@ -124,7 +126,7 @@ export function ChatView() {
                           setSwitchingModel(null),
                         );
                       }}
-                      className="rounded-md border border-warn/30 bg-surface/50 px-2.5 py-1 font-medium text-warn transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+                      className="border-warn/30 text-warn"
                     >
                       {switchingModel === key
                         ? t("chat.switchingModel")
@@ -133,7 +135,7 @@ export function ChatView() {
                               alternative.model_name ||
                               alternative.model_id,
                           })}
-                    </button>
+                    </Button>
                   );
                 })
               : undefined
@@ -143,35 +145,34 @@ export function ChatView() {
         </Banner>
       )}
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        {historyLoading ? (
-          <div className="flex h-full items-center justify-center text-sm text-ink-muted">
-            {t("chat.loading")}
+      {!historyLoading && isEmpty ? (
+        <div className="flex min-h-0 flex-1 flex-col justify-center pb-[12vh]">
+          <h1 className="text-center text-2xl font-medium tracking-tight text-ink">
+            {t("chat.emptyTitle")}
+          </h1>
+          <p className="mt-2 text-center text-sm text-ink-muted">
+            {t("chat.emptyHint", { shortcut: searchShortcut })}
+          </p>
+          <div className="mt-4 w-full">
+            <Composer />
           </div>
-        ) : isEmpty ? (
-          <div className="flex h-full flex-col items-center justify-center px-6">
-            <h1 className="text-center text-2xl font-medium tracking-tight text-ink">
-              {t("chat.emptyTitle")}
-            </h1>
-            <p className="mt-2 text-center text-sm text-ink-muted">
-              {t("chat.emptyHint", { shortcut: searchShortcut })}
-            </p>
-          </div>
-        ) : (
-          <MessageList messages={stream.messages} />
-        )}
-      </div>
-
-      {stream.turnUsage?.context_usage?.context_usage_ratio !== undefined && (
-        <div className="mx-auto w-full max-w-3xl px-6 text-right text-[11px] text-ink-muted">
-          {t("chat.contextUsed", {
-            ratio: (
-              stream.turnUsage.context_usage.context_usage_ratio * 100
-            ).toFixed(1),
-          })}
         </div>
+      ) : (
+        <>
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+            {historyLoading ? (
+              <div className="mx-auto w-full max-w-3xl px-6 py-8">
+                <Card className="p-4">
+                  <SkeletonRows rows={6} />
+                </Card>
+              </div>
+            ) : (
+              <MessageList messages={stream.messages} />
+            )}
+          </div>
+          <Composer />
+        </>
       )}
-      <Composer />
     </div>
   );
 }

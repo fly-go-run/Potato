@@ -7,11 +7,14 @@ const STORAGE_KEY = "qwenpaw_language";
 
 export const dictionaries = {
   zh: {
+    "common.confirm": "确认",
+    "common.cancel": "取消",
     "app.connecting": "正在连接 QwenPaw…",
     "api.requestFailed": "请求失败 ({status})",
     "stream.unreadable": "浏览器未提供可读取的响应流",
     "stream.parseFailed": "SSE 数据解析失败：{message}",
     "stream.requestFailed": "请求失败",
+    "stream.disconnected": "响应流提前断开，请重试。",
 
     "chat.closeNotice": "关闭提示",
     "chat.loading": "加载会话…",
@@ -90,6 +93,8 @@ export const dictionaries = {
     "crons.never": "尚未运行",
     "crons.noNextRun": "暂无计划",
     "crons.edit": "编辑",
+    "crons.editUnsupported": "此任务类型暂不支持在此编辑",
+    "crons.schedule.once": "单次执行",
     "crons.runNow": "立即运行",
     "crons.history": "查看历史",
     "crons.delete": "删除",
@@ -365,11 +370,14 @@ export const dictionaries = {
     "plugins.add.installed": "插件“{name}”已安装。",
   },
   en: {
+    "common.confirm": "Confirm",
+    "common.cancel": "Cancel",
     "app.connecting": "Connecting to QwenPaw…",
     "api.requestFailed": "Request failed ({status})",
     "stream.unreadable": "The browser did not provide a readable response stream",
     "stream.parseFailed": "Could not parse SSE data: {message}",
     "stream.requestFailed": "Request failed",
+    "stream.disconnected": "The response stream disconnected early. Try again.",
 
     "chat.closeNotice": "Dismiss notice",
     "chat.loading": "Loading chat…",
@@ -448,6 +456,8 @@ export const dictionaries = {
     "crons.never": "Never run",
     "crons.noNextRun": "Not scheduled",
     "crons.edit": "Edit",
+    "crons.editUnsupported": "This task type cannot be edited here",
+    "crons.schedule.once": "One-time",
     "crons.runNow": "Run now",
     "crons.history": "View history",
     "crons.delete": "Delete",

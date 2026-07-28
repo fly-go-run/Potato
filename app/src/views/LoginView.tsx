@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button, Input } from "../components/ui";
 import { authApi, setAuthToken, type AuthStatus } from "../lib/api";
 import { useTranslation } from "../lib/i18n";
 
@@ -48,7 +49,7 @@ export function LoginView() {
     <div className="flex h-full items-center justify-center bg-bg px-6">
       <form
         onSubmit={(event) => void submit(event)}
-        className="w-full max-w-80 rounded-lg border border-line bg-surface p-6 shadow-sm"
+        className="w-full max-w-80 rounded-lg border border-line bg-surface p-6 shadow-[var(--shadow-md)]"
       >
         <h1 className="text-center text-lg font-medium text-ink">QwenPaw</h1>
         <p className="mt-1 text-center text-sm text-ink-muted">
@@ -59,24 +60,24 @@ export function LoginView() {
 
         <label className="mt-6 block text-xs text-ink-secondary">
           {t("login.username")}
-          <input
+          <Input
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             autoComplete="username"
             autoFocus
-            className="mt-1.5 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-line-strong"
+            className="mt-1.5"
           />
         </label>
         <label className="mt-4 block text-xs text-ink-secondary">
           {t("login.password")}
-          <input
+          <Input
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete={
               status?.has_users === false ? "new-password" : "current-password"
             }
-            className="mt-1.5 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-line-strong"
+            className="mt-1.5"
           />
         </label>
 
@@ -86,19 +87,20 @@ export function LoginView() {
           </div>
         )}
 
-        <button
+        <Button
           type="submit"
+          variant="primary"
           disabled={
             !status || submitting || !username.trim() || password.length === 0
           }
-          className="mt-5 w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-surface transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-5 w-full"
         >
           {submitting
             ? t("login.processing")
             : status?.has_users === false
               ? t("login.createAccount")
               : t("login.signIn")}
-        </button>
+        </Button>
       </form>
     </div>
   );

@@ -1,3 +1,4 @@
+import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   Blocks,
@@ -20,6 +21,14 @@ import { useTranslation } from "../../lib/i18n";
 import { shortcutLabel } from "../../lib/shortcuts";
 import { useChatStore } from "../../stores/chat";
 import { useInboxStore } from "../../stores/inbox";
+import {
+  Button,
+  ConfirmDialog,
+  CountBadge,
+  IconButton,
+  Input,
+  SkeletonRows,
+} from "../ui";
 
 export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const { t } = useTranslation();
@@ -38,9 +47,9 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <button
           type="button"
           onClick={startNewChat}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-line/50"
+          className="flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm text-ink transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
         >
-          <PenSquare size={16} className="text-ink-secondary" />
+          <PenSquare size={16} className="text-ink-muted" />
           <span className="flex-1">{t("sidebar.newChat")}</span>
           <kbd className="text-[11px] text-ink-muted">
             {shortcutLabel("N")}
@@ -49,66 +58,78 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <NavLink
           to="/crons"
           className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm transition-colors duration-[var(--dur-fast)] ${
               isActive
-                ? "bg-accent-soft text-accent"
-                : "text-ink hover:bg-line/50"
+                ? "bg-fill-active text-ink"
+                : "text-ink hover:bg-fill-hover"
             }`
           }
         >
-          <Clock3 size={16} className="text-ink-secondary" />
-          <span className="flex-1">{t("sidebar.crons")}</span>
+          {({ isActive }) => (
+            <>
+              <Clock3 size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <span className="flex-1">{t("sidebar.crons")}</span>
+            </>
+          )}
         </NavLink>
         <NavLink
           to="/inbox"
           className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm transition-colors duration-[var(--dur-fast)] ${
               isActive
-                ? "bg-accent-soft text-accent"
-                : "text-ink hover:bg-line/50"
+                ? "bg-fill-active text-ink"
+                : "text-ink hover:bg-fill-hover"
             }`
           }
         >
-          <Inbox size={16} className="text-ink-secondary" />
-          <span className="flex-1">{t("sidebar.inbox")}</span>
-          {unreadCount > 0 && (
-            <span className="min-w-5 rounded-full bg-accent px-1.5 py-0.5 text-center text-[10px] font-medium leading-none text-surface">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
+          {({ isActive }) => (
+            <>
+              <Inbox size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <span className="flex-1">{t("sidebar.inbox")}</span>
+              <CountBadge count={unreadCount} />
+            </>
           )}
         </NavLink>
         <NavLink
           to="/skills"
           className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm transition-colors duration-[var(--dur-fast)] ${
               isActive
-                ? "bg-accent-soft text-accent"
-                : "text-ink hover:bg-line/50"
+                ? "bg-fill-active text-ink"
+                : "text-ink hover:bg-fill-hover"
             }`
           }
         >
-          <Blocks size={16} className="text-ink-secondary" />
-          <span className="flex-1">{t("sidebar.skills")}</span>
+          {({ isActive }) => (
+            <>
+              <Blocks size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <span className="flex-1">{t("sidebar.skills")}</span>
+            </>
+          )}
         </NavLink>
         <NavLink
           to="/memory"
           className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm transition-colors duration-[var(--dur-fast)] ${
               isActive
-                ? "bg-accent-soft text-accent"
-                : "text-ink hover:bg-line/50"
+                ? "bg-fill-active text-ink"
+                : "text-ink hover:bg-fill-hover"
             }`
           }
         >
-          <NotebookPen size={16} className="text-ink-secondary" />
-          <span className="flex-1">{t("sidebar.memory")}</span>
+          {({ isActive }) => (
+            <>
+              <NotebookPen size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <span className="flex-1">{t("sidebar.memory")}</span>
+            </>
+          )}
         </NavLink>
         <button
           type="button"
           onClick={onSearch}
-          className="mt-0.5 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-line/50"
+          className="mt-0.5 flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm text-ink transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
         >
-          <Search size={16} className="text-ink-secondary" />
+          <Search size={16} className="text-ink-muted" />
           <span className="flex-1">{t("sidebar.searchChats")}</span>
           <kbd className="text-[11px] text-ink-muted">
             {shortcutLabel("K")}
@@ -121,8 +142,8 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           {t("sidebar.recentChats")}
         </div>
         {chatsLoading && chats.length === 0 ? (
-          <div className="px-3 py-2 text-sm text-ink-muted">
-            {t("sidebar.loading")}
+          <div className="px-2 py-1">
+            <SkeletonRows rows={4} />
           </div>
         ) : chats.length === 0 ? (
           <div className="px-3 py-2 text-sm text-ink-muted">
@@ -145,15 +166,19 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+            `flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm transition-colors duration-[var(--dur-fast)] ${
               isActive
-                ? "bg-accent-soft text-accent"
-                : "text-ink-secondary hover:bg-line/50"
+                ? "bg-fill-active text-ink"
+                : "text-ink-secondary hover:bg-fill-hover"
             }`
           }
         >
-          <Settings size={16} />
-          {t("sidebar.settings")}
+          {({ isActive }) => (
+            <>
+              <Settings size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              {t("sidebar.settings")}
+            </>
+          )}
         </NavLink>
       </div>
     </aside>
@@ -164,6 +189,10 @@ function ChatRow({ chat, active }: { chat: ChatSpec; active: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState(chat.name);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const { renameChat, togglePinned, deleteChat } = useChatStore();
 
   const openContextMenu = (event: MouseEvent) => {
@@ -171,19 +200,35 @@ function ChatRow({ chat, active }: { chat: ChatSpec; active: boolean }) {
     setMenuOpen(true);
   };
 
+  const submitRename = async () => {
+    if (!renameValue.trim()) return;
+    setBusy(true);
+    await renameChat(chat.id, renameValue);
+    setBusy(false);
+    setRenameOpen(false);
+  };
+
+  const confirmDelete = async () => {
+    setBusy(true);
+    await deleteChat(chat.id);
+    setBusy(false);
+    setDeleteOpen(false);
+  };
+
   return (
-    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+    <>
+      <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
       <div
         onContextMenu={openContextMenu}
-        className={`group flex items-center rounded-md transition-colors ${
-          active ? "bg-accent-soft" : "hover:bg-line/50"
+        className={`group flex items-center rounded-md transition-colors duration-[var(--dur-fast)] ${
+          active ? "bg-fill-active" : "hover:bg-fill-hover"
         }`}
       >
         <button
           type="button"
           onClick={() => navigate(`/chat/${chat.id}`)}
           className={`flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-3 py-2 text-left text-sm ${
-            active ? "text-accent" : "text-ink-secondary"
+            active ? "text-ink" : "text-ink-secondary"
           }`}
         >
           {chat.status === "running" && (
@@ -193,34 +238,37 @@ function ChatRow({ chat, active }: { chat: ChatSpec; active: boolean }) {
             />
           )}
           {chat.pinned && (
-            <Pin size={12} className="shrink-0 text-ink-muted" />
+            <Pin
+              size={12}
+              className={`shrink-0 text-ink-muted`}
+            />
           )}
           <span className="min-w-0 flex-1 truncate">
             {chat.name || t("sidebar.untitled")}
           </span>
         </button>
         <DropdownMenu.Trigger asChild>
-          <button
-            type="button"
+          <IconButton
+            size="sm"
             title={t("sidebar.chatActions")}
-            className="mr-1 rounded-sm p-1 text-ink-muted opacity-0 outline-none transition-opacity hover:bg-line group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+            className="mr-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
           >
             <MoreHorizontal size={15} />
-          </button>
+          </IconButton>
         </DropdownMenu.Trigger>
       </div>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
           sideOffset={4}
-          className="z-50 min-w-32 rounded-md border border-line bg-raised p-1 shadow-raised"
+          className="qp-pop z-50 min-w-32 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
         >
           <MenuItem
             icon={<PenLine size={14} />}
             label={t("sidebar.rename")}
             onSelect={() => {
-              const name = window.prompt(t("sidebar.renamePrompt"), chat.name);
-              if (name) void renameChat(chat.id, name);
+              setRenameValue(chat.name);
+              setRenameOpen(true);
             }}
           />
           <MenuItem
@@ -232,17 +280,7 @@ function ChatRow({ chat, active }: { chat: ChatSpec; active: boolean }) {
           />
           <DropdownMenu.Separator className="my-1 h-px bg-line" />
           <DropdownMenu.Item
-            onSelect={() => {
-              if (
-                window.confirm(
-                  t("sidebar.deleteConfirm", {
-                    name: chat.name || t("sidebar.untitled"),
-                  }),
-                )
-              ) {
-                void deleteChat(chat.id);
-              }
-            }}
+            onSelect={() => setDeleteOpen(true)}
             className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-danger outline-none hover:bg-danger-soft focus:bg-danger-soft"
           >
             <Trash2 size={14} />
@@ -250,7 +288,65 @@ function ChatRow({ chat, active }: { chat: ChatSpec; active: boolean }) {
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+      </DropdownMenu.Root>
+      <Dialog.Root open={renameOpen} onOpenChange={setRenameOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/25" />
+          <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-lg)] border border-line bg-raised p-5 shadow-[var(--shadow-lg)] outline-none">
+            <Dialog.Title className="text-sm font-semibold text-ink">
+              {t("sidebar.rename")}
+            </Dialog.Title>
+            <Dialog.Description className="mt-1.5 text-sm text-ink-secondary">
+              {t("sidebar.renamePrompt")}
+            </Dialog.Description>
+            <form
+              className="mt-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitRename();
+              }}
+            >
+              <Input
+                autoFocus
+                value={renameValue}
+                disabled={busy}
+                aria-label={t("sidebar.rename")}
+                onChange={(event) => setRenameValue(event.target.value)}
+              />
+              <div className="mt-5 flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => setRenameOpen(false)}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={busy || !renameValue.trim()}
+                >
+                  {t("common.confirm")}
+                </Button>
+              </div>
+            </form>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+      <ConfirmDialog
+        open={deleteOpen}
+        title={t("sidebar.delete")}
+        description={t("sidebar.deleteConfirm", {
+          name: chat.name || t("sidebar.untitled"),
+        })}
+        tone="danger"
+        busy={busy}
+        onOpenChange={setDeleteOpen}
+        onConfirm={() => void confirmDelete()}
+      />
+    </>
   );
 }
 
@@ -266,7 +362,7 @@ function MenuItem({
   return (
     <DropdownMenu.Item
       onSelect={onSelect}
-      className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-ink-secondary outline-none hover:bg-line/50 focus:bg-line/50"
+      className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
     >
       {icon}
       {label}

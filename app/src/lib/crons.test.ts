@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCronSpec,
+  cronExpression,
+  isCronJobEditable,
   promptFromSpec,
   targetKey,
   type CronDispatchTarget,
@@ -88,8 +90,30 @@ describe("cron form spec assembly", () => {
     expect(spec.enabled).toBe(false);
     expect(spec.runtime).toEqual({ timeout_seconds: 600 });
     expect(spec.meta).toEqual({ owner: "qa" });
-    expect(spec.request.custom).toBe("kept");
+    expect(spec.request?.custom).toBe("kept");
     expect(spec.dispatch.mode).toBe("final");
     expect(promptFromSpec(spec)).toBe("Run checks");
+  });
+});
+
+describe("legacy cron variants", () => {
+  it("keeps once/text jobs out of the compact editor without dereferencing null", () => {
+    const legacy = {
+      id: "once-text",
+      name: "One-off notice",
+      enabled: true,
+      schedule: { type: "once" as const, run_at: "2026-07-28T08:00:00Z" },
+      task_type: "text",
+      request: null,
+      dispatch: {
+        type: "channel" as const,
+        channel: "console",
+        target: { user_id: "default", session_id: "session-1" },
+      },
+    };
+
+    expect(promptFromSpec(legacy)).toBe("");
+    expect(cronExpression(legacy)).toBeNull();
+    expect(isCronJobEditable(legacy)).toBe(false);
   });
 });

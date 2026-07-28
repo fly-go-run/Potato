@@ -68,6 +68,18 @@ export const initialConversationStreamState: ConversationStreamState = {
   clearHistoryVersion: 0,
 };
 
+export function isUnexpectedStreamEof(
+  status: ConversationStreamState["responseStatus"],
+  aborted: boolean,
+): boolean {
+  return (
+    !aborted &&
+    status !== "completed" &&
+    status !== "failed" &&
+    status !== "cancelled"
+  );
+}
+
 /**
  * Parse decoded SSE text incrementally. A frame is emitted only after its
  * terminating blank line arrives, so a TCP chunk may end anywhere.

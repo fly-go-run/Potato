@@ -6,6 +6,7 @@ import {
 } from "../../lib/approvals";
 import { useTranslation } from "../../lib/i18n";
 import { useChatStore } from "../../stores/chat";
+import { Badge, Button } from "../ui";
 import { JsonView } from "./Markdown";
 
 export function ApprovalCard({ approval }: { approval: PendingApproval }) {
@@ -28,7 +29,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
   };
 
   return (
-    <section className="my-4 overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
+    <section className="my-4 overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-sm)]">
       <div className="flex items-start gap-3 border-b border-line bg-bubble-tool px-4 py-3">
         <div className="mt-0.5 rounded-md bg-accent-soft p-1.5 text-accent">
           <AlertTriangle size={16} />
@@ -94,42 +95,42 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
         </details>
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             disabled={processing !== null}
             onClick={() => void act("approve")}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-surface transition-colors hover:bg-accent-hover disabled:opacity-40"
           >
             <Check size={14} />
             {processing === "approve:exact"
               ? t("approval.processing")
               : t("approval.approve")}
-          </button>
+          </Button>
           {approval.is_generalized && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={processing !== null}
               onClick={() => void act("approve", "similar")}
-              className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               title={approval.similar_target || undefined}
             >
               <CopyCheck size={14} />
               {processing === "approve:similar"
                 ? t("approval.processing")
                 : t("approval.approveSimilar")}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="danger"
+            size="sm"
             disabled={processing !== null}
             onClick={() => void act("deny")}
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger-soft disabled:opacity-40"
           >
             <X size={14} />
             {processing === "deny:exact"
               ? t("approval.processing")
               : t("approval.deny")}
-          </button>
+          </Button>
         </div>
       </div>
     </section>
@@ -146,15 +147,11 @@ function SeverityBadge({ severity }: { severity: string }) {
     normalized === "critical"
       ? (`approval.severity.${normalized}` as const)
       : "approval.severity.unknown";
-  const classes =
+  const tone =
     normalized === "low"
-      ? "bg-accent-soft text-accent"
+      ? "neutral"
       : normalized === "medium"
-        ? "bg-bubble-tool text-warn"
-        : "bg-danger-soft text-danger";
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${classes}`}>
-      {t(key)}
-    </span>
-  );
+        ? "warn"
+        : "danger";
+  return <Badge tone={tone}>{t(key)}</Badge>;
 }

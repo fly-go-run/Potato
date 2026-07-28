@@ -37,8 +37,8 @@ export function MessageList({ messages }: MessageListProps) {
 
 function UserTurn({ messages }: { messages: StreamMessage[] }) {
   return (
-    <div className="mb-6 flex justify-end">
-      <div className="max-w-[82%] rounded-bubble bg-bubble-user px-4 py-2.5">
+    <div className="qp-msg-in mb-6 flex justify-end">
+      <div className="max-w-[82%] rounded-bubble bg-bubble-user px-4.5 py-3 text-[15px] leading-[1.7]">
         {messages.map((message) => (
           <MessageContent
             key={message.id}
@@ -55,7 +55,7 @@ function AssistantTurn({ messages }: { messages: StreamMessage[] }) {
   const pairedOutputs = new Set<string>();
 
   return (
-    <div className="mb-8">
+    <div className="qp-msg-in mb-8">
       {messages.map((message) => {
         if (message.type === "reasoning") {
           return <ReasoningBlock key={message.id} message={message} />;

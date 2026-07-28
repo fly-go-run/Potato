@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { filterChats } from "../../lib/chats";
 import { useTranslation } from "../../lib/i18n";
 import { useChatStore } from "../../stores/chat";
+import { Input } from "../ui";
 
 export function ChatSearchDialog({
   open,
@@ -60,15 +61,15 @@ export function ChatSearchDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/20" />
-        <Dialog.Content className="fixed left-1/2 top-[18%] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-lg border border-line bg-raised shadow-raised outline-none">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Content className="qp-pop fixed left-1/2 top-[18%] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <Dialog.Title className="sr-only">{t("search.title")}</Dialog.Title>
           <Dialog.Description className="sr-only">
             {t("search.description")}
           </Dialog.Description>
           <div className="flex items-center gap-2 border-b border-line px-4">
             <Search size={16} className="shrink-0 text-ink-muted" />
-            <input
+            <Input
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -79,7 +80,7 @@ export function ChatSearchDialog({
                   ? `chat-search-${results[selectedIndex].id}`
                   : undefined
               }
-              className="h-12 min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
+              className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
             />
           </div>
           <div className="max-h-80 overflow-y-auto p-2">
@@ -101,7 +102,7 @@ export function ChatSearchDialog({
                     className={`flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                       selected
                         ? "bg-accent-soft text-accent"
-                        : "text-ink-secondary hover:bg-line/50"
+                        : "text-ink-secondary hover:bg-fill-hover"
                     }`}
                   >
                     {chat.status === "running" && (

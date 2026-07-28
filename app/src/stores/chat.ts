@@ -36,6 +36,7 @@ import type {
 import {
   initialConversationStreamState,
   initialSseParserState,
+  isUnexpectedStreamEof,
   parseSseBytes,
   reduceStreamFrame,
   type ConversationStreamState,
@@ -716,6 +717,14 @@ async function consumeResponse(
     throw new Error(
       t("stream.parseFailed", { message: parser.errors[0] ?? "" }),
     );
+  }
+  if (
+    isUnexpectedStreamEof(
+      get().stream.responseStatus,
+      controller.signal.aborted,
+    )
+  ) {
+    throw new Error(t("stream.disconnected"));
   }
 }
 

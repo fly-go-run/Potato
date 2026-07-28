@@ -11,6 +11,16 @@ import {
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { Markdown } from "../components/chat/Markdown";
 import {
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  PageContainer,
+  PageHeader,
+  SkeletonRows,
+  inputClasses,
+} from "../components/ui";
+import {
   formatFileSize,
   formatRelativeTime,
   groupMemoryFiles,
@@ -67,16 +77,12 @@ export function MemoryView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-surface">
-      <div className="mx-auto max-w-4xl px-6 py-8 sm:px-10">
-        <header>
-          <h1 className="text-2xl font-medium tracking-tight text-ink">
-            {t("memory.title")}
-          </h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            {t("memory.subtitle")}
-          </p>
-        </header>
+    <>
+      <PageContainer width="reading">
+        <PageHeader
+          title={t("memory.title")}
+          subtitle={t("memory.subtitle")}
+        />
 
         {error && (
           <div
@@ -84,31 +90,27 @@ export function MemoryView() {
             className="mt-5 flex items-start justify-between gap-3 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger"
           >
             <span>{error}</span>
-            <button
-              type="button"
+            <IconButton
+              size="sm"
               title={t("memory.dismiss")}
               onClick={() => setError(null)}
-              className="shrink-0 rounded-sm p-0.5 hover:bg-surface/50"
             >
               <X size={14} />
-            </button>
+            </IconButton>
           </div>
         )}
 
         {loading ? (
-          <div className="mt-6 flex items-center justify-center gap-2 rounded-lg border border-line py-16 text-sm text-ink-muted">
-            <LoaderCircle size={16} className="animate-spin" />
-            {t("memory.loading")}
-          </div>
+          <Card className="mt-6 p-4">
+            <SkeletonRows rows={5} />
+          </Card>
         ) : files.length === 0 ? (
-          <div className="mt-6 flex flex-col items-center rounded-lg border border-dashed border-line px-6 py-16 text-center text-ink-muted">
-            <NotebookPen size={28} />
-            <h2 className="mt-4 font-medium text-ink">
-              {t("memory.emptyTitle")}
-            </h2>
-            <p className="mt-1 max-w-sm text-sm">
-              {t("memory.emptyDescription")}
-            </p>
+          <div className="mt-6">
+            <EmptyState
+              icon={<NotebookPen size={20} />}
+              title={t("memory.emptyTitle")}
+              description={t("memory.emptyDescription")}
+            />
           </div>
         ) : (
           <div className="mt-8 space-y-8">
@@ -125,7 +127,7 @@ export function MemoryView() {
                     {t("memory.itemCount", { count: group.items.length })}
                   </p>
                 </header>
-                <div className="min-w-0 divide-y divide-line border-y border-line">
+                <Card className="min-w-0 divide-y divide-line overflow-hidden rounded-[var(--radius-md)]">
                   {group.items.map((file) => (
                     <button
                       key={file.filename}
@@ -135,7 +137,7 @@ export function MemoryView() {
                         name: memoryDisplayName(file),
                       })}
                       onClick={() => setSelected(file)}
-                      className="group flex w-full items-center gap-3 px-1 py-3 text-left outline-none transition-colors hover:bg-line/30 focus-visible:bg-accent-soft"
+                      className="group flex w-full items-center gap-3 px-3 py-3 text-left outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover focus-visible:bg-fill-active"
                     >
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-ink-muted transition-colors group-hover:text-accent">
                         <FileText size={16} />
@@ -143,7 +145,7 @@ export function MemoryView() {
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                         {memoryDisplayName(file)}
                       </span>
-                      <span className="flex shrink-0 items-center gap-2 text-[11px] text-ink-muted">
+                      <span className="flex shrink-0 items-center gap-2 text-[11px] text-ink-tertiary">
                         <span>{formatFileSize(file.size, language)}</span>
                         <span aria-hidden="true">·</span>
                         <time
@@ -162,19 +164,19 @@ export function MemoryView() {
                       />
                     </button>
                   ))}
-                </div>
+                </Card>
               </section>
             ))}
           </div>
         )}
-      </div>
+      </PageContainer>
 
       <MemoryDetails
         file={selected}
         onOpenChange={(open) => !open && setSelected(null)}
         onSaved={refreshFiles}
       />
-    </div>
+    </>
   );
 }
 
@@ -247,10 +249,10 @@ function MemoryDetails({
   return (
     <Dialog.Root open={file !== null} onOpenChange={close}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/20" />
-        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-raised outline-none">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-accent">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-ink-muted">
               <NotebookPen size={18} />
             </span>
             <div className="min-w-0 flex-1">
@@ -265,27 +267,26 @@ function MemoryDetails({
               </Dialog.Description>
             </div>
             {!loading && !loadError && editor.mode === "view" && (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   setNotice(null);
                   dispatch({ type: "edit" });
                 }}
-                className="flex shrink-0 items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-line-strong hover:text-ink"
               >
                 <Pencil size={14} />
                 {t("memory.edit")}
-              </button>
+              </Button>
             )}
             <Dialog.Close asChild>
-              <button
-                type="button"
+              <IconButton
+                size="sm"
                 title={t("memory.close")}
                 disabled={editor.saving}
-                className="shrink-0 rounded-md p-1 text-ink-muted hover:bg-line/50 hover:text-ink disabled:opacity-40"
               >
                 <X size={16} />
-              </button>
+              </IconButton>
             </Dialog.Close>
           </header>
 
@@ -293,15 +294,14 @@ function MemoryDetails({
             {notice && (
               <div
                 role="status"
-                className="mb-5 rounded-md bg-accent-soft px-3 py-2 text-xs text-ok"
+                className="mb-5 rounded-md bg-fill-active px-3 py-2 text-xs text-ok"
               >
                 {notice}
               </div>
             )}
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-20 text-sm text-ink-muted">
-                <LoaderCircle size={16} className="animate-spin" />
-                {t("memory.contentLoading")}
+              <div className="py-8">
+                <SkeletonRows rows={6} />
               </div>
             ) : loadError ? (
               <div
@@ -331,7 +331,7 @@ function MemoryDetails({
                   onChange={(event) =>
                     dispatch({ type: "change", draft: event.target.value })
                   }
-                  className="min-h-[calc(100vh-13rem)] w-full resize-none rounded-md border border-line bg-surface px-4 py-3 font-mono text-sm leading-6 text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-line-strong disabled:opacity-60"
+                  className={`${inputClasses} min-h-[calc(100vh-13rem)] resize-none py-3 font-mono leading-6`}
                 />
               </div>
             ) : editor.content ? (
@@ -346,19 +346,19 @@ function MemoryDetails({
 
           {editor.mode === "editing" && !loading && !loadError && (
             <footer className="flex justify-end gap-2 border-t border-line p-4">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 disabled={editor.saving}
                 onClick={() => dispatch({ type: "cancel" })}
-                className="rounded-md px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:bg-line/50 hover:text-ink disabled:opacity-40"
               >
                 {t("memory.cancel")}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 disabled={editor.saving || editor.draft === editor.content}
                 onClick={() => void save()}
-                className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-2 text-xs font-medium text-surface transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {editor.saving ? (
                   <LoaderCircle size={14} className="animate-spin" />
@@ -366,7 +366,7 @@ function MemoryDetails({
                   <Save size={14} />
                 )}
                 {editor.saving ? t("memory.saving") : t("memory.save")}
-              </button>
+              </Button>
             </footer>
           )}
         </Dialog.Content>

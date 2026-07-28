@@ -11,7 +11,7 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
   const output = richOutputText(pair.result);
 
   return (
-    <details className="group my-2 overflow-hidden rounded-md bg-bubble-tool">
+    <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool">
       <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
         <ChevronRight
           size={14}
@@ -29,7 +29,7 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
           <Check size={14} className="text-ok" />
         )}
       </summary>
-      <div className="border-t border-line bg-bg px-4 py-3 font-mono text-xs leading-6">
+      <div className="border-t border-line px-4 py-3 font-mono text-xs leading-6">
         <div className="mb-2 flex gap-2 text-ink-secondary">
           <span className="select-none text-ink-muted">$</span>
           <span className="whitespace-pre-wrap break-all">{command}</span>

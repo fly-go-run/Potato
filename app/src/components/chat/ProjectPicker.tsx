@@ -7,7 +7,6 @@ import {
   FolderGit2,
   FolderOpen,
   GitBranch,
-  LoaderCircle,
   Plus,
   X,
 } from "lucide-react";
@@ -25,6 +24,7 @@ import {
   type ProjectBinding,
 } from "../../lib/projects";
 import { useChatStore } from "../../stores/chat";
+import { Button, IconButton, Input, SkeletonRows } from "../ui";
 
 type PickerMode = "list" | "browse" | "create";
 
@@ -117,20 +117,21 @@ export function ProjectPicker() {
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           title={project?.path ?? t("projects.defaultWorkspace")}
-          className="flex max-w-40 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-ink-secondary transition-colors hover:bg-line/50"
+          className="max-w-40 px-2"
         >
           <Folder size={14} className="shrink-0" />
           <span className="truncate">
             {project?.name ?? t("projects.defaultWorkspace")}
           </span>
-        </button>
+        </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/20" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[min(42rem,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-line bg-raised shadow-raised outline-none">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 flex max-h-[min(42rem,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
@@ -149,13 +150,12 @@ export function ProjectPicker() {
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <button
-                type="button"
+              <IconButton
+                size="sm"
                 title={t("projects.close")}
-                className="rounded-md p-1 text-ink-muted hover:bg-line/50 hover:text-ink"
               >
                 <X size={16} />
-              </button>
+              </IconButton>
             </Dialog.Close>
           </header>
 
@@ -192,25 +192,25 @@ export function ProjectPicker() {
                 )}
               </div>
               <footer className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => void browse()}
-                  className="flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-xs font-medium text-ink-secondary hover:border-line-strong hover:text-ink"
                 >
                   <FolderOpen size={14} />
                   {t("projects.browse")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => {
                     setMode("create");
                     setError(null);
                   }}
-                  className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-2 text-xs font-medium text-surface hover:bg-accent-hover"
                 >
                   <Plus size={14} />
                   {t("projects.create")}
-                </button>
+                </Button>
               </footer>
             </>
           )}
@@ -218,17 +218,16 @@ export function ProjectPicker() {
           {mode === "browse" && (
             <>
               <div className="flex items-center gap-2 border-b border-line px-4 py-2">
-                <button
-                  type="button"
+                <IconButton
+                  size="sm"
                   disabled={!listing?.parent || loading}
                   onClick={() => {
                     if (listing?.parent) void browse(listing.parent);
                   }}
                   title={t("projects.parent")}
-                  className="rounded-md p-1.5 text-ink-secondary hover:bg-line/50 disabled:opacity-30"
                 >
                   <ArrowLeft size={15} />
-                </button>
+                </IconButton>
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-secondary">
                   {listing?.current ?? t("projects.loading")}
                 </span>
@@ -243,7 +242,7 @@ export function ProjectPicker() {
                         key={directory.path}
                         type="button"
                         onClick={() => void browse(directory.path)}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink-secondary hover:bg-line/50 hover:text-ink"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink-secondary hover:bg-fill-hover hover:text-ink"
                       >
                         <Folder size={15} className="shrink-0 text-ink-muted" />
                         <span className="min-w-0 flex-1 truncate">
@@ -260,21 +259,21 @@ export function ProjectPicker() {
                 )}
               </div>
               <footer className="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setMode("list")}
-                  className="rounded-md px-3 py-2 text-xs font-medium text-ink-secondary hover:bg-line/50"
                 >
                   {t("projects.back")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
                   disabled={!listing || listing.selectable === false || loading}
                   onClick={selectBrowsedDirectory}
-                  className="rounded-md bg-accent px-3 py-2 text-xs font-medium text-surface hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {t("projects.selectCurrent")}
-                </button>
+                </Button>
               </footer>
             </>
           )}
@@ -289,29 +288,30 @@ export function ProjectPicker() {
             >
               <label className="block text-xs font-medium text-ink-secondary">
                 {t("projects.name")}
-                <input
+                <Input
                   autoFocus
                   value={projectName}
                   onChange={(event) => setProjectName(event.target.value)}
                   placeholder={t("projects.namePlaceholder")}
-                  className="mt-1.5 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-line-strong"
+                  className="mt-1.5"
                 />
               </label>
               <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setMode("list")}
-                  className="rounded-md px-3 py-2 text-xs font-medium text-ink-secondary hover:bg-line/50"
                 >
                   {t("projects.back")}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="sm"
                   disabled={!projectName.trim() || saving}
-                  className="rounded-md bg-accent px-3 py-2 text-xs font-medium text-surface hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {saving ? t("projects.creating") : t("projects.create")}
-                </button>
+                </Button>
               </div>
             </form>
           )}
@@ -339,7 +339,7 @@ function ProjectRow({
       type="button"
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors ${
-        selected ? "bg-accent-soft" : "hover:bg-line/50"
+        selected ? "bg-fill-active" : "hover:bg-fill-hover"
       }`}
     >
       {isGit ? (
@@ -369,9 +369,8 @@ function ProjectRow({
 
 function Loading({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 px-3 py-10 text-sm text-ink-muted">
-      <LoaderCircle size={16} className="animate-spin" />
-      {label}
+    <div className="px-3 py-2" aria-label={label}>
+      <SkeletonRows rows={5} />
     </div>
   );
 }

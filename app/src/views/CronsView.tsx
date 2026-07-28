@@ -3,7 +3,6 @@ import {
   CalendarClock,
   Clock3,
   History,
-  LoaderCircle,
   Pencil,
   Play,
   Plus,
@@ -11,11 +10,28 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  IconButton,
+  Input,
+  PageContainer,
+  PageHeader,
+  Select,
+  SkeletonRows,
+  Switch,
+  inputClasses,
+} from "../components/ui";
 import { cronApi } from "../lib/api";
 import {
   buildCronSpec,
+  cronExpression,
   CRON_PRESETS,
   findTarget,
+  isCronJobEditable,
   promptFromSpec,
   targetKey,
   type CronDispatchTarget,
@@ -48,6 +64,7 @@ export function CronsView() {
   const [editing, setEditing] = useState<CronJobSpec | "new" | null>(null);
   const [historyJob, setHistoryJob] = useState<CronJobSpec | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<CronJobSpec | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -107,12 +124,7 @@ export function CronsView() {
   };
 
   const remove = async (job: CronJobSpec) => {
-    if (
-      !job.id ||
-      !window.confirm(t("crons.deleteConfirm", { name: job.name }))
-    ) {
-      return;
-    }
+    if (!job.id) return;
     setBusyJobId(job.id);
     setError(null);
     setNotice(null);
@@ -120,6 +132,7 @@ export function CronsView() {
       await cronApi.delete(job.id);
       setJobs((items) => items.filter((item) => item.spec.id !== job.id));
       setNotice(t("crons.deleted", { name: job.name }));
+      setPendingDelete(null);
     } catch (reason) {
       setError(readableError(reason));
     } finally {
@@ -128,33 +141,29 @@ export function CronsView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-surface">
-      <div className="mx-auto max-w-6xl px-6 py-8 sm:px-10">
-        <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-medium tracking-tight text-ink">
-              {t("crons.title")}
-            </h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              {t("crons.subtitle")}
-            </p>
-          </div>
-          <button
-            type="button"
+    <>
+      <PageContainer width="wide">
+        <PageHeader
+          title={t("crons.title")}
+          subtitle={t("crons.subtitle")}
+          actions={
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => setEditing("new")}
-            className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-2 text-xs font-medium text-surface transition-colors hover:bg-accent-hover"
           >
             <Plus size={15} />
             {t("crons.new")}
-          </button>
-        </header>
+          </Button>
+          }
+        />
 
         {(error || notice) && (
           <div
             className={`mb-5 rounded-md px-3 py-2 text-xs ${
               error
                 ? "bg-danger-soft text-danger"
-                : "bg-accent-soft text-accent"
+                : "bg-fill-active text-ok"
             }`}
           >
             {error || notice}
@@ -162,22 +171,23 @@ export function CronsView() {
         )}
 
         {loading && jobs.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-line py-16 text-sm text-ink-muted">
-            <LoaderCircle size={16} className="animate-spin" />
-            {t("crons.loading")}
-          </div>
+          <Card className="p-4">
+            <SkeletonRows rows={6} />
+          </Card>
         ) : jobs.length === 0 ? (
-          <div className="flex flex-col items-center rounded-lg border border-dashed border-line px-6 py-16 text-center">
-            <CalendarClock size={28} className="text-ink-muted" />
-            <h2 className="mt-4 font-medium text-ink">
-              {t("crons.emptyTitle")}
-            </h2>
-            <p className="mt-1 max-w-sm text-sm text-ink-muted">
-              {t("crons.emptyDescription")}
-            </p>
-          </div>
+          <EmptyState
+            icon={<CalendarClock size={20} />}
+            title={t("crons.emptyTitle")}
+            description={t("crons.emptyDescription")}
+            action={
+              <Button variant="primary" size="sm" onClick={() => setEditing("new")}>
+                <Plus size={15} />
+                {t("crons.new")}
+              </Button>
+            }
+          />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-line">
+          <Card className="overflow-x-auto">
             <table className="w-full min-w-[56rem] border-collapse text-left">
               <thead className="bg-bubble-tool text-[11px] font-medium uppercase tracking-wide text-ink-muted">
                 <tr>
@@ -200,45 +210,37 @@ export function CronsView() {
                       <td className="px-4 py-3">
                         <div className="font-medium text-ink">{spec.name}</div>
                         {state?.last_status && (
-                          <div className="mt-0.5 text-[11px] text-ink-muted">
-                            {statusLabel(state.last_status, t)}
+                          <div className="mt-1">
+                            <StatusBadge status={state.last_status} />
                           </div>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <div>{scheduleLabel(spec.schedule.cron, t)}</div>
-                        <div className="mt-0.5 font-mono text-[11px] text-ink-muted">
-                          {spec.schedule.cron}
+                        <div>{scheduleLabel(spec, t)}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-ink-tertiary">
+                          {cronExpression(spec) ??
+                            (spec.schedule.type === "once"
+                              ? spec.schedule.run_at ?? spec.schedule.at
+                              : null) ??
+                            "—"}
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={active}
-                          disabled={busy}
-                          onClick={() =>
-                            void act(spec, active ? "pause" : "resume")
-                          }
-                          className="flex items-center gap-2 disabled:opacity-40"
-                        >
-                          <span
-                            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
-                              active ? "bg-accent" : "bg-line-strong"
-                            }`}
-                          >
-                            <span
-                              className={`absolute left-0 top-0.5 h-4 w-4 rounded-full bg-surface shadow-sm transition-transform ${
-                                active ? "translate-x-[1.125rem]" : "translate-x-0.5"
-                              }`}
-                            />
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={active}
+                            disabled={busy}
+                            onChange={() =>
+                              void act(spec, active ? "pause" : "resume")
+                            }
+                            aria-label={active ? t("crons.enabled") : t("crons.paused")}
+                          />
                           <span className="text-xs">
                             {active
                               ? t("crons.enabled")
                               : t("crons.paused")}
                           </span>
-                        </button>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {state?.last_run_at
@@ -253,8 +255,12 @@ export function CronsView() {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-0.5">
                           <ActionButton
-                            title={t("crons.edit")}
-                            disabled={busy}
+                            title={
+                              isCronJobEditable(spec)
+                                ? t("crons.edit")
+                                : t("crons.editUnsupported")
+                            }
+                            disabled={busy || !isCronJobEditable(spec)}
                             onClick={() => setEditing(spec)}
                           >
                             <Pencil size={15} />
@@ -277,7 +283,7 @@ export function CronsView() {
                             title={t("crons.delete")}
                             disabled={busy}
                             danger
-                            onClick={() => void remove(spec)}
+                            onClick={() => setPendingDelete(spec)}
                           >
                             <Trash2 size={15} />
                           </ActionButton>
@@ -288,9 +294,9 @@ export function CronsView() {
                 })}
               </tbody>
             </table>
-          </div>
+          </Card>
         )}
-      </div>
+      </PageContainer>
 
       <CronFormDialog
         editing={editing}
@@ -309,7 +315,20 @@ export function CronsView() {
           if (!open) setHistoryJob(null);
         }}
       />
-    </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={t("crons.delete")}
+        description={
+          pendingDelete
+            ? t("crons.deleteConfirm", { name: pendingDelete.name })
+            : undefined
+        }
+        tone="danger"
+        busy={pendingDelete?.id === busyJobId}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        onConfirm={() => pendingDelete && void remove(pendingDelete)}
+      />
+    </>
   );
 }
 
@@ -347,7 +366,7 @@ function CronFormDialog({
       existing
         ? {
             name: existing.name,
-            cron: existing.schedule.cron,
+            cron: cronExpression(existing) ?? emptyForm.cron,
             prompt: promptFromSpec(existing),
             targetKey: selectedTarget ? targetKey(selectedTarget) : "",
           }
@@ -393,8 +412,8 @@ function CronFormDialog({
   return (
     <Dialog.Root open={editing !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/20" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100%-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-line bg-raised shadow-raised outline-none">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 max-h-[calc(100%-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[var(--radius-lg)] border border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
@@ -407,12 +426,9 @@ function CronFormDialog({
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <button
-                type="button"
-                className="rounded-md p-1 text-ink-muted hover:bg-line/50 hover:text-ink"
-              >
+              <IconButton size="sm" title={t("common.cancel")}>
                 <X size={16} />
-              </button>
+              </IconButton>
             </Dialog.Close>
           </header>
           <form
@@ -428,19 +444,19 @@ function CronFormDialog({
               </div>
             )}
             <Field label={t("crons.form.name")}>
-              <input
+              <Input
                 autoFocus
                 value={form.name}
                 onChange={(event) =>
                   setForm((value) => ({ ...value, name: event.target.value }))
                 }
                 placeholder={t("crons.form.namePlaceholder")}
-                className={inputClassName}
+                className="mt-1.5"
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("crons.form.preset")}>
-                <select
+                <Select
                   value={preset}
                   onChange={(event) => {
                     if (event.target.value) {
@@ -450,7 +466,7 @@ function CronFormDialog({
                       }));
                     }
                   }}
-                  className={inputClassName}
+                  className="mt-1.5"
                 >
                   <option value="">{t("crons.form.customPreset")}</option>
                   {CRON_PRESETS.map((item) => (
@@ -458,13 +474,13 @@ function CronFormDialog({
                       {t(item.labelKey)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
               <Field
                 label={t("crons.form.cron")}
                 hint={t("crons.form.cronHint")}
               >
-                <input
+                <Input
                   value={form.cron}
                   onChange={(event) =>
                     setForm((value) => ({
@@ -472,7 +488,7 @@ function CronFormDialog({
                       cron: event.target.value,
                     }))
                   }
-                  className={`${inputClassName} font-mono`}
+                  className="mt-1.5 font-mono"
                 />
               </Field>
             </div>
@@ -484,7 +500,7 @@ function CronFormDialog({
                   setForm((value) => ({ ...value, prompt: event.target.value }))
                 }
                 placeholder={t("crons.form.promptPlaceholder")}
-                className={`${inputClassName} resize-y`}
+                className={`${inputClasses} mt-1.5 resize-y py-2`}
               />
             </Field>
             <Field
@@ -493,7 +509,7 @@ function CronFormDialog({
                 targets.length === 0 ? t("crons.form.noTargets") : undefined
               }
             >
-              <select
+              <Select
                 value={form.targetKey}
                 disabled={targets.length === 0}
                 onChange={(event) =>
@@ -502,7 +518,7 @@ function CronFormDialog({
                     targetKey: event.target.value,
                   }))
                 }
-                className={inputClassName}
+                className="mt-1.5"
               >
                 {!form.targetKey && (
                   <option value="">{t("crons.form.chooseTarget")}</option>
@@ -512,24 +528,22 @@ function CronFormDialog({
                     {target.channel} · {target.user_id} · {target.session_id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <div className="flex justify-end gap-2 pt-1">
               <Dialog.Close asChild>
-                <button
-                  type="button"
-                  className="rounded-md px-3 py-2 text-xs font-medium text-ink-secondary hover:bg-line/50"
-                >
+                <Button variant="ghost" size="sm">
                   {t("crons.form.cancel")}
-                </button>
+                </Button>
               </Dialog.Close>
-              <button
+              <Button
                 type="submit"
+                variant="primary"
+                size="sm"
                 disabled={!canSave}
-                className="rounded-md bg-accent px-3 py-2 text-xs font-medium text-surface hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {saving ? t("crons.form.saving") : t("crons.form.save")}
-              </button>
+              </Button>
             </div>
           </form>
         </Dialog.Content>
@@ -564,8 +578,8 @@ function HistoryDrawer({
   return (
     <Dialog.Root open={job !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/20" />
-        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(28rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-raised outline-none">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(28rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
@@ -576,19 +590,15 @@ function HistoryDrawer({
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <button
-                type="button"
-                className="rounded-md p-1 text-ink-muted hover:bg-line/50 hover:text-ink"
-              >
+              <IconButton size="sm" title={t("common.cancel")}>
                 <X size={16} />
-              </button>
+              </IconButton>
             </Dialog.Close>
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-                <LoaderCircle size={16} className="animate-spin" />
-                {t("crons.historyLoading")}
+              <div className="py-2">
+                <SkeletonRows rows={5} />
               </div>
             ) : error ? (
               <div className="rounded-md bg-danger-soft px-3 py-2 text-xs text-danger">
@@ -601,9 +611,9 @@ function HistoryDrawer({
             ) : (
               <div className="space-y-2">
                 {records.map((record, index) => (
-                  <article
+                  <Card
                     key={`${record.run_at}-${index}`}
-                    className="rounded-md border border-line bg-surface p-3"
+                    className="rounded-[var(--radius-md)] p-3"
                   >
                     <div className="flex items-start gap-3">
                       <Clock3 size={15} className="mt-0.5 shrink-0 text-ink-muted" />
@@ -614,7 +624,7 @@ function HistoryDrawer({
                           </time>
                           <StatusBadge status={record.status} />
                         </div>
-                        <p className="mt-1 text-xs text-ink-muted">
+                        <p className="mt-1 text-xs text-ink-tertiary">
                           {record.error ||
                             t(
                               record.trigger === "manual"
@@ -624,7 +634,7 @@ function HistoryDrawer({
                         </p>
                       </div>
                     </div>
-                  </article>
+                  </Card>
                 ))}
               </div>
             )}
@@ -649,19 +659,15 @@ function ActionButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      size="sm"
+      tone={danger ? "danger" : "default"}
       title={title}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-md p-2 transition-colors disabled:opacity-30 ${
-        danger
-          ? "text-ink-muted hover:bg-danger-soft hover:text-danger"
-          : "text-ink-muted hover:bg-line/50 hover:text-ink"
-      }`}
     >
       {children}
-    </button>
+    </IconButton>
   );
 }
 
@@ -673,15 +679,13 @@ function StatusBadge({
   const { t } = useTranslation();
   const tone =
     status === "success"
-      ? "bg-accent-soft text-ok"
+      ? "ok"
       : status === "error"
-        ? "bg-danger-soft text-danger"
-        : "bg-bubble-tool text-ink-secondary";
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tone}`}>
-      {statusLabel(status, t)}
-    </span>
-  );
+        ? "danger"
+        : status === "running"
+          ? "accent"
+          : "neutral";
+  return <Badge tone={tone}>{statusLabel(status, t)}</Badge>;
 }
 
 function Field({
@@ -704,13 +708,12 @@ function Field({
   );
 }
 
-const inputClassName =
-  "mt-1.5 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-line-strong disabled:cursor-not-allowed disabled:bg-bubble-tool disabled:text-ink-muted";
-
 function scheduleLabel(
-  cron: string,
+  spec: CronJobSpec,
   t: ReturnType<typeof useTranslation>["t"],
 ) {
+  if (spec.schedule.type === "once") return t("crons.schedule.once");
+  const cron = spec.schedule.cron;
   const preset = CRON_PRESETS.find((item) => item.value === cron);
   return preset ? t(preset.labelKey) : t("crons.form.customPreset");
 }

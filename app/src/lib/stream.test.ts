@@ -5,6 +5,7 @@ import type { MessageFrame, SseFrame } from "./protocol/types";
 import {
   initialConversationStreamState,
   initialSseParserState,
+  isUnexpectedStreamEof,
   parseSseBytes,
   parseSseChunk,
   reduceStreamFrame,
@@ -27,6 +28,12 @@ function parseFixture(name: string) {
 }
 
 describe("SSE parser", () => {
+  it("detects a clean EOF before a terminal response frame", () => {
+    expect(isUnexpectedStreamEof("in_progress", false)).toBe(true);
+    expect(isUnexpectedStreamEof("completed", false)).toBe(false);
+    expect(isUnexpectedStreamEof("in_progress", true)).toBe(false);
+  });
+
   it("parses a frame split in the middle of JSON", () => {
     const first = parseSseChunk('data: {"type":"turn_');
     expect(first.frames).toEqual([]);
