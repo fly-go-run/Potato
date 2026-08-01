@@ -7,9 +7,13 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from agentscope.event import CustomEvent
 from agentscope.message import Msg, TextBlock
 
-from qwenpaw.agents.middlewares import MemoryMiddleware
+from qwenpaw.agents.middlewares import (
+    CompactionStatusMiddleware,
+    MemoryMiddleware,
+)
 from qwenpaw.constant import (
     EXTERNAL_USER_QUERY_MESSAGE_TAG,
     LOOP_CONTINUATION_MESSAGE_TAG,
@@ -455,6 +459,66 @@ class TestWillCompressContextBoundary:
         )
 
         assert await MemoryMiddleware._will_compress_context(agent, {}) is True
+
+
+@pytest.mark.asyncio
+async def test_compaction_status_multiplexes_one_start_and_terminal_event():
+    middleware = CompactionStatusMiddleware()
+    agent = _make_agent(source="user")
+    agent.context_config = SimpleNamespace(trigger_ratio=0.8)
+    agent.model = SimpleNamespace(
+        context_size=1000,
+        count_tokens=AsyncMock(return_value=900),
+    )
+    agent._prepare_model_input = AsyncMock(return_value={})
+
+    async def compact(**_kwargs):
+        return None
+
+    async def inner(**_kwargs):
+        await middleware.on_compress_context(agent, {}, compact)
+        yield "answer"
+
+    output = [
+        item async for item in middleware.on_reply(agent, {}, inner)
+    ]
+    events = [item for item in output if isinstance(item, CustomEvent)]
+
+    assert [event.value["status"] for event in events] == [
+        "in_progress",
+        "completed",
+    ]
+    assert output[-1] == "answer"
+
+
+@pytest.mark.asyncio
+async def test_compaction_failure_emits_fallback_and_continues_reply():
+    middleware = CompactionStatusMiddleware()
+    agent = _make_agent(source="user")
+    agent.context_config = SimpleNamespace(trigger_ratio=0.8)
+    agent.model = SimpleNamespace(
+        context_size=1000,
+        count_tokens=AsyncMock(return_value=900),
+    )
+    agent._prepare_model_input = AsyncMock(return_value={})
+
+    async def compact(**_kwargs):
+        raise RuntimeError("summary failed")
+
+    async def inner(**_kwargs):
+        await middleware.on_compress_context(agent, {}, compact)
+        yield "answer"
+
+    output = [
+        item async for item in middleware.on_reply(agent, {}, inner)
+    ]
+    events = [item for item in output if isinstance(item, CustomEvent)]
+
+    assert [event.value["status"] for event in events] == [
+        "in_progress",
+        "fallback",
+    ]
+    assert output[-1] == "answer"
 
 
 # ---------------------------------------------------------------------------

@@ -122,6 +122,7 @@ class Envelope:
         self._reasoning_blocks: Dict[str, Dict[str, Any]] = {}
         self._tool_calls: Dict[str, Dict[str, Any]] = {}
         self._data_blocks: Dict[str, Dict[str, Any]] = {}
+        self._progress_events: Dict[str, Dict[str, Any]] = {}
 
         self._seq_counter = 0
 
@@ -217,8 +218,58 @@ class Envelope:
         if hasattr(evt_type, "value"):
             evt_type = evt_type.value
 
+        # === APPLICATION PROGRESS ===
+        if evt_type == EventType.CUSTOM.value and getattr(
+            event,
+            "name",
+            "",
+        ) == "context_compaction":
+            value = getattr(event, "value", None) or {}
+            operation_id = str(value.get("operation_id") or event.id)
+            phase = str(value.get("status") or "in_progress")
+            state = self._progress_events.get(operation_id)
+            if state is None:
+                progress_message = Message(
+                    id=_gen_msg_id(),
+                    type=MessageType.PROGRESS,
+                    role=Role.ASSISTANT,
+                    content=[],
+                    status=RunStatus.InProgress,
+                    metadata={
+                        "kind": "context_compaction",
+                        "phase": "in_progress",
+                    },
+                )
+                progress_message.name = "context_compaction"
+                progress_message.object = "message"
+                state = {"message": progress_message}
+                self._progress_events[operation_id] = state
+                yield self._tag_seq(progress_message.in_progress())
+
+            progress_message = state["message"]
+            progress_content = DataContent(
+                type=ContentType.DATA,
+                data={"status": phase},
+                delta=False,
+                index=0,
+            )
+            progress_content.msg_id = progress_message.id
+
+            if phase == "in_progress":
+                yield self._tag_seq(progress_content.in_progress())
+            else:
+                progress_message.content = [progress_content]
+                progress_message.metadata = {
+                    "kind": "context_compaction",
+                    "phase": phase,
+                }
+                yield self._tag_seq(progress_content.completed())
+                self._response.output.append(progress_message)
+                yield self._tag_seq(progress_message.completed())
+                self._progress_events.pop(operation_id, None)
+
         # === TEXT BLOCK ===
-        if evt_type == EventType.TEXT_BLOCK_START.value:
+        elif evt_type == EventType.TEXT_BLOCK_START.value:
             if not self._message_started:
                 yield self._tag_seq(self._completed_message)
                 self._message_started = True

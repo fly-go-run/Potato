@@ -16,8 +16,10 @@ Currently provided:
 
 import asyncio
 import logging
+import uuid
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Set
 
+from agentscope.event import CustomEvent
 from agentscope.middleware import MiddlewareBase
 from agentscope.message import Msg
 from agentscope.tool import ToolResponse
@@ -37,6 +39,124 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 MAX_AUTO_MEMORY_TURN_MARKERS = 1000
 _AUTOMATION_MEMORY_SKIP_SOURCES = frozenset({"cron", "heartbeat"})
+
+
+class CompactionStatusMiddleware(MiddlewareBase):
+    """Expose auto-compaction as one quiet, structured progress event.
+
+    AgentScope's compression hook returns ``None`` and therefore cannot yield
+    into ``reply_stream`` directly. The reply hook below multiplexes the inner
+    event generator with a small queue; ``on_compress_context`` writes a start
+    and terminal ``CustomEvent`` into that same queue. This preserves event
+    order without turning compression into a fake tool call.
+    """
+
+    _QUEUE_ATTR = "_qwenpaw_compaction_status_queue"
+
+    async def on_reply(
+        self,
+        agent: "Agent",
+        input_kwargs: dict[str, Any],
+        next_handler: Callable[..., AsyncGenerator[Any, None]],
+    ) -> AsyncGenerator[Any, None]:
+        queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue(maxsize=64)
+        setattr(agent, self._QUEUE_ATTR, queue)
+
+        async def pump_inner() -> None:
+            try:
+                async for item in next_handler(**input_kwargs):
+                    await queue.put(("event", item))
+            except BaseException as exc:  # propagate in the consumer task
+                await queue.put(("error", exc))
+            finally:
+                await queue.put(("done", None))
+
+        producer = asyncio.create_task(pump_inner())
+        try:
+            while True:
+                kind, payload = await queue.get()
+                if kind == "event":
+                    yield payload
+                elif kind == "error":
+                    raise payload
+                else:
+                    break
+        finally:
+            if getattr(agent, self._QUEUE_ATTR, None) is queue:
+                delattr(agent, self._QUEUE_ATTR)
+            if not producer.done():
+                producer.cancel()
+            await asyncio.gather(producer, return_exceptions=True)
+
+    async def on_compress_context(
+        self,
+        agent: "Agent",
+        input_kwargs: dict[str, Any],
+        next_handler: Callable[..., Any],
+    ) -> None:
+        if MemoryMiddleware._is_automation_request(agent):
+            await next_handler(**input_kwargs)
+            return
+
+        try:
+            will_compact = await MemoryMiddleware._will_compress_context(
+                agent,
+                input_kwargs,
+            )
+        except Exception:
+            # Status reporting must never make the compression path fail.
+            logger.debug(
+                "Could not estimate context compaction boundary",
+                exc_info=True,
+            )
+            await next_handler(**input_kwargs)
+            return
+
+        if not will_compact:
+            await next_handler(**input_kwargs)
+            return
+
+        queue = getattr(agent, self._QUEUE_ATTR, None)
+        operation_id = uuid.uuid4().hex
+        if queue is not None:
+            await queue.put(
+                (
+                    "event",
+                    self._event(operation_id, "in_progress"),
+                ),
+            )
+        try:
+            await next_handler(**input_kwargs)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if queue is not None:
+                await queue.put(
+                    ("event", self._event(operation_id, "fallback")),
+                )
+            # Compaction is an optimization. If it fails, preserve the live
+            # context and let the normal model call continue; the model layer
+            # still owns its usual context-window error handling.
+            logger.warning(
+                "Context compaction failed; continuing with live context",
+                exc_info=True,
+            )
+        else:
+            if queue is not None:
+                await queue.put(
+                    ("event", self._event(operation_id, "completed")),
+                )
+
+    @staticmethod
+    def _event(operation_id: str, status: str) -> CustomEvent:
+        return CustomEvent(
+            name="context_compaction",
+            value={
+                "operation_id": operation_id,
+                "status": status,
+            },
+            metadata={"ui_kind": "context_compaction"},
+        )
 
 
 class MemoryMiddleware(MiddlewareBase):
