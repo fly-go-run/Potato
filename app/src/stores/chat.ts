@@ -36,6 +36,7 @@ import type {
 import {
   initialConversationStreamState,
   initialSseParserState,
+  isUnfinishedResponse,
   isUnexpectedStreamEof,
   parseSseBytes,
   reduceStreamFrame,
@@ -75,6 +76,7 @@ interface ChatStore {
   project: ProjectBinding | null;
   pendingImages: PendingImage[];
   pendingApprovals: PendingApproval[];
+  composerDraft: string | null;
   requestController: AbortController | null;
 
   initialize: () => Promise<void>;
@@ -90,6 +92,7 @@ interface ChatStore {
   togglePinned: (chatId: string) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   setApprovalLevel: (level: ApprovalLevel) => void;
+  setComposerDraft: (text: string | null) => void;
   setProject: (project: ProjectBinding | null) => void;
   addImages: (files: File[]) => void;
   removeImage: (id: string) => void;
@@ -139,6 +142,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   project: initialProject(),
   pendingImages: [],
   pendingApprovals: [],
+  composerDraft: null,
   requestController: null,
 
   initialize: async () => {
@@ -325,6 +329,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     ) {
       return false;
     }
+    if (isUnfinishedResponse(get().stream.responseStatus)) {
+      const message = t("stream.turnStillRunning");
+      set((state) => ({
+        error: message,
+        stream: { ...state.stream, error: message },
+      }));
+      return false;
+    }
 
     set({ isSubmitting: true, error: null });
     let uploadedAttachments: UploadedAttachment[];
@@ -396,14 +408,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     } catch (error) {
       if (!isAbort(error)) {
         const message = readableError(error);
-        set((state) => ({
-          stream: {
-            ...state.stream,
-            responseStatus: "failed",
+        const knownChat =
+          get().chats.find((chat) => chat.session_id === sessionId) ??
+          (await get().refreshChats()).find(
+            (chat) => chat.session_id === sessionId,
+          );
+        if (knownChat?.status === "running") {
+          await get().reconnect(knownChat);
+        } else {
+          set((state) => ({
+            stream: {
+              ...state.stream,
+              responseStatus:
+                error instanceof ApiError
+                  ? "failed"
+                  : state.stream.responseStatus,
+              error: message,
+            },
             error: message,
-          },
-          error: message,
-        }));
+          }));
+        }
       }
     } finally {
       if (get().requestController === controller) {
@@ -428,15 +452,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   stop: async () => {
-    const { activeChatId, requestController } = get();
+    const {
+      activeChatId,
+      requestController,
+      pendingImages,
+      sessionId,
+    } = get();
     if (!activeChatId) {
       requestController?.abort();
-      set({
+      revokePreviews(pendingImages);
+      if (sessionStorage.getItem(PENDING_SESSION_KEY) === sessionId) {
+        sessionStorage.removeItem(PENDING_SESSION_KEY);
+      }
+      set((state) => ({
         isStreaming: false,
         isSubmitting: false,
         requestController: null,
+        pendingImages: [],
         pendingApprovals: [],
-      });
+        stream: { ...state.stream, responseStatus: "cancelled" },
+      }));
       return;
     }
     try {
@@ -476,6 +511,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         error: null,
       },
     });
+    let backendStillRunning = false;
     try {
       const response = await chatApi.stream(
         {
@@ -492,6 +528,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     } finally {
       try {
         const history = await chatApi.get(chat.id);
+        backendStillRunning = history.status === "running";
         if (get().activeChatId === chat.id) {
           set((state) => ({
             stream: {
@@ -514,7 +551,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       if (get().requestController === controller) {
         set({
-          isStreaming: false,
+          isStreaming: backendStillRunning,
           isSubmitting: false,
           pendingApprovals: [],
           requestController: null,
@@ -570,6 +607,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setApprovalLevel: (approvalLevel) => set({ approvalLevel }),
+  setComposerDraft: (composerDraft) => set({ composerDraft }),
 
   setProject: (project) => {
     const sessionId = get().sessionId;

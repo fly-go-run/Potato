@@ -14,6 +14,7 @@ import {
 } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { authApi, getAuthToken } from "./lib/api";
+import { notifyDesktopReady } from "./lib/desktop";
 import { useTranslation } from "./lib/i18n";
 import { useThemeInit } from "./lib/theme";
 import { ChatView } from "./views/ChatView";
@@ -130,7 +131,6 @@ function SettingsLoading() {
 }
 
 function AuthGate({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
   const location = useLocation();
   const [state, setState] = useState<"checking" | "allowed" | "login">(
     "checking",
@@ -138,26 +138,45 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let settled = false;
+    // 后端已通过 native health check 才会导航到这里；认证状态接口若异常
+    // 悬挂，不应让 WebView 永远保持空白。超时后进入壳层，受保护接口仍会
+    // 自己返回 401 并统一跳转登录。
+    const fallback = window.setTimeout(() => {
+      if (!active || settled) return;
+      settled = true;
+      setState("allowed");
+    }, 3000);
     void authApi
       .status()
       .then((status) => {
-        if (!active) return;
+        if (!active || settled) return;
+        settled = true;
+        window.clearTimeout(fallback);
         setState(!status.enabled || getAuthToken() ? "allowed" : "login");
       })
       .catch(() => {
-        if (active) setState("allowed");
+        if (!active || settled) return;
+        settled = true;
+        window.clearTimeout(fallback);
+        setState("allowed");
       });
     return () => {
       active = false;
+      window.clearTimeout(fallback);
     };
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (state !== "login" || location.pathname !== "/login") return;
+    const frame = window.requestAnimationFrame(() => {
+      void notifyDesktopReady();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.pathname, state]);
+
   if (state === "checking") {
-    return (
-      <div className="flex h-full items-center justify-center bg-bg text-sm text-ink-muted">
-        {t("app.connecting")}
-      </div>
-    );
+    return null;
   }
   if (
     state === "login" &&

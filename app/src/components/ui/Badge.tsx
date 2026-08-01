@@ -35,7 +35,7 @@ export function Badge({ tone = "neutral", children, className }: BadgeProps) {
 export function CountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+    <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-btn-primary-ink">
       {count > 99 ? "99+" : count}
     </span>
   );

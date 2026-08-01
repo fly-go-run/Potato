@@ -22,15 +22,17 @@ import {
 } from "../components/ui";
 import {
   formatFileSize,
-  formatRelativeTime,
   groupMemoryFiles,
   initialMemoryEditorState,
   memoryApi,
   memoryDisplayName,
   memoryEditorReducer,
+  memoryGroupKey,
+  memoryTimeIso,
   type MdFileInfo,
   type MemoryGroupKey,
 } from "../lib/memory";
+import { relativeTime } from "../lib/relativeTime";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 
 const GROUP_LABEL_KEYS: Record<MemoryGroupKey, TranslationKey> = {
@@ -38,6 +40,14 @@ const GROUP_LABEL_KEYS: Record<MemoryGroupKey, TranslationKey> = {
   procedure: "memory.group.procedure",
   wiki: "memory.group.wiki",
   other: "memory.group.other",
+};
+
+/** 次行「来源」文案：把内部目录结构翻译成用户能读懂的记忆来源。 */
+const SOURCE_LABEL_KEYS: Record<MemoryGroupKey, TranslationKey> = {
+  journal: "memory.source.journal",
+  procedure: "memory.source.procedure",
+  wiki: "memory.source.wiki",
+  other: "memory.source.other",
 };
 
 export function MemoryView() {
@@ -113,57 +123,65 @@ export function MemoryView() {
             />
           </div>
         ) : (
-          <div className="mt-8 space-y-8">
+          <div className="mt-8 space-y-6">
             {groups.map((group) => (
-              <section
-                key={group.key}
-                className="grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-5"
-              >
-                <header className="flex items-baseline justify-between gap-2 sm:block">
-                  <h2 className="text-sm font-medium text-ink-secondary">
+              <section key={group.key}>
+                <div className="mb-2 flex items-baseline gap-2">
+                  <h2 className="text-[13px] font-medium text-ink-secondary">
                     {t(GROUP_LABEL_KEYS[group.key])}
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-ink-muted">
+                  <span className="text-[11px] text-ink-muted">
                     {t("memory.itemCount", { count: group.items.length })}
-                  </p>
-                </header>
-                <Card className="min-w-0 divide-y divide-line overflow-hidden rounded-[var(--radius-md)]">
-                  {group.items.map((file) => (
-                    <button
-                      key={file.filename}
-                      type="button"
-                      title={file.filename}
-                      aria-label={t("memory.open", {
-                        name: memoryDisplayName(file),
-                      })}
-                      onClick={() => setSelected(file)}
-                      className="group flex w-full items-center gap-3 px-3 py-3 text-left outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover focus-visible:bg-fill-active"
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-ink-muted transition-colors group-hover:text-accent">
-                        <FileText size={16} />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                        {memoryDisplayName(file)}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2 text-[11px] text-ink-tertiary">
-                        <span>{formatFileSize(file.size, language)}</span>
-                        <span aria-hidden="true">·</span>
-                        <time
-                          dateTime={String(file.modified_time)}
-                          title={formatAbsoluteTime(
-                            file.modified_time,
-                            language,
-                          )}
-                        >
-                          {formatRelativeTime(file.modified_time, language)}
-                        </time>
-                      </span>
-                      <ChevronRight
-                        size={15}
-                        className="shrink-0 text-ink-muted"
-                      />
-                    </button>
-                  ))}
+                  </span>
+                </div>
+                <Card className="min-w-0 divide-y divide-line overflow-hidden">
+                  {group.items.map((file) => {
+                    const title = memoryDisplayName(file);
+                    const modifiedIso = memoryTimeIso(file.modified_time);
+                    const updated = relativeTime(modifiedIso);
+                    return (
+                      <button
+                        key={file.filename}
+                        type="button"
+                        aria-label={t("memory.open", { name: title })}
+                        onClick={() => setSelected(file)}
+                        className="group flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover focus-visible:bg-fill-active"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-ink-muted transition-colors group-hover:text-accent">
+                          <FileText size={16} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium leading-5 text-ink">
+                            {title}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 truncate text-[13px] leading-5 text-ink-tertiary">
+                            <span className="truncate">
+                              {t(SOURCE_LABEL_KEYS[group.key])}
+                            </span>
+                            {updated && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <time
+                                  className="shrink-0"
+                                  dateTime={modifiedIso ?? undefined}
+                                  title={formatAbsoluteTime(
+                                    file.modified_time,
+                                    language,
+                                  )}
+                                >
+                                  {t(updated.key, updated.params)}
+                                </time>
+                              </>
+                            )}
+                          </span>
+                        </span>
+                        <ChevronRight
+                          size={15}
+                          className="shrink-0 text-ink-muted transition-colors group-hover:text-ink-secondary"
+                        />
+                      </button>
+                    );
+                  })}
                 </Card>
               </section>
             ))}
@@ -189,7 +207,7 @@ function MemoryDetails({
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void>;
 }) {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const [editor, dispatch] = useReducer(
     memoryEditorReducer,
     initialMemoryEditorState,
@@ -249,7 +267,7 @@ function MemoryDetails({
   return (
     <Dialog.Root open={file !== null} onOpenChange={close}>
       <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
         <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-ink-muted">
@@ -259,11 +277,10 @@ function MemoryDetails({
               <Dialog.Title className="truncate font-medium text-ink">
                 {file ? memoryDisplayName(file) : ""}
               </Dialog.Title>
-              <Dialog.Description
-                className="mt-0.5 truncate text-xs text-ink-muted"
-                title={file?.filename}
-              >
-                {file?.filename || t("memory.detailsDescription")}
+              <Dialog.Description className="mt-0.5 truncate text-xs text-ink-muted">
+                {file
+                  ? t(SOURCE_LABEL_KEYS[memoryGroupKey(file.filename)])
+                  : t("memory.detailsDescription")}
               </Dialog.Description>
             </div>
             {!loading && !loadError && editor.mode === "view" && (
@@ -342,6 +359,10 @@ function MemoryDetails({
                 <p className="mt-3 text-sm">{t("memory.emptyContent")}</p>
               </div>
             )}
+
+            {file && !loading && !loadError && editor.mode === "view" && (
+              <TechnicalDetails file={file} language={language} />
+            )}
           </div>
 
           {editor.mode === "editing" && !loading && !loadError && (
@@ -372,6 +393,45 @@ function MemoryDetails({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * 技术信息区：列表行只讲“记忆”，文件名/大小/路径这类实现细节收在这里。
+ */
+function TechnicalDetails({
+  file,
+  language,
+}: {
+  file: MdFileInfo;
+  language: "zh" | "en";
+}) {
+  const { t } = useTranslation();
+  const rows: Array<{ label: string; value: string; mono?: boolean }> = [
+    { label: t("memory.tech.filename"), value: file.filename, mono: true },
+    { label: t("memory.tech.size"), value: formatFileSize(file.size, language) },
+    { label: t("memory.tech.path"), value: file.path, mono: true },
+  ];
+  return (
+    <section className="mt-8 border-t border-line pt-4">
+      <h3 className="text-[11px] font-medium text-ink-muted">
+        {t("memory.tech.title")}
+      </h3>
+      <dl className="mt-2 space-y-1">
+        {rows.map((row) => (
+          <div key={row.label} className="flex gap-3 text-xs leading-5">
+            <dt className="w-14 shrink-0 text-ink-muted">{row.label}</dt>
+            <dd
+              className={`min-w-0 flex-1 break-all text-ink-tertiary ${
+                row.mono ? "font-mono" : ""
+              }`}
+            >
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Input } from "../components/ui";
 import { authApi, setAuthToken, type AuthStatus } from "../lib/api";
+import { APP_NAME } from "../lib/appInfo";
 import { useTranslation } from "../lib/i18n";
 
 export function LoginView() {
@@ -51,7 +52,9 @@ export function LoginView() {
         onSubmit={(event) => void submit(event)}
         className="w-full max-w-80 rounded-lg border border-line bg-surface p-6 shadow-[var(--shadow-md)]"
       >
-        <h1 className="text-center text-lg font-medium text-ink">QwenPaw</h1>
+        <h1 className="font-display text-center text-lg font-medium text-ink">
+          {APP_NAME}
+        </h1>
         <p className="mt-1 text-center text-sm text-ink-muted">
           {status?.has_users === false
             ? t("login.createLocalAccount")

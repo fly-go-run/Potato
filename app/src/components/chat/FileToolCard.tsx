@@ -1,63 +1,355 @@
-import { ChevronRight, FileText } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  ArrowUpRight,
+  ChevronRight,
+  FileArchive,
+  FileCode,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Presentation,
+  type LucideIcon,
+} from "lucide-react";
+import { filePreviewUrl } from "../../lib/api";
 import { lineDiff, type DiffLineKind } from "../../lib/lineDiff";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import type { ToolPair } from "./ToolCard";
-import { richOutputText, ToolStatus } from "./ToolCard";
+import {
+  richOutputText,
+  showToolDebugStatus,
+  toolPairStatus,
+  ToolStatus,
+} from "./ToolCard";
 
 const FILE_TOOL_TITLES: Record<string, TranslationKey> = {
   read_file: "tool.file.read",
   write_file: "tool.file.write",
   edit_file: "tool.file.edit",
   append_file: "tool.file.append",
+  send_file_to_user: "tool.file.deliver",
 };
+
+/** 产物 = 本轮真正落盘生成的文件；读取/改写不进入产物卡，保持安静行。 */
+const ARTIFACT_TOOLS = new Set([
+  "write_file",
+  "append_file",
+  "send_file_to_user",
+]);
 
 export function isFileTool(name: string): boolean {
   return Object.hasOwn(FILE_TOOL_TITLES, name);
 }
 
-export function FileToolCard({ pair }: { pair: ToolPair }) {
+export function isArtifactTool(name: string): boolean {
+  return ARTIFACT_TOOLS.has(name);
+}
+
+/** 只有收到成功的终态输出，文件才算真正生成/交付。 */
+export function isSuccessfulArtifactPair(pair: ToolPair): boolean {
+  return Boolean(
+    isArtifactTool(pair.name) &&
+      toolPairStatus(pair).completed,
+  );
+}
+
+export function FileToolCard({
+  pair,
+  onOpenFile,
+}: {
+  pair: ToolPair;
+  onOpenFile?: (path: string) => void;
+}) {
   const { t } = useTranslation();
   const parameters = parseArguments(pair.arguments);
   const path =
     typeof parameters.file_path === "string" ? parameters.file_path : "";
-  const running = !pair.output && pair.call?.status === "in_progress";
-  const failed = pair.state === "failed" || pair.state === "error";
+  const { running, failed } = toolPairStatus(pair);
+  const debugStatus = showToolDebugStatus();
   const titleKey = FILE_TOOL_TITLES[pair.name] ?? "tool.genericName";
 
-  return (
-    <details className="group my-2 overflow-hidden rounded-md bg-bubble-tool">
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
-        <ChevronRight
-          size={14}
-          className="shrink-0 text-ink-muted transition-transform group-open:rotate-90"
-        />
-        <FileText size={14} className="shrink-0 text-ink-secondary" />
-        <span className="shrink-0 font-medium text-ink">{t(titleKey)}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-ink-muted">
-          {path || t("tool.file.path")}
+  const detail = (
+    <div className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
+      <div className="flex gap-3 border-b border-line px-4 py-2 text-xs">
+        <span className="shrink-0 text-ink-muted">
+          {t("tool.file.path")}
         </span>
-        <ToolStatus running={running} failed={failed} />
-      </summary>
-      <div className="border-t border-line bg-surface">
-        <div className="flex gap-3 border-b border-line px-4 py-2 text-xs">
-          <span className="shrink-0 text-ink-muted">
-            {t("tool.file.path")}
-          </span>
+        {path && onOpenFile ? (
+          <button
+            type="button"
+            onClick={() => onOpenFile(path)}
+            className="min-w-0 break-all text-left text-ink-secondary underline decoration-dotted underline-offset-2 hover:text-ink"
+            title={t("tool.file.open")}
+          >
+            <code>{path}</code>
+          </button>
+        ) : (
           <code className="min-w-0 break-all text-ink-secondary">
             {path || t("tool.noResult")}
           </code>
-        </div>
-        <div className="px-4 py-3">
-          <div className="mb-2 text-xs font-medium text-ink-muted">
-            {pair.name === "edit_file"
-              ? t("tool.file.changes")
-              : t("tool.file.content")}
-          </div>
-          <FileToolContent pair={pair} parameters={parameters} />
-        </div>
+        )}
       </div>
+      <div className="px-4 py-3">
+        <div className="mb-2 text-xs font-medium text-ink-muted">
+          {pair.name === "edit_file"
+            ? t("tool.file.changes")
+            : t("tool.file.content")}
+        </div>
+        <FileToolContent pair={pair} parameters={parameters} />
+      </div>
+    </div>
+  );
+
+  if (running) {
+    return (
+      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool" open>
+        <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
+          <ChevronRight
+            size={14}
+            className="shrink-0 text-ink-muted transition-transform group-open:rotate-90"
+          />
+          <FileText size={14} className="shrink-0 text-ink-secondary" />
+          <span className="shrink-0 font-medium text-ink">{t(titleKey)}</span>
+          {path && onOpenFile ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onOpenFile(path);
+              }}
+              className="min-w-0 flex-1 truncate text-left font-mono text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+              title={t("tool.file.open")}
+            >
+              {path}
+            </button>
+          ) : (
+            <span className="min-w-0 flex-1 truncate font-mono text-ink-muted">
+              {path || t("tool.file.path")}
+            </span>
+          )}
+          <ToolStatus running={running} failed={failed} />
+        </summary>
+        <div className="border-t border-line">{detail}</div>
+      </details>
+    );
+  }
+
+  if (isSuccessfulArtifactPair(pair) && path) {
+    return (
+      <ArtifactCard
+        pair={pair}
+        path={path}
+        detail={detail}
+        onOpenFile={onOpenFile}
+      />
+    );
+  }
+
+  return (
+    <details className="group my-0.5">
+      <summary className="flex min-h-7 cursor-pointer list-none items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5 py-1 text-xs transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
+        <ChevronRight
+          size={12}
+          className="shrink-0 text-ink-muted transition-transform group-open:rotate-90"
+        />
+        <FileText
+          size={12}
+          className={`shrink-0 ${debugStatus && failed ? "text-danger" : "text-ink-muted"}`}
+        />
+        <span
+          className={`shrink-0 font-medium ${
+          debugStatus && failed ? "text-danger" : "text-ink-tertiary"
+          }`}
+        >
+          {t(titleKey)}
+        </span>
+        {path && onOpenFile ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onOpenFile(path);
+            }}
+            className="min-w-0 flex-1 truncate text-left font-mono text-[12px] text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+            title={t("tool.file.open")}
+          >
+            {path}
+          </button>
+        ) : (
+          <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-muted">
+            {path || t("tool.file.path")}
+          </span>
+        )}
+        <ToolStatus running={running} failed={failed} quiet />
+      </summary>
+      <div className="mb-2 mt-1">{detail}</div>
     </details>
   );
+}
+
+/**
+ * 产物文件卡：满宽、无描边、bg-bubble-tool 底，图标 + 文件名 + 大小/目录，
+ * 右侧「打开」按钮走既有的文件预览接口。仍可展开看写入内容，但默认收起，
+ * 保持「正文当主角」。
+ */
+function ArtifactCard({
+  pair,
+  path,
+  detail,
+  onOpenFile,
+}: {
+  pair: ToolPair;
+  path: string;
+  detail: ReactNode;
+  onOpenFile?: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const Icon = fileIcon(path);
+  const name = fileBaseName(path) || path;
+  const meta = fileSizeLabel(pair.result) || directoryOf(path);
+
+  return (
+    <div className="my-2 overflow-hidden rounded-[var(--radius-md)] bg-bubble-tool">
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() =>
+            onOpenFile
+              ? onOpenFile(path)
+              : setExpanded((value) => !value)
+          }
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          title={path}
+        >
+          <Icon size={20} className="shrink-0 text-ink-secondary" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-medium text-ink">
+              {name}
+            </span>
+            {meta && (
+              <span className="mt-0.5 block truncate text-[12px] text-ink-tertiary">
+                {meta}
+              </span>
+            )}
+          </span>
+        </button>
+        <a
+          href={filePreviewUrl(path)}
+          target="_blank"
+          rel="noreferrer"
+          title={t("tool.file.open")}
+          aria-label={t("tool.file.open")}
+          className="shrink-0 rounded-[var(--radius-sm)] p-1.5 text-ink-muted transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+        >
+          <ArrowUpRight size={15} />
+        </a>
+      </div>
+      {expanded && <div className="px-3 pb-3">{detail}</div>}
+    </div>
+  );
+}
+
+const ICON_BY_EXTENSION: Array<[readonly string[], LucideIcon]> = [
+  [["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"], FileImage],
+  [["xlsx", "xls", "csv", "tsv", "numbers"], FileSpreadsheet],
+  [["ppt", "pptx", "key"], Presentation],
+  [["zip", "tar", "gz", "tgz", "rar", "7z"], FileArchive],
+  [
+    ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java", "json", "yaml", "yml",
+      "sh", "html", "css", "sql"],
+    FileCode,
+  ],
+];
+
+function fileIcon(path: string): LucideIcon {
+  const extension = fileBaseName(path).split(".").at(-1)?.toLowerCase() ?? "";
+  for (const [extensions, icon] of ICON_BY_EXTENSION) {
+    if (extensions.includes(extension)) return icon;
+  }
+  return FileText;
+}
+
+function fileBaseName(path: string): string {
+  return path.split(/[/\\]/).at(-1) ?? "";
+}
+
+function directoryOf(path: string): string {
+  const directory = path.slice(0, path.length - fileBaseName(path).length);
+  return directory.replace(/[/\\]$/, "") || path;
+}
+
+/**
+ * write_file/append_file 返回 "Wrote 1234 bytes to …"；send_file_to_user
+ * 返回 URL 数据块与 "File sent successfully." 文本块。发送结果当前不保证
+ * 携带大小，因此只读取块上的可选字节元数据，缺失时由调用方回落到目录。
+ */
+function fileSizeLabel(result: string): string {
+  if (!result) return "";
+  const text = richOutputText(result);
+  if (typeof text === "string") {
+    const match = /(\d+)\s*bytes/i.exec(text);
+    if (match) return formatBytes(Number(match[1]));
+  }
+  const sentFileBytes = sentFileSizeBytes(result);
+  return sentFileBytes === null ? "" : formatBytes(sentFileBytes);
+}
+
+function sentFileSizeBytes(result: string): number | null {
+  try {
+    const blocks = JSON.parse(result) as unknown;
+    if (!Array.isArray(blocks)) return null;
+    const delivered = blocks.some(
+      (block) =>
+        isRecord(block) &&
+        block.type === "text" &&
+        block.text === "File sent successfully.",
+    );
+    if (!delivered) return null;
+
+    for (const block of blocks) {
+      if (!isRecord(block) || !isRecord(block.source)) continue;
+      if (
+        block.source.type !== "url" ||
+        typeof block.source.url !== "string"
+      ) {
+        continue;
+      }
+      const bytes = byteSize(block) ?? byteSize(block.source);
+      if (bytes !== null) return bytes;
+    }
+  } catch {
+    // 非结构化结果继续使用既有目录回退。
+  }
+  return null;
+}
+
+function byteSize(value: Record<string, unknown>): number | null {
+  for (const key of ["size_bytes", "byte_size", "size"]) {
+    const raw = value[key];
+    const bytes =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string" && /^\d+$/.test(raw)
+          ? Number(raw)
+          : Number.NaN;
+    if (Number.isFinite(bytes) && bytes >= 0) return bytes;
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) return `${kilobytes.toFixed(1)} KB`;
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
 }
 
 function FileToolContent({

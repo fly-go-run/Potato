@@ -1,5 +1,16 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { Pin, Search } from "lucide-react";
+import {
+  Blocks,
+  Clock3,
+  Inbox,
+  MessageSquare,
+  NotebookPen,
+  PenSquare,
+  Pin,
+  Search,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -8,10 +19,27 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import type { ChatSpec } from "../../lib/api";
 import { filterChats } from "../../lib/chats";
-import { useTranslation } from "../../lib/i18n";
+import { useTranslation, type TranslationKey } from "../../lib/i18n";
+import { loadSessionProject } from "../../lib/projects";
+import { relativeTime } from "../../lib/relativeTime";
 import { useChatStore } from "../../stores/chat";
 import { Input } from "../ui";
+
+interface PaletteItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  execute: () => void;
+  chat?: ChatSpec;
+}
+
+interface PaletteSection {
+  id: string;
+  title: TranslationKey;
+  items: PaletteItem[];
+}
 
 export function ChatSearchDialog({
   open,
@@ -23,45 +51,135 @@ export function ChatSearchDialog({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const chats = useChatStore((state) => state.chats);
+  const newChat = useChatStore((state) => state.newChat);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selectedRef = useRef<HTMLButtonElement>(null);
-  const results = useMemo(() => filterChats(chats, query), [chats, query]);
+
+  const sections = useMemo<PaletteSection[]>(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    const matches = (label: string) =>
+      !normalized || label.toLocaleLowerCase().includes(normalized);
+    const closeAndNavigate = (path: string) => {
+      navigate(path);
+      onOpenChange(false);
+    };
+
+    const action: PaletteItem = {
+      id: "action-new-chat",
+      label: t("sidebar.newChat"),
+      icon: PenSquare,
+      execute: () => {
+        newChat();
+        closeAndNavigate("/");
+      },
+    };
+    const pages: PaletteItem[] = [
+      {
+        id: "page-crons",
+        label: t("sidebar.crons"),
+        icon: Clock3,
+        execute: () => closeAndNavigate("/crons"),
+      },
+      {
+        id: "page-inbox",
+        label: t("sidebar.inbox"),
+        icon: Inbox,
+        execute: () => closeAndNavigate("/inbox"),
+      },
+      {
+        id: "page-skills",
+        label: t("sidebar.skills"),
+        icon: Blocks,
+        execute: () => closeAndNavigate("/skills"),
+      },
+      {
+        id: "page-memory",
+        label: t("sidebar.memory"),
+        icon: NotebookPen,
+        execute: () => closeAndNavigate("/memory"),
+      },
+      {
+        id: "page-settings",
+        label: t("sidebar.settings"),
+        icon: Settings,
+        execute: () => closeAndNavigate("/settings"),
+      },
+    ];
+    const chatResults = normalized
+      ? filterChats(chats, query)
+      : chats.slice(0, 5);
+    const chatItems = chatResults.map<PaletteItem>((chat) => ({
+      id: `chat-${chat.id}`,
+      label: chat.name || t("sidebar.untitled"),
+      icon: MessageSquare,
+      chat,
+      execute: () => closeAndNavigate(`/chat/${chat.id}`),
+    }));
+
+    return [
+      {
+        id: "actions",
+        title: "command.actions",
+        items: matches(action.label) ? [action] : [],
+      },
+      {
+        id: "pages",
+        title: "command.pages",
+        items: pages.filter((page) => matches(page.label)),
+      },
+      {
+        id: "chats",
+        title: "command.chats",
+        items: chatItems,
+      },
+    ];
+  }, [chats, navigate, newChat, onOpenChange, query, t]);
+
+  const items = sections.flatMap((section) => section.items);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setSelectedIndex(0);
+  }, [open]);
 
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query, open]);
+  }, [query]);
+
+  useEffect(() => {
+    setSelectedIndex((current) =>
+      items.length === 0 ? 0 : Math.min(current, items.length - 1),
+    );
+  }, [items.length]);
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
-  const chooseChat = (chatId: string) => {
-    navigate(`/chat/${chatId}`);
-    onOpenChange(false);
-  };
-
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing || results.length === 0) return;
+    if (event.nativeEvent.isComposing || items.length === 0) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setSelectedIndex((current) => (current + 1) % results.length);
+      setSelectedIndex((current) => (current + 1) % items.length);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setSelectedIndex(
-        (current) => (current - 1 + results.length) % results.length,
+        (current) => (current - 1 + items.length) % items.length,
       );
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const selected = results[selectedIndex];
-      if (selected) chooseChat(selected.id);
+      items[selectedIndex]?.execute();
     }
   };
+
+  let itemIndex = -1;
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
         <Dialog.Content className="qp-pop fixed left-1/2 top-[18%] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <Dialog.Title className="sr-only">{t("search.title")}</Dialog.Title>
           <Dialog.Description className="sr-only">
@@ -76,48 +194,82 @@ export function ChatSearchDialog({
               onKeyDown={handleKeyDown}
               placeholder={t("search.placeholder")}
               aria-activedescendant={
-                results[selectedIndex]
-                  ? `chat-search-${results[selectedIndex].id}`
+                items[selectedIndex]
+                  ? `command-palette-${items[selectedIndex].id}`
                   : undefined
               }
-              className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+              className="h-12 min-w-0 flex-1 border-transparent bg-transparent px-0 shadow-none focus-visible:border-line-strong focus-visible:ring-0"
             />
           </div>
           <div className="max-h-80 overflow-y-auto p-2">
-            {results.length === 0 ? (
+            {items.length === 0 ? (
               <div className="px-3 py-8 text-center text-sm text-ink-muted">
                 {t("search.empty")}
               </div>
             ) : (
-              results.map((chat, index) => {
-                const selected = index === selectedIndex;
+              sections.map((section) => {
+                if (section.items.length === 0) return null;
                 return (
-                  <button
-                    ref={selected ? selectedRef : undefined}
-                    id={`chat-search-${chat.id}`}
-                    key={chat.id}
-                    type="button"
-                    onMouseMove={() => setSelectedIndex(index)}
-                    onClick={() => chooseChat(chat.id)}
-                    className={`flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                      selected
-                        ? "bg-accent-soft text-accent"
-                        : "text-ink-secondary hover:bg-fill-hover"
-                    }`}
-                  >
-                    {chat.status === "running" && (
-                      <span
-                        title={t("sidebar.running")}
-                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent"
-                      />
-                    )}
-                    {chat.pinned && (
-                      <Pin size={12} className="shrink-0 text-ink-muted" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate">
-                      {chat.name || t("sidebar.untitled")}
-                    </span>
-                  </button>
+                  <section key={section.id}>
+                    <h2 className="px-3 pb-1 pt-2 text-[11px] text-ink-muted">
+                      {t(section.title)}
+                    </h2>
+                    {section.items.map((item) => {
+                      itemIndex += 1;
+                      const index = itemIndex;
+                      const selected = index === selectedIndex;
+                      const Icon = item.icon;
+                      const project = item.chat
+                        ? loadSessionProject(item.chat.session_id)
+                        : null;
+                      const updatedAt = item.chat
+                        ? relativeTime(item.chat.updated_at)
+                        : null;
+                      return (
+                        <button
+                          ref={selected ? selectedRef : undefined}
+                          id={`command-palette-${item.id}`}
+                          key={item.id}
+                          type="button"
+                          onClick={item.execute}
+                          className={`flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm transition-colors duration-[var(--dur-fast)] ${
+                            selected
+                              ? "bg-fill-active text-ink"
+                              : "text-ink-secondary hover:bg-fill-hover"
+                          }`}
+                        >
+                          <Icon size={15} className="shrink-0 text-ink-muted" />
+                          {item.chat?.status === "running" && (
+                            <span
+                              title={t("sidebar.running")}
+                              className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-ok"
+                            />
+                          )}
+                          {item.chat?.pinned && (
+                            <Pin size={12} className="shrink-0 text-ink-muted" />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate">{item.label}</span>
+                            {item.chat && (
+                              <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] font-normal text-ink-muted">
+                                {project && (
+                                  <span className="min-w-0 truncate">
+                                    {project.name}
+                                  </span>
+                                )}
+                                {project && updatedAt && <span>·</span>}
+                                {updatedAt && (
+                                  <span className="shrink-0">
+                                    {t(updatedAt.key, updatedAt.params)}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </section>
                 );
               })
             )}

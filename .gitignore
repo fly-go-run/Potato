@@ -149,3 +149,4 @@ e2e/__pycache__/
 graphify-out/
 local-docs/
 docs-site/
+app/public/__qa.html

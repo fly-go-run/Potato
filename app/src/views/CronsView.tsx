@@ -1,8 +1,15 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
+  Archive,
+  BarChart3,
+  BookOpen,
   CalendarClock,
   Clock3,
+  FileText,
   History,
+  ListChecks,
+  Mail,
+  Newspaper,
   Pencil,
   Play,
   Plus,
@@ -20,6 +27,7 @@ import {
   Input,
   PageContainer,
   PageHeader,
+  SegmentedControl,
   Select,
   SkeletonRows,
   Switch,
@@ -47,12 +55,71 @@ interface JobRow {
   state: CronJobState | null;
 }
 
+interface GlobalRun {
+  job: CronJobSpec;
+  record: CronExecutionRecord;
+  index: number;
+}
+
 const emptyForm: CronFormValue = {
   name: "",
   cron: "0 9 * * *",
   prompt: "",
   targetKey: "",
 };
+
+const CRON_TEMPLATES = [
+  {
+    icon: FileText,
+    nameKey: "crons.templates.weeklyReport.name",
+    cron: "0 17 * * 5",
+    promptKey: "crons.templates.weeklyReport.prompt",
+  },
+  {
+    icon: CalendarClock,
+    nameKey: "crons.templates.meetingPrep.name",
+    cron: "30 9 * * 1-5",
+    promptKey: "crons.templates.meetingPrep.prompt",
+  },
+  {
+    icon: Newspaper,
+    nameKey: "crons.templates.dailyNews.name",
+    cron: "0 9 * * 1-5",
+    promptKey: "crons.templates.dailyNews.prompt",
+  },
+  {
+    icon: ListChecks,
+    nameKey: "crons.templates.fridayTodos.name",
+    cron: "0 16 * * 5",
+    promptKey: "crons.templates.fridayTodos.prompt",
+  },
+  {
+    icon: Mail,
+    nameKey: "crons.templates.emailReminder.name",
+    cron: "0 18 * * 1-5",
+    promptKey: "crons.templates.emailReminder.prompt",
+  },
+  {
+    icon: BarChart3,
+    nameKey: "crons.templates.monthlyReport.name",
+    cron: "0 10 1 * *",
+    promptKey: "crons.templates.monthlyReport.prompt",
+  },
+  {
+    icon: BookOpen,
+    nameKey: "crons.templates.dailyLearning.name",
+    cron: "0 8 * * *",
+    promptKey: "crons.templates.dailyLearning.prompt",
+  },
+  {
+    icon: Archive,
+    nameKey: "crons.templates.fileArchive.name",
+    cron: "0 17 * * 5",
+    promptKey: "crons.templates.fileArchive.prompt",
+  },
+] as const;
+
+type CronTemplateDraft = Pick<CronFormValue, "name" | "cron" | "prompt">;
 
 export function CronsView() {
   const { language, t } = useTranslation();
@@ -62,9 +129,14 @@ export function CronsView() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<CronJobSpec | "new" | null>(null);
+  const [newDraft, setNewDraft] = useState<CronTemplateDraft | null>(null);
   const [historyJob, setHistoryJob] = useState<CronJobSpec | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CronJobSpec | null>(null);
+  const [view, setView] = useState<"tasks" | "runs">("tasks");
+  const [globalRuns, setGlobalRuns] = useState<GlobalRun[]>([]);
+  const [globalRunsLoading, setGlobalRunsLoading] = useState(false);
+  const [globalRunsError, setGlobalRunsError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -96,6 +168,51 @@ export function CronsView() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (view !== "runs" || loading) return;
+    let active = true;
+    setGlobalRunsLoading(true);
+    setGlobalRunsError(null);
+    void Promise.allSettled(
+      jobs.map(async ({ spec }) => ({
+        spec,
+        records: spec.id ? await cronApi.history(spec.id) : [],
+      })),
+    )
+      .then((results) => {
+        if (!active) return;
+        const runs = results
+          .flatMap((result) =>
+            result.status === "fulfilled"
+              ? result.value.records.map((record, index) => ({
+                  job: result.value.spec,
+                  record,
+                  index,
+                }))
+              : [],
+          )
+          .sort(
+            (left, right) =>
+              Date.parse(right.record.run_at) - Date.parse(left.record.run_at),
+          );
+        setGlobalRuns(runs);
+        const failed = results.filter(
+          (result) => result.status === "rejected",
+        ).length;
+        if (failed > 0) {
+          setGlobalRunsError(
+            t("crons.runs.partialFailed", { count: failed }),
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setGlobalRunsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [jobs, loading, t, view]);
 
   const act = async (
     job: CronJobSpec,
@@ -140,22 +257,43 @@ export function CronsView() {
     }
   };
 
+  const openNew = (draft: CronTemplateDraft | null = null) => {
+    setNewDraft(draft);
+    setEditing("new");
+  };
+
   return (
     <>
       <PageContainer width="wide">
         <PageHeader
           title={t("crons.title")}
           subtitle={t("crons.subtitle")}
+          // 一屏一个主操作：空态时中心已有「新建任务」，页头不再重复；
+          // 副标题同理只在空态（首次访问）出现。
+          showSubtitle={jobs.length === 0}
           actions={
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setEditing("new")}
-          >
-            <Plus size={15} />
-            {t("crons.new")}
-          </Button>
+            view === "runs" || jobs.length === 0 ? undefined : (
+              <Button variant="primary" size="sm" onClick={() => openNew()}>
+                <Plus size={15} />
+                {t("crons.new")}
+              </Button>
+            )
           }
+        />
+
+        <SegmentedControl
+          value={view}
+          variant="track"
+          options={[
+            { value: "tasks", label: t("crons.tabs.tasks"), count: jobs.length },
+            {
+              value: "runs",
+              label: t("crons.tabs.runs"),
+              count: globalRuns.length || undefined,
+            },
+          ]}
+          onChange={setView}
+          className="mb-5"
         />
 
         {(error || notice) && (
@@ -170,7 +308,15 @@ export function CronsView() {
           </div>
         )}
 
-        {loading && jobs.length === 0 ? (
+        {view === "runs" ? (
+          <GlobalRunHistory
+            jobs={jobs}
+            runs={globalRuns}
+            loading={globalRunsLoading}
+            error={globalRunsError}
+            language={language}
+          />
+        ) : loading && jobs.length === 0 ? (
           <Card className="p-4">
             <SkeletonRows rows={6} />
           </Card>
@@ -180,7 +326,7 @@ export function CronsView() {
             title={t("crons.emptyTitle")}
             description={t("crons.emptyDescription")}
             action={
-              <Button variant="primary" size="sm" onClick={() => setEditing("new")}>
+              <Button variant="primary" size="sm" onClick={() => openNew()}>
                 <Plus size={15} />
                 {t("crons.new")}
               </Button>
@@ -233,7 +379,12 @@ export function CronsView() {
                             onChange={() =>
                               void act(spec, active ? "pause" : "resume")
                             }
-                            aria-label={active ? t("crons.enabled") : t("crons.paused")}
+                            aria-label={t("crons.toggleLabel", {
+                              name: spec.name,
+                              status: active
+                                ? t("crons.enabled")
+                                : t("crons.paused"),
+                            })}
                           />
                           <span className="text-xs">
                             {active
@@ -296,16 +447,68 @@ export function CronsView() {
             </table>
           </Card>
         )}
+
+        {view === "tasks" && (
+        <section className="mt-8" aria-labelledby="cron-templates-title">
+          <div className="mb-3 flex items-center">
+            <h2
+              id="cron-templates-title"
+              className="text-sm font-medium text-ink"
+            >
+              {t("crons.templates.title")}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {CRON_TEMPLATES.map((template) => {
+              const Icon = template.icon;
+              const name = t(template.nameKey);
+              const prompt = t(template.promptKey);
+              return (
+                <button
+                  key={template.nameKey}
+                  type="button"
+                  className="flex min-w-0 items-start gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-4 text-left shadow-[var(--shadow-sm)] transition-colors duration-[var(--dur-fast)] hover:border-line-strong focus-visible:border-line-strong focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_var(--ring)]"
+                  onClick={() =>
+                    openNew({
+                      name,
+                      cron: template.cron,
+                      prompt,
+                    })
+                  }
+                >
+                  <Icon
+                    size={16}
+                    className="mt-0.5 shrink-0 text-ink-tertiary"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-ink">
+                      {name}
+                    </span>
+                    <span className="line-clamp-1 text-[13px] leading-5 text-ink-tertiary">
+                      {prompt}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+        )}
       </PageContainer>
 
       <CronFormDialog
         editing={editing}
+        newDraft={newDraft}
         targets={targets}
         onOpenChange={(open) => {
-          if (!open) setEditing(null);
+          if (!open) {
+            setEditing(null);
+            setNewDraft(null);
+          }
         }}
         onSaved={() => {
           setEditing(null);
+          setNewDraft(null);
           void load();
         }}
       />
@@ -334,11 +537,13 @@ export function CronsView() {
 
 function CronFormDialog({
   editing,
+  newDraft,
   targets,
   onOpenChange,
   onSaved,
 }: {
   editing: CronJobSpec | "new" | null;
+  newDraft: CronTemplateDraft | null;
   targets: CronDispatchTarget[];
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -372,11 +577,12 @@ function CronFormDialog({
           }
         : {
             ...emptyForm,
+            ...newDraft,
             targetKey: selectedTarget ? targetKey(selectedTarget) : "",
           },
     );
     setError(null);
-  }, [editing, existing, targets]);
+  }, [editing, existing, newDraft, targets]);
 
   const selectedTarget = findTarget(targets, form.targetKey);
   const canSave = Boolean(
@@ -412,7 +618,7 @@ function CronFormDialog({
   return (
     <Dialog.Root open={editing !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
         <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 max-h-[calc(100%-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[var(--radius-lg)] border border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <div className="min-w-0 flex-1">
@@ -552,6 +758,103 @@ function CronFormDialog({
   );
 }
 
+function GlobalRunHistory({
+  jobs,
+  runs,
+  loading,
+  error,
+  language,
+}: {
+  jobs: JobRow[];
+  runs: GlobalRun[];
+  loading: boolean;
+  error: string | null;
+  language: "zh" | "en";
+}) {
+  const { t } = useTranslation();
+
+  if (loading) {
+    return (
+      <Card className="p-4">
+        <SkeletonRows rows={6} />
+      </Card>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <div>
+        {error && (
+          <div className="mb-4 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger">
+            {error}
+          </div>
+        )}
+        <EmptyState
+          icon={<History size={20} />}
+          title={t("crons.runs.emptyTitle")}
+          description={
+            jobs.length === 0
+              ? t("crons.runs.noTasksDescription")
+              : t("crons.runs.emptyDescription")
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {error && (
+        <div className="mb-4 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger">
+          {error}
+        </div>
+      )}
+      <Card className="overflow-x-auto">
+        <table className="w-full min-w-[42rem] border-collapse text-left">
+          <thead className="bg-bubble-tool text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+            <tr>
+              <th className="px-4 py-3">{t("crons.runs.taskColumn")}</th>
+              <th className="px-4 py-3">{t("crons.runs.timeColumn")}</th>
+              <th className="px-4 py-3">{t("crons.runs.triggerColumn")}</th>
+              <th className="px-4 py-3">{t("crons.runs.resultColumn")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {runs.map(({ job, record, index }) => (
+              <tr
+                key={`${job.id ?? job.name}-${record.run_at}-${index}`}
+                className="text-[13px] text-ink-secondary"
+              >
+                <td className="px-4 py-3 font-medium text-ink">{job.name}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs">
+                  {formatDate(record.run_at, language)}
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {t(
+                    record.trigger === "manual"
+                      ? "crons.trigger.manual"
+                      : "crons.trigger.scheduled",
+                  )}
+                </td>
+                <td className="max-w-[22rem] px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={record.status} />
+                    {record.error && (
+                      <span className="min-w-0 truncate text-xs text-danger" title={record.error}>
+                        {record.error}
+                      </span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
 function HistoryDrawer({
   job,
   onOpenChange,
@@ -578,7 +881,7 @@ function HistoryDrawer({
   return (
     <Dialog.Root open={job !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
         <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(28rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <div className="min-w-0 flex-1">

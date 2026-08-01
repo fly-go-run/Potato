@@ -39,3 +39,11 @@
 - 数据清理完成：临时会话已删除；改名、技能、主题、语言、沙箱均恢复冒烟前状态。
 - 浏览器控制台无运行 error；仅有 React Router v7 future-flag 既有 warning。
 - 未修改 `tokens.css`、`global.css` 或 `components/ui/` 原语。
+
+## r5-B
+
+- 流式自动跟随：会话滚动区以距底 80px 为跟随边界；仅在用户仍位于底部时随消息与审批内容自动滚动。用户上滑后保留阅读位置，新内容到达时在 composer 上方显示“回到底部”胶囊，点击恢复跟随；切换会话会重置跟随状态。
+- 键盘快捷键速查：新增 Radix `ShortcutsDialog`，以 `⌘/`（非 macOS 为 `Ctrl+/`）全局打开，按导航与对话分组展示新建会话、命令面板、快捷键速查、发送、换行及关闭弹层。
+- 命令面板：`⌘K` 现按动作、页面、会话三个分区展示；空输入包含新建会话、五个页面入口和最近 5 条会话，输入后统一过滤。上下键可跨区选择，Enter 执行，Esc 关闭；键盘选中使用 `bg-fill-active`，鼠标 hover 独立使用 `bg-fill-hover`。
+- i18n：补齐以上交互的中英文文案；新增 `isAtBottom` 纯函数及 80px 边界、脱离跟随、自定义阈值测试。
+- 验收：`npm test` 通过（16 个测试文件、54 个测试）；`npm run build` 通过，仅保留既有 Tailwind 扫描示例 class 的 CSS warning 与 chunk-size warning。

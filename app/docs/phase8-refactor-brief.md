@@ -2,7 +2,7 @@
 
 架构方（Claude）已完成**地基层**：重写了 `app/src/styles/tokens.css`（深色 elevation 分层、阴影三档、中性色四级、hover/active 填充、ring、圆角、主按钮中性色）、`app/src/styles/global.css`（全局 focus-visible 兜底、滚动条、动效 keyframes），并新建了一整套共享控件原语 `app/src/components/ui/`。你的任务是**把这套地基回填进所有 view/组件**，消除逐页手写漂移、去掉原生控件、补微观打磨与动效。
 
-**先做**：通读 `app/src/components/ui/index.ts` 及各原语源码（Button/IconButton/Input/Select/Switch/Badge/CountBadge/Card/EmptyState/PageHeader/PageContainer/SegmentedControl/Skeleton/SkeletonRows/ConfirmDialog），理解 API；通读新 `tokens.css` 了解可用语义类（新增：`text-ink-tertiary`、`bg-fill-hover`、`bg-fill-active`、`bg-btn-primary`/`text-btn-primary-ink`、`ring-ring`、`border-line-highlight`、`shadow-[var(--shadow-sm|md|lg)]`、`--dur-fast`/`--dur-panel`）。
+**先做**：通读 `app/src/components/ui/index.ts` 及各原语源码（Button/IconButton/Input/Select/Switch/Badge/CountBadge/Card/EmptyState/PageHeader/PageContainer/SegmentedControl/Skeleton/SkeletonRows/ConfirmDialog），理解 API；通读新 `tokens.css` 了解可用语义类（新增：`text-ink-tertiary`、`bg-fill-hover`、`bg-fill-active`、`bg-btn-primary`/`text-btn-primary-ink`、`ring-ring`、`border-line-highlight`、`shadow-[var(--shadow-sm)]` / `shadow-[var(--shadow-md)]` / `shadow-[var(--shadow-lg)]`、`--dur-fast`/`--dur-panel`）。
 
 **硬约束**：不改 `tokens.css` 和 `components/ui/` 下的原语（它们是架构方定稿；若某原语 API 不够用，在报告里提出，先用现有的）。不新增依赖。所有新增/改动文案走 zh/en i18n。禁止硬编码色值。每改完 1–2 个 view 就 `npm run build` 验证，避免堆积错误。
 

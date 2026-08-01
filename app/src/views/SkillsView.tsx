@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Box,
+  Blocks,
+  ChevronRight,
   Download,
   LoaderCircle,
   PackageOpen,
@@ -57,7 +58,7 @@ export function SkillsView() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [busySkill, setBusySkill] = useState<string | null>(null);
+  const [busySkills, setBusySkills] = useState<Set<string>>(() => new Set());
   const [busyPlugin, setBusyPlugin] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -90,7 +91,9 @@ export function SkillsView() {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return skills;
     return skills.filter((skill) =>
-      `${skill.name} ${skill.description} ${(skill.tags ?? []).join(" ")}`
+      `${skill.name} ${humanSkillName(skill.name)} ${skill.description} ${(
+        skill.tags ?? []
+      ).join(" ")}`
         .toLocaleLowerCase()
         .includes(needle),
     );
@@ -98,21 +101,26 @@ export function SkillsView() {
 
   const toggleSkill = async (skill: SkillInfo) => {
     const enabled = !skill.enabled;
-    setBusySkill(skill.name);
+    setBusySkills((current) => new Set(current).add(skill.name));
     setError(null);
     setNotice(null);
+    setSelectedSkill((current) =>
+      current?.name === skill.name ? { ...current, enabled } : current,
+    );
     try {
       await runOptimisticSkillToggle({
         skills,
         name: skill.name,
         enabled,
-        onUpdate: setSkills,
+        onUpdate: (update) => setSkills(update),
         mutate: () => skillApi.setEnabled(skill.name, enabled),
       });
-      setSelectedSkill((current) =>
-        current?.name === skill.name ? { ...current, enabled } : current,
-      );
     } catch (reason) {
+      setSelectedSkill((current) =>
+        current?.name === skill.name
+          ? { ...current, enabled: skill.enabled }
+          : current,
+      );
       setError(
         t("skills.toggleFailed", {
           name: skill.name,
@@ -120,12 +128,16 @@ export function SkillsView() {
         }),
       );
     } finally {
-      setBusySkill(null);
+      setBusySkills((current) => {
+        const next = new Set(current);
+        next.delete(skill.name);
+        return next;
+      });
     }
   };
 
   const deleteSkill = async (skill: SkillInfo) => {
-    setBusySkill(skill.name);
+    setBusySkills((current) => new Set(current).add(skill.name));
     setError(null);
     try {
       await skillApi.delete(skill.name);
@@ -136,7 +148,11 @@ export function SkillsView() {
     } catch (reason) {
       setError(readableError(reason));
     } finally {
-      setBusySkill(null);
+      setBusySkills((current) => {
+        const next = new Set(current);
+        next.delete(skill.name);
+        return next;
+      });
     }
   };
 
@@ -223,17 +239,17 @@ export function SkillsView() {
                 )}
               />
             ) : (
-              <Card className="divide-y divide-line overflow-hidden">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 border-t border-line pt-2 sm:grid-cols-2">
                 {filteredSkills.map((skill) => (
                   <SkillRow
                     key={skill.name}
                     skill={skill}
-                    busy={busySkill === skill.name}
+                    busy={busySkills.has(skill.name)}
                     onOpen={() => setSelectedSkill(skill)}
                     onToggle={() => void toggleSkill(skill)}
                   />
                 ))}
-              </Card>
+              </div>
             )}
           </section>
         ) : plugins.length === 0 ? (
@@ -260,9 +276,10 @@ export function SkillsView() {
 
       <SkillDetails
         skill={selectedSkill}
-        busy={selectedSkill?.name === busySkill}
+        busy={selectedSkill ? busySkills.has(selectedSkill.name) : false}
         onOpenChange={(open) => !open && setSelectedSkill(null)}
         onDelete={(skill) => setPendingDelete({ type: "skill", item: skill })}
+        onToggle={(skill) => void toggleSkill(skill)}
       />
       <AddCapabilityDialog
         open={addOpen}
@@ -290,7 +307,7 @@ export function SkillsView() {
               : undefined
         }
         tone="danger"
-        busy={busySkill !== null || busyPlugin !== null}
+        busy={busySkills.size > 0 || busyPlugin !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}
         onConfirm={() => {
           if (pendingDelete?.type === "skill") void deleteSkill(pendingDelete.item);
@@ -313,55 +330,53 @@ function SkillRow({
   onToggle: () => void;
 }) {
   const { t } = useTranslation();
-  const source = skill.installed_from || skill.source;
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-      className="group flex cursor-pointer items-center gap-3.5 px-5 py-4 outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover focus-visible:bg-fill-active"
-    >
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base saturate-0 opacity-80">
-        {skill.emoji || "✦"}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate text-sm font-medium text-ink">
-            {skill.name}
-          </span>
-          {skill.version_text && (
-            <Badge tone="neutral" className="shrink-0">
-              {skill.version_text}
-            </Badge>
-          )}
-          {source && (
-            <Badge tone="neutral" className="max-w-32 truncate">
-              {source}
-            </Badge>
-          )}
-        </div>
-        <p className="line-clamp-1 text-[13px] text-ink-tertiary">
-          {skill.description || t("skills.noDescription")}
-        </p>
-      </div>
-      <span
-        className="flex shrink-0 items-center gap-2"
-        onClick={(event) => event.stopPropagation()}
+    // 行主体是原生 button；Switch 作为兄弟节点浮在其上（而非嵌套 button），
+    // 既保住语义又避免 switch 的点击冒泡到行展开。
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        title={skill.name}
+        className="flex w-full items-center gap-3.5 rounded-[var(--radius-md)] py-3 pl-4 pr-20 text-left outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover active:bg-fill-active focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {busy && <LoaderCircle size={14} className="animate-spin text-accent" />}
-        <Switch
-          checked={skill.enabled}
-          disabled={busy}
-          onChange={onToggle}
-          aria-label={t("skills.toggleLabel", { name: skill.name })}
+        <span
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool ${
+            skill.enabled ? "text-ink-tertiary" : "text-ink-muted"
+          }`}
+        >
+          <Blocks size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span
+            className={`block truncate text-sm font-medium ${
+              skill.enabled ? "text-ink" : "text-ink-secondary"
+            }`}
+          >
+            {humanSkillName(skill.name)}
+          </span>
+          <p className="line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
+            {skill.description || t("skills.noDescription")}
+          </p>
+        </div>
+      </button>
+      <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center gap-2.5">
+        <span className="pointer-events-auto flex items-center">
+          <Switch
+            checked={skill.enabled}
+            disabled={busy}
+            onChange={onToggle}
+            aria-label={t("skills.toggleLabel", {
+              name: humanSkillName(skill.name),
+            })}
+          />
+        </span>
+        <ChevronRight
+          size={14}
+          aria-hidden
+          className="text-ink-muted transition-colors duration-[var(--dur-fast)] group-hover:text-ink-secondary"
         />
-      </span>
+      </div>
     </div>
   );
 }
@@ -379,8 +394,8 @@ function PluginRow({
   const toolCount = pluginToolCount(plugin);
   const source = plugin.installed_from || plugin.source;
   return (
-    <div className="flex items-center gap-3.5 px-5 py-4 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-muted">
+    <div className="flex items-center gap-3.5 px-4 py-3 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-tertiary">
         <Puzzle size={18} />
       </span>
       <div className="min-w-0 flex-1">
@@ -404,7 +419,7 @@ function PluginRow({
             </span>
           )}
         </div>
-        <p className="line-clamp-1 text-[13px] text-ink-tertiary">
+        <p className="line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
           {plugin.description || t("skills.noDescription")}
         </p>
       </div>
@@ -430,25 +445,28 @@ function SkillDetails({
   busy,
   onOpenChange,
   onDelete,
+  onToggle,
 }: {
   skill: SkillInfo | null;
   busy: boolean;
   onOpenChange: (open: boolean) => void;
   onDelete: (skill: SkillInfo) => void;
+  onToggle: (skill: SkillInfo) => void;
 }) {
   const { t } = useTranslation();
   return (
     <Dialog.Root open={skill !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
         <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(29rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base saturate-0 opacity-80">
-              {skill?.emoji || "✦"}
+            {/* emoji 只在详情里出现；列表行统一线稿，保证整列图标一致。 */}
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base text-ink-tertiary">
+              {skill?.emoji || <Blocks size={18} />}
             </span>
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
-                {skill?.name}
+                {skill ? humanSkillName(skill.name) : ""}
               </Dialog.Title>
               <Dialog.Description className="mt-0.5 text-xs text-ink-muted">
                 {t("skills.detailsDescription")}
@@ -461,6 +479,31 @@ function SkillDetails({
             </Dialog.Close>
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="mb-6 flex items-center justify-between rounded-[var(--radius-md)] border border-line bg-surface px-4 py-3">
+              <span className="text-sm text-ink">
+                {t("skills.enableLabel")}
+              </span>
+              <span className="flex items-center gap-2">
+                {busy && (
+                  <LoaderCircle
+                    size={14}
+                    className="animate-spin text-ink-muted"
+                  />
+                )}
+                <Switch
+                  checked={skill?.enabled ?? false}
+                  disabled={!skill || busy}
+                  onChange={() => skill && onToggle(skill)}
+                  aria-label={
+                    skill
+                      ? t("skills.toggleLabel", {
+                          name: humanSkillName(skill.name),
+                        })
+                      : t("skills.enableLabel")
+                  }
+                />
+              </span>
+            </div>
             <Detail label={t("skills.description")}>
               <p className="whitespace-pre-wrap text-sm leading-6 text-ink-secondary">
                 {skill?.description || t("skills.noDescription")}
@@ -499,6 +542,14 @@ function SkillDetails({
                     {t("skills.noTags")}
                   </span>
                 )}
+              </Detail>
+            </div>
+            {/* 技术信息：内部标识不再出现在列表主标题上，只在这里保留。 */}
+            <div className="mt-6 border-t border-line pt-5">
+              <Detail label={t("skills.internalName")}>
+                <p className="break-all font-mono text-xs leading-5 text-ink-tertiary">
+                  {skill?.name}
+                </p>
               </Detail>
             </div>
           </div>
@@ -712,7 +763,7 @@ function AddCapabilityDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/20" />
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
         <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 flex max-h-[min(44rem,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <div className="min-w-0 flex-1">
@@ -754,15 +805,16 @@ function AddCapabilityDialog({
               <SkeletonRows rows={5} />
             ) : mode === "skills" && skillTab === "pool" ? (
               <CapabilitySourceList
+                icon={<Blocks size={16} />}
                 items={pool.map((skill) => ({
                   key: skill.name,
-                  name: skill.name,
+                  name: humanSkillName(skill.name),
+                  title: skill.name,
                   description: skill.description,
                   version: skill.version_text,
                   installed: installedSkills.some(
                     (installed) => installed.name === skill.name,
                   ),
-                  icon: skill.emoji,
                 }))}
                 busy={busy}
                 onInstall={(key) => {
@@ -818,6 +870,7 @@ function AddCapabilityDialog({
                 ) : (
                   <div className="mt-4">
                     <CapabilitySourceList
+                      icon={<Blocks size={16} />}
                       items={hubResults.map((skill) => ({
                         key: skill.slug,
                         name: skill.name,
@@ -848,6 +901,7 @@ function AddCapabilityDialog({
               />
             ) : pluginTab === "catalog" ? (
               <CapabilitySourceList
+                icon={<Puzzle size={16} />}
                 items={catalog.map((plugin) => ({
                   key: plugin.plugin_id,
                   name: plugin.name,
@@ -915,17 +969,19 @@ function AddCapabilityDialog({
 
 function CapabilitySourceList({
   items,
+  icon,
   busy,
   onInstall,
 }: {
   items: Array<{
     key: string;
     name: string;
+    title?: string;
     description?: string;
     version?: string;
     installed: boolean;
-    icon?: string;
   }>;
+  icon: React.ReactNode;
   busy: string | null;
   onInstall: (key: string) => void;
 }) {
@@ -940,13 +996,16 @@ function CapabilitySourceList({
   return (
     <Card className="divide-y divide-line overflow-hidden rounded-[var(--radius-md)]">
       {items.map((item) => (
-        <div key={item.key} className="flex items-center gap-3 px-3 py-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool saturate-0 opacity-80">
-            {item.icon || <Box size={16} className="text-ink-muted" />}
+        <div key={item.key} className="flex items-center gap-3 px-4 py-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-tertiary">
+            {icon}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <span className="truncate text-sm font-medium text-ink">
+              <span
+                title={item.title ?? item.name}
+                className="truncate text-sm font-medium text-ink"
+              >
                 {item.name}
               </span>
               {item.version && (
@@ -955,7 +1014,7 @@ function CapabilitySourceList({
                 </Badge>
               )}
             </div>
-            <p className="line-clamp-1 text-[13px] text-ink-tertiary">
+            <p className="line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
               {item.description || t("skills.noDescription")}
             </p>
           </div>
@@ -995,7 +1054,7 @@ function ZipUpload({
 }) {
   const { t } = useTranslation();
   return (
-    <label className="flex cursor-pointer flex-col items-center rounded-lg border border-dashed border-line px-6 py-12 text-center transition-colors hover:border-line-strong">
+    <label className="flex cursor-pointer flex-col items-center rounded-lg border border-dashed border-line px-6 py-12 text-center transition-colors hover:border-line-strong focus-within:border-line-strong focus-within:shadow-[0_0_0_3px_var(--ring)]">
       {busy ? (
         <LoaderCircle size={24} className="animate-spin text-accent" />
       ) : (
@@ -1061,6 +1120,17 @@ function Detail({
       {children}
     </section>
   );
+}
+
+/**
+ * snake_case 内部标识 → 可读名称（与 ToolCard 的 humanToolName 同一套规则；
+ * 该函数未导出，此处内联等价实现，避免为复用去改动工具卡片）。
+ */
+function humanSkillName(name: string) {
+  return name
+    .replace(/^mcp__/, "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function readableError(error: unknown) {

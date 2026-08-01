@@ -34,13 +34,13 @@ export function Switch({
         "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-[var(--dur-fast)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
         "disabled:opacity-40",
-        checked ? "bg-accent" : "bg-line-strong",
+        checked ? "bg-btn-primary" : "bg-line-strong",
         className,
       )}
     >
       <span
         className={cn(
-          "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow-[var(--shadow-sm)]",
+          "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-btn-primary-ink shadow-[var(--shadow-sm)]",
           "transition-transform duration-[var(--dur-fast)]",
           checked ? "translate-x-[1.125rem]" : "translate-x-0.5",
         )}

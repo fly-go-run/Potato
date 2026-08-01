@@ -80,6 +80,12 @@ export function isUnexpectedStreamEof(
   );
 }
 
+export function isUnfinishedResponse(
+  status: ConversationStreamState["responseStatus"],
+): boolean {
+  return status === "created" || status === "in_progress";
+}
+
 /**
  * Parse decoded SSE text incrementally. A frame is emitted only after its
  * terminating blank line arrives, so a TCP chunk may end anywhere.

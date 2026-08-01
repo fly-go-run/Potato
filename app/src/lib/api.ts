@@ -141,6 +141,9 @@ export interface ModelInfo {
   is_free?: boolean;
   max_tokens?: number;
   max_input_length?: number;
+  reasoning_effort?: string | null;
+  thinking_param_style?: "effort" | "budget" | null;
+  reasoning_effort_options?: string[] | null;
 }
 
 export interface ProviderInfo {
@@ -157,6 +160,13 @@ export interface ProviderInfo {
   freeze_url: boolean;
   require_api_key: boolean;
   is_custom: boolean;
+  thinking_param_style?: "effort" | "budget" | null;
+  reasoning_effort_options?: string[] | null;
+}
+
+/** Whether a provider can be selected without waiting for another setup step. */
+export function providerReady(provider: ProviderInfo): boolean {
+  return provider.is_local || !provider.require_api_key || Boolean(provider.api_key);
 }
 
 export interface UploadResponse {
@@ -241,22 +251,48 @@ export const modelApi = {
       }),
     });
   },
+  discover: (providerId: string) =>
+    apiJson<{
+      success: boolean;
+      models: ModelInfo[];
+      message: string;
+      added_count: number;
+    }>(`/api/models/${encodeURIComponent(providerId)}/discover?save=true`, {
+      method: "POST",
+    }),
+  configureModel: (
+    providerId: string,
+    modelId: string,
+    config: {
+      reasoning_effort?: string | null;
+      thinking_param_style?: string | null;
+      reasoning_effort_options?: string[] | null;
+    },
+  ) =>
+    apiJson<ProviderInfo>(
+      `/api/models/${encodeURIComponent(providerId)}/models/${encodeURIComponent(modelId).replace(/%2F/g, "/")}/config`,
+      { method: "PUT", body: JSON.stringify(config) },
+    ),
+  removeModel: (providerId: string, modelId: string) =>
+    apiJson<ProviderInfo>(
+      // 后端路由是 {model_id:path},斜杠须保留原样(org/model 形式的 id)
+      `/api/models/${encodeURIComponent(providerId)}/models/${encodeURIComponent(modelId).replace(/%2F/g, "/")}`,
+      { method: "DELETE" },
+    ),
+  addModel: (providerId: string, model: { id: string; name: string }) =>
+    apiJson<ProviderInfo>(
+      `/api/models/${encodeURIComponent(providerId)}/models`,
+      { method: "POST", body: JSON.stringify(model) },
+    ),
   configure: async (
     providerId: string,
     config: { api_key?: string; base_url?: string },
   ) => {
     const path = `/api/models/${encodeURIComponent(providerId)}/config`;
-    const request = (method: "POST" | "PUT") =>
-      apiJson<ProviderInfo>(path, {
-        method,
-        body: JSON.stringify(config),
-      });
-    try {
-      return await request("POST");
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 405) throw error;
-      return request("PUT");
-    }
+    return apiJson<ProviderInfo>(path, {
+      method: "PUT",
+      body: JSON.stringify(config),
+    });
   },
 };
 

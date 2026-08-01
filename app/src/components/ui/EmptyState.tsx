@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 
 /**
- * 统一空态：实线极浅底容器 + 图标置于圆形托盘，取代此前各页的
- * 虚线边框（placeholder 语汇，偏廉价）。
+ * 统一空态：无外框，直接浮在画布上（描边盒会让空态看起来像后台 placeholder）。
+ * 唯一的视觉锚点是放大后的图标托盘；图标尺寸在此统一归一化，
+ * 调用方传什么 size 都按 26px 渲染，保证四个页面的空态重量一致。
  */
 export interface EmptyStateProps {
   icon: ReactNode;
@@ -18,13 +19,13 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center rounded-[var(--radius-lg)] border border-line bg-bubble-tool/60 px-6 py-16 text-center">
-      <div className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-ink-tertiary shadow-[var(--shadow-sm)]">
+    <div className="flex min-h-[15rem] flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="grid h-14 w-14 place-items-center rounded-full border border-line bg-surface text-ink-tertiary [&>svg]:h-[26px] [&>svg]:w-[26px]">
         {icon}
       </div>
       <p className="mt-4 text-sm font-medium text-ink">{title}</p>
       {description && (
-        <p className="mt-1 max-w-sm text-sm text-ink-muted">{description}</p>
+        <p className="mt-1 max-w-sm text-sm text-ink-tertiary">{description}</p>
       )}
       {action && <div className="mt-5">{action}</div>}
     </div>

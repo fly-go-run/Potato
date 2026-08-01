@@ -30,12 +30,27 @@ export function ConfirmDialog({
   onOpenChange,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (busy && !nextOpen) return;
+    onOpenChange(nextOpen);
+  };
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-ink/25 backdrop-blur-[1px]" />
-        <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-lg)] border border-line bg-raised p-5 shadow-[var(--shadow-lg)] outline-none">
-          <Dialog.Title className="text-sm font-semibold text-ink">
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay backdrop-blur-[1px]" />
+        <Dialog.Content
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          className="qp-pop fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-lg)] border border-line bg-raised p-5 shadow-[var(--shadow-lg)] outline-none"
+        >
+          <Dialog.Title
+            data-tauri-drag-region
+            className="text-sm font-semibold text-ink"
+          >
             {title}
           </Dialog.Title>
           {description && (
@@ -48,7 +63,7 @@ export function ConfirmDialog({
               variant="ghost"
               size="sm"
               disabled={busy}
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
             >
               {cancelLabel ?? t("common.cancel")}
             </Button>

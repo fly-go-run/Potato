@@ -8,41 +8,69 @@ export type ButtonVariant =
   | "accent"
   | "danger";
 export type ButtonSize = "sm" | "md";
+/**
+ * 形状语言分工：功能按钮（提交/新建/发现/删除…）是矩形（8px），
+ * 只有「可切换的选择器」——模式切换、筛选 chip、能力 chip——才用胶囊。
+ * 全部药丸化会让 8/10/14/18px 的圆角标尺失去角色。
+ */
+export type ButtonShape = "rect" | "pill";
 
-// 药丸造型（rounded-full）是 ChatGPT/Codex 桌面版按钮的签名语言
 const base =
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-medium " +
-  "transition-[background-color,color,box-shadow,transform,border-color] duration-[var(--dur-fast)] " +
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-medium " +
+  "transition-[background-color,color,box-shadow,border-color,opacity] duration-[var(--dur-fast)] " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
-  "focus-visible:ring-offset-surface active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40";
+  "focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-40";
 
 const variants: Record<ButtonVariant, string> = {
   // 主操作：中性近黑，把 accent 从「主操作」中解放出来（Codex 风格）
-  primary: "bg-btn-primary text-btn-primary-ink hover:bg-btn-primary-hover",
+  primary:
+    "bg-btn-primary text-btn-primary-ink shadow-[var(--shadow-control)] hover:bg-btn-primary-hover active:opacity-90",
   secondary:
-    "border border-line bg-surface text-ink-secondary hover:border-line-strong hover:bg-fill-hover hover:text-ink",
-  ghost: "text-ink-secondary hover:bg-fill-hover hover:text-ink",
-  // accent：仅用于真正需要强调蓝的少数入口
-  accent: "bg-accent text-white hover:bg-accent-hover",
+    "border border-transparent bg-surface text-ink-secondary shadow-[var(--shadow-control)] hover:bg-fill-hover hover:text-ink active:bg-fill-active",
+  ghost: "text-ink-secondary hover:bg-fill-hover hover:text-ink active:bg-fill-active",
+  // accent：兼容少量旧入口，但仍遵循当前的中性强调色。
+  accent: "bg-accent text-btn-primary-ink shadow-[var(--shadow-control)] hover:bg-accent-hover active:opacity-90",
   danger: "text-danger hover:bg-danger-soft",
 };
 
 const sizes: Record<ButtonSize, string> = {
   sm: "h-8 px-3.5 text-[13px]",
-  md: "h-10 px-5 text-sm",
+  md: "h-9 px-4 text-sm",
+};
+
+const shapes: Record<ButtonShape, string> = {
+  rect: "rounded-[var(--radius-sm)]",
+  pill: "rounded-full",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  shape?: ButtonShape;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "secondary", size = "md", className, type, ...rest }, ref) => (
+  (
+    {
+      variant = "secondary",
+      size = "md",
+      shape = "rect",
+      className,
+      type,
+      ...rest
+    },
+    ref,
+  ) => (
     <button
       ref={ref}
       type={type ?? "button"}
-      className={cn(base, variants[variant], sizes[size], className)}
+      className={cn(
+        base,
+        variants[variant],
+        sizes[size],
+        shapes[shape],
+        className,
+      )}
       {...rest}
     />
   ),

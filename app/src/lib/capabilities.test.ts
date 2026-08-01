@@ -16,11 +16,15 @@ const skill: SkillInfo = {
 describe("runOptimisticSkillToggle", () => {
   it("updates immediately and keeps the new state after success", async () => {
     const updates: SkillInfo[][] = [];
+    let current = [skill];
     await runOptimisticSkillToggle({
       skills: [skill],
       name: "docx",
       enabled: true,
-      onUpdate: (items) => updates.push(items),
+      onUpdate: (update) => {
+        current = update(current);
+        updates.push(current);
+      },
       mutate: vi.fn().mockResolvedValue({ enabled: true }),
     });
     expect(updates.map((items) => items[0].enabled)).toEqual([true]);
@@ -28,16 +32,59 @@ describe("runOptimisticSkillToggle", () => {
 
   it("rolls back after a failed request", async () => {
     const updates: SkillInfo[][] = [];
+    let current = [skill];
     await expect(
       runOptimisticSkillToggle({
         skills: [skill],
         name: "docx",
         enabled: true,
-        onUpdate: (items) => updates.push(items),
+        onUpdate: (update) => {
+          current = update(current);
+          updates.push(current);
+        },
         mutate: vi.fn().mockRejectedValue(new Error("reload failed")),
       }),
     ).rejects.toThrow("reload failed");
     expect(updates.map((items) => items[0].enabled)).toEqual([true, false]);
+  });
+
+  it("rolls back only its target when another toggle is still optimistic", async () => {
+    const pdf: SkillInfo = {
+      name: "pdf",
+      description: "Read PDFs",
+      enabled: false,
+    };
+    let current = [skill, pdf];
+    let rejectDocx!: (reason: Error) => void;
+    const update = (updater: (skills: SkillInfo[]) => SkillInfo[]) => {
+      current = updater(current);
+    };
+
+    const docxToggle = runOptimisticSkillToggle({
+      skills: current,
+      name: "docx",
+      enabled: true,
+      onUpdate: update,
+      mutate: () =>
+        new Promise((_, reject) => {
+          rejectDocx = reject;
+        }),
+    });
+    const pdfToggle = runOptimisticSkillToggle({
+      skills: current,
+      name: "pdf",
+      enabled: true,
+      onUpdate: update,
+      mutate: vi.fn().mockResolvedValue({ enabled: true }),
+    });
+
+    await pdfToggle;
+    rejectDocx(new Error("docx failed"));
+    await expect(docxToggle).rejects.toThrow("docx failed");
+    expect(current.map(({ name, enabled }) => ({ name, enabled }))).toEqual([
+      { name: "docx", enabled: false },
+      { name: "pdf", enabled: true },
+    ]);
   });
 });
 

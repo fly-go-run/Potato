@@ -2,27 +2,49 @@ import { Check, CircleEllipsis, X } from "lucide-react";
 import type { DataContent, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useTranslation } from "../../lib/i18n";
+import { showToolDebugStatus } from "./ToolCard";
 
 export function ProgressCard({ message }: { message: StreamMessage }) {
   const { t } = useTranslation();
+  if (isContextCompactionMessage(message)) {
+    const phase = String(message.metadata?.phase ?? "in_progress");
+    const label =
+      phase === "fallback"
+        ? t("chat.contextCompaction.fallback")
+        : phase === "completed"
+          ? t("chat.contextCompaction.completed")
+          : t("chat.contextCompaction.running");
+    return (
+      <div className="my-2 flex items-center gap-2 text-xs text-ink-muted">
+        {phase === "in_progress" && (
+          <CircleEllipsis size={14} className="shrink-0 animate-pulse" />
+        )}
+        <span className="min-w-0 truncate font-medium text-ink-secondary">
+          {label}
+        </span>
+      </div>
+    );
+  }
+
   const title = progressTitle(message) || t("tool.progress");
   const status = progressStatus(message);
   const completed = message.status === "completed";
   const failed = message.status === "failed" || message.status === "cancelled";
+  const debugStatus = showToolDebugStatus();
   const Icon = failed ? X : completed ? Check : CircleEllipsis;
 
   if (completed || failed) {
     return (
       <div
         className={`my-2 flex items-center gap-2 text-xs ${
-          failed ? "text-danger" : "text-ink-muted"
+          debugStatus && failed ? "text-danger" : "text-ink-muted"
         }`}
       >
-        <Icon size={14} className="shrink-0" />
+        {debugStatus && <Icon size={14} className="shrink-0" />}
         <span className="min-w-0 truncate font-medium text-ink-secondary">
           {title}
         </span>
-        {status && status !== title && (
+        {debugStatus && status && status !== title && (
           <span className="min-w-0 truncate">· {status}</span>
         )}
       </div>
@@ -34,7 +56,7 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
       <div className="flex items-center gap-2">
         <CircleEllipsis
           size={14}
-          className="shrink-0 animate-pulse text-accent"
+          className="shrink-0 animate-pulse text-ink-tertiary"
         />
         <span className="min-w-0 truncate font-medium text-ink">{title}</span>
       </div>
@@ -43,6 +65,10 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
       </div>
     </div>
   );
+}
+
+export function isContextCompactionMessage(message: StreamMessage): boolean {
+  return message.metadata?.kind === "context_compaction";
 }
 
 function progressTitle(message: StreamMessage): string {

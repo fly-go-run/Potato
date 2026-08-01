@@ -4,6 +4,7 @@ import {
   initialMemoryEditorState,
   memoryDisplayName,
   memoryEditorReducer,
+  memoryTimeIso,
   type MdFileInfo,
 } from "./memory";
 
@@ -39,16 +40,36 @@ describe("memory grouping", () => {
     ]);
   });
 
-  it("removes only known group prefixes from display names", () => {
+  it("turns slugs into natural titles without file extensions", () => {
     expect(
       memoryDisplayName(file("2026-07-27/shell-entry.md", "2026-07-27")),
-    ).toBe("shell-entry.md");
+    ).toBe("Shell entry");
     expect(
-      memoryDisplayName(file("digest/procedure/deploy.md", "2026-07-27")),
-    ).toBe("deploy.md");
-    expect(memoryDisplayName(file("misc/note.md", "2026-07-27"))).toBe(
-      "misc/note.md",
+      memoryDisplayName(file("digest/procedure/deploy_to_prod.md", "2026-07-27")),
+    ).toBe("Deploy to prod");
+    expect(memoryDisplayName(file("misc/note.md", "2026-07-27"))).toBe("Note");
+    expect(memoryDisplayName(file("digest/wiki/沙箱边界.md", "2026-07-27"))).toBe(
+      "沙箱边界",
     );
+    // 日记按日期命名，分隔符不能被拆成空格
+    expect(memoryDisplayName(file("2026-07-27.md", "2026-07-27"))).toBe(
+      "2026-07-27",
+    );
+  });
+});
+
+describe("memoryTimeIso", () => {
+  it("normalises epoch seconds, epoch millis and date strings", () => {
+    expect(memoryTimeIso(1_774_000_000)).toBe(
+      new Date(1_774_000_000_000).toISOString(),
+    );
+    expect(memoryTimeIso(1_774_000_000_000)).toBe(
+      new Date(1_774_000_000_000).toISOString(),
+    );
+    expect(memoryTimeIso("2026-07-27T11:00:00Z")).toBe(
+      "2026-07-27T11:00:00.000Z",
+    );
+    expect(memoryTimeIso("not-a-date")).toBeNull();
   });
 });
 

@@ -50,7 +50,8 @@ export function groupMemoryFiles(files: MdFileInfo[]): MemoryGroup[] {
   });
 }
 
-export function memoryDisplayName(file: MdFileInfo): string {
+/** 去掉分组前缀后的相对文件名（仍带扩展名，属技术信息）。 */
+function memoryRelativeName(file: MdFileInfo): string {
   switch (memoryGroupKey(file.filename)) {
     case "journal":
       return file.filename.replace(/^\d{4}-\d{2}-\d{2}\//, "");
@@ -61,6 +62,32 @@ export function memoryDisplayName(file: MdFileInfo): string {
     case "other":
       return file.filename;
   }
+}
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 列表主行标题：去扩展名、取末段、slug 分隔符转空格、首字母大写。
+ * 中文文件名原样保留；纯日期文件名（日记）不拆分隔符。
+ */
+export function memoryDisplayName(file: MdFileInfo): string {
+  const base = memoryRelativeName(file).replace(/\.mdx?$/i, "");
+  const leaf = base.split("/").pop() ?? base;
+  if (!leaf) return base;
+  if (DATE_ONLY.test(leaf)) return leaf;
+  const spaced = leaf.replace(/[-_]+/g, " ").trim();
+  if (!spaced) return leaf;
+  return spaced.replace(/^\p{Ll}/u, (letter) => letter.toUpperCase());
+}
+
+/**
+ * 把后端的 epoch 秒/毫秒或日期串归一成 ISO 串，交给 lib/relativeTime 渲染。
+ * 无法解析时返回 null（调用方留白）。
+ */
+export function memoryTimeIso(value: string | number): string | null {
+  const timestamp = timestampValue(value);
+  if (!timestamp) return null;
+  return new Date(timestamp).toISOString();
 }
 
 export function formatFileSize(bytes: number, language: "zh" | "en"): string {
@@ -76,32 +103,6 @@ export function formatFileSize(bytes: number, language: "zh" | "en"): string {
   return `${new Intl.NumberFormat(language === "zh" ? "zh-CN" : "en", {
     maximumFractionDigits: value >= 10 ? 0 : 1,
   }).format(value)} ${unit}`;
-}
-
-export function formatRelativeTime(
-  value: string | number,
-  language: "zh" | "en",
-  now = Date.now(),
-): string {
-  const timestamp = timestampValue(value);
-  if (!timestamp) return String(value);
-  const seconds = Math.round((timestamp - now) / 1000);
-  const absoluteSeconds = Math.abs(seconds);
-  const [amount, unit]: [number, Intl.RelativeTimeFormatUnit] =
-    absoluteSeconds < 60
-      ? [seconds, "second"]
-      : absoluteSeconds < 3600
-        ? [Math.round(seconds / 60), "minute"]
-        : absoluteSeconds < 86_400
-          ? [Math.round(seconds / 3600), "hour"]
-          : absoluteSeconds < 2_592_000
-            ? [Math.round(seconds / 86_400), "day"]
-            : absoluteSeconds < 31_536_000
-              ? [Math.round(seconds / 2_592_000), "month"]
-              : [Math.round(seconds / 31_536_000), "year"];
-  return new Intl.RelativeTimeFormat(language === "zh" ? "zh-CN" : "en", {
-    numeric: "auto",
-  }).format(amount, unit);
 }
 
 function timestampValue(value: string | number): number {

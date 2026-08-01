@@ -1,4 +1,9 @@
-export { Button, type ButtonProps, type ButtonVariant } from "./Button";
+export {
+  Button,
+  type ButtonProps,
+  type ButtonShape,
+  type ButtonVariant,
+} from "./Button";
 export { IconButton, type IconButtonProps } from "./IconButton";
 export { Input, inputClasses, type InputProps } from "./Input";
 export { Select, type SelectProps } from "./Select";

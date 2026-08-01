@@ -15,9 +15,32 @@ body {
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  font-kerning: normal;
+  font-optical-sizing: auto;
+  font-synthesis: none;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
   text-rendering: optimizeLegibility;
   font-size: 14px;
-  line-height: 1.6;
+  font-weight: 400;
+  line-height: 1.5; /* 控件行高;正文的 1.7+ 由 Markdown/气泡组件显式声明 */
+}
+
+/* Tauri overlay titlebar: the data attribute is the semantic marker, while
+ * WebKit needs the CSS region to actually hand pointer movement to the native
+ * window. Interactive descendants opt out so controls remain clickable. */
+*[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+
+button,
+a,
+input,
+textarea,
+select,
+[role="button"] {
+  -webkit-app-region: no-drag;
 }
 
 ::selection {
@@ -27,21 +50,25 @@ body {
 /* ── 全局焦点态兜底 ─────────────────────────────────────────
  * 此前全 app outline-none 遍地却无 focus ring 替代，键盘导航
  * 完全不可见。这里给所有可聚焦元素一条克制但清晰的 ring；
- * 组件用 focus-visible:ring-* 时可自行覆盖。 */
+ * 组件用 focus-visible:ring-* 时可自行覆盖。
+ *
+ * 刻意不含 input / textarea：文本框鼠标点击即匹配 :focus-visible
+ * （规范如此），套一圈矩形 outline 会切开胶囊类容器。文本输入的
+ * 聚焦表达交给元素/容器自身（inputClasses 的 ring、composer 的
+ * focus-within）。 */
 :where(
   button,
   a,
-  input,
-  textarea,
   select,
   [role="switch"],
   [role="tab"],
   [role="menuitem"],
-  [tabindex]
+  /* 排除 tabindex=-1:仅程序化聚焦的容器(如 Radix Dialog 面板),
+     Tab 不可达,焦点环只会在开屏时闪现误导 */
+  [tabindex]:not([tabindex="-1"])
 ):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: inherit;
 }
 /* 鼠标点击不触发 outline（只在键盘 focus-visible 时出现），
  * 但保留元素自身的 :focus 样式空间。 */

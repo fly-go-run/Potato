@@ -184,14 +184,19 @@ export async function runOptimisticSkillToggle({
   skills: SkillInfo[];
   name: string;
   enabled: boolean;
-  onUpdate: (skills: SkillInfo[]) => void;
+  onUpdate: (update: (skills: SkillInfo[]) => SkillInfo[]) => void;
   mutate: () => Promise<unknown>;
 }) {
-  onUpdate(applySkillToggle(skills, name, enabled));
+  const previousEnabled = skills.find((skill) => skill.name === name)?.enabled;
+  onUpdate((current) => applySkillToggle(current, name, enabled));
   try {
     await mutate();
   } catch (error) {
-    onUpdate(skills);
+    if (previousEnabled !== undefined) {
+      onUpdate((current) =>
+        applySkillToggle(current, name, previousEnabled),
+      );
+    }
     throw error;
   }
 }

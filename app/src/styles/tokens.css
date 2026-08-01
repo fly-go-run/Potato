@@ -4,44 +4,50 @@
  * Tailwind 工具类（bg-surface、text-ink、border-line …）。
  * 组件代码一律使用语义类，禁止硬编码色值。
  *
- * 设计语言（对标 Codex Desktop 的克制质感）：
- *  - 层次靠 elevation：bg < surface < raised，逐级抬升；深色尤其如此。
- *  - 颜色极度克制：主操作用中性近黑（--btn-primary），accent 只留给
- *    选中 / 链接 / 进行中等「真状态」，不作装饰。
+ * 设计语言（对标 Codex Desktop / WorkBuddy 的克制质感）：
+ *  - 四级表面：canvas（内容画布）/ bg（侧栏、外围）/ surface（卡片、composer）/
+ *    raised（弹层）。浅色下 canvas 微灰、surface 纯白 → 白卡浮在画布上；
+ *    深色下 canvas 最暗、侧栏与卡片抬升（对标 WB 深色的 elevation 反转）。
+ *  - 颜色极度克制：所有界面 chrome 都使用中性灰；彩色只留给
+ *    成功 / 警告 / 错误等真正有语义的状态，不作品牌装饰。
  *  - 阴影双层（近景锐 + 远景柔）才有真实高度感；深色叠高光描边补纵深。
  *  - 排版四级：display / title / body / caption，字重与色阶共同分层。
  * ============================================================ */
 
 :root {
-  /* -- 中性色（浅色主题）：底 → 面 → 抬升，三级可感知 -- */
-  --bg: #f6f6f8;             /* 应用底色（侧栏、页面外围） */
-  --surface: #ffffff;        /* 主内容区 / 卡片 */
+  /* -- 中性色（浅色主题）：画布 → 底 → 面 → 抬升，四级可感知。
+        严格 R=G=B 纯灰(r2 审查:B 通道偏高会带蓝紫脏调,且抢 accent 的戏) -- */
+  --canvas: #fbfbfb;         /* WorkBuddy 式近白工作画布 */
+  --bg: #f5f5f4;             /* 侧栏用暖度近零的柔灰，避免死白和脏灰 */
+  --surface: #ffffff;        /* 卡片 / composer，全页最亮=视觉中心 */
   --surface-raised: #ffffff; /* 弹层、菜单、抽屉 */
+  --overlay: rgba(17, 17, 17, 0.4); /* 模态遮罩:永远压暗,不随文本色反转 */
+  --composer-tray: #f5f5f4;  /* composer 下挂托盘：只在输入卡底部露出 */
 
   /* -- 文本四级：主 / 次 / 三 / 弱 -- */
-  --ink: #17171a;            /* 主文本、标题 */
-  --ink-secondary: #52525b;  /* 次级文本、正文补充 */
-  --ink-tertiary: #74747d;   /* 三级：元信息、时间戳 */
-  --ink-muted: #9a9aa2;      /* 弱化：占位符、禁用 */
+  --ink: #202020;            /* 主文本、标题 */
+  --ink-secondary: #505050;  /* 次级文本、正文补充 */
+  --ink-tertiary: #747474;   /* 三级：元信息、时间戳、设置说明 */
+  --ink-muted: #9b9b9b;      /* 弱化：占位符、禁用 */
 
   /* -- 描边与分隔 -- */
-  --line: #e9e9ed;           /* 分隔线 / 常规描边 */
-  --line-strong: #d6d6dc;    /* 输入框 hover、强调描边 */
+  --line: #ececea;           /* 分隔线 / 常规描边 */
+  --line-strong: #dcdcd9;    /* 输入框 hover、强调描边 */
   --line-highlight: rgba(0, 0, 0, 0.04); /* 面板顶部高光（浅色下极弱） */
 
   /* -- 交互填充（替代「拿描边色当填充」的 hack） -- */
-  --fill-hover: #f0f0f3;     /* hover 底 */
-  --fill-active: #e7e7ec;    /* 按下 / 选中底 */
+  --fill-hover: #eeeeec;     /* hover 底 */
+  --fill-active: #e6e6e4;    /* 按下 / 选中底 */
 
-  /* -- 强调色（克制，仅用于真状态） -- */
-  --accent: #3b6ef0;
-  --accent-hover: #2f5bd6;
-  --accent-soft: #eef2fe;    /* 选中态浅底、徽标底 */
-  --ring: color-mix(in srgb, var(--accent) 42%, transparent);
+  /* -- 中性强调：避免焦点框、未读徽标和选中态跳出蓝色 -- */
+  --accent: #4a4a4a;
+  --accent-hover: #242424;
+  --accent-soft: #ededed;
+  --ring: rgba(23, 23, 23, 0.24);
 
   /* -- 主按钮（中性近黑，Codex 风格；accent 不再背负「主操作」） -- */
-  --btn-primary: #1c1c20;
-  --btn-primary-hover: #33333a;
+  --btn-primary: #1c1c1c;
+  --btn-primary-hover: #333333;
   --btn-primary-ink: #ffffff;
 
   /* -- 状态色（仅状态反馈，不作装饰） -- */
@@ -51,74 +57,98 @@
   --danger-soft: #fdf0f0;
 
   /* -- 气泡与工具卡 -- */
-  --bubble-user: #eceef2;    /* 用户消息底 */
-  --bubble-tool: #f3f3f6;    /* 工具卡底（较 surface 提一档，成「面」） */
+  --bubble-user: #ececec;    /* 用户消息底（对表 WB 实测值） */
+  --bubble-tool: #f3f3f3;    /* 工具卡底（较 surface 提一档，成「面」） */
 
   /* -- 几何：小控件用 sm，卡片用 md，容器用 lg -- */
   --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-bubble: 18px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-bubble: 20px;
 
   /* -- 阴影：双层（近景锐 + 远景柔），三档 elevation -- */
-  --shadow-sm: 0 1px 2px rgba(17, 17, 26, 0.04), 0 1px 1px rgba(17, 17, 26, 0.06);
-  --shadow-md: 0 2px 4px rgba(17, 17, 26, 0.05), 0 4px 12px rgba(17, 17, 26, 0.08);
-  --shadow-lg: 0 6px 12px rgba(17, 17, 26, 0.08), 0 16px 40px rgba(17, 17, 26, 0.12);
+  --shadow-sm: 0 1px 1px rgba(17, 17, 17, 0.035), 0 2px 5px rgba(17, 17, 17, 0.035);
+  --shadow-md: 0 2px 5px rgba(17, 17, 17, 0.055), 0 8px 22px rgba(17, 17, 17, 0.07);
+  --shadow-lg: 0 5px 14px rgba(17, 17, 17, 0.07), 0 18px 46px rgba(17, 17, 17, 0.1);
   --shadow-raised: var(--shadow-lg); /* 兼容旧引用 */
+  --shadow-control: 0 1px 1px rgba(17, 17, 17, 0.035),
+    0 4px 12px rgba(17, 17, 17, 0.055);
+  --shadow-composer: 0 1px 2px rgba(17, 17, 17, 0.07),
+    0 6px 18px rgba(17, 17, 17, 0.055);
+  --shadow-composer-focus: 0 1px 2px rgba(17, 17, 17, 0.08),
+    0 8px 24px rgba(17, 17, 17, 0.075);
+  --shadow-input-focus: 0 0 0 3px rgba(32, 32, 32, 0.055),
+    0 3px 10px rgba(17, 17, 17, 0.045);
 
   /* -- 过渡时长 -- */
   --dur-fast: 120ms;   /* 交互态（hover/active/color） */
   --dur-panel: 160ms;  /* 弹层开合 */
 
   /* -- 字体 -- */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", "Noto Sans SC", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
+    "Microsoft YaHei", Arial, sans-serif;
+  --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, Menlo,
+    "Cascadia Code", Consolas, monospace;
 }
 
 .dark {
-  /* 近黑基底 → 逐级抬升，相邻层≥8 亮度点，营造真实纵深 */
-  --bg: #0f0f12;
-  --surface: #17171b;
-  --surface-raised: #202027;
+  /* 深色 elevation 反转（对标 WB）：画布最暗成「井」，侧栏与卡片抬升发亮。
+     同样严格 R=G=B 纯灰。 */
+  --canvas: #141414;         /* 主内容画布，全局最暗 */
+  --bg: #1c1c1c;             /* 侧栏、外围：浮在画布之上 */
+  --surface: #202020;        /* 卡片 / composer：再亮一档 */
+  --surface-raised: #2a2a2a; /* 弹层最亮，脱离页面 */
+  --overlay: rgba(0, 0, 0, 0.55); /* 深色遮罩仍是压暗(修 bg-ink 反向 bug) */
+  --composer-tray: #2a2a2a;  /* 深色托盘比面板亮:近 chrome 层靠提亮表达 */
 
-  --ink: #ececef;
-  --ink-secondary: #b0b0b8;
-  --ink-tertiary: #8b8b94;
-  --ink-muted: #6d6d76;
+  --ink: #ececec;
+  --ink-secondary: #b0b0b0;
+  --ink-tertiary: #8f8f8f;
+  --ink-muted: #6f6f6f;
 
-  --line: #2f2f38;
-  --line-strong: #46464f;
+  --line: #303030;
+  --line-strong: #464646;
   --line-highlight: rgba(255, 255, 255, 0.06); /* 面板顶部打光，深色关键 */
 
   --fill-hover: rgba(255, 255, 255, 0.05);
   --fill-active: rgba(255, 255, 255, 0.09);
 
-  --accent: #6b8fe6;         /* 较浅色沉一档，不糖果 */
-  --accent-hover: #7f9fec;
-  --accent-soft: #232f4a;
-  --ring: color-mix(in srgb, var(--accent) 50%, transparent);
+  --accent: #c9c9c9;
+  --accent-hover: #eeeeee;
+  --accent-soft: #343434;
+  --ring: rgba(236, 236, 236, 0.28);
 
-  --btn-primary: #ececef;    /* 深色下主按钮为近白 + 深字 */
+  --btn-primary: #ececec;    /* 深色下主按钮为近白 + 深字 */
   --btn-primary-hover: #ffffff;
-  --btn-primary-ink: #17171b;
+  --btn-primary-ink: #171717;
 
   --ok: #3fbf7f;
   --warn: #d9a441;
   --danger: #e06c6c;
   --danger-soft: #3a2626;
 
-  --bubble-user: #262630;
-  --bubble-tool: #1e1e24;
+  --bubble-user: #262626;
+  --bubble-tool: #222222;
 
   /* 深色阴影更重，并依赖 line-highlight 补高光 */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.35), 0 8px 20px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow-raised: var(--shadow-lg);
+  /* 近黑背景上黑阴影是无效像素:深色 composer 靠表面差+高光描边分层 */
+  --shadow-composer: none;
+  --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-composer-focus: 0 0 0 1px rgba(255, 255, 255, 0.055);
+  --shadow-input-focus: 0 0 0 3px rgba(255, 255, 255, 0.07);
 }
 
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-overlay: var(--overlay);
+  --color-composer-tray: var(--composer-tray);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-raised: var(--surface-raised);
@@ -151,10 +181,15 @@
   --radius-bubble: var(--radius-bubble);
 
   --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-mono);
 
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-raised: var(--shadow-raised);
+  --shadow-composer: var(--shadow-composer);
+  --shadow-control: var(--shadow-control);
+  --shadow-composer-focus: var(--shadow-composer-focus);
+  --shadow-input-focus: var(--shadow-input-focus);
 }

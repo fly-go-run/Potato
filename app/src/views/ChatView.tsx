@@ -1,20 +1,172 @@
-import { CloudUpload } from "lucide-react";
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import {
+  ArrowDown,
+  Bug,
+  CalendarClock,
+  CloudUpload,
+  CodeXml,
+  Coffee,
+  FileCode2,
+  FolderClosed,
+  FileText,
+  Gauge,
+  Image,
+  Inbox,
+  LayoutTemplate,
+  MousePointer2,
+  NotebookPen,
+  Palette,
+  PanelRightOpen,
+  Presentation,
+  Search,
+  ScanSearch,
+  SwatchBook,
+  Table2,
+  TestTube2,
+  X,
+} from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useParams } from "react-router-dom";
 import { Composer } from "../components/chat/Composer";
+import {
+  collectConversationArtifacts,
+  ConversationSidePanel,
+} from "../components/chat/ConversationSidePanel";
+import { textFromContent } from "../components/chat/Markdown";
 import { MessageList } from "../components/chat/MessageList";
 import { Banner } from "../components/ui/Banner";
 import { Button, Card, SkeletonRows } from "../components/ui";
 import { getChatBanner } from "../lib/chatBanner";
+import {
+  isMacDesktopShell,
+  startDesktopWindowDrag,
+} from "../lib/desktop";
 import { useTranslation } from "../lib/i18n";
+import { isAtBottom as isScrollAtBottom } from "../lib/scroll";
 import { shortcutLabel } from "../lib/shortcuts";
 import { useChatStore } from "../stores/chat";
+import { useUiStore } from "../stores/ui";
+
+function CapabilityChips({ wide = false }: { wide?: boolean }) {
+  const { t } = useTranslation();
+  const [category, setCategory] = useState<"office" | "code" | "design">(
+    "office",
+  );
+  const setComposerDraft = useChatStore((state) => state.setComposerDraft);
+  const busy = useChatStore(
+    (state) => state.isSubmitting || state.isStreaming,
+  );
+  // key 是胶囊上的短标签,prompt 是点击后填入的完整任务指令(部分留白等用户补充)
+  const groups = {
+    office: [
+      { key: "chat.suggest.inbox", prompt: "chat.suggest.inbox.prompt", icon: Inbox },
+      { key: "chat.suggest.report", prompt: "chat.suggest.report.prompt", icon: NotebookPen },
+      { key: "chat.suggest.doc", prompt: "chat.suggest.doc.prompt", icon: FileText },
+      { key: "chat.suggest.sheet", prompt: "chat.suggest.sheet.prompt", icon: Table2 },
+      { key: "chat.suggest.slides", prompt: "chat.suggest.slides.prompt", icon: Presentation },
+      { key: "chat.suggest.cron", prompt: "chat.suggest.cron.prompt", icon: CalendarClock },
+    ],
+    code: [
+      { key: "chat.suggest.code.explain", prompt: "chat.suggest.code.explain.prompt", icon: FileCode2 },
+      { key: "chat.suggest.code.fix", prompt: "chat.suggest.code.fix.prompt", icon: Bug },
+      { key: "chat.suggest.code.test", prompt: "chat.suggest.code.test.prompt", icon: TestTube2 },
+      { key: "chat.suggest.code.review", prompt: "chat.suggest.code.review.prompt", icon: ScanSearch },
+      { key: "chat.suggest.code.refactor", prompt: "chat.suggest.code.refactor.prompt", icon: Gauge },
+      { key: "chat.suggest.code.project", prompt: "chat.suggest.code.project.prompt", icon: CodeXml },
+    ],
+    design: [
+      { key: "chat.suggest.design.ui", prompt: "chat.suggest.design.ui.prompt", icon: LayoutTemplate },
+      { key: "chat.suggest.design.image", prompt: "chat.suggest.design.image.prompt", icon: Image },
+      { key: "chat.suggest.design.interaction", prompt: "chat.suggest.design.interaction.prompt", icon: MousePointer2 },
+      { key: "chat.suggest.design.prototype", prompt: "chat.suggest.design.prototype.prompt", icon: Palette },
+      { key: "chat.suggest.design.review", prompt: "chat.suggest.design.review.prompt", icon: ScanSearch },
+      { key: "chat.suggest.design.system", prompt: "chat.suggest.design.system.prompt", icon: SwatchBook },
+    ],
+  } as const;
+  const categories = [
+    { value: "office", label: "chat.category.office", icon: Coffee },
+    { value: "code", label: "chat.category.code", icon: CodeXml },
+    { value: "design", label: "chat.category.design", icon: Palette },
+  ] as const;
+  const suggestions = groups[category];
+  return (
+    // padding 在 max-w 外层，与 Composer 同构，胶囊行才能与输入卡左右对齐
+    <div className="px-4 sm:px-6">
+      <div className="flex justify-center">
+        <div
+          role="tablist"
+          aria-label={t("chat.category.label")}
+          className="inline-flex items-center rounded-full bg-fill-hover p-0.5"
+        >
+          {categories.map(({ value, label, icon: Icon }) => {
+            const selected = category === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setCategory(value)}
+                className={`flex h-9 items-center gap-2 rounded-full px-5 text-[14px] font-medium transition-[background-color,color,box-shadow] duration-[var(--dur-fast)] ${
+                  selected
+                    ? "bg-btn-primary text-btn-primary-ink shadow-[var(--shadow-control)]"
+                    : "text-ink-secondary hover:bg-fill-active hover:text-ink"
+                }`}
+              >
+                <Icon size={16} strokeWidth={1.8} />
+                {t(label)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div
+        className={`mx-auto mt-14 flex flex-wrap justify-center gap-2 ${
+          wide ? "w-full sm:w-[91%] sm:max-w-[90rem]" : "w-full max-w-[48rem]"
+        }`}
+      >
+        {suggestions.map(({ key, prompt, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            disabled={busy}
+            onClick={() => setComposerDraft(t(prompt))}
+            className="group flex h-9 items-center gap-1.5 rounded-full border border-transparent bg-surface px-4 text-[13px] leading-5 text-ink-secondary shadow-[var(--shadow-control)] transition-[background-color,color,box-shadow,opacity] duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink active:bg-fill-active disabled:pointer-events-none disabled:opacity-40"
+          >
+            <Icon
+              size={16}
+              className="shrink-0 text-ink-tertiary transition-colors duration-[var(--dur-fast)] group-hover:text-ink-secondary"
+            />
+            {t(key)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function ChatView() {
   const { t } = useTranslation();
   const { chatId } = useParams();
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
+  const [atBottom, setAtBottom] = useState(true);
+  const [hasNewContent, setHasNewContent] = useState(false);
   const [switchingModel, setSwitchingModel] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeSearchMessageId, setActiveSearchMessageId] = useState("");
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [selectedFilePath, setSelectedFilePath] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const {
     activeChatId,
     stream,
@@ -29,8 +181,32 @@ export function ChatView() {
     clearError,
     addImages,
   } = useChatStore();
+  const chats = useChatStore((state) => state.chats);
+  const activeProject = useChatStore((state) => state.project);
+  const activeChatName =
+    chats.find((chat) => chat.id === activeChatId)?.name ?? "";
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
+  const artifacts = useMemo(
+    () => collectConversationArtifacts(stream.messages),
+    [stream.messages],
+  );
+  const searchMatches = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) return [];
+    return stream.messages
+      .filter(
+        (message) =>
+          (message.role === "user" || message.role === "assistant") &&
+          (message.type === "message" || message.type === "result"),
+      )
+      .map((message) => ({
+        id: message.id,
+        role: message.role,
+        text: textFromContent(message.content).trim(),
+      }))
+      .filter((message) => message.text.toLocaleLowerCase().includes(query));
+  }, [searchQuery, stream.messages]);
 
   const onDragEnter = (event: DragEvent) => {
     if (!event.dataTransfer.types.includes("Files")) return;
@@ -56,7 +232,10 @@ export function ChatView() {
     if (files.length) addImages(files);
   };
   const banner = getChatBanner(error, stream.rateLimited);
-  const searchShortcut = shortcutLabel("K");
+  const bannerMessage =
+    banner && /^internal server error$/i.test(banner.message.trim())
+      ? t("chat.error.serviceUnavailable")
+      : banner?.message;
   const isEmpty =
     stream.messages.length === 0 && pendingApprovals.length === 0;
 
@@ -66,8 +245,47 @@ export function ChatView() {
 
   useEffect(() => {
     const element = scrollRef.current;
-    if (element) element.scrollTop = element.scrollHeight;
+    if (!element) return;
+    const handleScroll = () => {
+      const nextAtBottom = isScrollAtBottom(element);
+      atBottomRef.current = nextAtBottom;
+      setAtBottom(nextAtBottom);
+      if (nextAtBottom) setHasNewContent(false);
+    };
+    element.addEventListener("scroll", handleScroll, { passive: true });
+    return () => element.removeEventListener("scroll", handleScroll);
+  }, [historyLoading, isEmpty]);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    if (atBottomRef.current) {
+      element.scrollTop = element.scrollHeight;
+      setHasNewContent(false);
+    } else {
+      setHasNewContent(true);
+    }
   }, [pendingApprovals, stream.messages]);
+
+  useEffect(() => {
+    atBottomRef.current = true;
+    setAtBottom(true);
+    setHasNewContent(false);
+    setSearchOpen(false);
+    setSearchQuery("");
+    setActiveSearchMessageId("");
+    setSidePanelOpen(false);
+    setSelectedFilePath("");
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [searchOpen]);
+
+  useEffect(() => {
+    setActiveSearchMessageId(searchMatches[0]?.id ?? "");
+  }, [searchMatches]);
 
   useEffect(() => {
     if (!isStreaming || !sessionId) return;
@@ -90,6 +308,69 @@ export function ChatView() {
     };
   }, [isStreaming, pollApprovals, sessionId]);
 
+  const scrollToBottom = () => {
+    const element = scrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+    atBottomRef.current = true;
+    setAtBottom(true);
+    setHasNewContent(false);
+  };
+
+  const showBackToBottom = !atBottom && (isStreaming || hasNewContent);
+
+  const openFilePreview = (path: string) => {
+    if (!path) return;
+    setSelectedFilePath(path);
+    setSidePanelOpen(true);
+  };
+
+  const closeSidePanel = () => {
+    setSelectedFilePath("");
+    setSidePanelOpen(false);
+  };
+
+  const onTitlebarMouseDown = (event: ReactMouseEvent<HTMLElement>) => {
+    if (!isMacDesktopShell() || event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "button, a, input, textarea, select, [role=button], [data-radix-popper-content-wrapper]",
+      )
+    ) {
+      return;
+    }
+    startDesktopWindowDrag();
+  };
+
+  const locateMessage = (messageId: string) => {
+    const element = document.getElementById(`message-${messageId}`);
+    if (!element) return;
+    setActiveSearchMessageId(messageId);
+    element.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+
+  const cycleSearch = (direction: 1 | -1) => {
+    if (searchMatches.length === 0) return;
+    const current = searchMatches.findIndex(
+      (match) => match.id === activeSearchMessageId,
+    );
+    const next =
+      (Math.max(current, 0) + direction + searchMatches.length) %
+      searchMatches.length;
+    const match = searchMatches[next];
+    if (match) locateMessage(match.id);
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setSearchOpen(false);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      cycleSearch(event.shiftKey ? -1 : 1);
+    }
+  };
+
   return (
     <div
       className="relative flex h-full flex-col"
@@ -107,70 +388,263 @@ export function ChatView() {
         </div>
       )}
       {banner && (
-        <Banner
-          tone={banner.tone}
-          onDismiss={clearError}
-          actions={
-            banner.alternatives.length > 0
-              ? banner.alternatives.map((alternative) => {
-                  const key = `${alternative.provider_id}/${alternative.model_id}`;
-                  return (
-                    <Button
-                      key={key}
-                      variant="secondary"
-                      size="sm"
-                      disabled={switchingModel !== null}
-                      onClick={() => {
-                        setSwitchingModel(key);
-                        void switchRateLimitedModel(alternative).finally(() =>
-                          setSwitchingModel(null),
-                        );
-                      }}
-                      className="border-warn/30 text-warn"
-                    >
-                      {switchingModel === key
-                        ? t("chat.switchingModel")
-                        : t("chat.switchModel", {
-                            name:
-                              alternative.model_name ||
-                              alternative.model_id,
-                          })}
-                    </Button>
-                  );
-                })
-              : undefined
-          }
-        >
-          {banner.message}
-        </Banner>
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40">
+          <div className="pointer-events-auto">
+            <Banner
+              tone={banner.tone}
+              onDismiss={clearError}
+              actions={
+                banner.alternatives.length > 0
+                  ? banner.alternatives.map((alternative) => {
+                      const key = `${alternative.provider_id}/${alternative.model_id}`;
+                      return (
+                        <Button
+                          key={key}
+                          variant="secondary"
+                          size="sm"
+                          disabled={switchingModel !== null}
+                          onClick={() => {
+                            setSwitchingModel(key);
+                            void switchRateLimitedModel(alternative).finally(() =>
+                              setSwitchingModel(null),
+                            );
+                          }}
+                          className="border-warn/30 text-warn"
+                        >
+                          {switchingModel === key
+                            ? t("chat.switchingModel")
+                            : t("chat.switchModel", {
+                                name:
+                                  alternative.model_name ||
+                                  alternative.model_id,
+                              })}
+                        </Button>
+                      );
+                    })
+                  : undefined
+              }
+            >
+              {bannerMessage}
+            </Banner>
+          </div>
+        </div>
       )}
 
       {!historyLoading && isEmpty ? (
-        <div className="flex min-h-0 flex-1 flex-col justify-center pb-[12vh]">
-          <h1 className="text-center text-2xl font-medium tracking-tight text-ink">
-            {t("chat.emptyTitle")}
-          </h1>
-          <p className="mt-2 text-center text-sm text-ink-muted">
-            {t("chat.emptyHint", { shortcut: searchShortcut })}
-          </p>
-          <div className="mt-4 w-full">
-            <Composer />
+        // WorkBuddy 的空态从视口上方约 15% 开始；固定上边距比靠
+        // 大块 padding-bottom 挤压居中更稳定，矮窗口也不会顶到标题栏。
+        // 能力胶囊 → composer;胶囊贴着 composer(其自带 pt-2)形成一组输入区
+        <div className="flex min-h-0 flex-1 flex-col justify-start pb-10 pt-[13vh]">
+          <div className="px-4 sm:px-6">
+            <h1 className="font-display text-center text-[32px] font-semibold leading-[42px] tracking-[-0.025em] text-ink sm:text-[34px]">
+              {t("chat.emptyTitle")}
+            </h1>
+            <p className="sr-only">
+              {t("chat.emptyHint", { shortcut: shortcutLabel("K") })}
+            </p>
           </div>
+          <div className="mt-12">
+            <CapabilityChips wide />
+          </div>
+          <Composer wide />
         </div>
       ) : (
         <>
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-            {historyLoading ? (
-              <div className="mx-auto w-full max-w-3xl px-6 py-8">
-                <Card className="p-4">
-                  <SkeletonRows rows={6} />
-                </Card>
+          {/* 会话页头(对标 WB 44px 任务栏):滚动不带走任务身份。
+              macOS 壳下同时充当可拖拽区。 */}
+          <header
+            data-tauri-drag-region
+            onMouseDown={onTitlebarMouseDown}
+            className={`relative z-30 flex h-11 shrink-0 items-center border-b border-line bg-canvas pr-4 ${
+              isMacDesktopShell() && sidebarCollapsed ? "pl-40" : "pl-4"
+            }`}
+          >
+            <div
+              data-tauri-drag-region
+              className="flex min-w-0 flex-1 items-center gap-2"
+            >
+              <span
+                data-tauri-drag-region
+                className="min-w-0 truncate text-[13px] font-medium text-ink"
+              >
+                {activeChatName || t("sidebar.untitled")}
+              </span>
+              {activeProject && (
+                <span
+                  data-tauri-drag-region
+                  className="flex min-w-0 max-w-[13rem] items-center gap-1 border-l border-line pl-2 text-[11px] text-ink-tertiary"
+                  title={activeProject.path}
+                >
+                  <FolderClosed
+                    data-tauri-drag-region
+                    size={12}
+                    className="shrink-0"
+                  />
+                  <span data-tauri-drag-region className="truncate">
+                    {activeProject.name}
+                  </span>
+                </span>
+              )}
+            </div>
+            {isStreaming && (
+              <span
+                data-tauri-drag-region
+                className="flex shrink-0 items-center gap-1.5 text-[11px] text-ink-tertiary"
+              >
+                <span
+                  data-tauri-drag-region
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok"
+                />
+                {t("sidebar.running")}
+              </span>
+            )}
+            <div className="ml-2 flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => setSearchOpen((value) => !value)}
+                title={t("chat.search.title")}
+                aria-label={t("chat.search.title")}
+                aria-expanded={searchOpen}
+                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
+                  searchOpen
+                    ? "bg-fill-active text-ink"
+                    : "text-ink-muted hover:bg-fill-hover hover:text-ink"
+                }`}
+              >
+                <Search size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  sidePanelOpen ? closeSidePanel() : setSidePanelOpen(true)
+                }
+                title={t("chat.panel.open")}
+                aria-label={t("chat.panel.open")}
+                aria-expanded={sidePanelOpen}
+                className={`relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
+                  sidePanelOpen
+                    ? "bg-fill-active text-ink"
+                    : "text-ink-muted hover:bg-fill-hover hover:text-ink"
+                }`}
+              >
+                <PanelRightOpen size={15} />
+                {artifacts.length > 0 && (
+                  <span className="absolute right-0.5 top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-btn-primary px-1 text-[9px] leading-3.5 text-btn-primary-ink">
+                    {artifacts.length > 9 ? "9+" : artifacts.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </header>
+          {searchOpen && (
+            <div className="absolute right-3 top-12 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
+              <div className="flex h-11 items-center gap-2 border-b border-line px-3">
+                <Search size={14} className="shrink-0 text-ink-muted" />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={t("chat.search.placeholder")}
+                  aria-label={t("chat.search.title")}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
+                />
+                {searchQuery && (
+                  <span className="shrink-0 text-[11px] tabular-nums text-ink-muted">
+                    {t("chat.search.count", { count: searchMatches.length })}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(false)}
+                  title={t("chat.search.close")}
+                  aria-label={t("chat.search.close")}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+                >
+                  <X size={14} />
+                </button>
               </div>
-            ) : (
-              <MessageList messages={stream.messages} />
+              <div className="max-h-64 overflow-y-auto p-1.5">
+                {!searchQuery.trim() ? (
+                  <div className="px-3 py-5 text-center text-xs text-ink-muted">
+                    {t("chat.search.hint")}
+                  </div>
+                ) : searchMatches.length === 0 ? (
+                  <div className="px-3 py-5 text-center text-xs text-ink-muted">
+                    {t("chat.search.empty")}
+                  </div>
+                ) : (
+                  searchMatches.map((match) => (
+                    <button
+                      key={match.id}
+                      type="button"
+                      onClick={() => locateMessage(match.id)}
+                      className={`block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors ${
+                        activeSearchMessageId === match.id
+                          ? "bg-fill-active"
+                          : "hover:bg-fill-hover"
+                      }`}
+                    >
+                      <span className="block text-[11px] text-ink-muted">
+                        {match.role === "user"
+                          ? t("chat.search.you")
+                          : t("chat.search.assistant")}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[13px] text-ink-secondary">
+                        {match.text}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+          <div className="flex min-h-0 flex-1">
+            <section className="flex min-w-0 flex-1 flex-col">
+              <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+                {historyLoading ? (
+                  <div className="mx-auto w-full max-w-[48rem] px-8 py-10">
+                    <Card className="p-4">
+                      <SkeletonRows rows={6} />
+                    </Card>
+                  </div>
+                ) : (
+                  <MessageList
+                    messages={stream.messages}
+                    activeMessageId={activeSearchMessageId}
+                    onOpenFile={openFilePreview}
+                  />
+                )}
+              </div>
+              <div className="relative">
+                {showBackToBottom && (
+                  <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full pb-2">
+                    <button
+                      type="button"
+                      onClick={scrollToBottom}
+                      className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-raised px-3 py-1.5 text-xs text-ink-secondary shadow-[var(--shadow-md)] transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
+                    >
+                      <ArrowDown size={13} />
+                      {t("chat.backToBottom")}
+                    </button>
+                  </div>
+                )}
+                <Composer />
+              </div>
+            </section>
+            {sidePanelOpen && (
+              <ConversationSidePanel
+                messages={stream.messages}
+                artifacts={artifacts}
+                responseStatus={stream.responseStatus}
+                selectedFilePath={selectedFilePath}
+                onClose={closeSidePanel}
+                onFileClose={() => setSelectedFilePath("")}
+                onOpenFile={openFilePreview}
+                onLocate={locateMessage}
+              />
             )}
           </div>
-          <Composer />
         </>
       )}
     </div>

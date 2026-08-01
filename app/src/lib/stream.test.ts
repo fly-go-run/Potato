@@ -5,6 +5,7 @@ import type { MessageFrame, SseFrame } from "./protocol/types";
 import {
   initialConversationStreamState,
   initialSseParserState,
+  isUnfinishedResponse,
   isUnexpectedStreamEof,
   parseSseBytes,
   parseSseChunk,
@@ -29,9 +30,21 @@ function parseFixture(name: string) {
 
 describe("SSE parser", () => {
   it("detects a clean EOF before a terminal response frame", () => {
+    expect(isUnexpectedStreamEof("created", false)).toBe(true);
     expect(isUnexpectedStreamEof("in_progress", false)).toBe(true);
     expect(isUnexpectedStreamEof("completed", false)).toBe(false);
+    expect(isUnexpectedStreamEof("failed", false)).toBe(false);
+    expect(isUnexpectedStreamEof("cancelled", false)).toBe(false);
     expect(isUnexpectedStreamEof("in_progress", true)).toBe(false);
+  });
+
+  it("keeps an interrupted created or in-progress response guarded", () => {
+    expect(isUnfinishedResponse("created")).toBe(true);
+    expect(isUnfinishedResponse("in_progress")).toBe(true);
+    expect(isUnfinishedResponse("idle")).toBe(false);
+    expect(isUnfinishedResponse("completed")).toBe(false);
+    expect(isUnfinishedResponse("failed")).toBe(false);
+    expect(isUnfinishedResponse("cancelled")).toBe(false);
   });
 
   it("parses a frame split in the middle of JSON", () => {
@@ -211,6 +224,60 @@ describe("stream reducer", () => {
       type: "reasoning",
       status: "in_progress",
       content: [{ type: "text", text: "先分析，再回答。" }],
+    });
+  });
+
+  it("keeps context compaction as one quiet progress message", () => {
+    const state = reduceStreamFrames([
+      {
+        object: "message",
+        id: "compact_1",
+        type: "progress",
+        role: "assistant",
+        content: [],
+        status: "in_progress",
+        metadata: { kind: "context_compaction", phase: "in_progress" },
+        sequence_number: 1,
+      },
+      {
+        object: "content",
+        type: "data",
+        data: { status: "in_progress" },
+        delta: false,
+        index: 0,
+        status: "in_progress",
+        msg_id: "compact_1",
+        sequence_number: 2,
+      },
+      {
+        object: "message",
+        id: "compact_1",
+        type: "progress",
+        role: "assistant",
+        content: [
+          {
+            object: "content",
+            type: "data",
+            data: { status: "completed" },
+            delta: false,
+            index: 0,
+            status: "completed",
+            msg_id: null,
+          },
+        ],
+        status: "completed",
+        metadata: { kind: "context_compaction", phase: "completed" },
+        sequence_number: 3,
+      },
+    ]);
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]).toMatchObject({
+      id: "compact_1",
+      type: "progress",
+      status: "completed",
+      metadata: { kind: "context_compaction", phase: "completed" },
+      content: [{ type: "data", data: { status: "completed" } }],
     });
   });
 

@@ -30,7 +30,11 @@ import {
   type InboxEvent,
   type InboxTrace,
 } from "../lib/inbox";
-import { useTranslation } from "../lib/i18n";
+import {
+  useTranslation,
+  type TranslationKey,
+} from "../lib/i18n";
+import { relativeTime } from "../lib/relativeTime";
 import { useInboxStore } from "../stores/inbox";
 
 export function InboxView() {
@@ -182,12 +186,14 @@ export function InboxView() {
               const expanded = expandedId === event.id;
               const runId = eventRunId(event);
               const trace = runId ? traces[runId] : undefined;
+              const presented = presentInboxEvent(event, t);
+              const createdAt = relativeEventTime(event.created_at);
               return (
                 <article
                   key={event.id}
                   className={event.read ? "bg-surface" : "bg-accent-soft/40"}
                 >
-                  <div className="flex items-stretch">
+                  <div className="group flex items-stretch">
                     <button
                       type="button"
                       onClick={() => void expand(event)}
@@ -209,19 +215,26 @@ export function InboxView() {
                               event.read ? "font-normal" : "font-semibold"
                             }`}
                           >
-                            {event.title || t("inbox.untitled")}
+                            {presented.title || t("inbox.untitled")}
                           </span>
-                          <EventStatus status={event.status} />
+                          <EventStatus
+                            status={event.status}
+                            label={presented.status}
+                          />
                         </span>
                         <span className="mt-1 line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
                           {event.body || t("inbox.details")}
                         </span>
                         <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-ink-tertiary">
                           <span>
-                            {t("inbox.source", { source: event.source_type })}
+                            {t("inbox.source", {
+                              source: presented.sourceType,
+                            })}
                           </span>
                           <span>·</span>
-                          <time>{formatTimestamp(event.created_at, language)}</time>
+                          <time>
+                            {createdAt ? t(createdAt.key, createdAt.params) : ""}
+                          </time>
                         </span>
                       </span>
                       {expanded ? (
@@ -242,7 +255,7 @@ export function InboxView() {
                       disabled={deletingId === event.id}
                       title={t("inbox.delete")}
                       onClick={() => setPendingDelete(event)}
-                      className="m-2 self-start"
+                      className="m-2 self-start opacity-0 transition-opacity duration-[var(--dur-fast)] focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
                     >
                       {deletingId === event.id ? (
                         <LoaderCircle size={15} className="animate-spin" />
@@ -254,6 +267,9 @@ export function InboxView() {
 
                   {expanded && (
                     <div className="border-t border-line bg-bubble-tool px-5 py-4">
+                      <time className="mb-2 block text-[11px] text-ink-tertiary">
+                        {formatTimestamp(event.created_at, language)}
+                      </time>
                       <div className="whitespace-pre-wrap text-sm leading-6 text-ink-secondary">
                         {event.body || t("inbox.details")}
                       </div>
@@ -332,14 +348,61 @@ export function InboxView() {
   );
 }
 
-function EventStatus({ status }: { status: string }) {
+function EventStatus({
+  status,
+  label,
+}: {
+  status: string;
+  label: string;
+}) {
   const tone =
     status === "success"
       ? "ok"
       : status === "error" || status === "failed"
         ? "danger"
         : "neutral";
-  return <Badge tone={tone}>{status}</Badge>;
+  return <Badge tone={tone}>{label}</Badge>;
+}
+
+type Translate = ReturnType<typeof useTranslation>["t"];
+
+const STATUS_KEYS: Partial<Record<string, TranslationKey>> = {
+  success: "inbox.status.success",
+  error: "inbox.status.error",
+  running: "inbox.status.running",
+};
+
+const SOURCE_TYPE_KEYS: Partial<Record<string, TranslationKey>> = {
+  memory: "inbox.sourceType.memory",
+  cron: "inbox.sourceType.cron",
+};
+
+const TITLE_KEYS: Partial<Record<string, TranslationKey>> = {
+  "Auto-dream result": "inbox.title.autoMemory",
+  "Auto-memory result": "inbox.title.autoMemory",
+};
+
+function presentInboxEvent(event: InboxEvent, t: Translate) {
+  return {
+    title: presentValue(event.title, TITLE_KEYS, t),
+    status: presentValue(event.status, STATUS_KEYS, t),
+    sourceType: presentValue(event.source_type, SOURCE_TYPE_KEYS, t),
+  };
+}
+
+function presentValue(
+  value: string,
+  keys: Partial<Record<string, TranslationKey>>,
+  t: Translate,
+) {
+  const key = keys[value];
+  return key ? t(key) : value;
+}
+
+function relativeEventTime(value: number) {
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.valueOf())) return null;
+  return relativeTime(date.toISOString());
 }
 
 function formatTimestamp(value: number, language: "zh" | "en") {
