@@ -16,6 +16,17 @@ fn open_devtools(window: WebviewWindow) {
     window.open_devtools();
 }
 
+/// Reveal the native window only after the real React app has completed auth
+/// and its first data initialization. A WebView page-load event is too early:
+/// it can still paint the temporary auth-checking state on a slow cold start.
+#[tauri::command]
+fn frontend_ready(window: WebviewWindow, state: tauri::State<'_, backend::BackendState>) {
+    if state.claim_frontend_reveal() {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Build the desktop app, wire native plugins/commands, and stop the backend on exit.
 pub fn run() {
@@ -29,6 +40,7 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             open_devtools,
+            frontend_ready,
             backend_download::download_backend_file,
             backend_download::read_workspace_binary_file,
             backend::backend_port,

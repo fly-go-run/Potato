@@ -173,12 +173,19 @@ case "$(uname -m)" in
     arm64 | aarch64) UPDATER_TARGET="darwin-aarch64" ;;
     *) UPDATER_TARGET="darwin-x86_64" ;;
 esac
-python "${REPO_ROOT}/scripts/pack-tauri/generate_update_manifest.py" stage \
-    --bundle-dir "${BUNDLE_DIR}/macos" \
-    --pattern '*.app.tar.gz' \
-    --target "${UPDATER_TARGET}" \
-    --output "${UPDATER_NAME}" \
-    --pubkey-config "${REPO_ROOT}/console/src-tauri/tauri.version.conf.json"
+# 更新包(*.app.tar.gz)只在配置了 Tauri 更新签名密钥的构建里产出;
+# 本地无密钥构建没有该产物,跳过清单生成(不影响 .app 与 zip)。
+if compgen -G "${BUNDLE_DIR}/macos/"*.app.tar.gz > /dev/null; then
+    python3 "${REPO_ROOT}/scripts/pack-tauri/generate_update_manifest.py" stage \
+        --bundle-dir "${BUNDLE_DIR}/macos" \
+        --pattern '*.app.tar.gz' \
+        --target "${UPDATER_TARGET}" \
+        --output "${UPDATER_NAME}" \
+        --pubkey-config "${REPO_ROOT}/console/src-tauri/tauri.version.conf.json"
+else
+    UPDATER_NAME="(skipped: no updater artifact; set TAURI_SIGNING_PRIVATE_KEY to produce one)"
+    echo "Updater artifact not found; skipping update manifest staging"
+fi
 
 echo ""
 echo "========================================="

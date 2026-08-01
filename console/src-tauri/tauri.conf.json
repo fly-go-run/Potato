@@ -12,11 +12,15 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "QwenPaw Desktop",
+        "title": "Potato",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 12, "y": 28 },
         "width": 1280,
         "height": 800,
         "minWidth": 960,
         "minHeight": 600,
+        "visible": false,
         "resizable": true,
         "fullscreen": false,
         "dragDropEnabled": false

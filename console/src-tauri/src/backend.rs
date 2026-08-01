@@ -14,6 +14,8 @@ use tauri_plugin_shell::process::CommandChild;
 use tokio::sync::watch;
 use uuid::Uuid;
 
+use crate::tray;
+
 mod command;
 mod events;
 
@@ -29,6 +31,7 @@ const DESKTOP_SHUTDOWN_TOKEN_HEADER: &str = "X-QwenPaw-Desktop-Shutdown-Token";
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
 const GRACEFUL_SHUTDOWN_EXIT_TIMEOUT: Duration = Duration::from_secs(60);
 const FORCED_SHUTDOWN_EXIT_TIMEOUT: Duration = Duration::from_secs(5);
+const STARTUP_REVEAL_WATCHDOG_TIMEOUT: Duration = Duration::from_secs(45);
 
 /// Shared sidecar process state managed by Tauri.
 #[derive(Default)]
@@ -45,6 +48,7 @@ struct BackendInner {
     terminated: Option<watch::Receiver<bool>>,
     stopping: bool,
     error: Option<String>,
+    frontend_reveal_claimed: bool,
 }
 
 enum StopPlan {
@@ -101,6 +105,27 @@ impl BackendState {
         }
     }
 
+    /// Claims the one allowed automatic startup reveal for this generation.
+    /// Once React has acknowledged readiness (or a fallback has revealed the
+    /// window), later watchdogs must not steal focus after a user hides it.
+    pub(crate) fn claim_frontend_reveal_if_current(&self, generation: u64) -> bool {
+        if !self.is_current(generation) {
+            return false;
+        }
+        self.with_inner(|inner| {
+            if !self.is_current(generation) || inner.frontend_reveal_claimed {
+                return false;
+            }
+            inner.frontend_reveal_claimed = true;
+            true
+        })
+    }
+
+    pub(crate) fn claim_frontend_reveal(&self) -> bool {
+        let generation = self.generation.load(Ordering::SeqCst);
+        self.claim_frontend_reveal_if_current(generation)
+    }
+
     fn clear_startup_state(&self) {
         self.with_inner(|inner| {
             inner.port = None;
@@ -108,6 +133,7 @@ impl BackendState {
             inner.terminated = None;
             inner.stopping = false;
             inner.error = None;
+            inner.frontend_reveal_claimed = false;
         });
     }
 
@@ -358,6 +384,7 @@ fn start(app: &tauri::AppHandle) {
         Ok(command) => command,
         Err(message) => {
             state.set_error(message);
+            tray::show_main_window(app);
             return;
         }
     }
@@ -374,6 +401,7 @@ fn start(app: &tauri::AppHandle) {
         Ok(child) => child,
         Err(err) => {
             state.set_error(format!("failed to spawn backend: {err}"));
+            tray::show_main_window(app);
             return;
         }
     };
@@ -388,4 +416,50 @@ fn start(app: &tauri::AppHandle) {
         inner.stopping = false;
     });
     events::watch(app.clone(), generation, rx, terminated_sender);
+    schedule_startup_reveal_watchdog(app.clone(), generation);
+}
+
+fn schedule_startup_reveal_watchdog(app: tauri::AppHandle, generation: u64) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(STARTUP_REVEAL_WATCHDOG_TIMEOUT).await;
+        let state = app.state::<BackendState>();
+        if !state.claim_frontend_reveal_if_current(generation) {
+            return;
+        }
+        let message = format!(
+            "desktop startup did not reach the frontend within {} seconds",
+            STARTUP_REVEAL_WATCHDOG_TIMEOUT.as_secs()
+        );
+        log::error!("[backend:{generation}] {message}");
+        state.set_error_if_current(generation, message);
+        tray::show_main_window(&app);
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_reveal_can_only_be_claimed_once_per_generation() {
+        let state = BackendState::default();
+        let generation = state.next_generation();
+        state.clear_startup_state();
+
+        assert!(state.claim_frontend_reveal_if_current(generation));
+        assert!(!state.claim_frontend_reveal_if_current(generation));
+        assert!(!state.claim_frontend_reveal_if_current(generation + 1));
+    }
+
+    #[test]
+    fn a_new_generation_resets_the_startup_reveal_claim() {
+        let state = BackendState::default();
+        let first = state.next_generation();
+        state.clear_startup_state();
+        assert!(state.claim_frontend_reveal_if_current(first));
+
+        let second = state.next_generation();
+        state.clear_startup_state();
+        assert!(state.claim_frontend_reveal_if_current(second));
+    }
 }

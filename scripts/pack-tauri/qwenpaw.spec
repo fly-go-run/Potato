@@ -38,14 +38,15 @@ def collect_tree(source_dir, target_dir):
     ]
 
 
-# Match the legacy desktop package: the FastAPI backend serves the web console
-# from qwenpaw/console, so Tauri can navigate to the backend-hosted same-origin
-# console after the sidecar is ready.
-CONSOLE_DIST = REPO_ROOT / "console" / "dist"
+# The FastAPI backend serves the web UI from qwenpaw/console, so Tauri can
+# navigate to the backend-hosted same-origin page after the sidecar is ready.
+# Since the frontend rewrite this points at the new app/ dist (REFACTOR_PLAN
+# §3.7); console/dist is only used for the Tauri bootstrap shell itself.
+CONSOLE_DIST = REPO_ROOT / "app" / "dist"
 if not (CONSOLE_DIST / "index.html").is_file():
     raise SystemExit(
-        f"console dist not found at {CONSOLE_DIST}; "
-        "run npm run build:prod in console/ before PyInstaller"
+        f"app dist not found at {CONSOLE_DIST}; "
+        "run npm run build in app/ before PyInstaller"
     )
 
 _data_dirs = [

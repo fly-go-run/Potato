@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "frontend-ready"
+description = "Allows the initialized React app to reveal the native window."
+commands.allow = ["frontend_ready"]

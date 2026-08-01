@@ -129,8 +129,9 @@ BINARIES_DIR="${REPO_ROOT}/console/src-tauri/binaries"
 mkdir -p "${BINARIES_DIR}"
 
 DEST="${BINARIES_DIR}/qwenpaw-backend"
+# 整目录删除后重建:find -exec rm -rf 在大目录上会因边遍历边删触发 fts_read 竞态
+rm -rf "${DEST}"
 mkdir -p "${DEST}"
-find "${DEST}" -mindepth 1 -exec rm -rf {} +
 cp -R "${BACKEND_DIR}/." "${DEST}/"
 chmod +x "${DEST}/qwenpaw-backend"
 chmod +x "${DEST}/qwenpaw"

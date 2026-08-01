@@ -1,15 +1,22 @@
 //! Sidecar process event handling and stderr capture.
 
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use serde::Deserialize;
-use tauri::Manager;
+use tauri::{Manager, Url};
 use tauri_plugin_shell::process::{CommandEvent, TerminatedPayload};
 use tokio::sync::watch;
 
 use super::BackendState;
+use crate::tray;
 
 const MAX_CAPTURED_STDERR_CHARS: usize = 4000;
 const STDERR_TRUNCATION_MARKER: &str = "\n[...stderr truncated...]\n";
 const BACKEND_READY_PREFIX: &str = "QWENPAW_BACKEND_READY ";
+const BACKEND_HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(100);
+const BACKEND_HEALTH_TIMEOUT: Duration = Duration::from_secs(180);
+const BACKEND_HEALTH_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
+const FRONTEND_REVEAL_FALLBACK_TIMEOUT: Duration = Duration::from_secs(12);
 
 #[derive(Deserialize)]
 struct BackendReadyPayload {
@@ -33,8 +40,11 @@ pub(super) fn watch(
                     log::info!("[backend:{generation}] stdout: {}", text.trim_end());
                     if let Some(port) = ready_port_from_stdout(&text) {
                         log::info!("[backend:{generation}] ready port={port}");
-                        app.state::<BackendState>()
-                            .set_port_if_current(generation, port);
+                        let state = app.state::<BackendState>();
+                        if state.is_current(generation) {
+                            state.set_port_if_current(generation, port);
+                            open_frontend_when_healthy(app.clone(), generation, port);
+                        }
                     }
                 }
                 CommandEvent::Stderr(line) => {
@@ -46,6 +56,12 @@ pub(super) fn watch(
                         generation,
                         format!("backend process error: {message}"),
                     );
+                    if app
+                        .state::<BackendState>()
+                        .claim_frontend_reveal_if_current(generation)
+                    {
+                        tray::show_main_window(&app);
+                    }
                 }
                 CommandEvent::Terminated(payload) => {
                     let message = termination_message(payload, &last_stderr);
@@ -59,6 +75,9 @@ pub(super) fn watch(
                     } else {
                         log::warn!("[backend:{generation}] {message}");
                         state.set_error_if_current(generation, message);
+                        if state.claim_frontend_reveal_if_current(generation) {
+                            tray::show_main_window(&app);
+                        }
                     }
                 }
                 _ => {}
@@ -69,6 +88,108 @@ pub(super) fn watch(
         app.state::<BackendState>()
             .clear_child_if_current(generation);
     });
+}
+
+/// Keep the native window hidden while the sidecar starts, then navigate the
+/// WebView straight to the real app and let React reveal it after its stable
+/// first frame. A native fallback guarantees that a hung first API request or
+/// a lost invoke can never leave the window permanently invisible.
+fn open_frontend_when_healthy(app: tauri::AppHandle, generation: u64, port: u16) {
+    tauri::async_runtime::spawn(async move {
+        let client = match reqwest::Client::builder()
+            .timeout(BACKEND_HEALTH_REQUEST_TIMEOUT)
+            .build()
+        {
+            Ok(client) => client,
+            Err(err) => {
+                report_frontend_startup_failure(
+                    &app,
+                    generation,
+                    format!("failed to create backend health client: {err}"),
+                );
+                return;
+            }
+        };
+        let health_url = format!("http://127.0.0.1:{port}/api/version");
+        let deadline = tokio::time::Instant::now() + BACKEND_HEALTH_TIMEOUT;
+
+        loop {
+            if !app.state::<BackendState>().is_current(generation) {
+                return;
+            }
+
+            if client
+                .get(&health_url)
+                .send()
+                .await
+                .is_ok_and(|response| response.status().is_success())
+            {
+                if let Err(err) = navigate_to_frontend(&app, port) {
+                    report_frontend_startup_failure(&app, generation, err);
+                } else {
+                    schedule_frontend_reveal_fallback(app.clone(), generation);
+                }
+                return;
+            }
+
+            if tokio::time::Instant::now() >= deadline {
+                report_frontend_startup_failure(
+                    &app,
+                    generation,
+                    format!(
+                        "backend did not become healthy within {} seconds",
+                        BACKEND_HEALTH_TIMEOUT.as_secs()
+                    ),
+                );
+                return;
+            }
+            tokio::time::sleep(BACKEND_HEALTH_POLL_INTERVAL).await;
+        }
+    });
+}
+
+fn schedule_frontend_reveal_fallback(app: tauri::AppHandle, generation: u64) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(FRONTEND_REVEAL_FALLBACK_TIMEOUT).await;
+        let state = app.state::<BackendState>();
+        if !state.claim_frontend_reveal_if_current(generation) {
+            return;
+        }
+        log::warn!(
+            "[backend:{generation}] frontend did not reveal within {} seconds; showing native window",
+            FRONTEND_REVEAL_FALLBACK_TIMEOUT.as_secs()
+        );
+        tray::show_main_window(&app);
+    });
+}
+
+fn navigate_to_frontend(app: &tauri::AppHandle, port: u16) -> Result<(), String> {
+    let cache_buster = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let url = Url::parse(&format!(
+        "http://127.0.0.1:{port}/console?desktop=1&_={cache_buster}"
+    ))
+    .map_err(|err| format!("failed to build frontend URL: {err}"))?;
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window is unavailable".to_string())?;
+    window
+        .navigate(url)
+        .map_err(|err| format!("failed to navigate to frontend: {err}"))
+}
+
+fn report_frontend_startup_failure(app: &tauri::AppHandle, generation: u64, message: String) {
+    log::error!("[backend:{generation}] {message}");
+    app.state::<BackendState>()
+        .set_error_if_current(generation, message);
+    if app
+        .state::<BackendState>()
+        .claim_frontend_reveal_if_current(generation)
+    {
+        tray::show_main_window(app);
+    }
 }
 
 fn ready_port_from_stdout(text: &str) -> Option<u16> {

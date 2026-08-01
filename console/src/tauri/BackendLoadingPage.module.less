@@ -1,133 +1,91 @@
-@keyframes backend-loading-fadein {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .page {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pageLight {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-}
-
-.pageDark {
-  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #fafafa;
+  color: #171717;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .card {
-  width: 400px;
-  padding: 40px;
-  border-radius: 12px;
+  width: min(360px, calc(100vw - 48px));
   text-align: center;
-  animation: backend-loading-fadein 0.6s ease-out;
-}
-
-.pageLight .card {
-  background: #fff;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
-}
-
-.pageDark .card {
-  background: #1f1f1f;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .logo {
-  height: 72px;
-  margin-bottom: 28px;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
 }
 
-.progressLabel {
-  color: #333;
-}
-
-.pageDark .progressLabel {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.statusText {
-  color: #333;
-  font-size: 16px;
-  font-weight: 500;
-  margin: 16px 0 0;
-}
-
-.pageDark .statusText {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.failedText,
-.pageDark .failedText {
-  color: var(--qwenpaw-error-color);
+.title {
+  margin: 20px 0 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .hint {
-  color: #888;
+  margin: 8px 0 22px;
+  color: #737373;
   font-size: 13px;
-  margin: 8px 0 24px;
-}
-
-.pageDark .hint {
-  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
 }
 
 .details {
-  margin: 0 0 24px;
+  margin: 0 0 20px;
   padding: 12px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  background: #f2f2f2;
   text-align: left;
-}
-
-.pageDark .details {
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .summary {
   cursor: pointer;
-  color: #888;
+  color: #616161;
   font-size: 12px;
-  line-height: 1.5;
-}
-
-.pageDark .summary {
-  color: rgba(255, 255, 255, 0.45);
 }
 
 .errorDetails {
-  max-height: 96px;
+  max-height: 120px;
   overflow: auto;
-  margin: 8px 0 0;
-  color: #888;
-  font-size: 12px;
-  line-height: 1.5;
+  margin: 10px 0 0;
+  color: #737373;
+  font: 11px/1.55 ui-monospace, "SF Mono", monospace;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.pageDark .errorDetails {
-  color: rgba(255, 255, 255, 0.45);
-}
-
 .retryButton {
-  height: 40px;
-  padding: 0 32px;
-  border-radius: 8px;
+  height: 36px;
+  padding: 0 18px;
   border: 0;
-  background: var(--qwenpaw-brand-color);
+  border-radius: 8px;
+  background: #1c1c1c;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .page {
+    background: #141414;
+    color: #ececec;
+  }
+
+  .hint,
+  .summary,
+  .errorDetails {
+    color: #8f8f8f;
+  }
+
+  .details {
+    background: #202020;
+  }
+
+  .retryButton {
+    background: #ececec;
+    color: #171717;
+  }
 }
