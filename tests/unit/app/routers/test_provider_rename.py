@@ -67,3 +67,16 @@ async def test_configure_provider_ignores_blank_name():
 
     assert manager.last_config is not None
     assert "name" not in manager.last_config
+
+
+async def test_configure_provider_is_a_partial_update():
+    manager = FakeManager(is_custom=False)
+    body = ProviderConfigRequest(api_key="sk-new")
+
+    await configure_provider(
+        manager=manager,
+        provider_id="deepseek",
+        body=body,
+    )
+
+    assert manager.last_config == {"api_key": "sk-new"}

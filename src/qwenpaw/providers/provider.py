@@ -492,6 +492,18 @@ class Provider(ProviderInfo, ABC):
                     model.reasoning_effort = (
                         str(val) if val is not None else None
                     )
+                if "thinking_param_style" in config:
+                    val = config["thinking_param_style"]
+                    model.thinking_param_style = (
+                        str(val) if val is not None else None
+                    )
+                if "reasoning_effort_options" in config:
+                    val = config["reasoning_effort_options"]
+                    model.reasoning_effort_options = (
+                        [str(item) for item in val]
+                        if val is not None
+                        else None
+                    )
                 return True
         return False
 

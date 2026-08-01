@@ -87,7 +87,7 @@ class ProviderConfigRequest(BaseModel):
         description="Chat model class name for protocol selection",
     )
     generate_kwargs: Optional[dict] = Field(
-        default_factory=dict,
+        default=None,
         description=(
             "Configuration in json format, will be expanded "
             "and passed to generation calls "
@@ -186,6 +186,14 @@ class ModelConfigRequest(BaseModel):
         default=None,
         description="Reasoning effort level (low/medium/high).",
     )
+    thinking_param_style: Optional[str] = Field(
+        default=None,
+        description="Thinking UI style override: 'effort' or 'budget'.",
+    )
+    reasoning_effort_options: Optional[List[str]] = Field(
+        default=None,
+        description="Override valid reasoning_effort values for this model.",
+    )
 
 
 def _validate_model_slot(
@@ -240,17 +248,15 @@ async def configure_provider(
     provider_id: str = Path(...),
     body: ProviderConfigRequest = Body(...),
 ) -> ProviderInfo:
-    config = {
-        "api_key": body.api_key,
-        "base_url": body.base_url,
-        "chat_model": body.chat_model,
-        "generate_kwargs": body.generate_kwargs,
-        "custom_headers": body.custom_headers,
-        "auth_mode": body.auth_mode,
-    }
+    # This endpoint is intentionally a partial update.  In particular, the
+    # settings UI normally sends only an API key/base URL; populating optional
+    # fields with their model defaults here would silently erase provider
+    # generation parameters, headers, or authentication mode.
+    config = body.model_dump(exclude_unset=True, exclude_none=True)
     # Renaming is restricted to custom providers so built-in
     # provider names stay immutable.
-    name = body.name.strip() if body.name else None
+    name = config.pop("name", None)
+    name = name.strip() if isinstance(name, str) else None
     if name:
         provider = manager.get_provider(provider_id)
         if provider is not None and provider.is_custom:
@@ -622,6 +628,8 @@ async def configure_model(
                 "thinking_enabled": body.thinking_enabled,
                 "thinking_budget": body.thinking_budget,
                 "reasoning_effort": body.reasoning_effort,
+                "thinking_param_style": body.thinking_param_style,
+                "reasoning_effort_options": body.reasoning_effort_options,
             },
         )
     except (ValueError, AppBaseException) as exc:
