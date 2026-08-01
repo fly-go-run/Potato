@@ -533,6 +533,74 @@ async def _ask_user_approval(
     root_session_id = str(ctx.get("root_session_id") or session_id)
     root_agent_id = str(ctx.get("root_agent_id") or agent_id or "unknown")
 
+    # AUTO is an unattended, model-reviewed approval mode. Prefer a
+    # provider-advertised command-review companion model, but fall back to the
+    # active chat model when no such model is listed. Review failures are
+    # fail-closed and return immediately instead of leaving the task parked on
+    # a human approval waiter. SMART / STRICT retain the existing human flow.
+    effective_level = _resolve_effective_approval_level(ctx)
+    if effective_level is not None and effective_level.value == "auto":
+        from .auto_review import review_tool_call
+
+        review = await review_tool_call(
+            tool_name=tool_name,
+            target=target,
+            params=dict(params or {}),
+            agent_id=agent_id,
+            governance_reason=governance_reason,
+            policy_findings=policy_findings,
+            violation_msg=violation_msg,
+            review_context=(
+                ctx.get("review_context")
+                or ctx.get("user_intent")
+                or ctx.get("last_user_message")
+                or ""
+            ),
+            request_metadata={
+                "source": ctx.get("source", ""),
+                "channel": ctx.get("channel", ""),
+                "approval_level": effective_level.value,
+            },
+        )
+        auto_decision = GovernanceDecision(
+            action=(
+                GovernanceAction.ALLOW
+                if review.approved
+                else GovernanceAction.DENY
+            ),
+            reason=(
+                "Auto Review Approve"
+                if review.approved
+                else f"Auto Review Deny: {review.reason}"
+            ),
+        )
+        governor.audit(tc_spec, auto_decision)
+        logger.info(
+            "PolicyGuardedTool: AUTO review tool=%s model=%s dedicated=%s "
+            "approved=%s risk=%s authorization=%s",
+            tool_name,
+            review.model_id or "unavailable",
+            review.used_dedicated_model,
+            review.approved,
+            review.risk_level,
+            review.user_authorization,
+        )
+        if review.approved:
+            return PermissionDecision(
+                behavior=PermissionBehavior.ALLOW,
+                message=(
+                    "Approved by automatic command review"
+                    + (f" ({review.model_id})." if review.model_id else ".")
+                ),
+            )
+        return PermissionDecision(
+            behavior=PermissionBehavior.DENY,
+            message=(
+                f"Automatic command review denied '{tool_name}': "
+                f"{review.reason}." + _NO_RETRY_INSTRUCTION
+            ),
+        )
+
     from .generalize import generalize_target_for_approval
 
     generalized_target = await generalize_target_for_approval(

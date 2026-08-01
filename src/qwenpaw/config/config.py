@@ -61,6 +61,47 @@ class ModelSlotConfig(BaseModel):
     model: str = Field(default="")
 
 
+class AutoReviewConfig(BaseModel):
+    """Configuration for the model-backed AUTO approval reviewer.
+
+    The reviewer is deliberately a separate model *slot*, rather than a
+    provider-global flag.  This lets an agent use a small, restricted model
+    (for example a gateway's command-review or Qwen3Guard route) without
+    changing the model used for normal conversation turns.
+    """
+
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Whether AUTO approval requests are sent to a model reviewer. "
+            "When disabled, AUTO remains fail-closed and denies requests."
+        ),
+    )
+    review_model: Optional[ModelSlotConfig] = Field(
+        default=None,
+        description=(
+            "Explicit provider/model slot for AUTO review. When omitted, "
+            "QwenPaw discovers a provider-advertised command-review model "
+            "and otherwise falls back to the active chat model."
+        ),
+    )
+    timeout_seconds: float = Field(
+        default=12.0,
+        ge=1.0,
+        le=120.0,
+        description="Maximum seconds allowed for one AUTO review decision.",
+    )
+    max_context_chars: int = Field(
+        default=12_000,
+        ge=1_000,
+        le=100_000,
+        description=(
+            "Maximum characters of optional user-intent/review context sent "
+            "to the reviewer."
+        ),
+    )
+
+
 class ActiveModelsInfo(BaseModel):
     """Active models information for provider manager."""
 
@@ -1706,6 +1747,12 @@ class AgentProfileConfig(BaseModel):
             "SMART (low-risk auto-allowed), "
             "AUTO (only guarded tools), "
             "OFF (guard disabled)"
+        ),
+    )
+    auto_review: AutoReviewConfig = Field(
+        default_factory=AutoReviewConfig,
+        description=(
+            "Codex-style model reviewer settings for approval_level=AUTO."
         ),
     )
     system_prompt_files: List[str] = Field(
