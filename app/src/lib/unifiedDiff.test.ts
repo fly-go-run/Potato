@@ -103,8 +103,8 @@ index ab6a54d..2b3b8aa 100644
 // path `目录/含中文 文件.txt`. Git emits a tab after paths containing spaces.
 const UNICODE_AND_SPACE_PATH_DIFF = `diff --git a/目录/含中文 文件.txt b/目录/含中文 文件.txt
 index 148600a..0694fda 100644
---- a/目录/含中文 文件.txt	
-+++ b/目录/含中文 文件.txt	
+--- a/目录/含中文 文件.txt\t
++++ b/目录/含中文 文件.txt\t
 @@ -1 +1,2 @@
 -旧内容
 +新内容
