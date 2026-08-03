@@ -11,7 +11,11 @@ import pytest
 from agentscope.message import TextBlock, ToolResultBlock
 from agentscope.tool import ToolResponse
 
-from qwenpaw.tool_calls import ToolCoordinator, ToolCoordinatorMiddleware
+from qwenpaw.tool_calls import (
+    OffloadUnavailableError,
+    ToolCoordinator,
+    ToolCoordinatorMiddleware,
+)
 from qwenpaw.tool_calls._context import ToolCallContext
 from qwenpaw.tool_calls._entry import ToolCallEntry
 from qwenpaw.tool_calls._stream import ToolStream
@@ -232,3 +236,129 @@ async def test_caller_cancellation_does_not_cancel_background_task():
 
     bg_can_finish.set()
     await asyncio.wait_for(bg_task, timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_same_provider_tool_id_is_isolated_by_session_and_agent():
+    """Provider ids like ``call-1`` cannot collide across live sessions."""
+    coordinator = ToolCoordinator()
+    both_started = asyncio.Event()
+    release = asyncio.Event()
+    started: set[tuple[str, str]] = set()
+
+    async def next_handler(
+        tool_call: _ToolCall,
+    ) -> AsyncGenerator[Any, None]:
+        started.add((tool_call.input["session"], tool_call.input["agent"]))
+        if len(started) == 2:
+            both_started.set()
+        await release.wait()
+        yield _text_response(tool_call.id, tool_call.input["session"])
+
+    async def run(session_id: str, agent_id: str):
+        return await _collect(
+            coordinator.execute(
+                tool_call=_ToolCall(
+                    id="provider-call-1",
+                    input={"session": session_id, "agent": agent_id},
+                ),
+                next_handler=next_handler,
+                session_id=session_id,
+                agent_id=agent_id,
+                root_session_id=session_id,
+            ),
+        )
+
+    first = asyncio.create_task(run("session-a", "agent-a"))
+    second = asyncio.create_task(run("session-b", "agent-b"))
+    await asyncio.wait_for(both_started.wait(), timeout=1)
+
+    assert len(coordinator.list_entries()) == 2
+    assert coordinator.list_entries(
+        session_id="session-a",
+        agent_id="agent-a",
+    ) == [coordinator.get(
+        "provider-call-1",
+        session_id="session-a",
+        agent_id="agent-a",
+    )]
+    assert coordinator.get("provider-call-1") is None
+    entry_a = coordinator.get("provider-call-1", session_id="session-a")
+    entry_b = coordinator.get("provider-call-1", session_id="session-b")
+    assert entry_a is not None
+    assert entry_b is not None
+
+    assert await coordinator.cancel(
+        "provider-call-1",
+        session_id="session-a",
+        agent_id="agent-a",
+    )
+    assert entry_a.ctx.cancel_event.is_set()
+    assert not entry_b.ctx.cancel_event.is_set()
+
+    release.set()
+    await asyncio.wait_for(asyncio.gather(first, second), timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_old_completion_cannot_remove_newer_same_scope_entry():
+    """Identity-checked cleanup protects a replacement with the same key."""
+    coordinator = ToolCoordinator()
+    first_started = asyncio.Event()
+    second_started = asyncio.Event()
+    release_first = asyncio.Event()
+    release_second = asyncio.Event()
+
+    async def next_handler(
+        tool_call: _ToolCall,
+    ) -> AsyncGenerator[Any, None]:
+        if tool_call.input["which"] == "first":
+            first_started.set()
+            await release_first.wait()
+        else:
+            second_started.set()
+            await release_second.wait()
+        yield _text_response(tool_call.id, tool_call.input["which"])
+
+    async def run(which: str):
+        return await _collect(
+            coordinator.execute(
+                tool_call=_ToolCall(
+                    id="duplicate-in-one-session",
+                    input={"which": which},
+                ),
+                next_handler=next_handler,
+                session_id="session-a",
+                agent_id="agent-a",
+                root_session_id="session-a",
+            ),
+        )
+
+    first = asyncio.create_task(run("first"))
+    await asyncio.wait_for(first_started.wait(), timeout=1)
+    second = asyncio.create_task(run("second"))
+    await asyncio.wait_for(second_started.wait(), timeout=1)
+
+    release_first.set()
+    await asyncio.wait_for(first, timeout=1)
+    still_live = coordinator.get(
+        "duplicate-in-one-session",
+        session_id="session-a",
+        agent_id="agent-a",
+    )
+    assert still_live is not None
+    assert not still_live.background_task.done()
+
+    release_second.set()
+    await asyncio.wait_for(second, timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_request_offload_is_explicitly_unavailable():
+    coordinator = ToolCoordinator()
+
+    with pytest.raises(
+        OffloadUnavailableError,
+        match="temporarily unavailable",
+    ):
+        await coordinator.request_offload("any-call")

@@ -10,6 +10,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from ...tool_calls import OffloadUnavailableError
+
 router = APIRouter(prefix="/tool-calls", tags=["tool-calls"])
 
 
@@ -58,6 +60,13 @@ def _get_coordinator(request: Request) -> Any:
     return coordinator
 
 
+def _request_agent_id(request: Request) -> str | None:
+    """Return the optional agent scope sent by normal API clients."""
+    return getattr(request.state, "agent_id", None) or request.headers.get(
+        "X-Agent-Id",
+    )
+
+
 def _entry_to_info(entry: Any) -> ToolCallInfo:
     loop = asyncio.get_running_loop()
     elapsed = loop.time() - entry.ctx.started_at
@@ -83,7 +92,10 @@ def _entry_to_info(entry: Any) -> ToolCallInfo:
 @router.get("/{session_id}", response_model=ListResponse)
 async def list_calls(session_id: str, request: Request) -> ListResponse:
     coordinator = _get_coordinator(request)
-    entries = coordinator.list_entries(session_id=session_id)
+    entries = coordinator.list_entries(
+        session_id=session_id,
+        agent_id=_request_agent_id(request),
+    )
     items = [_entry_to_info(e) for e in entries]
     return ListResponse(items=items, total=len(items))
 
@@ -95,8 +107,12 @@ async def get_call(
     request: Request,
 ) -> ToolCallInfo:
     coordinator = _get_coordinator(request)
-    entry = coordinator.get(tool_call_id)
-    if entry is None or entry.ctx.session_id != session_id:
+    entry = coordinator.get(
+        tool_call_id,
+        session_id=session_id,
+        agent_id=_request_agent_id(request),
+    )
+    if entry is None:
         raise HTTPException(404, "Tool call not found")
     return _entry_to_info(entry)
 
@@ -108,10 +124,22 @@ async def offload_call(
     request: Request,
 ) -> dict[str, Any]:
     coordinator = _get_coordinator(request)
-    entry = coordinator.get(tool_call_id)
-    if entry is None or entry.ctx.session_id != session_id:
+    agent_id = _request_agent_id(request)
+    entry = coordinator.get(
+        tool_call_id,
+        session_id=session_id,
+        agent_id=agent_id,
+    )
+    if entry is None:
         raise HTTPException(404, "Tool call not found")
-    ok = await coordinator.request_offload(tool_call_id)
+    try:
+        ok = await coordinator.request_offload(
+            tool_call_id,
+            session_id=session_id,
+            agent_id=agent_id,
+        )
+    except OffloadUnavailableError as exc:
+        raise HTTPException(503, str(exc)) from exc
     if not ok:
         raise HTTPException(409, "Cannot offload (not running)")
     return {"status": "accepted", "tool_call_id": tool_call_id}
@@ -125,11 +153,21 @@ async def cancel_call(
     body: CancelRequest | None = None,
 ) -> dict[str, Any]:
     coordinator = _get_coordinator(request)
-    entry = coordinator.get(tool_call_id)
-    if entry is None or entry.ctx.session_id != session_id:
+    agent_id = _request_agent_id(request)
+    entry = coordinator.get(
+        tool_call_id,
+        session_id=session_id,
+        agent_id=agent_id,
+    )
+    if entry is None:
         raise HTTPException(404, "Tool call not found")
     force = body.force if body else False
-    ok = await coordinator.cancel(tool_call_id, force=force)
+    ok = await coordinator.cancel(
+        tool_call_id,
+        force=force,
+        session_id=session_id,
+        agent_id=agent_id,
+    )
     if not ok:
         raise HTTPException(409, "Cannot cancel")
     return {"status": "accepted", "tool_call_id": tool_call_id}
@@ -146,13 +184,20 @@ async def extend_deadline(
     body: ExtendRequest,
 ) -> dict[str, Any]:
     coordinator = _get_coordinator(request)
-    entry = coordinator.get(tool_call_id)
-    if entry is None or entry.ctx.session_id != session_id:
+    agent_id = _request_agent_id(request)
+    entry = coordinator.get(
+        tool_call_id,
+        session_id=session_id,
+        agent_id=agent_id,
+    )
+    if entry is None:
         raise HTTPException(404, "Tool call not found")
     ok = await coordinator.extend_deadline(
         tool_call_id,
         seconds=body.seconds,
         no_deadline=body.no_deadline,
+        session_id=session_id,
+        agent_id=agent_id,
     )
     if not ok:
         raise HTTPException(
@@ -169,8 +214,12 @@ async def get_output(
     request: Request,
 ) -> dict[str, Any]:
     coordinator = _get_coordinator(request)
-    entry = coordinator.get(tool_call_id)
-    if entry is None or entry.ctx.session_id != session_id:
+    entry = coordinator.get(
+        tool_call_id,
+        session_id=session_id,
+        agent_id=_request_agent_id(request),
+    )
+    if entry is None:
         raise HTTPException(404, "Tool call not found")
     content_blocks = []
     if entry.final_response and entry.final_response.content:
@@ -191,8 +240,12 @@ async def stream_output(
     request: Request,
 ) -> StreamingResponse:
     coordinator = _get_coordinator(request)
-    entry = coordinator.get(tool_call_id)
-    if entry is None or entry.ctx.session_id != session_id:
+    entry = coordinator.get(
+        tool_call_id,
+        session_id=session_id,
+        agent_id=_request_agent_id(request),
+    )
+    if entry is None:
         raise HTTPException(404, "Tool call not found")
 
     async def _generate():

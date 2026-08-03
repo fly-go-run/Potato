@@ -775,27 +775,15 @@ def test_offload_while_running(
     app_server,
     mock_llm,  # pylint: disable=redefined-outer-name
 ) -> None:
-    """POST .../offload → 202 while tool is running.
+    """POST .../offload reports the currently disabled feature truthfully.
 
     Test purpose:
-      - Verify the offload endpoint accepts a running tool call and
-        returns 202/accepted.
+      - Verify the offload endpoint does not claim an impossible hand-off.
 
     Test flow:
       1. Submit shell sleep task.
       2. Poll for entry.
-      3. POST offload → 202.
-      4. GET detail → 200; status is 'running' or 'offloaded'.
-
-    Note:
-      The OFFLOADED state transition is temporarily disabled by
-      upstream PR #6058 ("temporarily disable broken offload
-      mechanism"): the deadline_reached branch in
-      tool_calls/_coordinator.py is commented out, so a running tool
-      stays 'running' instead of moving to 'offloaded'. The POST
-      endpoint still returns 202/accepted, so we keep that happy-path
-      coverage and accept both statuses until upstream re-enables the
-      mechanism.
+      3. POST offload → 503 with a clear unavailable reason.
 
     API endpoints:
       - POST /api/tool-calls/{session_id}/{tool_call_id}/offload
@@ -818,34 +806,11 @@ def test_offload_while_running(
             ),
             timeout=_HTTP_TIMEOUT,
         )
-        assert resp.status_code == 202, (
-            f"offload failed: {resp.status_code} "
+        assert resp.status_code == 503, (
+            f"offload response was: {resp.status_code} "
             f"{resp.text} / {app_server.logs_tail()[-2000:]}"
         )
-        assert resp.json()["status"] == "accepted"
-
-        # Verify entry transitioned to offloaded.
-        detail_resp = app_server.api_request(
-            "GET",
-            f"/api/tool-calls/{session_id}/{entry['tool_call_id']}",
-            timeout=_HTTP_TIMEOUT,
-        )
-        # The offload POST already returned 202/accepted (the assertion
-        # under test). Reading the detail afterwards is a best-effort
-        # confirmation and is subject to an observation-window race: on
-        # slow / 2-core runners (Windows CI) the shell sleep tool can
-        # finish and its entry gets popped before this GET lands,
-        # yielding 404. Treat 404 as a legitimate "already completed"
-        # outcome; only assert the status field when the entry is still
-        # observable (200).
-        assert detail_resp.status_code in (200, 404), app_server.logs_tail()
-        if detail_resp.status_code == 200:
-            # offload transition temporarily disabled upstream (#6058):
-            # tool stays 'running'; becomes 'offloaded' once re-enabled.
-            assert detail_resp.json()["status"] in (
-                "running",
-                "offloaded",
-            ), detail_resp.json()
+        assert "temporarily unavailable" in resp.text
     finally:
         srv, _ = mock_llm
         srv.force_tool_call = False

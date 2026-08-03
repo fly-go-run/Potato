@@ -2,7 +2,7 @@
 """Tool call lifecycle management for QwenPaw."""
 
 from ._context import CancelReason, OffloadReason, ToolCallContext
-from ._coordinator import ToolCoordinator
+from ._coordinator import OffloadUnavailableError, ToolCoordinator
 from ._ctxvars import get_call_context, reset_call_context, set_call_context
 from ._entry import ToolCallEntry, ToolCallStatus
 from ._hooks import ToolHookRegistry
@@ -17,6 +17,7 @@ __all__ = [
     "ToolCallEntry",
     "ToolCallStatus",
     "ToolCoordinator",
+    "OffloadUnavailableError",
     "ToolCoordinatorMiddleware",
     "ToolHookRegistry",
     "ToolStream",

@@ -12,7 +12,7 @@ from agentscope.message import TextBlock, ToolResultState
 from agentscope.tool import ToolChunk, ToolResponse
 
 from ._context import CancelReason, OffloadReason, ToolCallContext
-from ._ctxvars import reset_call_context, set_call_context
+from ._ctxvars import get_call_context, reset_call_context, set_call_context
 from ._entry import ToolCallEntry, ToolCallStatus
 from ._hint import make_offload_hint_msg
 from ._hooks import ToolHookRegistry
@@ -26,6 +26,17 @@ BackgroundResultProcessor = Callable[
     [ToolResponse],
     Awaitable[ToolResponse],
 ]
+
+EntryKey = tuple[str, str, str]
+
+OFFLOAD_UNAVAILABLE_MESSAGE = (
+    "Tool offloading is temporarily unavailable because the current "
+    "implementation would cancel the foreground subprocess."
+)
+
+
+class OffloadUnavailableError(RuntimeError):
+    """Raised instead of accepting an offload request that cannot work."""
 
 
 @dataclass
@@ -55,7 +66,10 @@ class ToolCoordinator:
         self._default_timeout = default_timeout_secs
         self._cancel_grace = cancel_grace_period_secs
 
-        self._entries: dict[str, ToolCallEntry] = {}
+        # Provider tool-call ids are only unique within an LLM response, not
+        # across this process.  The coordinator is cross-workspace, so retain
+        # the caller's session/agent identity in the in-flight registry key.
+        self._entries: dict[EntryKey, ToolCallEntry] = {}
         self._entries_lock = asyncio.Lock()
         self._pending_hints: dict[str, list[Any]] = {}
         self._hints_lock = asyncio.Lock()
@@ -89,7 +103,7 @@ class ToolCoordinator:
         ctx = entry.ctx
 
         async with self._entries_lock:
-            self._entries[ctx.tool_call_id] = entry
+            self._entries[self._entry_key(ctx)] = entry
 
         chunk_queue: asyncio.Queue[Any] = asyncio.Queue()
         entry.stream.add_subscriber(chunk_queue)
@@ -223,16 +237,43 @@ class ToolCoordinator:
     # ================================================================
     # INDEX / QUERY
     # ================================================================
-    def get(self, tool_call_id: str) -> ToolCallEntry | None:
-        return self._entries.get(tool_call_id)
+    @staticmethod
+    def _entry_key(ctx: ToolCallContext) -> EntryKey:
+        return (ctx.session_id, ctx.agent_id, ctx.tool_call_id)
+
+    def get(
+        self,
+        tool_call_id: str,
+        *,
+        session_id: str | None = None,
+        agent_id: str | None = None,
+    ) -> ToolCallEntry | None:
+        """Look up one entry without ever guessing across equal raw IDs.
+
+        The old single-argument form stays available to in-process callers,
+        but it only resolves when there is exactly one matching live entry.
+        HTTP and slash-command callers should always provide their session.
+        """
+        matches = [
+            entry
+            for (entry_session_id, entry_agent_id, entry_call_id), entry
+            in self._entries.items()
+            if entry_call_id == tool_call_id
+            and (session_id is None or entry_session_id == session_id)
+            and (agent_id is None or entry_agent_id == agent_id)
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def list_entries(
         self,
         session_id: str | None = None,
+        agent_id: str | None = None,
     ) -> list[ToolCallEntry]:
         entries = list(self._entries.values())
         if session_id is not None:
             entries = [e for e in entries if e.ctx.session_id == session_id]
+        if agent_id is not None:
+            entries = [e for e in entries if e.ctx.agent_id == agent_id]
         return entries
 
     # ================================================================
@@ -268,6 +309,16 @@ class ToolCoordinator:
         for k in keys:
             self._per_agent_tool_timeouts.pop(k, None)
 
+    @property
+    def offload_available(self) -> bool:
+        """Whether this build can actually detach a live tool call.
+
+        Offloading is deliberately disabled until the subprocess hand-off no
+        longer treats the cooperative cancel event as process termination.
+        Callers must surface this state instead of claiming a 202 success.
+        """
+        return False
+
     # ================================================================
     # INTERVENTION API
     # ================================================================
@@ -276,8 +327,16 @@ class ToolCoordinator:
         tool_call_id: str,
         *,
         reason: OffloadReason = OffloadReason.USER,
+        session_id: str | None = None,
+        agent_id: str | None = None,
     ) -> bool:
-        entry = self._entries.get(tool_call_id)
+        if not self.offload_available:
+            raise OffloadUnavailableError(OFFLOAD_UNAVAILABLE_MESSAGE)
+        entry = self.get(
+            tool_call_id,
+            session_id=session_id,
+            agent_id=agent_id,
+        )
         if entry is None or entry.status != ToolCallStatus.RUNNING:
             return False
         entry.ctx.offload_reason = reason
@@ -291,8 +350,14 @@ class ToolCoordinator:
         *,
         reason: CancelReason = CancelReason.USER,
         force: bool = False,
+        session_id: str | None = None,
+        agent_id: str | None = None,
     ) -> bool:
-        entry = self._entries.get(tool_call_id)
+        entry = self.get(
+            tool_call_id,
+            session_id=session_id,
+            agent_id=agent_id,
+        )
         if entry is None:
             return False
         if force:
@@ -308,8 +373,14 @@ class ToolCoordinator:
         *,
         seconds: float | None = None,
         no_deadline: bool = False,
+        session_id: str | None = None,
+        agent_id: str | None = None,
     ) -> bool:
-        entry = self._entries.get(tool_call_id)
+        entry = self.get(
+            tool_call_id,
+            session_id=session_id,
+            agent_id=agent_id,
+        )
         if entry is None:
             return False
 
@@ -367,9 +438,12 @@ class ToolCoordinator:
             Args:
                 tool_call_id: id from previous offload notifications.
             """
+            current = get_call_context()
             ok = await coordinator.cancel(
                 tool_call_id,
                 reason=CancelReason.AGENT,
+                session_id=current.session_id if current else None,
+                agent_id=current.agent_id if current else None,
             )
             text = (
                 f"OK — sent cooperative stop signal to {tool_call_id}"
@@ -682,7 +756,11 @@ class ToolCoordinator:
             entry.end_state = (
                 "interrupted" if entry.ctx.cancel_event.is_set() else "success"
             )
-        self._entries.pop(entry.ctx.tool_call_id, None)
+        key = self._entry_key(entry.ctx)
+        # Do not let an old completion remove a newer entry which happens to
+        # share a provider-generated raw id.
+        if self._entries.get(key) is entry:
+            self._entries.pop(key, None)
         return entry.final_response
 
     def _resolve_timeout(

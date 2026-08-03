@@ -58,7 +58,7 @@ async def _handle_tools(
 
 async def _handle_tool_bg(
     coordinator: "ToolCoordinator",
-    _ctx: Any,
+    ctx: Any,
     args: str,
 ) -> "Msg":
     """Move a running tool call to background."""
@@ -74,17 +74,23 @@ async def _handle_tool_bg(
                 TextBlock(type="text", text="Usage: `/tool-bg <call_id>`"),
             ],
         )
-    from ...tool_calls import OffloadReason
+    from ...tool_calls import OffloadReason, OffloadUnavailableError
 
-    ok = await coordinator.request_offload(
-        call_id,
-        reason=OffloadReason.USER,
-    )
-    text = (
-        f"Tool call `{call_id[:8]}` moved to background."
-        if ok
-        else f"Tool call `{call_id[:8]}` not found or already offloaded."
-    )
+    try:
+        ok = await coordinator.request_offload(
+            call_id,
+            reason=OffloadReason.USER,
+            session_id=getattr(ctx, "root_session_id", None),
+            agent_id=getattr(ctx, "root_agent_id", None),
+        )
+    except OffloadUnavailableError as exc:
+        text = str(exc)
+    else:
+        text = (
+            f"Tool call `{call_id[:8]}` moved to background."
+            if ok
+            else f"Tool call `{call_id[:8]}` not found or already offloaded."
+        )
     return Msg(
         name="assistant",
         role="assistant",
@@ -94,7 +100,7 @@ async def _handle_tool_bg(
 
 async def _handle_tool_cancel(
     coordinator: "ToolCoordinator",
-    _ctx: Any,
+    ctx: Any,
     args: str,
 ) -> "Msg":
     """Cancel a running tool call."""
@@ -115,7 +121,12 @@ async def _handle_tool_cancel(
         )
     from ...tool_calls import CancelReason
 
-    ok = await coordinator.cancel(call_id, reason=CancelReason.USER)
+    ok = await coordinator.cancel(
+        call_id,
+        reason=CancelReason.USER,
+        session_id=getattr(ctx, "root_session_id", None),
+        agent_id=getattr(ctx, "root_agent_id", None),
+    )
     text = (
         f"Tool call `{call_id[:8]}` cancelled."
         if ok
