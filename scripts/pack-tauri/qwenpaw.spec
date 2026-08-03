@@ -9,7 +9,10 @@ option.
 """
 
 import os
+import runpy
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 from PyInstaller.utils.hooks import (
@@ -21,6 +24,26 @@ from PyInstaller.utils.hooks import (
 REPO_ROOT = Path(SPECPATH).parent.parent
 
 SRC = REPO_ROOT / "src" / "qwenpaw"
+_OFFICE_ASSET_HELPERS = runpy.run_path(
+    str(SRC / "agents" / "office_skill_assets.py"),
+)
+_sync_office_skill_assets = _OFFICE_ASSET_HELPERS["sync_office_skill_assets"]
+
+# Source keeps one Office runtime tree. Materialize copies in a temporary
+# staging directory because PyInstaller collects data from source directly,
+# bypassing setuptools' build_py hook used by wheels.
+_office_skills_temp = tempfile.TemporaryDirectory(
+    prefix="qwenpaw-office-skills-",
+)
+_materialized_skills_dir = Path(_office_skills_temp.name) / "skills"
+shutil.copytree(SRC / "agents" / "skills", _materialized_skills_dir)
+_sync_office_skill_assets(
+    _materialized_skills_dir,
+    source_skills_dir=SRC / "agents" / "skills",
+)
+# The generated skill copies are self-contained; do not include the source
+# helper tree in the desktop bundle as an unused seventh copy.
+shutil.rmtree(_materialized_skills_dir / "_office_assets")
 if sys.platform == "darwin":
     codesign_identity = os.environ.get(
         "PYINSTALLER_CODESIGN_IDENTITY"
@@ -50,16 +73,16 @@ if not (CONSOLE_DIST / "index.html").is_file():
     )
 
 _data_dirs = [
-    ("agents/skills", "qwenpaw/agents/skills"),
-    ("agents/md_files", "qwenpaw/agents/md_files"),
-    ("tokenizer", "qwenpaw/tokenizer"),
-    ("security/tool_guard/rules", "qwenpaw/security/tool_guard/rules"),
-    ("security/skill_scanner/rules", "qwenpaw/security/skill_scanner/rules"),
-    ("security/skill_scanner/data", "qwenpaw/security/skill_scanner/data"),
-    ("app/channels/yuanbao/proto", "qwenpaw/app/channels/yuanbao/proto"),
+    (_materialized_skills_dir, "qwenpaw/agents/skills"),
+    (SRC / "agents/md_files", "qwenpaw/agents/md_files"),
+    (SRC / "tokenizer", "qwenpaw/tokenizer"),
+    (SRC / "security/tool_guard/rules", "qwenpaw/security/tool_guard/rules"),
+    (SRC / "security/skill_scanner/rules", "qwenpaw/security/skill_scanner/rules"),
+    (SRC / "security/skill_scanner/data", "qwenpaw/security/skill_scanner/data"),
+    (SRC / "app/channels/yuanbao/proto", "qwenpaw/app/channels/yuanbao/proto"),
 ]
 datas = [
-    (str(SRC / src), dst) for src, dst in _data_dirs if (SRC / src).is_dir()
+    (str(source), dst) for source, dst in _data_dirs if source.is_dir()
 ]
 datas += collect_tree(CONSOLE_DIST, "qwenpaw/console")
 

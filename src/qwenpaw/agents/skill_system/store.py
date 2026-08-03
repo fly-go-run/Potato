@@ -25,6 +25,12 @@ import yaml
 
 from ...exceptions import SkillsError
 from ...security.skill_scanner import scan_skill_directory
+from ...utils.zip_security import (
+    WEB_UPLOAD_ZIP_LIMITS,
+    normalize_zip_member_name,
+    validate_zip_archive,
+)
+from ..office_skill_assets import materialize_office_assets_for_builtin_copy
 from ..utils.file_handling import read_text_file_with_encoding_fallback
 from .models import SkillInfo, SkillRequirements
 
@@ -46,7 +52,6 @@ if fcntl is None and msvcrt is None:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 _RegistryResult = TypeVar("_RegistryResult")
-_MAX_ZIP_BYTES = 200 * 1024 * 1024
 _REQUIREMENTS_METADATA_NAMESPACES = ("openclaw", "qwenpaw", "clawdbot")
 
 
@@ -310,6 +315,7 @@ def copy_skill_dir(source: Path, target: Path) -> None:
         target,
         ignore=_ignore,
     )
+    materialize_office_assets_for_builtin_copy(source, target)
 
 
 # ---------------------------------------------------------------------------
@@ -481,15 +487,18 @@ def is_ignored_skill_entry(name: str) -> bool:
 
 def _extract_and_validate_zip(data: bytes, tmp_dir: Path) -> None:
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        total = sum(info.file_size for info in zf.infolist())
-        if total > _MAX_ZIP_BYTES:
-            raise SkillsError(
-                message="Uncompressed zip exceeds 200MB limit",
-            )
+        try:
+            validate_zip_archive(zf, WEB_UPLOAD_ZIP_LIMITS)
+        except ValueError as exc:
+            raise SkillsError(message=str(exc)) from exc
 
         root_path = tmp_dir.resolve()
         for info in zf.infolist():
-            target = (tmp_dir / info.filename).resolve()
+            try:
+                member_name = normalize_zip_member_name(info.filename)
+            except ValueError as exc:
+                raise SkillsError(message=str(exc)) from exc
+            target = (tmp_dir / member_name).resolve()
             if not target.is_relative_to(root_path):
                 raise SkillsError(
                     message=f"Unsafe path in zip: {info.filename}",
