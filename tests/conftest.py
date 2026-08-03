@@ -20,6 +20,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+# ``qwenpaw.constant`` resolves these paths at import time. This conftest
+# imports provider code below, before fixtures can run, so establish a test
+# runtime before importing any qwenpaw module. Otherwise a plain
+# ``pytest tests/unit`` can write config, logs, or provider state under the
+# developer's real ~/.qwenpaw directory.
+_TEST_RUNTIME_DIR = Path(tempfile.mkdtemp(prefix="qwenpaw_pytest_"))
+os.environ["QWENPAW_WORKING_DIR"] = str(_TEST_RUNTIME_DIR / "working")
+os.environ["QWENPAW_SECRET_DIR"] = str(_TEST_RUNTIME_DIR / "secret")
+
 from qwenpaw.providers import provider_manager as _provider_manager_module
 
 
@@ -416,6 +425,14 @@ def pytest_configure(config: pytest.Config) -> None:
     # Markers are already defined in pyproject.toml, but we can add
     # additional configuration here if needed
     pass
+
+
+def pytest_sessionfinish(
+    session: pytest.Session,
+    exitstatus: int,
+) -> None:
+    """Remove the process-local runtime created before qwenpaw imports."""
+    shutil.rmtree(_TEST_RUNTIME_DIR, ignore_errors=True)
 
 
 def pytest_collection_modifyitems(
