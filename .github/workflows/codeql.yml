@@ -14,7 +14,7 @@ name: CodeQL
 # re-scanning the same files:
 #   python      → all Python (src/qwenpaw/** + scripts/**), minus the
 #                  test/repro exclusions in codeql-config.yml
-#   typescript  → console/src/** (React/Vite frontend)
+#   typescript  → app/src/** and console/src/** (React/Vite frontends)
 # Tests are intentionally excluded (see codeql-config.yml paths-ignore):
 # they contain intentionally "unsafe" patterns that are not real
 # vulnerabilities.
@@ -24,6 +24,7 @@ on:
     branches: [main, master, dev, develop]
     paths:
       - 'src/**'
+      - 'app/src/**'
       - 'console/src/**'
       - 'scripts/**'
       - 'tests/**'

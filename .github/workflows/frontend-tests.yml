@@ -4,11 +4,13 @@ on:
   push:
     branches: [main, master, dev, develop]
     paths:
+      - 'app/**'
       - 'console/**'
       - '.github/workflows/frontend-tests.yml'
   pull_request:
     branches: [main, master, dev, develop]
     paths:
+      - 'app/**'
       - 'console/**'
       - '.github/workflows/frontend-tests.yml'
 
@@ -21,7 +23,7 @@ jobs:
       author: ${{ github.event.pull_request.user.login }}
 
   vitest:
-    name: Vitest Unit Tests
+    name: Legacy Console Vitest Unit Tests
     needs: [spam-gate]
     if: |
       always() &&
@@ -43,6 +45,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint console (zero warnings)
+        run: npm run lint -- --max-warnings 0
+
+      - name: Build console
+        run: npm run build
+
       - name: Run unit tests
         run: npm run test:run
 
@@ -56,3 +64,32 @@ jobs:
           name: coverage-report
           path: console/coverage/
           retention-days: 7
+
+  app-vitest:
+    name: Web App Build and Unit Tests
+    needs: [spam-gate]
+    if: |
+      always() &&
+      (needs.spam-gate.result == 'skipped' || needs.spam-gate.outputs.blocked != 'true')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build default web app
+        run: npm run build
+
+      - name: Run unit tests
+        run: npm test

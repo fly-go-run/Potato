@@ -1,5 +1,5 @@
 # Publish Python package to PyPI when a release is created.
-# Build includes console frontend (see scripts/wheel_build.sh).
+# Build includes the default web app (see scripts/wheel_build.sh).
 # Manual trigger: can optionally force push to PyPI or just upload artifacts.
 # Release trigger: publishes to PyPI.
 #
@@ -37,22 +37,22 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Set up Node (for console build)
+      - name: Set up Node (for web app build)
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: console/package-lock.json
+          cache-dependency-path: app/package-lock.json
 
-      - name: Build console frontend
+      - name: Build default web app
         run: |
-          cd console && npm ci && npm run build
+          cd app && npm ci && npm run build
 
-      - name: Copy console build into package
+      - name: Copy web app build into package
         run: |
           rm -rf src/qwenpaw/console/*
           mkdir -p src/qwenpaw/console
-          cp -R console/dist/* src/qwenpaw/console/
+          cp -R app/dist/* src/qwenpaw/console/
 
       - name: Bundle docs into package
         run: |

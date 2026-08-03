@@ -53,6 +53,25 @@ updates:
       - "dependencies"
       - "frontend"
 
+  # Default web app dependencies (package.json)
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    allow:
+      - update-type: "version-update:semver-minor"
+      - update-type: "version-update:semver-patch"
+    commit-message:
+      prefix: "deps"
+      include: scope
+    labels:
+      - "dependencies"
+      - "frontend"
+
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"

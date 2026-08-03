@@ -32,21 +32,21 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: console/package-lock.json
+          cache-dependency-path: app/package-lock.json
 
-      - name: Build console frontend
+      - name: Build default web app
         shell: bash
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: |
-          cd console && npm ci && npm run build
+          cd app && npm ci && npm run build
 
-      - name: Copy console build into package
+      - name: Copy web app build into package
         shell: bash
         run: |
           rm -rf src/qwenpaw/console/*
           mkdir -p src/qwenpaw/console
-          cp -R console/dist/* src/qwenpaw/console/
+          cp -R app/dist/* src/qwenpaw/console/
 
       # ---- Install Python dependencies ----
       - name: Set up Python 3.11

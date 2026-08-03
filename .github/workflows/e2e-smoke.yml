@@ -4,13 +4,13 @@ on:
   pull_request:
     branches: [main, master, dev, develop]
     paths:
-      - 'console/**'
+      - 'app/**'
       - 'e2e/**'
       - '.github/workflows/e2e-smoke.yml'
   push:
     branches: [main, master, dev, develop]
     paths:
-      - 'console/**'
+      - 'app/**'
       - 'e2e/**'
       - '.github/workflows/e2e-smoke.yml'
 
@@ -27,14 +27,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: console/package-lock.json
+          cache-dependency-path: app/package-lock.json
 
       - name: Install frontend dependencies
-        working-directory: console
+        working-directory: app
         run: npm ci
 
       - name: Start frontend dev server
-        working-directory: console
+        working-directory: app
         run: |
           npm run dev &
           # Wait for dev server to be ready

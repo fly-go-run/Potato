@@ -7,7 +7,7 @@ name: Full Tests Nightly
 # tests.yml runs the PR (p0) and pre-merge (p0+p1) integration tiers
 # gated by event name; this workflow exercises the full integration suite
 # (all markers including p2), the full E2E Playwright suite against a
-# live backend, the console vitest suite with coverage, and re-runs unit /
+# live backend, the legacy console vitest suite with coverage, and re-runs unit /
 # contract on every supported platform/python combo to catch nightly drift.
 #
 # Independent of tests.yml so it can run unattended without going through
@@ -55,26 +55,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js (for console build)
+      - name: Set up Node.js (for web app build)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: console/package-lock.json
+          cache-dependency-path: app/package-lock.json
 
-      - name: Build console frontend
+      - name: Build default web app
         shell: bash
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: |
-          cd console && npm ci && npm run build
+          cd app && npm ci && npm run build
 
-      - name: Copy console build into package
+      - name: Copy web app build into package
         shell: bash
         run: |
           rm -rf src/qwenpaw/console/*
           mkdir -p src/qwenpaw/console
-          cp -R console/dist/* src/qwenpaw/console/
+          cp -R app/dist/* src/qwenpaw/console/
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -136,26 +136,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js (for console build)
+      - name: Set up Node.js (for web app build)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: console/package-lock.json
+          cache-dependency-path: app/package-lock.json
 
-      - name: Build console frontend
+      - name: Build default web app
         shell: bash
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: |
-          cd console && npm ci && npm run build
+          cd app && npm ci && npm run build
 
-      - name: Copy console build into package
+      - name: Copy web app build into package
         shell: bash
         run: |
           rm -rf src/qwenpaw/console/*
           mkdir -p src/qwenpaw/console
-          cp -R console/dist/* src/qwenpaw/console/
+          cp -R app/dist/* src/qwenpaw/console/
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -215,26 +215,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js (for console build)
+      - name: Set up Node.js (for web app build)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: console/package-lock.json
+          cache-dependency-path: app/package-lock.json
 
-      - name: Build console frontend
+      - name: Build default web app
         shell: bash
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: |
-          cd console && npm ci && npm run build
+          cd app && npm ci && npm run build
 
-      - name: Copy console build into package
+      - name: Copy web app build into package
         shell: bash
         run: |
           rm -rf src/qwenpaw/console/*
           mkdir -p src/qwenpaw/console
-          cp -R console/dist/* src/qwenpaw/console/
+          cp -R app/dist/* src/qwenpaw/console/
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
