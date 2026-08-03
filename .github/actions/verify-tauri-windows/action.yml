@@ -31,6 +31,8 @@ runs:
       env:
         QWENPAW_DASHSCOPE_API_KEY: ${{ inputs.dashscope-api-key }}
         PYTHONIOENCODING: utf-8
+        # 无缓冲输出:否则超时被杀时块缓冲里的日志全部丢失
+        PYTHONUNBUFFERED: "1"
         ALLOW_FLAKY_LLM: ${{ inputs.allow-flaky-llm }}
       run: |
         . scripts/verify/launch_tauri_windows.ps1

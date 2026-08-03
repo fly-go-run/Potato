@@ -438,6 +438,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
             <textarea
               ref={textareaRef}
+              data-testid="composer-input"
               rows={2}
               value={text}
               onChange={(event) => {
@@ -509,6 +510,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
               {isStreaming ? (
                 <button
                   type="button"
+                  data-testid="composer-stop"
                   title={t("composer.stop")}
                   onClick={() => void stop()}
                   className={sendButtonClass}
@@ -518,6 +520,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
               ) : (
                 <button
                   type="button"
+                  data-testid="composer-send"
                   title={t("composer.send")}
                   disabled={!canSend}
                   onClick={submit}

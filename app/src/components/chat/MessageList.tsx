@@ -98,7 +98,7 @@ function UserTurn({
   activeMessageId?: string;
 }) {
   return (
-    <div className="qp-msg-in mb-8 flex justify-end">
+    <div data-testid="turn-user" className="qp-msg-in mb-8 flex justify-end">
       {/* 70% 上限 + 中档圆角:对表 WB(682px 宽的 18px 圆角灰板太"网页") */}
       <div className="max-w-[70%] rounded-[var(--radius-md)] bg-bubble-user px-4 py-2.5 text-[15px] leading-[1.7]">
         {messages.map((message) => (
@@ -301,7 +301,7 @@ function AssistantTurn({
   }
 
   return (
-    <div className="qp-msg-in mb-10">
+    <div data-testid="turn-assistant" className="qp-msg-in mb-10">
       <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-ink-secondary">
         <span className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-btn-primary text-btn-primary-ink">
           <PotatoMark size={16} />

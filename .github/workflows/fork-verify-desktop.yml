@@ -100,6 +100,15 @@ jobs:
           dashscope-api-key: ${{ secrets.QWENPAW_DASHSCOPE_API_KEY }}
           allow-flaky-llm: "true"
 
+      # 验证脚本把 UI 截图/失败诊断图写到 RUNNER_TEMP
+      - name: Upload verify screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-screenshots-macos
+          path: ${{ runner.temp }}/*.png
+          if-no-files-found: ignore
+
       - name: Stop desktop server
         if: always()
         run: |
@@ -163,19 +172,17 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         run: ./scripts/pack-tauri/build_win_pyinstaller.ps1
 
-      - name: Stage Tauri Windows installer
+      # 与 desktop-build.yml 同一暂存器:复制 exe/.sig 并生成
+      # tauri-windows-*-updater.json sidecar(发布更新清单要用)
+      - name: Stage Tauri Windows installer and updater assets
         shell: pwsh
         run: |
-          $installer = Get-ChildItem "console/src-tauri/target/release/bundle/nsis/*.exe" |
-            Select-Object -First 1
-          if (-not $installer) { throw "No Tauri Windows installer found" }
-          $target = "dist/QwenPaw-Tauri-${{ steps.version.outputs.version }}-Windows-setup.exe"
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item -Force $installer.FullName $target
-          # 一并暂存更新签名与 sidecar(如产出)
-          Get-ChildItem "console/src-tauri/target/release/bundle/nsis/*.sig" -ErrorAction SilentlyContinue |
-            ForEach-Object { Copy-Item -Force $_.FullName "$target.sig" }
-          Write-Host "Staged: $target"
+          python scripts/pack-tauri/generate_update_manifest.py stage `
+            --bundle-dir console/src-tauri/target/release/bundle/nsis `
+            --pattern '*-setup.exe' `
+            --target windows-x86_64 `
+            --output "dist/QwenPaw-Tauri-${{ steps.version.outputs.version }}-Windows-setup.exe" `
+            --pubkey-config console/src-tauri/tauri.version.conf.json
 
       # 上传放在 verify 之前:验证失败不应扣押安装包
       - name: Upload Windows installer artifact
@@ -195,6 +202,15 @@ jobs:
         with:
           dashscope-api-key: ${{ secrets.QWENPAW_DASHSCOPE_API_KEY }}
           allow-flaky-llm: "true"
+
+      # 验证脚本把 UI 截图/失败诊断图写到 RUNNER_TEMP
+      - name: Upload verify screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-screenshots-windows
+          path: ${{ runner.temp }}/*.png
+          if-no-files-found: ignore
 
       - name: Stop desktop server
         if: always()

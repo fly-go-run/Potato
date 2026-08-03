@@ -56,12 +56,13 @@ DEFAULT_TIMEOUT = 120
 SESSION_ID = "release-verify-session"
 USER_ID = "release-verify-user"
 
-# Selectors come straight from e2e/pages/chat_page.py so they stay in sync
-# with what the real UI tests expect.
-SEL_INPUT = "textarea.qwenpaw-sender-input"
-SEL_SEND_BTN = "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
-SEL_USER_BUBBLE = ".qwenpaw-bubble.qwenpaw-bubble-end"
-SEL_AI_BUBBLE = ".qwenpaw-bubble.qwenpaw-bubble-start"
+# Stable hooks the app frontend exposes for automation (app/src/components/
+# chat/Composer.tsx and MessageList.tsx). Never derive selectors from styling
+# classes — they change with every redesign.
+SEL_INPUT = '[data-testid="composer-input"]'
+SEL_SEND_BTN = '[data-testid="composer-send"]'
+SEL_USER_BUBBLE = '[data-testid="turn-user"]'
+SEL_AI_BUBBLE = '[data-testid="turn-assistant"]'
 
 
 # =============================================================================
@@ -318,6 +319,41 @@ class PlaywrightDriver(UIDriver):
                 f"failed to start {browser}: {exc}",
             ) from exc
 
+        # Frontend runtime errors are invisible in CI logs otherwise;
+        # collect them so a selector timeout can distinguish "page broken"
+        # from "verifier out of date".
+        self._console_errors: list[str] = []
+        try:
+            self._page.on(
+                "console",
+                lambda msg: self._console_errors.append(msg.text)
+                if msg.type in ("error", "warning")
+                else None,
+            )
+            self._page.on(
+                "pageerror",
+                lambda err: self._console_errors.append(f"pageerror: {err}"),
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _dump_page_state(self, context: str) -> None:
+        """Print title/URL/console errors and screenshot. Never raises."""
+        try:
+            print(f"  [diagnose] {context}")
+            print(f"  [diagnose] url={self._page.url}")
+            print(f"  [diagnose] title={self._page.title()!r}")
+            body = self._page.evaluate(
+                "() => (document.body ? "
+                "document.body.innerText.slice(0, 400) : '<no body>')",
+            )
+            print(f"  [diagnose] body text (first 400 chars): {body!r}")
+            for line in self._console_errors[-20:]:
+                print(f"  [console] {line}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [diagnose] state dump failed: {exc}")
+        self._screenshot("99-failure")
+
     def _screenshot(self, name: str) -> None:
         """Best-effort screenshot. Never raises."""
         if not self._screenshot_dir:
@@ -331,18 +367,18 @@ class PlaywrightDriver(UIDriver):
 
     def open(self, url: str) -> None:
         self._page.goto(url, timeout=self.NAVIGATE_TIMEOUT_MS)
-        self._page.locator(SEL_INPUT).first.wait_for(
-            state="visible",
-            timeout=self.INPUT_VISIBLE_TIMEOUT_MS,
-        )
-        self._screenshot("01-page-loaded")
+        self.wait_for_input()
 
     def wait_for_input(self) -> None:
         """Wait for chat input on the current page (no navigation)."""
-        self._page.locator(SEL_INPUT).first.wait_for(
-            state="visible",
-            timeout=self.INPUT_VISIBLE_TIMEOUT_MS,
-        )
+        try:
+            self._page.locator(SEL_INPUT).first.wait_for(
+                state="visible",
+                timeout=self.INPUT_VISIBLE_TIMEOUT_MS,
+            )
+        except Exception:
+            self._dump_page_state(f"chat input not visible: {SEL_INPUT}")
+            raise
         self._screenshot("01-page-loaded")
 
     # Same 4-channel disabled detection as e2e/pages/chat_page.py:
@@ -352,7 +388,7 @@ class PlaywrightDriver(UIDriver):
     #   4. framework-injected disabled / loading class
     _JS_SEND_DISABLED = """() => {
       const btn = document.querySelector(
-        'button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary'
+        '[data-testid="composer-send"]'
       );
       if (!btn) return true;
       if (btn.disabled === true) return true;
@@ -397,7 +433,7 @@ class PlaywrightDriver(UIDriver):
     #           rounds are short single-step replies; 2.5s is plenty.
     _JS_BUBBLE_READY = """(expectedCount) => {
       const btn = document.querySelector(
-        'button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary'
+        '[data-testid="composer-send"]'
       );
       let btnDisabled = true;
       if (btn) {
@@ -421,7 +457,7 @@ class PlaywrightDriver(UIDriver):
       const btnRecovered = sawDisabled && !btnDisabled;
 
       const aiMsgs = document.querySelectorAll(
-        '.qwenpaw-bubble.qwenpaw-bubble-start'
+        '[data-testid="turn-assistant"]'
       );
       if (aiMsgs.length <= expectedCount) {
         return false;
@@ -472,7 +508,7 @@ class PlaywrightDriver(UIDriver):
         try:
             _idle_js = """() => {
   const btn = document.querySelector(
-    'button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary',
+    '[data-testid="composer-send"]',
   );
   if (btn) {
     const cls = btn.className || '';
@@ -484,7 +520,7 @@ class PlaywrightDriver(UIDriver):
     if (!disabledByAttr && !disabledByCls) return true;
   }
   const aiMsgs = document.querySelectorAll(
-    '.qwenpaw-bubble.qwenpaw-bubble-start',
+    '[data-testid="turn-assistant"]',
   );
   if (aiMsgs.length === 0) return true;
   const last = aiMsgs[aiMsgs.length - 1];
@@ -556,7 +592,7 @@ class PlaywrightDriver(UIDriver):
             self._page.wait_for_function(
                 """(expected) => {
                   const msgs = document.querySelectorAll(
-                    '.qwenpaw-bubble.qwenpaw-bubble-end'
+                    '[data-testid="turn-user"]'
                   );
                   return msgs.length > expected;
                 }""",
@@ -573,7 +609,7 @@ class PlaywrightDriver(UIDriver):
                 self._page.wait_for_function(
                     """(expected) => {
                       const msgs = document.querySelectorAll(
-                        '.qwenpaw-bubble.qwenpaw-bubble-end'
+                        '[data-testid="turn-user"]'
                       );
                       return msgs.length > expected;
                     }""",
@@ -593,7 +629,7 @@ class PlaywrightDriver(UIDriver):
             self._page.wait_for_function(
                 """(expectedCount) => {
                   const aiMsgs = document.querySelectorAll(
-                    '.qwenpaw-bubble.qwenpaw-bubble-start'
+                    '[data-testid="turn-assistant"]'
                   );
                   return aiMsgs.length > expectedCount;
                 }""",
