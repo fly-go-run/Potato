@@ -549,7 +549,6 @@ class TestTelegramChunkText:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestTelegramTypingIndicators:
     """Tests for typing indicator methods."""
 
@@ -601,7 +600,12 @@ class TestTelegramTypingIndicators:
 
         with patch("asyncio.create_task") as mock_create_task:
             mock_task = MagicMock()
-            mock_create_task.return_value = mock_task
+
+            def close_coroutine(coroutine):
+                coroutine.close()
+                return mock_task
+
+            mock_create_task.side_effect = close_coroutine
 
             telegram_channel._start_typing("12345")
 
@@ -625,7 +629,12 @@ class TestTelegramTypingIndicators:
 
         with patch("asyncio.create_task") as mock_create_task:
             new_task = MagicMock()
-            mock_create_task.return_value = new_task
+
+            def close_coroutine(coroutine):
+                coroutine.close()
+                return new_task
+
+            mock_create_task.side_effect = close_coroutine
 
             telegram_channel._start_typing("12345")
 

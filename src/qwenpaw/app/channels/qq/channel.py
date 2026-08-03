@@ -1200,18 +1200,27 @@ class QQChannel(BaseChannel):
         loop = self._loop
         if not (loop and loop.is_running()):
             return url
+        download_coro = _download_qq_file(
+            http_session=self._http,
+            file_url=url,
+            media_dir=self._media_dir,
+            filename_hint=file_name,
+        )
+        submitted = False
         try:
             future = asyncio.run_coroutine_threadsafe(
-                _download_qq_file(
-                    http_session=self._http,
-                    file_url=url,
-                    media_dir=self._media_dir,
-                    filename_hint=file_name,
-                ),
+                download_coro,
                 loop,
             )
+            submitted = True
             return future.result(timeout=30)
         except Exception:
+            # ``run_coroutine_threadsafe`` can fail before it accepts the
+            # coroutine (for example when the loop is closing).  Explicitly
+            # close that coroutine so the failure path does not leak an
+            # un-awaited ``_download_qq_file`` object.
+            if not submitted:
+                download_coro.close()
             logger.exception("failed to download attachment")
             return None
 

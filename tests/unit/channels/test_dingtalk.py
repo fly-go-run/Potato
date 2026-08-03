@@ -961,7 +961,6 @@ class TestDingTalkResolveSession:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestDingTalkOpenAPIFallback:
     """
     Tests for Open API fallback when sessionWebhook is expired.
@@ -1756,7 +1755,6 @@ class TestDingTalkEdgeCases:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestDingTalkCallbackHandler:
     """Tests for DingTalk callback handler (handler.py)."""
 
@@ -1975,7 +1973,6 @@ class TestDingTalkConsumeErrorHandling:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestDingTalkAICardMethods:
     """Tests for AI Card streaming methods."""
 
@@ -2556,7 +2553,6 @@ class TestDingTalkFileDownload:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestDingTalkStreamMode:
     """Tests for Stream/WebSocket mode."""
 
@@ -2581,7 +2577,7 @@ class TestDingTalkStreamMode:
         # Should complete without error
         await dingtalk_channel._stream_loop()
 
-    async def test_run_stream_forever(self, dingtalk_channel):
+    def test_run_stream_forever(self, dingtalk_channel):
         """Run stream forever should execute stream loop."""
         dingtalk_channel._stop_event.set()  # Stop immediately
 
@@ -2813,7 +2809,6 @@ class TestDingTalkSendMethodsExtended:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestDingTalkMediaPartSending:
     """Tests for sending media parts via webhook."""
 
@@ -3261,7 +3256,6 @@ class TestDingTalkLoadSessionWebhookEntry:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestDingTalkAdditionalCoverage:
     """Additional tests to reach 60% coverage."""
 

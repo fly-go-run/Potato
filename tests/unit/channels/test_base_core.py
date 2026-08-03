@@ -67,7 +67,7 @@ def mock_process() -> ProcessHandler:
 
 
 @pytest.fixture
-def base_channel(mock_process) -> BaseChannel:
+def base_channel(mock_process, tmp_path) -> BaseChannel:
     """
     Use ConsoleChannel as a testable instance of BaseChannel.
     ConsoleChannel is the simplest implementation,
@@ -77,6 +77,7 @@ def base_channel(mock_process) -> BaseChannel:
         process=mock_process,
         enabled=True,
         bot_prefix="[TEST] ",
+        media_dir=str(tmp_path / "media"),
     )
 
 

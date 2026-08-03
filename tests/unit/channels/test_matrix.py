@@ -368,7 +368,6 @@ class TestMatrixChannelDisabled:
         assert result is False
 
 
-@pytest.mark.asyncio
 class TestMatrixChannelBuildRequest:
     """Test request building methods."""
 

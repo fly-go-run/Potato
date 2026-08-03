@@ -1162,20 +1162,21 @@ class TestDownloadAttachmentSync:
 
     def test_download_attachment_exception(self, qq_channel):
         """Should return None when download raises exception."""
-        from concurrent.futures import Future
-
         qq_channel._loop = MagicMock()
         qq_channel._loop.is_running.return_value = True
 
-        # Mock run_coroutine_threadsafe to raise exception
-        future = Future()
-        future.set_exception(RuntimeError("Download failed"))
-        qq_channel._loop.run_coroutine_threadsafe.return_value = future
-
-        result = qq_channel._download_attachment_sync(
-            "https://example.com/file.jpg",
-            "file.jpg",
-        )
+        # The scheduler can reject a coroutine before taking ownership of it
+        # (for example, while the loop is closing).  Patch the actual module
+        # function so the test covers that path and verifies the coroutine is
+        # closed by the implementation.
+        with patch(
+            "qwenpaw.app.channels.qq.channel.asyncio.run_coroutine_threadsafe",
+            side_effect=RuntimeError("Download failed"),
+        ):
+            result = qq_channel._download_attachment_sync(
+                "https://example.com/file.jpg",
+                "file.jpg",
+            )
 
         assert result is None
 

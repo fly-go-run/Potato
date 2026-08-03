@@ -1483,7 +1483,6 @@ class TestWeChatAccessControl:
 # =============================================================================
 
 
-@pytest.mark.asyncio
 class TestWeChatEdgeCases:
     """Additional edge case tests."""
 
