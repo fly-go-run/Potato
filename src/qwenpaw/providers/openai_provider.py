@@ -82,6 +82,25 @@ class OpenAIProvider(Provider):
     def _build_default_headers(self) -> dict:
         return dict(self.custom_headers) if self.custom_headers else {}
 
+    def _apply_thinking_config(
+        self,
+        model_id: str,
+        effective: dict,
+    ) -> None:
+        """Forward a persisted reasoning effort to OpenAI-compatible APIs.
+
+        The model picker stores the selected effort on ``ModelInfo``.  The
+        OpenAI-compatible model classes accept it as a regular generation
+        keyword, so inject it unless the user supplied an explicit value in
+        ``generate_kwargs``.
+        """
+        model_info = self.get_model_info(model_id)
+        if model_info is not None and model_info.reasoning_effort is not None:
+            effective.setdefault(
+                "reasoning_effort",
+                model_info.reasoning_effort,
+            )
+
     def _client(self, timeout: float = 5) -> AsyncOpenAI:
         kwargs: dict = {
             "base_url": self.base_url,
@@ -218,6 +237,7 @@ class OpenAIProvider(Provider):
             merged_headers["X-DashScope-Cdpl"] = dashscope_meta
 
         gen_kwargs = self.get_effective_generate_kwargs(model_id)
+        self._apply_thinking_config(model_id, gen_kwargs)
         max_tokens = gen_kwargs.pop("max_tokens", None)
         if _uses_max_completion_tokens(model_id):
             if max_tokens is not None:

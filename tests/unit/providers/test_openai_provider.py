@@ -8,6 +8,7 @@ from agentscope.model import OpenAIChatModel
 
 import qwenpaw.providers.openai_provider as openai_provider_module
 from qwenpaw.providers.openai_provider import OpenAIProvider
+from qwenpaw.providers.provider import ModelInfo
 
 
 def _make_provider(is_custom: bool = False) -> OpenAIProvider:
@@ -216,6 +217,37 @@ def test_get_gpt5_model_maps_configured_max_tokens() -> None:
     assert model._extra_generate_kwargs == {
         "max_completion_tokens": 4096,
     }
+
+
+def test_get_reasoning_model_forwards_configured_effort() -> None:
+    provider = _make_provider()
+    provider.models = [
+        ModelInfo(
+            id="gpt-5.6-terra",
+            name="GPT-5.6 Terra",
+            reasoning_effort="high",
+        ),
+    ]
+
+    model = provider.get_chat_model_instance("gpt-5.6-terra")
+
+    assert model._extra_generate_kwargs["reasoning_effort"] == "high"
+
+
+def test_explicit_reasoning_effort_generate_kwarg_wins() -> None:
+    provider = _make_provider()
+    provider.generate_kwargs = {"reasoning_effort": "low"}
+    provider.models = [
+        ModelInfo(
+            id="gpt-5.6-terra",
+            name="GPT-5.6 Terra",
+            reasoning_effort="high",
+        ),
+    ]
+
+    model = provider.get_chat_model_instance("gpt-5.6-terra")
+
+    assert model._extra_generate_kwargs["reasoning_effort"] == "low"
 
 
 def test_get_o_series_model_maps_configured_max_tokens() -> None:

@@ -580,6 +580,7 @@ class Provider(ProviderInfo, ABC):
         model_info = self.get_model_info(model_id)
         return resolve_context_window(
             model_id,
+            provider_id=self.id,
             configured=(
                 model_info.max_input_length if model_info is not None else None
             ),

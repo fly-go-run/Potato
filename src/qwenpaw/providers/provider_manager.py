@@ -7,6 +7,8 @@ import asyncio
 import json
 import logging
 import os
+import re
+from pathlib import Path
 from typing import Dict, List
 
 from agentscope.model import ChatModelBase
@@ -40,6 +42,34 @@ from .openrouter_provider import OpenRouterProvider
 from .provider import ModelInfo, Provider, ProviderInfo
 
 logger = logging.getLogger(__name__)
+
+_CUSTOM_PROVIDER_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def validate_custom_provider_id(provider_id: str) -> str:
+    """Validate IDs that are persisted as provider config filenames.
+
+    Provider IDs are API identifiers, not paths. Keeping the accepted form
+    deliberately small prevents traversal and also makes the IDs safe to use
+    in route segments on every supported platform.
+    """
+    if not _CUSTOM_PROVIDER_ID_RE.fullmatch(provider_id):
+        raise ValueError(
+            "Custom provider ID must be 1-64 characters and contain only "
+            "letters, numbers, '.', '_' or '-' (starting with a letter or "
+            "number).",
+        )
+    return provider_id
+
+
+def _provider_config_path(directory: Path, provider_id: str) -> Path:
+    """Return a contained provider config path or reject an unsafe ID."""
+    directory = directory.resolve()
+    candidate = (directory / f"{provider_id}.json").resolve()
+    if not candidate.is_relative_to(directory):
+        raise ValueError("Provider ID resolves outside the provider directory")
+    return candidate
+
 
 # -------------------------------------------------------
 # Built-in provider definitions and their default models.
@@ -1566,16 +1596,23 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
 
     def _resolve_custom_provider_id(self, provider_id: str) -> str:
         """Resolve provider ID conflicts for a custom provider."""
-        base_id = provider_id
+        base_id = validate_custom_provider_id(provider_id)
         if base_id in self.builtin_providers:
-            base_id = f"{base_id}-custom"
+            suffix = "-custom"
+            base_id = f"{base_id[: 64 - len(suffix)]}{suffix}"
 
         resolved_id = base_id
+        overflow_index = 1
         while (
             resolved_id in self.builtin_providers
             or resolved_id in self.custom_providers
         ):
-            resolved_id = f"{resolved_id}-new"
+            if len(resolved_id) + len("-new") <= 64:
+                resolved_id = f"{resolved_id}-new"
+            else:
+                overflow_index += 1
+                suffix = f"-new-{overflow_index}"
+                resolved_id = f"{base_id[: 64 - len(suffix)]}{suffix}"
 
         return resolved_id
 
@@ -1616,7 +1653,10 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
         # providers.json file and remove the provider from the UI.
         if provider_id in self.custom_providers:
             del self.custom_providers[provider_id]
-            provider_path = self.custom_path / f"{provider_id}.json"
+            provider_path = _provider_config_path(
+                self.custom_path,
+                validate_custom_provider_id(provider_id),
+            )
             if provider_path.exists():
                 os.remove(provider_path)
             return True
@@ -1878,7 +1918,7 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
         Sensitive fields (``api_key``) are encrypted before writing.
         """
         provider_dir = self.builtin_path if is_builtin else self.custom_path
-        provider_path = provider_dir / f"{provider.id}.json"
+        provider_path = _provider_config_path(provider_dir, provider.id)
         if skip_if_exists and provider_path.exists():
             return
         data = encrypt_dict_fields(
@@ -1897,7 +1937,7 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
 
         Sensitive fields (``api_key``) are encrypted before writing.
         """
-        provider_path = self.plugin_path / f"{provider.id}.json"
+        provider_path = _provider_config_path(self.plugin_path, provider.id)
         data = encrypt_dict_fields(
             provider.model_dump(),
             PROVIDER_SECRET_FIELDS,
@@ -1949,7 +1989,7 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
         plaintext ``api_key`` is detected it is re-encrypted in place.
         """
         provider_dir = self.builtin_path if is_builtin else self.custom_path
-        provider_path = provider_dir / f"{provider_id}.json"
+        provider_path = _provider_config_path(provider_dir, provider_id)
         if not provider_path.exists():
             return None
         try:
@@ -2437,7 +2477,10 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
         )
 
         # Check if there's a saved configuration for this plugin provider
-        saved_config_path = self.plugin_path / f"{provider_id}.json"
+        saved_config_path = _provider_config_path(
+            self.plugin_path,
+            provider_id,
+        )
         if saved_config_path.exists():
             try:
                 with open(saved_config_path, "r", encoding="utf-8") as f:

@@ -127,6 +127,7 @@ class OpenAIResponseProvider(OpenAIProvider):
 
         merged_headers = self._build_default_headers()
         gen_kwargs = self.get_effective_generate_kwargs(model_id)
+        self._apply_thinking_config(model_id, gen_kwargs)
         parameters = OpenAIResponseModel.Parameters(
             max_tokens=gen_kwargs.pop("max_tokens", None),
             temperature=gen_kwargs.pop("temperature", None),

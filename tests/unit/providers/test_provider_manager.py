@@ -172,6 +172,54 @@ async def test_add_custom_provider_and_reload_from_storage(
     assert isinstance(loaded_duplicate, OpenAIProvider)
 
 
+@pytest.mark.parametrize(
+    "unsafe_id",
+    ["../escaped", "nested/provider", r"nested\\provider", ".hidden", "-flag"],
+)
+async def test_add_custom_provider_rejects_path_like_ids(
+    isolated_secret_dir,
+    unsafe_id: str,
+) -> None:
+    manager = ProviderManager()
+    provider = OpenAIProvider(id=unsafe_id, name="Unsafe")
+
+    with pytest.raises(ValueError, match="Custom provider ID"):
+        await manager.add_custom_provider(provider)
+
+    assert not (manager.root_path.parent / "escaped.json").exists()
+
+
+def test_provider_storage_path_is_contained(isolated_secret_dir) -> None:
+    manager = ProviderManager()
+    provider = OpenAIProvider(id="../../escaped", name="Unsafe")
+
+    with pytest.raises(ValueError, match="outside the provider directory"):
+        manager._save_provider(provider, is_builtin=False)
+
+    with pytest.raises(ValueError, match="outside the provider directory"):
+        manager.load_provider("../../escaped", is_builtin=False)
+
+
+async def test_long_custom_provider_conflicts_stay_bounded_and_unique(
+    isolated_secret_dir,
+) -> None:
+    manager = ProviderManager()
+    provider_id = "p" * 64
+
+    first = await manager.add_custom_provider(
+        OpenAIProvider(id=provider_id, name="First"),
+    )
+    second = await manager.add_custom_provider(
+        OpenAIProvider(id=provider_id, name="Second"),
+    )
+    third = await manager.add_custom_provider(
+        OpenAIProvider(id=provider_id, name="Third"),
+    )
+
+    assert len({first.id, second.id, third.id}) == 3
+    assert all(len(item.id) <= 64 for item in (first, second, third))
+
+
 async def test_custom_provider_preserves_explicit_default_context_window(
     isolated_secret_dir,
 ) -> None:

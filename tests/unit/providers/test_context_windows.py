@@ -2,7 +2,7 @@
 # pylint: disable=protected-access,missing-function-docstring
 # pylint: disable=too-few-public-methods,unused-argument
 # pylint: disable=unsubscriptable-object
-"""The static context-window catalog and its wiring into providers.
+"""The provider-scoped context-window catalog and its wiring into providers.
 
 The compaction trigger is ``trigger_ratio * model.context_size``; before the
 catalog every model inherited the 128k ``max_input_length`` default, so a
@@ -22,43 +22,54 @@ from qwenpaw.providers.provider import ModelInfo, Provider
 
 
 @pytest.mark.parametrize(
-    ("model_id", "expected"),
+    ("provider_id", "model_id", "expected"),
     [
-        # Qwen family, including the specific over the generic.
-        ("qwen-long", 10_000_000),
-        ("qwen3.7-max", 1_000_000),
-        ("qwen3.7-plus-2026-01-01", 1_000_000),
-        ("qwen3.6-plus", 1_000_000),
-        ("qwen-plus-latest", 1_000_000),
-        ("qwen-plus", 131_072),
-        ("qwen-turbo-latest", 1_000_000),
-        ("qwen-turbo", 131_072),  # stable alias: conservative bound
-        ("qwen3-max", 262_144),
-        ("qwen-max", 131_072),
-        # One entry covers the same model across provider id formats.
-        ("claude-sonnet-4-5", 200_000),
-        ("anthropic/claude-opus-4.6", 200_000),
-        ("us.anthropic.claude-haiku-4-5-20251001-v1:0", 200_000),
-        # Legacy 100k models must NOT inherit the family's 200k.
-        ("claude-2.0", 100_000),
-        ("anthropic/claude-2", 100_000),
-        ("claude-instant-1.2", 100_000),
-        ("us.anthropic.claude-instant-v1:0", 100_000),
-        ("gpt-4.1-mini", 1_047_576),
-        ("gpt-5-codex", 272_000),
-        ("o3", 200_000),
-        ("openai/o3-mini", 200_000),
-        # gemini: 1.5-pro (2M) must win over the family catch-all (1M).
-        ("gemini-1.5-pro", 2_097_152),
-        ("gemini-2.5-flash", 1_048_576),
-        ("kimi-k2-thinking", 262_144),
-        ("glm-5.2", 1_000_000),
-        ("GLM-5.2[1m]", 1_000_000),
-        ("zhipu/glm-5.2", 1_000_000),
+        ("sub2api", "gpt-5.6", 1_050_000),
+        ("sub2api", "gpt-5.6-luna", 1_050_000),
+        ("deepseek", "deepseek-v4-flash", 1_000_000),
+        ("deepseek", "deepseek-v4-pro", 1_000_000),
+        ("deepseek", "deepseek-chat", 1_000_000),
+        ("deepseek", "deepseek-reasoner", 1_000_000),
+        ("deepseek", "deepseek-v3.2", 131_072),
     ],
 )
-def test_known_windows(model_id: str, expected: int):
-    assert known_context_size(model_id) == expected
+def test_known_windows(provider_id: str, model_id: str, expected: int):
+    assert known_context_size(model_id, provider_id=provider_id) == expected
+
+
+def test_known_windows_are_not_global():
+    assert known_context_size("gpt-5.6-luna") is None
+    assert known_context_size("gpt-5.6-luna", provider_id="openai") is None
+    assert known_context_size("deepseek-v4-pro", provider_id="sub2api") is None
+
+
+def test_model_family_matching_requires_a_right_boundary():
+    assert known_context_size("o3-mini", provider_id="openai") == 200_000
+    assert known_context_size("o3x", provider_id="openai") is None
+    assert known_context_size("openai/o3x", provider_id="openai") is None
+
+
+@pytest.mark.parametrize(
+    ("provider_id", "model_id", "expected"),
+    [
+        ("dashscope", "qwen3.7-max", 1_000_000),
+        ("aliyun-codingplan", "qwen3-coder-plus", 1_000_000),
+        ("zhipu-intl", "glm-5.2", 1_000_000),
+        ("openai", "gpt-5", 272_000),
+        ("openai", "gpt-4.1-mini", 1_047_576),
+        ("openai-response", "o3", 200_000),
+        ("azure-openai", "gpt-5-chat", 272_000),
+        ("kimi-cn", "kimi-k2-thinking", 262_144),
+        ("anthropic", "claude-sonnet-4-5", 200_000),
+        ("gemini", "gemini-2.5-pro", 1_048_576),
+    ],
+)
+def test_official_builtin_windows(
+    provider_id: str,
+    model_id: str,
+    expected: int,
+):
+    assert known_context_size(model_id, provider_id=provider_id) == expected
 
 
 # -- resolve_context_window: the single resolution entry point ---------------
@@ -66,7 +77,11 @@ def test_known_windows(model_id: str, expected: int):
 
 def test_resolve_explicit_config_wins():
     assert (
-        resolve_context_window("claude-sonnet-4-5", configured=1_000_000)
+        resolve_context_window(
+            "gpt-5.6-luna",
+            provider_id="sub2api",
+            configured=1_000_000,
+        )
         == 1_000_000
     )
 
@@ -74,17 +89,19 @@ def test_resolve_explicit_config_wins():
 def test_resolve_default_valued_config_falls_to_catalog():
     assert (
         resolve_context_window(
-            "claude-sonnet-4-5",
+            "gpt-5.6-luna",
+            provider_id="sub2api",
             configured=DEFAULT_CONTEXT_WINDOW,
         )
-        == 200_000
+        == 1_050_000
     )
 
 
 def test_resolve_explicit_default_valued_config_wins():
     assert (
         resolve_context_window(
-            "claude-sonnet-4-5",
+            "gpt-5.6-luna",
+            provider_id="sub2api",
             configured=DEFAULT_CONTEXT_WINDOW,
             configured_is_explicit=True,
         )
@@ -117,14 +134,44 @@ def test_resolve_unknown_model_uses_default():
 
 
 def test_unknown_model_returns_none():
-    assert known_context_size("totally-unknown-model") is None
+    assert (
+        known_context_size("totally-unknown-model", provider_id="deepseek")
+        is None
+    )
     assert known_context_size("") is None
 
 
-def test_short_patterns_require_a_word_boundary():
-    # "o3" must not fire inside another token.
-    assert known_context_size("gpt-4o3x") is None
-    assert known_context_size("foo-bar-o3") == 200_000
+def test_unconfigured_provider_uses_default_even_for_known_model_name():
+    assert (
+        resolve_context_window(
+            "gpt-5.6-luna",
+            provider_id="openai",
+        )
+        == DEFAULT_CONTEXT_WINDOW
+    )
+
+
+def test_custom_provider_does_not_inherit_official_windows():
+    assert (
+        resolve_context_window(
+            "gpt-4.1-mini",
+            provider_id="my-openai-gateway",
+        )
+        == DEFAULT_CONTEXT_WINDOW
+    )
+
+
+def test_builtin_provider_resolution_uses_its_scoped_catalog():
+    """The static provider catalogs must reach the common resolver path."""
+    from qwenpaw.providers.provider_manager import (
+        PROVIDER_DASHSCOPE,
+        PROVIDER_GEMINI,
+        PROVIDER_OPENAI,
+    )
+
+    assert PROVIDER_DASHSCOPE.get_context_size("qwen3.7-plus") == 1_000_000
+    assert PROVIDER_OPENAI.get_context_size("gpt-4.1-mini") == 1_047_576
+    assert PROVIDER_GEMINI.get_context_size("gemini-2.5-flash") == 1_048_576
 
 
 class _CatalogProvider:
@@ -135,6 +182,7 @@ class _CatalogProvider:
     """
 
     _info: ModelInfo | None = None
+    id = "sub2api"
 
     def get_model_info(self, model_id):
         return self._info
@@ -154,33 +202,33 @@ class _MutableCatalogProvider(_CatalogProvider):
 def test_context_size_prefers_explicit_user_config():
     p = _CatalogProvider()
     p._info = ModelInfo(
-        id="claude-sonnet-4-5",
+        id="gpt-5.6-luna",
         name="x",
         max_input_length=1_000_000,
     )
-    assert p.get_context_size("claude-sonnet-4-5") == 1_000_000
+    assert p.get_context_size("gpt-5.6-luna") == 1_000_000
 
 
 def test_context_size_falls_back_to_catalog_when_default():
     p = _CatalogProvider()
-    p._info = ModelInfo(id="claude-sonnet-4-5", name="x")  # default 128k
-    assert p.get_context_size("claude-sonnet-4-5") == 200_000
+    p._info = ModelInfo(id="gpt-5.6-luna", name="x")  # default 128k
+    assert p.get_context_size("gpt-5.6-luna") == 1_050_000
 
 
 def test_context_size_honors_explicit_128k_user_config():
     p = _CatalogProvider()
     p._info = ModelInfo(
-        id="claude-sonnet-4-5",
+        id="gpt-5.6-luna",
         name="x",
         max_input_length=DEFAULT_CONTEXT_WINDOW,
         max_input_length_configured=True,
     )
-    assert p.get_context_size("claude-sonnet-4-5") == DEFAULT_CONTEXT_WINDOW
+    assert p.get_context_size("gpt-5.6-luna") == DEFAULT_CONTEXT_WINDOW
 
 
 def test_model_config_update_marks_128k_as_explicit():
     p = _MutableCatalogProvider()
-    model = ModelInfo(id="claude-sonnet-4-5", name="x")
+    model = ModelInfo(id="gpt-5.6-luna", name="x")
     p.models = [model]
     p.extra_models = []
 
@@ -195,14 +243,14 @@ def test_model_config_update_marks_128k_as_explicit():
 
 def test_unrelated_model_config_update_keeps_catalog_window():
     p = _MutableCatalogProvider()
-    model = ModelInfo(id="claude-sonnet-4-5", name="x")
+    model = ModelInfo(id="gpt-5.6-luna", name="x")
     p.models = [model]
     p.extra_models = []
 
     assert p.update_model_config(model.id, {"max_tokens": 4096})
     assert model.max_input_length_configured is False
     p._info = model
-    assert p.get_context_size(model.id) == 200_000
+    assert p.get_context_size(model.id) == 1_050_000
 
 
 def test_context_size_default_when_unknown_everywhere():
@@ -216,8 +264,8 @@ def test_context_size_default_when_unknown_everywhere():
 def test_private_alias_still_works():
     # Providers call self._get_context_size internally; it must stay wired.
     p = _CatalogProvider()
-    p._info = ModelInfo(id="claude-sonnet-4-5", name="x")
-    assert p._get_context_size("claude-sonnet-4-5") == 200_000
+    p._info = ModelInfo(id="gpt-5.6-luna", name="x")
+    assert p._get_context_size("gpt-5.6-luna") == 1_050_000
 
 
 # -- Ollama: local serving opts out of the cloud catalog ----------------------
