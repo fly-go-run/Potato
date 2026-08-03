@@ -4,7 +4,7 @@ import { Line } from "@ant-design/plots";
 import styles from "../index.module.less";
 
 interface ModelTrendChartProps {
-  chartConfig: any;
+  chartConfig: unknown;
 }
 
 export function ModelTrendChart({ chartConfig }: ModelTrendChartProps) {

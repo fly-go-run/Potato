@@ -159,8 +159,8 @@ function parseV1Props(v1Props: Record<string, unknown>): {
  */
 export function adaptCardForV1(
   CardComponent: BuiltinCardComponent,
-): React.FC<any> {
-  const V1WrappedCard: React.FC<any> = (v1Props) => {
+): React.FC<Record<string, unknown>> {
+  const V1WrappedCard: React.FC<Record<string, unknown>> = (v1Props) => {
     const { content, isStreaming } = parseV1Props(v1Props);
     return <CardComponent content={content} isStreaming={isStreaming} />;
   };
@@ -179,8 +179,8 @@ export function adaptCardForV1(
  */
 export function adaptRegistryForV1(
   registry: Record<string, BuiltinCardComponent>,
-): Record<string, React.FC<any>> {
-  const adapted: Record<string, React.FC<any>> = {};
+): Record<string, React.FC<Record<string, unknown>>> {
+  const adapted: Record<string, React.FC<Record<string, unknown>>> = {};
   for (const [toolName, CardComponent] of Object.entries(registry)) {
     adapted[toolName] = adaptCardForV1(CardComponent);
   }
@@ -188,8 +188,8 @@ export function adaptRegistryForV1(
 }
 
 /** Lazy-cached V1-wrapped GenericToolCard for the fallback proxy. */
-let _genericFallback: React.FC<any> | null = null;
-function getGenericFallback(): React.FC<any> {
+let _genericFallback: React.FC<Record<string, unknown>> | null = null;
+function getGenericFallback(): React.FC<Record<string, unknown>> {
   if (!_genericFallback) {
     _genericFallback = adaptCardForV1(GenericToolCard);
   }
@@ -205,8 +205,8 @@ function getGenericFallback(): React.FC<any> {
  * copy own-enumerable properties and would lose the Proxy behaviour.
  */
 export function withGenericFallback(
-  config: Record<string, React.FC<any>>,
-): Record<string, React.FC<any>> {
+  config: Record<string, React.FC<Record<string, unknown>>>,
+): Record<string, React.FC<Record<string, unknown>>> {
   const fallback = getGenericFallback();
   return new Proxy(config, {
     get(target, prop, receiver) {

@@ -153,7 +153,7 @@ function AppInner() {
         );
     }
     useUploadLimitStore.getState().fetch();
-  }, []);
+  }, [i18n]);
 
   useEffect(() => {
     const handleLanguageChanged = (lng: string) => {
@@ -169,7 +169,7 @@ function AppInner() {
     return () => {
       i18n.off("languageChanged", handleLanguageChanged);
     };
-  }, [i18n]);
+  }, [i18n, lang]);
 
   // Disable the default browser context menu in the Tauri desktop build so
   // users cannot open DevTools via right-click. DevTools is still available
@@ -203,7 +203,7 @@ function AppInner() {
         prefixCls="qwenpaw"
         locale={antdLocale}
         theme={{
-          ...(selectedTheme as any)?.theme,
+          ...(selectedTheme as { theme?: object }).theme,
           algorithm: isDark
             ? antdTheme.darkAlgorithm
             : antdTheme.defaultAlgorithm,

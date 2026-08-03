@@ -22,6 +22,7 @@ import utc from "dayjs/plugin/utc";
 import type {
   CronDispatchTargetItem,
   CronJobExecutionRecord,
+  CronJobSpecInput,
   CronJobSpecOutput,
 } from "../../../api/types";
 import { useTranslation } from "react-i18next";
@@ -32,8 +33,13 @@ import {
   TemplatePickerModal,
   useCronJobs,
   DEFAULT_FORM_VALUES,
+  type CronJobFormValues,
 } from "./components";
-import { parseCron, serializeCron } from "./components/parseCron";
+import {
+  parseCron,
+  serializeCron,
+  type CronParts,
+} from "./components/parseCron";
 import { PageHeader } from "@/components/PageHeader";
 import styles from "./index.module.less";
 
@@ -99,7 +105,7 @@ function CronJobsPage() {
     Set<string>
   >(new Set());
   const [userTimezone, setUserTimezone] = useState("UTC");
-  const [form] = Form.useForm<CronJob>();
+  const [form] = Form.useForm<CronJobFormValues>();
   const userTimezoneRef = useRef("UTC");
   const [targetItems, setTargetItems] = useState<CronDispatchTargetItem[]>([]);
   const [targetChannels, setTargetChannels] = useState<string[]>(["console"]);
@@ -157,7 +163,7 @@ function CronJobsPage() {
     setTemplateModalOpen(true);
   };
 
-  const handleUseTemplate = (templateValues: Record<string, unknown>) => {
+  const handleUseTemplate = (templateValues: Partial<CronJobFormValues>) => {
     setTemplateModalOpen(false);
     setEditingJob(null);
     form.resetFields();
@@ -213,8 +219,13 @@ function CronJobsPage() {
   const handleEdit = (job: CronJob) => {
     setEditingJob(job);
 
-    const formValues: any = {
-      ...job,
+    // `meta` is backend-owned opaque JSON and has no editable field in this
+    // drawer. Preserve it from the original job on submit instead of forcing
+    // it through Ant Design's form-value normalization.
+    const { meta: _meta, ...jobFormValues } = job;
+
+    const formValues: CronJobFormValues = {
+      ...jobFormValues,
       request: {
         ...job.request,
         input: job.request?.input
@@ -313,16 +324,15 @@ function CronJobsPage() {
     }
   };
 
-  const handleSubmit = async (values: any) => {
-    let schedule: any = values.schedule || {};
+  const handleSubmit = async (values: CronJobFormValues) => {
+    let schedule: CronJobSpecInput["schedule"];
     if ((values.scheduleType || "cron") === "once") {
+      if (!values.onceRunAt) return;
       const onceRepeatEnabled = Boolean(values.onceRepeatEnabled);
       const repeatEndType = values.onceRepeatEndType || "never";
       schedule = {
         type: "once",
-        run_at: values.onceRunAt
-          ? dayjs(values.onceRunAt).format("YYYY-MM-DDTHH:mm:00")
-          : undefined,
+        run_at: dayjs(values.onceRunAt).format("YYYY-MM-DDTHH:mm:00"),
         timezone: values.schedule?.timezone || userTimezoneRef.current,
         repeat_every_days: onceRepeatEnabled
           ? Number(values.onceRepeatEveryDays || 1)
@@ -340,7 +350,7 @@ function CronJobsPage() {
             : undefined,
       };
     } else {
-      const cronParts: any = {
+      const cronParts: CronParts = {
         type: values.cronType || "daily",
       };
 
@@ -360,27 +370,27 @@ function CronJobsPage() {
       }
 
       schedule = {
-        ...values.schedule,
         type: "cron",
         cron: serializeCron(cronParts),
+        timezone: values.schedule?.timezone || userTimezoneRef.current,
       };
     }
 
-    let processedValues = {
-      ...values,
+    const processedValues: CronJobSpecInput = {
+      id: values.id,
+      name: values.name || "",
+      enabled: values.enabled,
+      save_result_to_inbox: values.save_result_to_inbox,
       schedule,
+      task_type: values.task_type,
+      text: values.text,
+      request: values.request
+        ? { ...values.request, input: values.request.input ?? "" }
+        : undefined,
+      dispatch: values.dispatch || DEFAULT_FORM_VALUES.dispatch,
+      runtime: values.runtime,
+      meta: values.meta ?? editingJob?.meta,
     };
-    delete processedValues.scheduleType;
-    delete processedValues.onceRunAt;
-    delete processedValues.onceRepeatEnabled;
-    delete processedValues.onceRepeatEveryDays;
-    delete processedValues.onceRepeatEndType;
-    delete processedValues.onceRepeatUntil;
-    delete processedValues.onceRepeatCount;
-    delete processedValues.cronType;
-    delete processedValues.cronTime;
-    delete processedValues.cronDaysOfWeek;
-    delete processedValues.cronCustom;
 
     if (processedValues.task_type === "text") {
       // Remove request object entirely for text tasks
@@ -388,7 +398,7 @@ function CronJobsPage() {
     } else if (processedValues.task_type === "agent") {
       //Ensure request object exists
       if (!processedValues.request) {
-        processedValues.request = {};
+        processedValues.request = { input: "" };
       }
 
       // Parse request input JSON

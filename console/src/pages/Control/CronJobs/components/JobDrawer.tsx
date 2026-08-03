@@ -18,6 +18,7 @@ import type {
 } from "../../../../api/types";
 import { DEFAULT_FORM_VALUES } from "./constants";
 import { useTimezoneOptions } from "../../../../hooks/useTimezoneOptions";
+import type { CronJobFormValues } from "./formTypes";
 import styles from "../index.module.less";
 
 type CronJob = CronJobSpecOutput;
@@ -26,14 +27,14 @@ type SelectOption = { value: string; label: string };
 interface JobDrawerProps {
   open: boolean;
   editingJob: CronJob | null;
-  form: FormInstance<CronJob>;
+  form: FormInstance<CronJobFormValues>;
   saving: boolean;
   targetItems: CronDispatchTargetItem[];
   targetChannels: string[];
   targetsLoading: boolean;
   onReloadTargets: () => Promise<void>;
   onClose: () => void;
-  onSubmit: (values: CronJob) => void;
+  onSubmit: (values: CronJobFormValues) => void;
 }
 
 export function JobDrawer({

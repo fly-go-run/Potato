@@ -289,17 +289,17 @@ function stripPreviewedMediaJson(
     const escapedUrl = escapeRegExp(media.url);
     const patterns = [
       new RegExp(
-        `\\{[\\s\\S]*?\"type\"\\s*:\\s*\"${escapeRegExp(
+        `\\{[\\s\\S]*?"type"\\s*:\\s*"${escapeRegExp(
           media.type,
-        )}\"[\\s\\S]*?(?:\"filename\"|\"file_name\"|\"name\"|\"title\")\\s*:\\s*\"${escapedName}\"[\\s\\S]*?(?:\"url\"|\"uri\"|\"path\"|\"file_path\"|\"data\")\\s*:\\s*\"${escapedUrl}\"[\\s\\S]*?\\}`,
+        )}"[\\s\\S]*?(?:"filename"|"file_name"|"name"|"title")\\s*:\\s*"${escapedName}"[\\s\\S]*?(?:"url"|"uri"|"path"|"file_path"|"data")\\s*:\\s*"${escapedUrl}"[\\s\\S]*?\\}`,
         "g",
       ),
       new RegExp(
-        `\\{[\\s\\S]*?(?:\"filename\"|\"file_name\"|\"name\"|\"title\")\\s*:\\s*\"${escapedName}\"[\\s\\S]*?(?:\"url\"|\"uri\"|\"path\"|\"file_path\"|\"data\")\\s*:\\s*\"${escapedUrl}\"[\\s\\S]*?\\}`,
+        `\\{[\\s\\S]*?(?:"filename"|"file_name"|"name"|"title")\\s*:\\s*"${escapedName}"[\\s\\S]*?(?:"url"|"uri"|"path"|"file_path"|"data")\\s*:\\s*"${escapedUrl}"[\\s\\S]*?\\}`,
         "g",
       ),
       new RegExp(
-        `\\{[\\s\\S]*?(?:\"url\"|\"uri\"|\"path\"|\"file_path\"|\"data\")\\s*:\\s*\"${escapedUrl}\"[\\s\\S]*?\\}`,
+        `\\{[\\s\\S]*?(?:"url"|"uri"|"path"|"file_path"|"data")\\s*:\\s*"${escapedUrl}"[\\s\\S]*?\\}`,
         "g",
       ),
     ];

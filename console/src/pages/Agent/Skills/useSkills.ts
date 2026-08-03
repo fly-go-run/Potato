@@ -14,9 +14,44 @@ import {
   showScanErrorModal,
 } from "../../../utils/scanError";
 
+interface SkillConflictEntry extends Record<string, unknown> {
+  skill_name: string;
+  suggested_name: string;
+}
+
+interface SkillConflict extends Record<string, unknown> {
+  skill_name?: string;
+  suggested_name?: string;
+  conflicts?: SkillConflictEntry[];
+}
+
+function asSkillConflict(
+  detail: Record<string, unknown> | null,
+): SkillConflict | null {
+  if (!detail) return null;
+  const suggestedName = detail.suggested_name;
+  const conflicts = detail.conflicts;
+  if (
+    typeof suggestedName === "string" ||
+    (Array.isArray(conflicts) &&
+      conflicts.every(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          typeof (entry as Record<string, unknown>).skill_name === "string" &&
+          typeof (entry as Record<string, unknown>).suggested_name === "string",
+      ))
+  ) {
+    // Preserve the full backend detail for callers and backward compatibility;
+    // the guard above verifies the fields consumed by the UI.
+    return detail as SkillConflict;
+  }
+  return null;
+}
+
 type SkillActionResult =
   | { success: true; name?: string; imported?: string[] }
-  | { success: false; conflict?: Record<string, any> };
+  | { success: false; conflict?: SkillConflict };
 
 export function useSkills() {
   const { t } = useTranslation();
@@ -38,7 +73,7 @@ export function useSkills() {
       message.error(msg);
       return false;
     },
-    [t],
+    [message, t],
   );
 
   const checkScanWarnings = useCallback(
@@ -63,7 +98,7 @@ export function useSkills() {
     } finally {
       setLoading(false);
     }
-  }, [selectedAgent]);
+  }, [message, selectedAgent, t]);
 
   const hardRefresh = useCallback(async () => {
     setLoading(true);
@@ -77,7 +112,7 @@ export function useSkills() {
     } finally {
       setLoading(false);
     }
-  }, [selectedAgent]);
+  }, [message, selectedAgent, t]);
 
   // Invalidate cache when agent changes
   useEffect(() => {
@@ -99,7 +134,7 @@ export function useSkills() {
       await checkScanWarnings(result.name);
       return { success: true, name: result.name };
     } catch (error) {
-      const detail = parseErrorDetail(error);
+      const detail = asSkillConflict(parseErrorDetail(error));
       if (detail?.suggested_name) {
         return { success: false, conflict: detail };
       }
@@ -136,7 +171,7 @@ export function useSkills() {
       await fetchSkills();
       return { success: true, imported: result?.imported || [] };
     } catch (error) {
-      const detail = parseErrorDetail(error);
+      const detail = asSkillConflict(parseErrorDetail(error));
       if (Array.isArray(detail?.conflicts) && detail.conflicts.length > 0) {
         return { success: false, conflict: detail };
       }
@@ -194,7 +229,10 @@ export function useSkills() {
             Array.isArray(status.result?.conflicts) &&
             status.result.conflicts.length > 0
           ) {
-            return { success: false, conflict: status.result };
+            return {
+              success: false,
+              conflict: asSkillConflict(status.result) ?? undefined,
+            };
           }
           const hubResult = status.result as
             | SecurityScanErrorResponse

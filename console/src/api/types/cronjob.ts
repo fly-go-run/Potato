@@ -31,6 +31,7 @@ export interface CronJobDispatch {
 }
 
 export interface CronJobRuntime {
+  share_session?: boolean;
   max_concurrency?: number;
   timeout_seconds?: number;
   misfire_grace_seconds?: number;
@@ -45,7 +46,8 @@ export interface CronJobRequest {
 }
 
 export interface CronJobSpecInput {
-  id: string;
+  /** Omitted on creation; assigned by the backend and required on reads. */
+  id?: string;
   name: string;
   enabled?: boolean;
   save_result_to_inbox?: boolean;
@@ -58,7 +60,7 @@ export interface CronJobSpecInput {
   meta?: Record<string, unknown>;
 }
 
-export type CronJobSpecOutput = CronJobSpecInput;
+export type CronJobSpecOutput = Omit<CronJobSpecInput, "id"> & { id: string };
 
 export interface CronJobView extends CronJobSpecOutput {
   // Extended view with runtime state

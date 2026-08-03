@@ -97,7 +97,7 @@ export const createColumns = (
       dataIndex: "schedule",
       key: "cron",
       width: 180,
-      render: (schedule: any) => {
+      render: (schedule: CronJob["schedule"]) => {
         if (schedule?.type === "once") {
           const displayText = schedule?.run_at
             ? dayjs(schedule.run_at).format("YYYY-MM-DD HH:mm")

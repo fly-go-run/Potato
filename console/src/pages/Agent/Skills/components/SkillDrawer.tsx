@@ -10,6 +10,7 @@ import { api } from "../../../../api";
 import { deriveInstalledFromLabel } from "../../../../utils/skill";
 
 /** Parse YAML frontmatter from a `---`-delimited content string. */
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function parseFrontmatter(
   content: string,
 ): Record<string, string> | null {

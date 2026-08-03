@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -38,6 +38,7 @@ const IMAGE_EXTS = new Set([
 
 export type PreviewType = "image" | "pdf" | "markdown" | "csv" | "none";
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function getPreviewType(filePath: string): PreviewType {
   const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
   if (IMAGE_EXTS.has(ext)) return "image";
@@ -47,6 +48,7 @@ export function getPreviewType(filePath: string): PreviewType {
   return "none";
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function isPreviewable(filePath: string): boolean {
   return getPreviewType(filePath) !== "none";
 }
@@ -197,12 +199,12 @@ function PdfPreview({ filePath }: { filePath: string }) {
   );
 }
 
-const markdownComponents = {
+const markdownComponents: Components = {
   a: ExternalMarkdownLink,
   pre({ children }: { children?: React.ReactNode }) {
     return <>{children}</>;
   },
-  code({ node: _node, inline: _inline, className, children, ...rest }: any) {
+  code({ node: _node, className, children, ...rest }) {
     const match = /language-([\w-]+)/.exec(className || "");
     const codeText = String(children).replace(/\n$/, "");
     if (match) {
@@ -267,17 +269,14 @@ function CsvPreview({ content }: { content: string }) {
           <thead>
             <tr>
               {header.slice(0, MAX_CSV_COLS).map((h, i) => (
-                // eslint-disable-next-line react/no-array-index-key
                 <th key={i}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {body.map((row, ri) => (
-              // eslint-disable-next-line react/no-array-index-key
               <tr key={ri}>
                 {row.slice(0, MAX_CSV_COLS).map((cell, ci) => (
-                  // eslint-disable-next-line react/no-array-index-key
                   <td key={ci}>{cell}</td>
                 ))}
               </tr>

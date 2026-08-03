@@ -51,6 +51,7 @@ const normalizeSkillIconKey = (value: string) =>
     .split(/\s+/)[0]
     ?.replace(/[^a-z0-9_-]/g, "") || "";
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export const getFileIcon = (filePath: string) => {
   const skillKey = normalizeSkillIconKey(filePath);
   const textSkillIcons = new Set([
@@ -130,6 +131,7 @@ export const getFileIcon = (filePath: string) => {
   }
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export const getSkillVisual = (name: string, emoji?: string) => {
   if (emoji) {
     return <span className={styles.skillEmoji}>{emoji}</span>;
@@ -254,7 +256,7 @@ export const SkillCard = React.memo(function SkillCard({
       {/* Tags row */}
       <div className={styles.metaInfoRow}>
         <span className={styles.metaInfoLabel}>{t("skills.tags")}</span>
-        {!!skill.tags?.length ? (
+        {skill.tags?.length ? (
           <div className={styles.tagChips}>
             {skill.tags.map((tag) => (
               <span key={tag} className={styles.tagChip}>

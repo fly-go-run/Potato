@@ -67,7 +67,7 @@ export const ModelsSection = React.memo(function ModelsSection({
       setSelectedModel(currentSlot.model || undefined);
     }
     setDirty(false);
-  }, [currentSlot?.provider_id, currentSlot?.model]);
+  }, [currentSlot]);
 
   const chosenProvider = providers.find((p) => p.id === selectedProviderId);
   const modelOptions = [

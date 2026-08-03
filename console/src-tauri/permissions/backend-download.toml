@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "backend-download"
-description = "Allows the frontend to save files streamed from the local backend."
-commands.allow = ["download_backend_file"]
+description = "Allows backend downloads and bounded binary workspace previews."
+commands.allow = ["download_backend_file", "read_workspace_binary_file"]

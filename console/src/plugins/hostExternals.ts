@@ -33,6 +33,9 @@ import type {
 
 declare const VITE_API_BASE_URL: string;
 
+export type RuntimeCardProps = Record<string, unknown>;
+export type RuntimeCardComponent = React.FC<RuntimeCardProps>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +78,7 @@ export interface PluginRegistration {
    *  External (non-builtin) renderers for the same tool name take priority. */
   isBuiltin: boolean;
   routes: PluginRouteDeclaration[];
-  toolRenderers: Record<string, React.FC<any>>;
+  toolRenderers: Record<string, RuntimeCardComponent>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,7 +99,7 @@ class PluginSystem {
 
   addToolRenderers(
     pluginId: string,
-    renderers: Record<string, React.FC<any>>,
+    renderers: Record<string, RuntimeCardComponent>,
     options?: { isBuiltin?: boolean },
   ): void {
     const rec = this._record(pluginId);
@@ -110,9 +113,9 @@ class PluginSystem {
   /** Merged map of all tool renderers across all plugins.
    *  Builtin renderers are applied first, then external plugin renderers
    *  overlay on top — so external plugins take priority over builtins. */
-  getToolRenderConfig(): Record<string, React.FC<any>> {
-    const builtinRenderers: Record<string, React.FC<any>> = {};
-    const externalRenderers: Record<string, React.FC<any>> = {};
+  getToolRenderConfig(): Record<string, RuntimeCardComponent> {
+    const builtinRenderers: Record<string, RuntimeCardComponent> = {};
+    const externalRenderers: Record<string, RuntimeCardComponent> = {};
     for (const rec of this.records.values()) {
       const target = rec.isBuiltin ? builtinRenderers : externalRenderers;
       Object.assign(target, rec.toolRenderers);
@@ -175,7 +178,7 @@ export interface WindowNamespace {
   /** Register tool-call renderers for a plugin. */
   registerToolRender?: (
     pluginId: string,
-    renderers: Record<string, React.FC<any>>,
+    renderers: Record<string, RuntimeCardComponent>,
   ) => void;
   /** Console-wide plugin Menu API. Attached by installHostExternals(). */
   menu?: QwenPawMenuNamespace;
@@ -227,7 +230,7 @@ export function installHostExternals(): void {
     typeof VITE_API_BASE_URL !== "undefined" ? VITE_API_BASE_URL : "";
 
   if (!window.QwenPaw) {
-    (window as any).QwenPaw = {} as WindowNamespace;
+    window.QwenPaw = {} as WindowNamespace;
   }
 
   if (!window.QwenPaw.host) {

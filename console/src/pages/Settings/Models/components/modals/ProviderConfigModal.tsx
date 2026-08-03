@@ -16,6 +16,7 @@ import {
   RightOutlined,
 } from "@ant-design/icons";
 import type {
+  ActiveModelsInfo,
   BaseUrlOption,
   ProviderConfigRequest,
 } from "../../../../../api/types";
@@ -47,7 +48,7 @@ interface JsonCodeEditorProps {
 function highlightJson(text: string): ReactNode[] {
   const tokens: ReactNode[] = [];
   const pattern =
-    /("(?:\\.|[^"\\])*")(\s*:)?|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}\[\],:]/g;
+    /("(?:\\.|[^"\\])*")(\s*:)?|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}[\],:]/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -276,7 +277,7 @@ interface ProviderConfigModalProps {
     auth_mode?: "api_key" | "auth_token";
     meta?: Record<string, unknown>;
   };
-  activeModels: any;
+  activeModels: ActiveModelsInfo | null;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;

@@ -1,7 +1,16 @@
 import { useEffect } from "react";
 import { Modal, Form, Input, Select } from "@agentscope-ai/design";
+import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
 import type { ToolGuardRule } from "../../../../api/modules/security";
+
+type RuleFormValues = Omit<
+  ToolGuardRule,
+  "patterns" | "exclude_patterns"
+> & {
+  patterns: string;
+  exclude_patterns: string;
+};
 
 const SEVERITY_OPTIONS = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
 const CATEGORY_OPTIONS = [
@@ -37,7 +46,7 @@ interface RuleModalProps {
   existingRuleIds: string[];
   onOk: () => void;
   onCancel: () => void;
-  form: any;
+  form: FormInstance<RuleFormValues>;
 }
 
 export function RuleModal({

@@ -17,6 +17,35 @@ export type CopyableResponse = {
   output?: CopyableMessage[];
 };
 
+type UserMessageContentPart = {
+  type?: string;
+  text?: string;
+};
+
+type UserMessage = {
+  content?: string | UserMessageContentPart[];
+};
+
+type MessageCardEnvelope = {
+  cards?: Array<{ data?: { input?: unknown[] } }>;
+};
+
+type ContentUrlPart = Record<string, unknown> & {
+  type?: string;
+  image_url?: string;
+  file_url?: string;
+  data?: string;
+  video_url?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isUserMessage(value: unknown): value is UserMessage {
+  return isRecord(value);
+}
+
 export type RuntimeLoadingBridgeApi = {
   getLoading?: () => boolean | string;
   setLoading?: (loading: boolean | string) => void;
@@ -60,17 +89,23 @@ export function extractCopyableText(response: CopyableResponse): string {
 }
 
 /** Extract plain text from user message content. */
-export function extractUserMessageText(m: any): string {
+export function extractUserMessageText(m: unknown): string {
+  if (!isUserMessage(m)) return "";
   if (typeof m.content === "string") return m.content;
   if (!Array.isArray(m.content)) return "";
   return m.content
-    .filter((p: any) => p.type === "text")
-    .map((p: any) => p.text || "")
+    .filter(
+      (part): part is UserMessageContentPart =>
+        isRecord(part) && part.type === "text",
+    )
+    .map((part) => part.text || "")
     .join("\n");
 }
 
-export function extractTextFromMessage(msg: any): string {
-  const innerMessage = msg?.cards?.[0]?.data?.input?.[0];
+export function extractTextFromMessage(msg: unknown): string {
+  if (!isRecord(msg)) return "";
+  const envelope = msg as MessageCardEnvelope;
+  const innerMessage = envelope.cards?.[0]?.data?.input?.[0];
   if (!innerMessage) return "";
   return extractUserMessageText(innerMessage);
 }
@@ -167,8 +202,9 @@ export function toStoredName(v: string): string {
 }
 
 /** Convert content part URLs to stored name format. */
-export function normalizeContentUrls(part: any): any {
-  const p = { ...part };
+export function normalizeContentUrls<T>(part: T): T {
+  if (!isRecord(part)) return part;
+  const p: ContentUrlPart = { ...part };
   if (p.type === "image" && typeof p.image_url === "string")
     p.image_url = toStoredName(p.image_url);
   if (p.type === "file" && typeof p.file_url === "string")
@@ -177,7 +213,7 @@ export function normalizeContentUrls(part: any): any {
     p.data = toStoredName(p.data);
   if (p.type === "video" && typeof p.video_url === "string")
     p.video_url = toStoredName(p.video_url);
-  return p;
+  return p as T;
 }
 
 /** Turn a backend content URL (path or full URL) into a full URL for display. */

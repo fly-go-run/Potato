@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import type { CronJobFormValues } from "./formTypes";
 
 export type CronTemplateCategory = "cron" | "once";
 export type CronTemplateTag = "personal" | "team" | "reminder" | "calendar";
@@ -12,7 +13,7 @@ export interface CronTemplateDefinition {
   source: "builtin";
   tags: CronTemplateTag[];
   showInCalendarRecommended: boolean;
-  toFormValues: (timezone: string) => Record<string, unknown>;
+  toFormValues: (timezone: string) => Partial<CronJobFormValues>;
 }
 
 // Phase 1: built-in templates only.

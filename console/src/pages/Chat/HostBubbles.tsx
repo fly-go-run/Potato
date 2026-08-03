@@ -16,19 +16,8 @@
  * update the two import statements below.
  */
 import React from "react";
-// eslint-disable-next-line import/no-unresolved
 import VendorRequestCardOriginal from "@agentscope-ai/chat/lib/AgentScopeRuntimeWebUI/core/AgentScopeRuntime/Request/Card";
-// eslint-disable-next-line import/no-unresolved
 import VendorResponseCardOriginal from "@agentscope-ai/chat/lib/AgentScopeRuntimeWebUI/core/AgentScopeRuntime/Response/Card";
-// Vendor `.d.ts` doesn't yet describe the contentPrepend/contentAppend
-// slots we added in the patched .js (Response/Card.js + Request/Card.js).
-// Loosen the prop type so TS doesn't reject the passthrough; runtime
-// behaviour is unchanged.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const VendorRequestCard = VendorRequestCardOriginal as React.ComponentType<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const VendorResponseCard =
-  VendorResponseCardOriginal as React.ComponentType<any>;
 import {
   useChatScalarSnapshot,
   useChatListSnapshot,
@@ -39,15 +28,56 @@ import type {
   ChatRequestData,
   ChatResponseData,
 } from "../../plugins/registry/types";
+import type {
+  IAgentScopeRuntimeRequest,
+  IAgentScopeRuntimeResponse,
+} from "@agentscope-ai/chat/lib/AgentScopeRuntimeWebUI/core/AgentScopeRuntime/types";
+
+// Vendor `.d.ts` doesn't yet describe the contentPrepend/contentAppend
+// slots we added in the patched .js (Response/Card.js + Request/Card.js).
+// Keep that integration boundary explicit instead of widening the whole card
+// API to `any`.
+type VendorRequestCardProps = {
+  data: IAgentScopeRuntimeRequest;
+  contentPrepend?: React.ReactNode;
+  contentAppend?: React.ReactNode;
+};
+type VendorResponseCardProps = {
+  data: IAgentScopeRuntimeResponse;
+  isLast?: boolean;
+  contentPrepend?: React.ReactNode;
+  contentAppend?: React.ReactNode;
+};
+
+const VendorRequestCard =
+  VendorRequestCardOriginal as React.ComponentType<VendorRequestCardProps>;
+const VendorResponseCard =
+  VendorResponseCardOriginal as React.ComponentType<VendorResponseCardProps>;
+
+function asVendorRequestData(
+  value: ChatRequestData,
+): IAgentScopeRuntimeRequest | null {
+  return Array.isArray(value.input)
+    ? (value as unknown as IAgentScopeRuntimeRequest)
+    : null;
+}
+
+function asVendorResponseData(
+  value: ChatResponseData,
+): IAgentScopeRuntimeResponse | null {
+  const isValid =
+    typeof value.id === "string" &&
+    typeof value.status === "string" &&
+    typeof value.created_at === "number" &&
+    Array.isArray(value.output);
+  return isValid ? (value as unknown as IAgentScopeRuntimeResponse) : null;
+}
 
 function sortByOrder<T extends { item: { order?: number } }>(arr: T[]): T[] {
   return arr
     .slice()
     .sort((a, b) => (a.item.order ?? 100) - (b.item.order ?? 100));
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyCardProps = any;
 
 export function HostRequestCard(props: { data: ChatRequestData }) {
   const extScalar = useChatScalarSnapshot();
@@ -89,13 +119,18 @@ export function HostRequestCard(props: { data: ChatRequestData }) {
       </>
     );
 
-  const fallback = () => (
-    <VendorRequestCard
-      data={props.data as AnyCardProps}
-      contentPrepend={contentPrepend as AnyCardProps}
-      contentAppend={contentAppend as AnyCardProps}
-    />
-  );
+  const fallback = (): React.ReactElement => {
+    const vendorData = asVendorRequestData(props.data);
+    return vendorData ? (
+      <VendorRequestCard
+        data={vendorData}
+        contentPrepend={contentPrepend}
+        contentAppend={contentAppend}
+      />
+    ) : (
+      <></>
+    );
+  };
 
   if (renderFn) {
     return (
@@ -156,14 +191,19 @@ export function HostResponseCard(props: {
       </>
     );
 
-  const fallback = () => (
-    <VendorResponseCard
-      data={props.data as AnyCardProps}
-      isLast={props.isLast}
-      contentPrepend={contentPrepend as AnyCardProps}
-      contentAppend={contentAppend as AnyCardProps}
-    />
-  );
+  const fallback = (): React.ReactElement => {
+    const vendorData = asVendorResponseData(props.data);
+    return vendorData ? (
+      <VendorResponseCard
+        data={vendorData}
+        isLast={props.isLast}
+        contentPrepend={contentPrepend}
+        contentAppend={contentAppend}
+      />
+    ) : (
+      <></>
+    );
+  };
 
   if (renderFn) {
     return (

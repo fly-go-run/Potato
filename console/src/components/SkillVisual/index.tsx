@@ -17,6 +17,7 @@ const normalizeSkillIconKey = (value: string) =>
     .split(/\s+/)[0]
     ?.replace(/[^a-z0-9_-]/g, "") || "";
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export const getFileIcon = (filePath: string) => {
   const skillKey = normalizeSkillIconKey(filePath);
   const textSkillIcons = new Set([

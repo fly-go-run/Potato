@@ -72,7 +72,7 @@ export function useMarketPlugins({ onInstalled }: UseMarketPluginsOptions) {
         if (err instanceof Error && err.name === "AbortError") {
           return;
         }
-        // eslint-disable-next-line no-console
+
         console.error("[useMarketPlugins] failed to fetch version:", err);
         setQwenpawVersion(null);
       });

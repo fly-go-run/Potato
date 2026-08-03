@@ -60,6 +60,7 @@ const AppCenterPage = lazyImportWithRetry("../../pages/AppCenter");
  * "/" lands here. Waits for useSyncCodingMode to populate the store before
  * deciding between /coding and /chat — see MainLayout.tsx history for why.
  */
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 function DefaultRedirect() {
   const { t } = useTranslation();
   const { codingMode, initialized } = useCodingMode();
@@ -75,6 +76,7 @@ function DefaultRedirect() {
 }
 
 /** Synonym for /acp. Kept for plugins / external links that reference uppercase. */
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 function ACPRedirect() {
   return <Navigate to="/acp" replace />;
 }

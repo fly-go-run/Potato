@@ -219,12 +219,12 @@ export function LocalModelManageModal({
     }
   }, [generateKwargsText, parseGenerateConfig, t]);
 
-  const getLocalModelDisplayName = (modelId: string | null) => {
+  const getLocalModelDisplayName = useCallback((modelId: string | null) => {
     if (!modelId) {
       return null;
     }
     return localModels.find((model) => model.id === modelId)?.name ?? modelId;
-  };
+  }, [localModels]);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -413,7 +413,7 @@ export function LocalModelManageModal({
         }
       }
     },
-    [fetchLocalModels, refreshUpdateStatus, stopPolling, t],
+    [fetchLocalModels, message, refreshUpdateStatus, setModelDownloadState, stopPolling, t],
   );
 
   const startPolling = useCallback(() => {
@@ -608,7 +608,7 @@ export function LocalModelManageModal({
           : t("models.localLlamacppInstallFailed");
       message.error(errMsg);
     }
-  }, [llamacppDownload, refreshStatus, startPolling, t]);
+  }, [llamacppDownload, message, refreshStatus, startPolling, t]);
 
   const handleCancelLlamacppDownload = useCallback(() => {
     Modal.confirm({
@@ -642,7 +642,7 @@ export function LocalModelManageModal({
         }
       },
     });
-  }, [refreshStatus, startPolling, t]);
+  }, [message, refreshStatus, startPolling, t]);
 
   const handleStartModelDownload = useCallback(
     async (model: LocalModelInfo) => {
@@ -675,7 +675,7 @@ export function LocalModelManageModal({
         message.error(errMsg);
       }
     },
-    [refreshStatus, setModelDownloadState, startPolling, t],
+    [message, refreshStatus, setModelDownloadState, startPolling, t],
   );
 
   const handleStartCustomModelDownload = useCallback(async () => {
@@ -693,7 +693,7 @@ export function LocalModelManageModal({
       downloaded: false,
       source: customModelSource,
     });
-  }, [customModelRepoId, customModelSource, handleStartModelDownload, t]);
+  }, [customModelRepoId, customModelSource, handleStartModelDownload, message, t]);
 
   const handleCancelModelDownload = useCallback(
     (modelName: string) => {
@@ -727,7 +727,7 @@ export function LocalModelManageModal({
         },
       });
     },
-    [refreshStatus, setModelDownloadState, startPolling, t],
+    [message, refreshStatus, setModelDownloadState, startPolling, t],
   );
 
   const handleStartServer = useCallback(
@@ -771,7 +771,7 @@ export function LocalModelManageModal({
 
       await run();
     },
-    [localModels, onSaved, refreshStatus, serverStatus, t],
+    [getLocalModelDisplayName, message, onSaved, refreshStatus, serverStatus?.available, serverStatus?.model_name, t],
   );
 
   const handleStopServer = useCallback(async () => {
@@ -789,7 +789,7 @@ export function LocalModelManageModal({
     } finally {
       setStoppingServer(false);
     }
-  }, [onSaved, refreshStatus, t]);
+  }, [message, onSaved, refreshStatus, t]);
 
   const handleDeleteModel = useCallback(
     (model: LocalModelInfo) => {

@@ -43,6 +43,7 @@ const ShellCard: React.FC<ShellCardProps> = ({ content, isStreaming }) => {
       title={title}
       content={content}
       isStreaming={isStreaming}
+      showDuration
     >
       {resultText && <DefaultBlock title="Output" content={resultText} />}
     </ToolCardShell>

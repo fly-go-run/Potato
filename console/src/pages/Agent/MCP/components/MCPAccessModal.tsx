@@ -94,9 +94,11 @@ export const MCPAccessModal: React.FC<MCPAccessModalProps> = ({
           if (!cancelled) {
             setTools(currentTools);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           if (!cancelled) {
-            setToolsError(err?.message || t("mcp.toolsLoadError"));
+            setToolsError(
+              err instanceof Error ? err.message : t("mcp.toolsLoadError"),
+            );
           }
         }
       } catch {

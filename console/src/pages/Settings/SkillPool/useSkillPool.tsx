@@ -859,12 +859,16 @@ export function useSkillPool() {
         }
         return;
       }
-      if (detail?.suggested_name) {
+      const suggestedName =
+        typeof detail?.suggested_name === "string"
+          ? detail.suggested_name
+          : undefined;
+      if (suggestedName) {
         const renameMap = await showConflictRenameModal([
           {
             key: skillName,
             label: skillName,
-            suggested_name: detail.suggested_name,
+            suggested_name: suggestedName,
           },
         ]);
         if (renameMap) {
@@ -1000,13 +1004,20 @@ export function useSkillPool() {
     } catch (error) {
       if (handleScanError(error, t)) return;
       const detail = parseErrorDetail(error);
-      if (detail?.suggested_name) {
-        const skillName = detail?.skill_name || "";
+      const suggestedName =
+        typeof detail?.suggested_name === "string"
+          ? detail.suggested_name
+          : undefined;
+      if (suggestedName) {
+        const skillName =
+          detail && typeof detail.skill_name === "string"
+            ? detail.skill_name
+            : "";
         const renameMap = await showConflictRenameModal([
           {
             key: skillName,
             label: skillName,
-            suggested_name: String(detail.suggested_name),
+            suggested_name: suggestedName,
           },
         ]);
         if (renameMap) {

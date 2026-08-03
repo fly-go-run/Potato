@@ -8,6 +8,7 @@ export {
   toDisplayUrl,
   shortFileName,
   countLines,
+  formatToolDuration,
   getFileLanguage,
   getFileExtFromPath,
   getMediaInfo,

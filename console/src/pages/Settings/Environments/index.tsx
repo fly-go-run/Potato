@@ -205,7 +205,7 @@ function EnvironmentsPage() {
         }
       },
     });
-  }, [selected, workingRows, ensureLocal, envVars.length, fetchAll]);
+  }, [selected, t, workingRows, ensureLocal, envVars.length, message, fetchAll]);
 
   /* ---- validate & save ---- */
 
@@ -225,7 +225,7 @@ function EnvironmentsPage() {
     }
     setKeyErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [workingRows]);
+  }, [t, workingRows]);
 
   const handleSave = useCallback(async () => {
     if (!validate()) return;
@@ -248,7 +248,7 @@ function EnvironmentsPage() {
     } finally {
       setSaving(false);
     }
-  }, [validate, workingRows, fetchAll]);
+  }, [validate, workingRows, message, t, fetchAll]);
 
   const handleReset = useCallback(() => {
     setRows(null);

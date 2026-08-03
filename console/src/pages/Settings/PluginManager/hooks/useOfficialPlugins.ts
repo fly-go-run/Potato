@@ -64,7 +64,7 @@ export function useOfficialPlugins({ onInstalled }: UseOfficialPluginsOptions) {
         setInstallingId(null);
       }
     },
-    [loadCatalog, message, onInstalled, t],
+    [message, onInstalled, t],
   );
 
   return {

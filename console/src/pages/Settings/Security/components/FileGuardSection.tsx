@@ -53,7 +53,7 @@ export function FileGuardSection({ onSave }: FileGuardSectionProps = {}) {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [message, t]);
 
   useEffect(() => {
     fetchData();
@@ -70,7 +70,7 @@ export function FileGuardSection({ onSave }: FileGuardSectionProps = {}) {
         message.error(t("security.fileGuard.saveFailed"));
       }
     },
-    [t],
+    [message, t],
   );
 
   const handlePreviewToggle = useCallback(
@@ -86,7 +86,7 @@ export function FileGuardSection({ onSave }: FileGuardSectionProps = {}) {
         message.error(t("security.fileGuard.saveFailed"));
       }
     },
-    [t],
+    [message, t],
   );
 
   const handleAdd = useCallback(() => {
@@ -98,7 +98,7 @@ export function FileGuardSection({ onSave }: FileGuardSectionProps = {}) {
     }
     setPaths((prev) => [...prev, trimmed]);
     setNewPath("");
-  }, [newPath, paths, t]);
+  }, [message, newPath, paths, t]);
 
   const handleRemove = useCallback((path: string) => {
     setPaths((prev) => prev.filter((p) => p !== path));
@@ -114,7 +114,7 @@ export function FileGuardSection({ onSave }: FileGuardSectionProps = {}) {
     } finally {
       setSaving(false);
     }
-  }, [paths, t]);
+  }, [message, paths, t]);
 
   const handleReset = useCallback(() => {
     fetchData();

@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import api from "../../../api";
 import type { AgentsRunningConfig } from "../../../api/types";
 import { useAppMessage } from "../../../hooks/useAppMessage";
-import { useAgentStore } from "../../../stores/agentStore";
 import {
   CONTEXT_MANAGER_BACKEND_MAPPINGS,
   MEMORY_MANAGER_BACKEND_MAPPINGS,
@@ -15,7 +14,6 @@ import type { ToolExecutionLevel } from "./components/ToolExecutionLevelCard";
 export function useAgentConfig() {
   const { t } = useTranslation();
   const { message } = useAppMessage();
-  const { selectedAgent } = useAgentStore();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,7 +94,7 @@ export function useAgentConfig() {
     } finally {
       setLoading(false);
     }
-  }, [form, t, selectedAgent]);
+  }, [form, t]);
 
   useEffect(() => {
     fetchConfig();
@@ -183,7 +181,7 @@ export function useAgentConfig() {
     } finally {
       setSaving(false);
     }
-  }, [form, t, selectedAgent, approvalLevel]);
+  }, [form, approvalLevel, message, t]);
 
   const handleLanguageChange = useCallback(
     (value: string): void => {
@@ -223,7 +221,7 @@ export function useAgentConfig() {
         },
       });
     },
-    [language, t],
+    [language, message, t],
   );
 
   const handleTimezoneChange = useCallback(
@@ -244,7 +242,7 @@ export function useAgentConfig() {
         setSavingTimezone(false);
       }
     },
-    [timezone, t],
+    [timezone, message, t],
   );
 
   return {

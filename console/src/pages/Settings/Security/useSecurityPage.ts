@@ -220,15 +220,7 @@ export function useSecurityPage() {
     } catch {
       // validation failed
     }
-  }, [
-    editingRule,
-    builtinRules,
-    customRules,
-    updateCustomRule,
-    addCustomRule,
-    editForm,
-    t,
-  ]);
+  }, [editForm, editingRule, updateCustomRule, builtinRules, customRules, addCustomRule, message, t]);
 
   const toolOptions = BUILTIN_TOOLS.map((name) => ({
     label: name,

@@ -180,7 +180,6 @@ function CloneTab({ onDone }: { onDone: (path: string) => void }) {
       {logs.length > 0 && (
         <div className={styles.logBox}>
           {logs.map((l, i) => (
-            // eslint-disable-next-line react/no-array-index-key
             <div key={i} className={styles.logLine}>
               {l}
             </div>

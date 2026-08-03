@@ -44,6 +44,7 @@ const DAILY_SESSION_RE = /^(\d{4}-\d{2}-\d{2})\/(.+\.md)$/;
 const byModifiedDesc = (a: DailyMemoryFile, b: DailyMemoryFile) =>
   b.updated_at - a.updated_at || a.filename.localeCompare(b.filename);
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export const buildMemoryTree = (files: DailyMemoryFile[]) => {
   const dailyGroups = new Map<string, DailyGroup>();
   const miscDaily: DailyMemoryFile[] = [];

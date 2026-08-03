@@ -141,19 +141,7 @@ export function useChannelQrcode(
     } finally {
       setLoading(false);
     }
-  }, [
-    channel,
-    successStatus,
-    successCredentialKey,
-    pollInterval,
-    pollTimeout,
-    maxPollCount,
-    params,
-    onSuccess,
-    onError,
-    reset,
-    stopPoll,
-  ]);
+  }, [channel, successStatus, successCredentialKey, pollInterval, pollTimeout, maxPollCount, params, onSuccess, onError, reset]);
 
   // Cleanup on unmount
   useEffect(() => stopPoll, [stopPoll]);

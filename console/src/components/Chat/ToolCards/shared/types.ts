@@ -20,6 +20,8 @@ export interface ToolCallContent {
   params: Record<string, unknown>;
   inputProgress?: ToolInputProgress;
   result?: unknown;
+  /** Optional backend-provided duration; live cards measure it locally. */
+  durationMs?: number;
   status: ToolCallStatus;
 }
 

@@ -38,6 +38,7 @@ export function ExternalMarkdownLink({
 }
 
 /** Drop-in `components` value for <ReactMarkdown> that safely opens links. */
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export const externalLinkMarkdownComponents = {
   a: ExternalMarkdownLink,
 };

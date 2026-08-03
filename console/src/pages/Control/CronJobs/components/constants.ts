@@ -15,7 +15,7 @@ export const DEFAULT_FORM_VALUES = {
   onceRepeatEndType: "never" as const,
   onceRepeatUntil: dayjs().add(7, "day"),
   onceRepeatCount: 2,
-  cronType: "daily",
+  cronType: "daily" as const,
   cronTime: dayjs().hour(9).minute(0),
   task_type: "agent" as const,
   request: {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Empty, Button } from "@agentscope-ai/design";
 import { Spin, Tooltip } from "antd";
 import { DatePicker } from "antd";
@@ -106,7 +106,7 @@ function AgentStatsPage() {
   const [startDate, setStartDate] = useState<Dayjs>(dayjs().subtract(7, "day"));
   const [endDate, setEndDate] = useState<Dayjs>(dayjs());
 
-  const fetchData = async (start: Dayjs, end: Dayjs) => {
+  const fetchData = useCallback(async (start: Dayjs, end: Dayjs) => {
     setLoading(true);
     setError(null);
     try {
@@ -124,11 +124,11 @@ function AgentStatsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message, t]);
 
   useEffect(() => {
     fetchData(startDate, endDate);
-  }, [selectedAgent]);
+  }, [endDate, fetchData, selectedAgent, startDate]);
 
   const handleDateChange = (dates: [Dayjs | null, Dayjs | null] | null) => {
     const newStart = dates?.[0] || startDate;

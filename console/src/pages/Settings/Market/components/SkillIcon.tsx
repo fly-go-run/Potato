@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styles from "./SkillIcon.module.less";
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export const SOURCE_LABELS: Record<string, string> = {
   qwenpaw: "QwenPaw",
   clawhub: "ClawHub",
@@ -8,6 +9,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   aliyun: "Aliyun",
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function sourceLabel(source: string): string {
   return SOURCE_LABELS[source] ?? source;
 }

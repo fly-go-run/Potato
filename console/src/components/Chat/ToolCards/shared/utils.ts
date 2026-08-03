@@ -36,6 +36,26 @@ export function countLines(text: unknown): number {
   return text.split("\n").length;
 }
 
+/** Format a tool execution duration for a compact summary row. */
+export function formatToolDuration(
+  durationMs: number | null | undefined,
+): string {
+  if (durationMs == null || !Number.isFinite(durationMs)) return "";
+
+  const exactSeconds = Math.max(0, durationMs) / 1000;
+  if (exactSeconds < 1) return "<1s";
+
+  // Round once before splitting so 59.5s becomes 1m instead of 60s and the
+  // minute carry never produces an impossible "1m 60s" label.
+  const seconds = Math.round(exactSeconds);
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return remainingSeconds > 0
+    ? `${minutes}m ${remainingSeconds}s`
+    : `${minutes}m`;
+}
+
 /** Get language identifier from file extension for syntax highlighting */
 export function getFileLanguage(tc: ToolCallContent): string {
   const params = tc.params || {};

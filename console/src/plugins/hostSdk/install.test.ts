@@ -14,7 +14,7 @@ import { auditStore } from "../registry/audit";
 beforeEach(() => {
   // Reset the window.QwenPaw namespace before each test so installHostSdk
   // attaches fresh references.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   (window as any).QwenPaw = undefined;
   installHostExternals();
   installHostSdk();
@@ -221,9 +221,7 @@ describe("window.QwenPaw.chat.request / response", () => {
     window.QwenPaw.chat!.response.prepend("p1", () => null, { id: "a" });
     window.QwenPaw.chat!.response.prepend("p2", () => null, { id: "b" });
     expect(
-      chatExtensions
-        .getListSnapshot()
-        ["response.prepend"].map((e) => e.pluginId),
+      chatExtensions.getListSnapshot()["response.prepend"].map((e) => e.pluginId),
     ).toEqual(["p1", "p2"]);
   });
 

@@ -5,11 +5,12 @@
  * blocks: icon + label on a single line, expandable body underneath.
  */
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { RightOutlined } from "@ant-design/icons";
 import type { ToolCallContent } from "./types";
 import DefaultBlock from "./DefaultBlock";
-import { stringifyResult } from "./utils";
+import { formatToolDuration, stringifyResult } from "./utils";
 import styles from "./toolCards.module.less";
 
 export interface ToolCardShellProps {
@@ -25,28 +26,72 @@ export interface ToolCardShellProps {
   inlineResult?: string | null;
   /** Optional badge elements (line counts, diff counts). */
   badges?: React.ReactNode;
+  /** Show a compact live/completed duration in the summary row. */
+  showDuration?: boolean;
   /** Expandable body content. */
   children?: React.ReactNode;
 }
 
 const ToolCardShell: React.FC<ToolCardShellProps> = ({
   content,
-  isStreaming = false,
   icon,
   title,
   inlineResult,
   badges,
+  showDuration = false,
   children,
 }) => {
   const { t } = useTranslation();
-  const isLoading = content.status === "calling" && isStreaming;
+  // The tool status is authoritative. The parent stream can finish before a
+  // tool result arrives, so gating the spinner on isStreaming makes a real
+  // running command look completed.
+  const isLoading = content.status === "calling";
   const isError = content.status === "error";
+  const startedAtRef = useRef<number | null>(
+    content.status === "calling" ? Date.now() : null,
+  );
+  const [trackedDurationMs, setTrackedDurationMs] = useState<number | null>(
+    content.durationMs ?? (content.status === "calling" ? 0 : null),
+  );
+
+  useEffect(() => {
+    if (!showDuration) return;
+
+    if (content.durationMs != null) {
+      setTrackedDurationMs(content.durationMs);
+      return;
+    }
+
+    if (content.status !== "calling") {
+      if (startedAtRef.current != null) {
+        setTrackedDurationMs(Date.now() - startedAtRef.current);
+      }
+      return;
+    }
+
+    if (startedAtRef.current == null) startedAtRef.current = Date.now();
+    const updateDuration = () => {
+      if (startedAtRef.current != null) {
+        setTrackedDurationMs(Date.now() - startedAtRef.current);
+      }
+    };
+
+    updateDuration();
+    const timer = window.setInterval(updateDuration, 1000);
+    return () => window.clearInterval(timer);
+  }, [content.durationMs, content.status, showDuration]);
+
+  const durationText = showDuration
+    ? formatToolDuration(content.durationMs ?? trackedDurationMs)
+    : "";
   const inputProgress = content.inputProgress;
   const inputPreview = inputProgress
     ? `${inputProgress.truncated ? "…\n" : ""}${inputProgress.preview}`
     : "";
 
   return (
+    // Keep the execution log closed on first render. The summary remains a
+    // useful progress row, while the full command/output is one click away.
     <details
       className={`${styles.toolCallCompact} ${
         isLoading ? styles.toolCallCompactLoading : ""
@@ -81,6 +126,12 @@ const ToolCardShell: React.FC<ToolCardShellProps> = ({
             {inlineResult}
           </span>
         )}
+        {durationText && (
+          <span className={styles.toolCallDuration}>{durationText}</span>
+        )}
+        <span className={styles.toolCallChevron} aria-hidden="true">
+          <RightOutlined />
+        </span>
       </summary>
       {isError ? (
         <>

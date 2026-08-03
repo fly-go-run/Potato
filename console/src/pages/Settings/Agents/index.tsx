@@ -150,7 +150,11 @@ export default function AgentsPage() {
           ? { provider_id: providerId, model: modelId }
           : null;
 
-      const { active_model_provider, active_model_model, ...rest } = values;
+      const {
+        active_model_provider: _activeModelProvider,
+        active_model_model: _activeModelModel,
+        ...rest
+      } = values;
       const payload = { ...rest, workspace_dir, active_model };
 
       if (editingAgent) {
@@ -185,12 +189,14 @@ export default function AgentsPage() {
 
       setModalVisible(false);
       await loadAgents();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save agent:", error);
       if (editingAgent) {
         invalidateSkillCache({ agentId: editingAgent.id });
       }
-      message.error(error.message || t("agent.saveFailed"));
+      message.error(
+        error instanceof Error ? error.message : t("agent.saveFailed"),
+      );
     }
   };
 

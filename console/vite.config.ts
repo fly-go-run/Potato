@@ -170,15 +170,9 @@ export default defineConfig(({ mode }) => {
             if (id.includes("node_modules/@dnd-kit/")) {
               return "dnd-vendor";
             }
-            // Utilities (dayjs, zustand, ahooks, etc.)
-            if (
-              id.includes("node_modules/dayjs/") ||
-              id.includes("node_modules/zustand/") ||
-              id.includes("node_modules/ahooks/") ||
-              id.includes("node_modules/@vvo/tzdb/")
-            ) {
-              return "utils-vendor";
-            }
+            // Keep smaller utility packages in Rollup's default graph. Some UI
+            // packages import them directly, and forcing a separate chunk here
+            // creates a circular `utils-vendor` <-> `ui-vendor` dependency.
           },
         },
       },

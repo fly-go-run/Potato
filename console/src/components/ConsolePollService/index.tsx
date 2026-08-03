@@ -74,7 +74,7 @@ export default function ConsolePollService() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [setApprovals]);
 
   useEffect(() => {
     if (items.length === 0) return;

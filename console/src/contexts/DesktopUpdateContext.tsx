@@ -246,6 +246,7 @@ export function DesktopUpdateProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function useDesktopUpdate(): ContextValue {
   const ctx = useContext(DesktopUpdateContext);
   if (!ctx) {

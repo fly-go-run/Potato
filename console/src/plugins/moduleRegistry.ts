@@ -123,13 +123,13 @@ export const moduleRegistry = new ModuleRegistryImpl();
 // Set during initialization
 if (typeof window !== "undefined") {
   if (!window.QwenPaw) {
-    (window as any).QwenPaw = {};
+    window.QwenPaw = {} as typeof window.QwenPaw;
   }
 
   // Use Proxy for dynamic access, ensuring plugins always get latest module state
   Object.defineProperty(window.QwenPaw, "modules", {
     get() {
-      return (moduleRegistry as any).getAllModules();
+      return moduleRegistry.getAllModules();
     },
     configurable: true,
     enumerable: true,

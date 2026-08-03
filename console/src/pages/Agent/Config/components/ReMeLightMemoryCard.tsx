@@ -32,6 +32,7 @@ const EMBEDDING_BACKEND_OPTIONS = [
   { value: "ollama", label: "Ollama" },
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function isEmbeddingEnabled(
   backend: string,
   modelName?: string,
@@ -50,6 +51,7 @@ export function isEmbeddingEnabled(
   return backend === "ollama";
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function isValidDreamCronShape(value?: string) {
   if (!value?.trim()) {
     return false;

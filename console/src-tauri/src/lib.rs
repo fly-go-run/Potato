@@ -5,6 +5,8 @@ mod backend_download;
 mod external_link;
 mod updates;
 mod tray;
+#[cfg(target_os = "macos")]
+mod macos_icon;
 
 use tauri::{Manager, RunEvent, WebviewWindow, WindowEvent};
 
@@ -30,7 +32,22 @@ fn frontend_ready(window: WebviewWindow, state: tauri::State<'_, backend::Backen
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Build the desktop app, wire native plugins/commands, and stop the backend on exit.
 pub fn run() {
-    let build_result = tauri::Builder::default()
+    // Keep one desktop shell per app identifier. Without this guard, launching
+    // a second copy starts another backend on the stable desktop port; the old
+    // WebView can remain visible after its backend is reclaimed, leaving a
+    // misleading blank QwenPaw window behind the real Potato window.
+    let mut builder = tauri::Builder::default();
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }));
+    }
+
+    let build_result = builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
@@ -62,9 +79,20 @@ pub fn run() {
         .setup(|app| {
             backend::setup(app)?;
             tray::setup(app)?;
+            #[cfg(target_os = "macos")]
+            if let Some(theme) = app
+                .get_webview_window("main")
+                .and_then(|window| window.theme().ok())
+            {
+                macos_icon::set(theme);
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
+            #[cfg(target_os = "macos")]
+            if let WindowEvent::ThemeChanged(theme) = event {
+                macos_icon::set(*theme);
+            }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 tray::request_close(window.app_handle());

@@ -69,7 +69,7 @@ function ToolConfigModal({
   tool: ToolInfo;
   visible: boolean;
   onClose: () => void;
-  onSave: (values: Record<string, any>) => Promise<void>;
+  onSave: (values: Record<string, unknown>) => Promise<void>;
 }) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
@@ -97,7 +97,7 @@ function ToolConfigModal({
     return () => {
       cancelled = true;
     };
-  }, [visible, tool.name, form]);
+  }, [visible, tool.name, form, tool]);
 
   const handleSave = async () => {
     try {
@@ -223,7 +223,7 @@ export default function ToolsPage() {
     setConfigModalVisible(true);
   };
 
-  const handleSaveConfig = async (values: Record<string, any>) => {
+  const handleSaveConfig = async (values: Record<string, unknown>) => {
     if (!currentTool) return;
     await saveToolConfig(currentTool.name, values);
     await loadTools();

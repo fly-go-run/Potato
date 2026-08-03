@@ -51,6 +51,7 @@ function getACPDocsUrl(lang: string): string {
   return `https://qwenpaw.agentscope.io/docs/acp-integration?lang=${websiteLang}#${hash}`;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function parseArgsText(value: unknown): string[] {
   return String(value || "")
     .split("\n")
@@ -58,6 +59,7 @@ export function parseArgsText(value: unknown): string[] {
     .filter(Boolean);
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function parseEnvText(value: unknown): Record<string, string> {
   return String(value || "")
     .split("\n")
@@ -89,10 +91,12 @@ function findInvalidEnvLine(value: unknown): string | null {
   return null;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function stringifyArgs(args: string[] = []): string {
   return args.join("\n");
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function stringifyEnv(env: Record<string, string> = {}): string {
   return Object.entries(env)
     .map(([key, value]) => `${key}=${value}`)

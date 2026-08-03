@@ -8,7 +8,7 @@ export interface ToolConfigField {
   placeholder?: string;
   help?: string;
   options?: string[];
-  default?: any;
+  default?: unknown;
   min?: number;
   max?: number;
 }
@@ -21,7 +21,7 @@ export interface ToolInfo {
   icon: string;
   requires_config?: boolean;
   config_fields?: ToolConfigField[];
-  config_values?: Record<string, any>;
+  config_values?: Record<string, unknown>;
 }
 
 export const toolsApi = {
@@ -54,14 +54,14 @@ export const toolsApi = {
    * Get tool configuration
    */
   getToolConfig: (toolName: string) =>
-    request<Record<string, any>>(
+    request<Record<string, unknown>>(
       `/tools/${encodeURIComponent(toolName)}/config`,
     ),
 
   /**
    * Update tool configuration
    */
-  updateToolConfig: (toolName: string, config: Record<string, any>) =>
+  updateToolConfig: (toolName: string, config: Record<string, unknown>) =>
     request<{ status: string; message: string }>(
       `/tools/${encodeURIComponent(toolName)}/config`,
       {

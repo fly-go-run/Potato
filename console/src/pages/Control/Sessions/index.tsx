@@ -4,7 +4,7 @@ import { Card, Form, Modal, Table, Button, Tabs } from "@agentscope-ai/design";
 import { useAppMessage } from "../../../hooks/useAppMessage";
 import { useTranslation } from "react-i18next";
 import {
-  createColumns,
+  useSessionColumns,
   FilterBar,
   SessionDrawer,
   formatTime,
@@ -107,7 +107,9 @@ function SessionsPage() {
 
   const handleEdit = (session: Session) => {
     setEditingSession(session);
-    form.setFieldsValue(session as any);
+    // Only `name` is editable in this form; keeping the form payload narrow
+    // avoids treating session metadata from the backend as Ant Design values.
+    form.setFieldsValue({ name: session.name });
     setDrawerOpen(true);
   };
 
@@ -199,7 +201,7 @@ function SessionsPage() {
 
   const isArchivedTab = activeTab === "archived";
 
-  const columns = createColumns({
+  const columns = useSessionColumns({
     onEdit: handleEdit,
     onDelete: handleDelete,
     onView: handleView,

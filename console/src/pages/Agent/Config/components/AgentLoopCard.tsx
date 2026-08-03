@@ -1429,6 +1429,7 @@ function makeGate(
   };
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function buildCustomLoopMode(
   existing: CustomLoopModeConfig[],
   name: string,
@@ -1480,6 +1481,7 @@ function normalizeLoopModeName(name: string | undefined): string {
   return (name || "").trim().toUpperCase().toLowerCase();
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function hasDuplicateLoopModeName(
   modes: CustomLoopModeConfig[],
   name: string | undefined,
@@ -1493,6 +1495,7 @@ export function hasDuplicateLoopModeName(
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function reorderCustomGates(
   gates: GateInstanceConfig[],
   from: number,

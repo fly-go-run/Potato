@@ -4,9 +4,10 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import styles from "../index.module.less";
 
-type SortableHandleContextValue = {
-  attributes: any;
-  listeners: any;
+type SortableHandleContextValue = Pick<
+  ReturnType<typeof useSortable>,
+  "attributes" | "listeners"
+> & {
   disabled: boolean;
 };
 

@@ -3,13 +3,14 @@ import { Button, Modal, Select } from "@agentscope-ai/design";
 import { useTranslation } from "react-i18next";
 import type { CronTemplateCategory, CronTemplateDefinition } from "./templates";
 import { CRON_TEMPLATES } from "./templates";
+import type { CronJobFormValues } from "./formTypes";
 import styles from "../index.module.less";
 
 interface TemplatePickerModalProps {
   open: boolean;
   timezone: string;
   onCancel: () => void;
-  onUseTemplate: (templateValues: Record<string, unknown>) => void;
+  onUseTemplate: (templateValues: Partial<CronJobFormValues>) => void;
 }
 
 export function TemplatePickerModal({
@@ -45,8 +46,7 @@ export function TemplatePickerModal({
       text:
         templateValues.task_type === "agent"
           ? ""
-          : (templateValues.text as string) ||
-            (t(template.descriptionKey) as string),
+          : templateValues.text || t(template.descriptionKey),
     });
   };
 

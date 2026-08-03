@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppMessage } from "../../../hooks/useAppMessage";
 import api from "../../../api";
-import type { CronJobSpecOutput } from "../../../api/types";
+import type { CronJobSpecInput, CronJobSpecOutput } from "../../../api/types";
 import { useAgentStore } from "../../../stores/agentStore";
 import { parseErrorDetail } from "../../../utils/error";
 
@@ -95,7 +95,7 @@ export function useCronJobs() {
     return fallback;
   };
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.listCronJobs();
@@ -108,7 +108,7 @@ export function useCronJobs() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
 
   useEffect(() => {
     let mounted = true;
@@ -124,9 +124,9 @@ export function useCronJobs() {
     return () => {
       mounted = false;
     };
-  }, [selectedAgent]);
+  }, [fetchJobs, selectedAgent]);
 
-  const createJob = async (values: CronJob) => {
+  const createJob = async (values: CronJobSpecInput) => {
     try {
       const created = await api.createCronJob(values);
       setJobs((prev) => [created as CronJob, ...prev]);
@@ -139,10 +139,16 @@ export function useCronJobs() {
     }
   };
 
-  const updateJob = async (jobId: string, values: CronJob) => {
+  const updateJob = async (jobId: string, values: CronJobSpecInput) => {
     const original = jobs.find((j) => j.id === jobId);
-    const optimisticUpdate = { ...original, ...values };
-    setJobs((prev) => prev.map((j) => (j.id === jobId ? optimisticUpdate : j)));
+    const optimisticUpdate = original
+      ? { ...original, ...values, id: original.id }
+      : null;
+    if (optimisticUpdate) {
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? optimisticUpdate : j)),
+      );
+    }
 
     try {
       const updated = await api.replaceCronJob(jobId, values);

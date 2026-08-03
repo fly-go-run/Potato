@@ -9,7 +9,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { pluginSystem } from "./hostExternals";
+import { pluginSystem, type RuntimeCardComponent } from "./hostExternals";
 import { loadAllPlugins } from "./usePluginLoader";
 import type { PluginRouteDeclaration } from "./hostExternals";
 import {
@@ -38,7 +38,7 @@ function derivePluginRoutes(): PluginRouteDeclaration[] {
 
 export interface PluginContextValue {
   /** Map of tool-name → React component. Pass to `@agentscope-ai/chat`. */
-  toolRenderConfig: Record<string, React.FC<any>>;
+  toolRenderConfig: Record<string, RuntimeCardComponent>;
   /** Page routes registered by plugins. Inject into the router + sidebar. */
   pluginRoutes: PluginRouteDeclaration[];
   /** True until the initial plugin-load attempt completes. */
@@ -65,7 +65,7 @@ const PluginContext = createContext<PluginContextValue>({
  */
 export function PluginProvider({ children }: { children: React.ReactNode }) {
   const [toolRenderConfig, setToolRenderConfig] = useState<
-    Record<string, React.FC<any>>
+    Record<string, RuntimeCardComponent>
   >(pluginSystem.getToolRenderConfig());
   const [pluginRoutes, setPluginRoutes] = useState<PluginRouteDeclaration[]>(
     derivePluginRoutes(),
@@ -119,6 +119,7 @@ export function PluginProvider({ children }: { children: React.ReactNode }) {
  * const { toolRenderConfig, pluginRoutes, loading } = usePlugins();
  * ```
  */
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function usePlugins(): PluginContextValue {
   return useContext(PluginContext);
 }

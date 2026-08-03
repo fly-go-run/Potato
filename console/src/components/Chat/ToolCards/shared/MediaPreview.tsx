@@ -20,6 +20,10 @@ export interface MediaPreviewProps {
   media: MediaInfo;
 }
 
+type AttachmentItem = React.ComponentProps<
+  typeof Attachments.FileCard
+>["item"];
+
 /** Fetch the preview URL and return the HTTP status code + detail code. */
 async function fetchPreviewError(
   url: string,
@@ -122,14 +126,12 @@ const MediaPreview: React.FC<MediaPreviewProps> = ({ media }) => {
       {media.type === "file" && (
         <div className={styles.bubbleFile}>
           <Attachments.FileCard
-            item={
-              {
-                uid: media.name,
-                name: media.name,
-                url: media.url,
-                status: "done",
-              } as any
-            }
+            item={{
+              uid: media.name,
+              name: media.name,
+              url: media.url,
+              status: "done",
+            } satisfies AttachmentItem}
           />
           {media.url && (
             <div

@@ -87,11 +87,28 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             }
         });
 
+    #[cfg(target_os = "macos")]
+    {
+        // The desktop icon has an opaque rounded-square background, which is
+        // correct for Finder/Dock but wrong for the macOS menu bar. Use a
+        // separate transparent alpha mask and let AppKit recolor it for the
+        // current light/dark menu-bar appearance.
+        const MENU_BAR_ICON: &[u8] = include_bytes!("../icons/menu-icon.png");
+        match tauri::image::Image::from_bytes(MENU_BAR_ICON) {
+            Ok(icon) => {
+                tray = tray.icon(icon).icon_as_template(true);
+            }
+            Err(err) => {
+                log::warn!("could not decode the Potato menu-bar icon: {err}");
+                if let Some(icon) = app.default_window_icon() {
+                    tray = tray.icon(icon.clone());
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
     if let Some(icon) = app.default_window_icon() {
-        // Use the full-color app icon on every platform. The icon is a colored
-        // logo, so it must NOT be flagged as a macOS template image — template
-        // images are rendered as a solid monochrome silhouette, which would
-        // turn the menu-bar icon into a black blob.
         tray = tray.icon(icon.clone());
     }
 

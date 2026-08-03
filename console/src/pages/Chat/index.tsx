@@ -10,6 +10,7 @@ import { useIsMobile } from "../../hooks/useIsMobile";
 import { ExclamationCircleOutlined, SettingOutlined } from "@ant-design/icons";
 import { SparkCopyLine, SparkAttachmentLine } from "@agentscope-ai/icons";
 import { usePlugins } from "../../plugins/PluginContext";
+import type { RuntimeCardComponent } from "../../plugins/hostExternals";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -59,6 +60,9 @@ import {
 import { PluginSlotBoundary } from "../../plugins/registry/PluginSlotBoundary";
 import {
   resolveLocalized,
+  type ChatActionSpec,
+  type ChatCardItem,
+  type ChatToolRendererItem,
   type WelcomeRenderProps,
 } from "../../plugins/registry/types";
 import { ChatScalar, ChatList } from "../../plugins/registry/slotKeys";
@@ -139,6 +143,25 @@ import {
 // ---------------------------------------------------------------------------
 
 const _bgAborts = new Map<string, AbortController>();
+
+type ChatInputMessage = {
+  role?: string;
+  content?: unknown;
+};
+
+function isChatInputMessage(value: unknown): value is ChatInputMessage {
+  return typeof value === "object" && value !== null;
+}
+
+function isToolRendererProps(
+  props: Record<string, unknown>,
+): props is React.ComponentProps<ChatToolRendererItem["render"]> {
+  return (
+    typeof props.sessionId === "string" &&
+    typeof props.messageId === "string" &&
+    Object.prototype.hasOwnProperty.call(props, "result")
+  );
+}
 
 function stopBackgroundQueue(queueKey?: string) {
   if (queueKey) {
@@ -612,7 +635,7 @@ function useIMEComposition(isChatActive: () => boolean) {
       if (target?.tagName === "TEXTAREA" && e.key === "Enter" && !e.shiftKey) {
         // e.isComposing is the standard flag; isComposingRef covers the
         // post-compositionend grace period needed by Safari.
-        if (isComposingRef.current || (e as any).isComposing) {
+        if (isComposingRef.current || e.isComposing) {
           e.stopPropagation();
           e.stopImmediatePropagation();
           e.preventDefault();
@@ -789,7 +812,7 @@ function useMessageHistoryNavigation(
     text: string;
   }
 
-  const findMessageInDirection = (
+  const findMessageInDirection = useCallback((
     messages: string[],
     startIndex: number,
     direction: 1 | -1,
@@ -812,7 +835,7 @@ function useMessageHistoryNavigation(
     }
 
     return null;
-  };
+  }, []);
 
   const isSuggestionPopupOpen = (textarea: HTMLTextAreaElement): boolean =>
     textarea.value.startsWith("/");
@@ -828,7 +851,7 @@ function useMessageHistoryNavigation(
         target?.closest('[class*="sender"]') !== null;
 
       if (!isChatSender) return;
-      if (isComposingRef.current || (e as any).isComposing) return;
+      if (isComposingRef.current || e.isComposing) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const textarea = target as HTMLTextAreaElement;
@@ -904,7 +927,7 @@ function useMessageHistoryNavigation(
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("focusin", handleFocus, true);
     };
-  }, [isChatActive, isComposingRef, getUserMessagesWithText]);
+  }, [isChatActive, isComposingRef, getUserMessagesWithText, findMessageInDirection]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1389,7 +1412,7 @@ export default function ChatPage() {
     if (newQueue.length > 0) {
       scheduleNextSend();
     }
-  }, [queueSessionId, scheduleNextSend]);
+  }, [messageQueue.length, queueSessionId, scheduleNextSend]);
   const [chatLoading, setChatLoading] = useState<boolean | string>(false);
   const chatLoadingRef = useRef<boolean | string>(false);
   chatLoadingRef.current = chatLoading;
@@ -1597,7 +1620,7 @@ export default function ChatPage() {
         console.error("Failed to approve:", error);
       }
     },
-    [approvalRequests, chatId, t, message, setApprovals],
+    [approvalRequests, t, message, setApprovals],
   );
 
   const handleDeny = useCallback(
@@ -1637,7 +1660,7 @@ export default function ChatPage() {
         console.error("Failed to deny:", error);
       }
     },
-    [approvalRequests, chatId, t, message, setApprovals],
+    [approvalRequests, t, message, setApprovals],
   );
 
   // Use custom hooks for better separation of concerns
@@ -1800,7 +1823,7 @@ export default function ChatPage() {
         useMessageQueueStore.getState().currentSendingId !== null;
       if (!hasCtrl && !chatLoadingRef.current && !queueBusy) return;
       if (!hasCtrl && e.altKey) return;
-      if (isComposingRef.current || (e as any).isComposing) return;
+      if (isComposingRef.current || e.isComposing) return;
       const textarea = hasCtrl
         ? (document
             .querySelector('[class*="sender"]')
@@ -1846,7 +1869,7 @@ export default function ChatPage() {
     document.addEventListener("keydown", handleEnterEnqueue, true);
     return () =>
       document.removeEventListener("keydown", handleEnterEnqueue, true);
-  }, [isChatActive, queueSessionId]);
+  }, [isChatActive, isComposingRef, message, queueSessionId, t]);
 
   const handleQueueRemove = useCallback(
     (id: string) => {
@@ -2226,7 +2249,7 @@ export default function ChatPage() {
         message.error(t("common.copyFailed"));
       }
     },
-    [t],
+    [message, t],
   );
 
   const customFetch = useCallback(
@@ -2306,7 +2329,8 @@ export default function ChatPage() {
         String(requestBody.session_id || "");
       if (backendChatId) {
         const userText = rewrittenInput
-          .filter((m: any) => m.role === "user")
+          .filter(isChatInputMessage)
+          .filter((m) => m.role === "user")
           .map(extractUserMessageText)
           .join("\n")
           .trim();
@@ -2314,7 +2338,8 @@ export default function ChatPage() {
           // Also pass the full content array so patchLastUserMessage can
           // rebuild user card with images/files when reconnecting.
           const lastUserMsg = rewrittenInput
-            .filter((m: any) => m.role === "user")
+            .filter(isChatInputMessage)
+            .filter((m) => m.role === "user")
             .slice(-1)[0];
           const contentArr = Array.isArray(lastUserMsg?.content)
             ? (lastUserMsg.content as Array<{
@@ -2397,7 +2422,7 @@ export default function ChatPage() {
         onError?.(e instanceof Error ? e : new Error(String(e)));
       }
     },
-    [multimodalCaps, t],
+    [message, multimodalCaps.supportsImage, multimodalCaps.supportsMultimodal, multimodalCaps.supportsVideo, t],
   );
 
   const options = useMemo(() => {
@@ -2593,7 +2618,7 @@ export default function ChatPage() {
     const wrapActionSpec = (
       pluginId: string,
       slot: string,
-      spec: { id: string; icon?: any; render?: any; onClick?: any },
+      spec: ChatActionSpec,
     ) => ({
       icon: spec.icon,
       render: spec.render
@@ -2624,37 +2649,56 @@ export default function ChatPage() {
       wrapActionSpec(e.pluginId, ChatList.requestActions, e.item.item),
     );
 
-    const wrapToolFC = (
+    const wrapToolRenderer = (
       pluginId: string,
       toolName: string,
-      FC: React.FC<any>,
+      FC: ChatToolRendererItem["render"],
     ) => {
-      const Wrapped: React.FC<any> = (props) => (
+      const Wrapped: RuntimeCardComponent = (props) => {
+        if (!isToolRendererProps(props)) return null;
+        return (
         <PluginSlotBoundary
           slot={`customToolRender:${toolName}`}
           pluginId={pluginId}
         >
           <FC {...props} />
         </PluginSlotBoundary>
-      );
+        );
+      };
       return Wrapped;
     };
-    const pluginToolRenderers: Record<string, React.FC<any>> = {};
+    const wrapCard = (
+      pluginId: string,
+      cardName: string,
+      FC: ChatCardItem["render"],
+    ): RuntimeCardComponent =>
+      function PluginCard(props) {
+        return (
+          <PluginSlotBoundary
+            slot={`customToolRender:${cardName}`}
+            pluginId={pluginId}
+          >
+            <FC {...props} />
+          </PluginSlotBoundary>
+        );
+      };
+
+    const pluginToolRenderers: Record<string, RuntimeCardComponent> = {};
     for (const e of extLists[ChatList.customToolRender]) {
-      pluginToolRenderers[e.item.toolName] = wrapToolFC(
+      pluginToolRenderers[e.item.toolName] = wrapToolRenderer(
         e.pluginId,
         e.item.toolName,
         e.item.render,
       );
     }
-    const mergedToolRenderers: Record<string, React.FC<any>> = {
+    const mergedToolRenderers: Record<string, RuntimeCardComponent> = {
       ...toolRenderConfig,
       ...pluginToolRenderers,
     };
 
-    const pluginCards: Record<string, React.FC<any>> = {};
+    const pluginCards: Record<string, RuntimeCardComponent> = {};
     for (const e of extLists[ChatList.cards]) {
-      pluginCards[e.item.cardName] = wrapToolFC(
+      pluginCards[e.item.cardName] = wrapCard(
         e.pluginId,
         e.item.cardName,
         e.item.render,
@@ -2673,7 +2717,7 @@ export default function ChatPage() {
     };
 
     // leftHeader: whole-section render wins, otherwise partial merge {logo, title}.
-    const mergedLeftHeader: any =
+    const mergedLeftHeader =
       extLeftHeaderRender !== undefined ? (
         <PluginSlotBoundary
           slot={ChatScalar.headerLeftHeaderRender}
@@ -2735,7 +2779,7 @@ export default function ChatPage() {
         ...(wrappedWelcomeRender ? { render: wrappedWelcomeRender } : {}),
       },
       sender: {
-        ...(i18nConfig as any)?.sender,
+        ...i18nConfig.sender,
         beforeSubmit: handleBeforeSubmit,
         allowSpeech: whisperChecked && !whisperEnabled,
         beforeUI: showSenderBeforeUI ? (
@@ -2798,7 +2842,7 @@ export default function ChatPage() {
         ),
         attachments: {
           multiple: true,
-          trigger: function (props: any) {
+          trigger: function (props: { disabled?: boolean }) {
             const uploadLimit = useUploadLimitStore.getState().uploadMaxSizeMb;
             const tooltipKey = multimodalCaps.supportsMultimodal
               ? multimodalCaps.supportsImage && !multimodalCaps.supportsVideo
@@ -2824,7 +2868,7 @@ export default function ChatPage() {
           customRequest: handleFileUpload,
         },
         longTextUpload: {
-          ...((i18nConfig as any)?.sender?.longTextUpload ?? {}),
+          ...i18nConfig.sender.longTextUpload,
           customRequest: handleFileUpload,
           prompt: () =>
             t(
@@ -2860,8 +2904,14 @@ export default function ChatPage() {
             // flushed delta only when that canonical output is absent, so it
             // is neither lost nor duplicated.
             if (!output || (Array.isArray(output) && output.length === 0)) {
+              const errorPayload = payload.error;
               const errorMsg =
-                (payload.error as any)?.message || t("chat.emptyOutputError");
+                errorPayload &&
+                typeof errorPayload === "object" &&
+                typeof (errorPayload as { message?: unknown }).message ===
+                  "string"
+                  ? (errorPayload as { message: string }).message
+                  : t("chat.emptyOutputError");
               payload.output = [
                 {
                   type: "message",
@@ -2891,7 +2941,7 @@ export default function ChatPage() {
             }
           }
 
-          return payload as any;
+          return payload as unknown;
         },
         replaceMediaURL: (url: string) => {
           return toDisplayUrl(url);
@@ -2983,7 +3033,7 @@ export default function ChatPage() {
           },
           {
             icon: <SparkCopyLine />,
-            onClick: ({ data }: { data: { input?: any[] } }) => {
+            onClick: ({ data }: { data: { input?: unknown[] } }) => {
               const text = (data?.input || [])
                 .map(extractUserMessageText)
                 .join("\n")
@@ -2999,46 +3049,7 @@ export default function ChatPage() {
         ],
       },
     } as unknown as IAgentScopeRuntimeWebUIOptions;
-  }, [
-    customFetch,
-    copyResponse,
-    handleFileUpload,
-    t,
-    i18n.language,
-    isDark,
-    multimodalCaps,
-    toolRenderConfig,
-    extScalar,
-    extLists,
-    scheduleHistoryClear,
-    consoleSkills,
-    loopAvailableModes,
-    selectedAgent,
-    runningConfigApprovalLevel,
-    queueSessionId,
-    onFileCardClick,
-    whisperChecked,
-    whisperEnabled,
-    handleWhisperTranscription,
-    isWideMode,
-    toggleWideMode,
-    hasQueueItems,
-    isQueueOnlyTab,
-    showSenderBeforeUI,
-    handleQueueRemove,
-    handleQueueEdit,
-    handleQueueReorder,
-    handleQueueInterruptAndSend,
-    handleQueueClear,
-    handleQueuePauseResume,
-    handleQueueRetry,
-    handleQueueSkip,
-    effectiveIsFullMode,
-    historyPanelOpen,
-    toggleHistoryPanel,
-    handleCompactCommand,
-    handleNewCommand,
-  ]);
+  }, [t, loopAvailableModes, consoleSkills, i18n.language, extScalar, extLists, toolRenderConfig, isDark, effectiveIsFullMode, toggleHistoryPanel, historyPanelOpen, isWideMode, toggleWideMode, whisperChecked, whisperEnabled, showSenderBeforeUI, isQueueOnlyTab, hasQueueItems, queueSessionId, handleQueueRemove, handleQueueEdit, handleQueueReorder, handleQueueInterruptAndSend, handleQueueClear, handleQueuePauseResume, handleQueueRetry, handleQueueSkip, handleWhisperTranscription, handleCompactCommand, handleNewCommand, runningConfigApprovalLevel, handleFileUpload, customFetch, onFileCardClick, isComposingRef, selectedAgent, message, multimodalCaps.supportsMultimodal, multimodalCaps.supportsImage, multimodalCaps.supportsVideo, scheduleHistoryClear, copyResponse]);
 
   return (
     <div className={styles.chatPageRoot}>

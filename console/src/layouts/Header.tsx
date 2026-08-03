@@ -36,7 +36,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Slot } from "../plugins/registry/Slot";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useDesktopUpdate } from "../contexts/DesktopUpdateContext";
 import { isDesktopApp } from "../tauri/backendRuntime";
@@ -81,6 +81,22 @@ function UpdateCodeBlock({ code }: { code: string }) {
     </div>
   );
 }
+
+const updateMarkdownComponents: Components = {
+  a: ExternalMarkdownLink,
+  code({ node, className, children, ...props }) {
+    const match = /language-(\w+)/.exec(className || "");
+    const isBlock =
+      node?.position?.start?.line !== node?.position?.end?.line || match;
+    return isBlock ? (
+      <UpdateCodeBlock code={String(children).replace(/\n$/, "")} />
+    ) : (
+      <code className={styles.codeInline} {...props}>
+        {children}
+      </code>
+    );
+  },
+};
 
 export default function Header() {
   const { t, i18n } = useTranslation();
@@ -526,24 +542,7 @@ export default function Header() {
           {updateMarkdown ? (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              components={{
-                a: ExternalMarkdownLink,
-                code({ node, className, children, ...props }: any) {
-                  const match = /language-(\w+)/.exec(className || "");
-                  const isBlock =
-                    node?.position?.start?.line !== node?.position?.end?.line ||
-                    match;
-                  return isBlock ? (
-                    <UpdateCodeBlock
-                      code={String(children).replace(/\n$/, "")}
-                    />
-                  ) : (
-                    <code className={styles.codeInline} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}
+              components={updateMarkdownComponents}
             >
               {updateMarkdown}
             </ReactMarkdown>

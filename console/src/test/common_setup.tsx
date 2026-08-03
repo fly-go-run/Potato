@@ -15,6 +15,7 @@ interface RenderWithProvidersOptions extends Omit<RenderOptions, "wrapper"> {
   initialEntries?: string[];
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 function AllProviders({
   children,
   routerProps,

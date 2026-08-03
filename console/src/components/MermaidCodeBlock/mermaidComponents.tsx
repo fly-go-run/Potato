@@ -25,6 +25,7 @@ function extractText(children: ReactNode): string {
  * as interactive diagrams, other code blocks with syntax highlighting,
  * and inline code as default.
  */
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 function CodeWithMermaid({
   children,
   lang,

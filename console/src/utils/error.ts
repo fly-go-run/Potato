@@ -1,4 +1,4 @@
-export function parseErrorDetail(error: unknown): Record<string, any> | null {
+export function parseErrorDetail(error: unknown): Record<string, unknown> | null {
   if (!(error instanceof Error)) return null;
   const msg = error.message;
   // Try " - " separator first (from request.ts formatted errors)

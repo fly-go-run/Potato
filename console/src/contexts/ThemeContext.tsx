@@ -99,6 +99,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- This export is intentionally colocated as part of the component public API.
 export function useTheme(): ThemeContextValue {
   return useContext(ThemeContext);
 }

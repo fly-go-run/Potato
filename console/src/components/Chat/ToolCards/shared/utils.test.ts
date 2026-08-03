@@ -7,7 +7,12 @@ vi.mock("@/api/modules/chat", () => ({
   },
 }));
 
-import { formatAgentList, formatMemorySearch, getMediaInfo } from "./utils";
+import {
+  formatAgentList,
+  formatMemorySearch,
+  formatToolDuration,
+  getMediaInfo,
+} from "./utils";
 import type { ToolCallContent } from "./types";
 
 const translate = ((key: string) => {
@@ -143,6 +148,23 @@ describe("getMediaInfo", () => {
     );
     expect(media?.url).toBe("/api/files/preview/abs/path/file1.txt");
     expect(media?.name).toBe("file1.txt");
+  });
+});
+
+describe("formatToolDuration", () => {
+  it("keeps short executions compact", () => {
+    expect(formatToolDuration(450)).toBe("<1s");
+    expect(formatToolDuration(2_000)).toBe("2s");
+  });
+
+  it("uses minutes for long-running commands", () => {
+    expect(formatToolDuration(65_000)).toBe("1m 5s");
+    expect(formatToolDuration(120_000)).toBe("2m");
+  });
+
+  it("carries rounded seconds into minutes at the boundary", () => {
+    expect(formatToolDuration(59_500)).toBe("1m");
+    expect(formatToolDuration(119_500)).toBe("2m");
   });
 });
 

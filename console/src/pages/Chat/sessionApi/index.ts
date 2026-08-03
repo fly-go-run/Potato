@@ -1163,7 +1163,7 @@ class SessionApi implements IAgentScopeRuntimeWebUISessionAPI {
             fromList,
             signal,
           );
-        } catch (error) {
+        } catch {
           // If fetching with realId fails, return the local session without messages
           // This handles cases where the backend has an inconsistency
           this.updateWindowVariables(fromList);
@@ -1209,12 +1209,12 @@ class SessionApi implements IAgentScopeRuntimeWebUISessionAPI {
         this.findSession(sessionId),
         signal,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If the backend session doesn't exist (e.g. invalid UUID or expired session)
       // return an empty session to prevent repeated 404 API calls.
       // Note: the request layer throws Error(message) without attaching .status,
       // so only message-based detection is reliable here.
-      if (error.message?.includes("Chat not found")) {
+      if (error instanceof Error && error.message.includes("Chat not found")) {
         const emptySession = this.createEmptySession(sessionId);
         emptySession.id = sessionId;
         return emptySession;
