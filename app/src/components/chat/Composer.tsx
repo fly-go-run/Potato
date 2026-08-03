@@ -27,10 +27,7 @@ import {
   detectTrigger,
   type ComposerTrigger,
 } from "../../lib/composerTrigger";
-import {
-  useChatStore,
-  type ApprovalLevel,
-} from "../../stores/chat";
+import { useChatStore, type ApprovalLevel } from "../../stores/chat";
 import { ModelPicker } from "./ModelPicker";
 import { ProjectPicker } from "./ProjectPicker";
 import { TriggerPopover, type TriggerItem } from "./TriggerPopover";
@@ -112,10 +109,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     }
     if (!next) setDismissedToken(null);
     setTrigger((current) => {
-      if (
-        current?.kind !== next?.kind ||
-        current?.start !== next?.start
-      ) {
+      if (current?.kind !== next?.kind || current?.start !== next?.start) {
         setActiveIndex(0);
       }
       return next;
@@ -345,7 +339,11 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         return;
       }
     }
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
       event.preventDefault();
       submit();
     }
@@ -362,7 +360,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   return (
     <div className="px-4 pb-6 pt-3 sm:px-6">
       {!model && !modelLoading && (
-        <div className={`mx-auto mb-2 text-center text-xs text-warn ${widthClass}`}>
+        <div
+          className={`mx-auto mb-2 text-center text-xs text-warn ${widthClass}`}
+        >
           {t("composer.modelMissing")}
           <Link
             to="/settings"
@@ -455,8 +455,8 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 isSubmitting
                   ? t("composer.uploading")
                   : isStreaming
-                    ? t("composer.generating")
-                    : t("composer.placeholder")
+                  ? t("composer.generating")
+                  : t("composer.placeholder")
               }
               className="block min-h-[86px] max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55"
             />

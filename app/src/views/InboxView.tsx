@@ -35,10 +35,7 @@ import {
   type InboxTrace,
 } from "../lib/inbox";
 import { useChatStore } from "../stores/chat";
-import {
-  useTranslation,
-  type TranslationKey,
-} from "../lib/i18n";
+import { useTranslation, type TranslationKey } from "../lib/i18n";
 import { relativeTime } from "../lib/relativeTime";
 import { useInboxStore } from "../stores/inbox";
 
@@ -198,19 +195,19 @@ export function InboxView() {
           title={t("inbox.title")}
           subtitle={t("inbox.subtitle")}
           actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={unreadCount === 0 || marking}
-            onClick={() => void markAllRead()}
-          >
-            {marking ? (
-              <LoaderCircle size={15} className="animate-spin" />
-            ) : (
-              <CheckCheck size={15} />
-            )}
-            {marking ? t("inbox.marking") : t("inbox.allRead")}
-          </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={unreadCount === 0 || marking}
+              onClick={() => void markAllRead()}
+            >
+              {marking ? (
+                <LoaderCircle size={15} className="animate-spin" />
+              ) : (
+                <CheckCheck size={15} />
+              )}
+              {marking ? t("inbox.marking") : t("inbox.allRead")}
+            </Button>
           }
         />
 
@@ -292,7 +289,9 @@ export function InboxView() {
                           </span>
                           <span>·</span>
                           <time>
-                            {createdAt ? t(createdAt.key, createdAt.params) : ""}
+                            {createdAt
+                              ? t(createdAt.key, createdAt.params)
+                              : ""}
                           </time>
                         </span>
                       </span>
@@ -395,19 +394,26 @@ export function InboxView() {
                                     </div>
                                   ) : (
                                     <div className="mt-3 space-y-2 border-l border-line pl-3">
-                                      {trace.events.slice(-12).map((item, index) => (
-                                        <div
-                                          key={`${item.at}-${index}`}
-                                          className="text-xs"
-                                        >
-                                          <time className="text-[10px] text-ink-muted">
-                                            {formatTimestamp(item.at, language)}
-                                          </time>
-                                          <div className="mt-0.5 break-words text-ink-secondary">
-                                            <TraceStepLine event={item.event} />
+                                      {trace.events
+                                        .slice(-12)
+                                        .map((item, index) => (
+                                          <div
+                                            key={`${item.at}-${index}`}
+                                            className="text-xs"
+                                          >
+                                            <time className="text-[10px] text-ink-muted">
+                                              {formatTimestamp(
+                                                item.at,
+                                                language,
+                                              )}
+                                            </time>
+                                            <div className="mt-0.5 break-words text-ink-secondary">
+                                              <TraceStepLine
+                                                event={item.event}
+                                              />
+                                            </div>
                                           </div>
-                                        </div>
-                                      ))}
+                                        ))}
                                     </div>
                                   )}
                                 </>
@@ -443,7 +449,10 @@ export function InboxView() {
                     })}
                   </span>
                   {routineOpen ? (
-                    <ChevronDown size={15} className="shrink-0 text-ink-muted" />
+                    <ChevronDown
+                      size={15}
+                      className="shrink-0 text-ink-muted"
+                    />
                   ) : (
                     <ChevronRight
                       size={15}
@@ -462,9 +471,7 @@ export function InboxView() {
                         <span className="min-w-0 flex-1 truncate">
                           {presentInboxEvent(event, t).title}
                           {" · "}
-                          {createdAt
-                            ? t(createdAt.key, createdAt.params)
-                            : ""}
+                          {createdAt ? t(createdAt.key, createdAt.params) : ""}
                         </span>
                         <IconButton
                           tone="danger"
@@ -475,10 +482,7 @@ export function InboxView() {
                           className="opacity-0 transition-opacity duration-[var(--dur-fast)] focus-visible:opacity-100 group-hover:opacity-100"
                         >
                           {deletingId === event.id ? (
-                            <LoaderCircle
-                              size={14}
-                              className="animate-spin"
-                            />
+                            <LoaderCircle size={14} className="animate-spin" />
                           ) : (
                             <Trash2 size={14} />
                           )}
@@ -504,19 +508,13 @@ export function InboxView() {
   );
 }
 
-function EventStatus({
-  status,
-  label,
-}: {
-  status: string;
-  label: string;
-}) {
+function EventStatus({ status, label }: { status: string; label: string }) {
   const tone =
     status === "success"
       ? "ok"
       : status === "error" || status === "failed"
-        ? "danger"
-        : "neutral";
+      ? "danger"
+      : "neutral";
   return <Badge tone={tone}>{label}</Badge>;
 }
 

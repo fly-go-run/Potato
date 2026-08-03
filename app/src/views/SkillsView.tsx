@@ -68,7 +68,9 @@ export function SkillsView() {
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<
-    { type: "skill"; item: SkillInfo } | { type: "plugin"; item: PluginInfo } | null
+    | { type: "skill"; item: SkillInfo }
+    | { type: "plugin"; item: PluginInfo }
+    | null
   >(null);
 
   const load = async () => {
@@ -184,14 +186,14 @@ export function SkillsView() {
           title={t("skills.title")}
           subtitle={t("skills.subtitle")}
           actions={
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setAddOpen(true)}
-          >
-            <Plus size={15} />
-            {t("skills.add")}
-          </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setAddOpen(true)}
+            >
+              <Plus size={15} />
+              {t("skills.add")}
+            </Button>
           }
         />
 
@@ -199,8 +201,16 @@ export function SkillsView() {
           <SegmentedControl
             value={tab}
             options={[
-              { value: "skills", label: t("skills.tab.skills"), count: skills.length },
-              { value: "plugins", label: t("skills.tab.plugins"), count: plugins.length },
+              {
+                value: "skills",
+                label: t("skills.tab.skills"),
+                count: skills.length,
+              },
+              {
+                value: "plugins",
+                label: t("skills.tab.plugins"),
+                count: plugins.length,
+              },
             ]}
             onChange={(value) => {
               setTab(value);
@@ -233,11 +243,7 @@ export function SkillsView() {
                 </details>
               )}
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void load()}
-            >
+            <Button variant="secondary" size="sm" onClick={() => void load()}>
               {t("common.retry")}
             </Button>
           </section>
@@ -301,7 +307,9 @@ export function SkillsView() {
                 key={plugin.id}
                 plugin={plugin}
                 busy={busyPlugin === plugin.id}
-                onDelete={() => setPendingDelete({ type: "plugin", item: plugin })}
+                onDelete={() =>
+                  setPendingDelete({ type: "plugin", item: plugin })
+                }
               />
             ))}
           </Card>
@@ -338,15 +346,17 @@ export function SkillsView() {
           pendingDelete?.type === "plugin"
             ? t("plugins.deleteConfirm", { name: pendingDelete.item.name })
             : pendingDelete?.type === "skill"
-              ? t("skills.deleteConfirm", { name: pendingDelete.item.name })
-              : undefined
+            ? t("skills.deleteConfirm", { name: pendingDelete.item.name })
+            : undefined
         }
         tone="danger"
         busy={busySkills.size > 0 || busyPlugin !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}
         onConfirm={() => {
-          if (pendingDelete?.type === "skill") void deleteSkill(pendingDelete.item);
-          if (pendingDelete?.type === "plugin") void deletePlugin(pendingDelete.item);
+          if (pendingDelete?.type === "skill")
+            void deleteSkill(pendingDelete.item);
+          if (pendingDelete?.type === "plugin")
+            void deletePlugin(pendingDelete.item);
         }}
       />
     </>
@@ -459,12 +469,7 @@ function PluginRow({
           {plugin.description || t("skills.noDescription")}
         </p>
       </div>
-      <Button
-        variant="danger"
-        size="sm"
-        disabled={busy}
-        onClick={onDelete}
-      >
+      <Button variant="danger" size="sm" disabled={busy} onClick={onDelete}>
         {busy ? (
           <LoaderCircle size={14} className="animate-spin" />
         ) : (
@@ -567,10 +572,7 @@ function SkillDetails({
                 {skill?.tags?.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {skill.tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        tone="neutral"
-                      >
+                      <Badge key={tag} tone="neutral">
                         <Tags size={11} />
                         {tag}
                       </Badge>
@@ -674,13 +676,13 @@ function AddCapabilityDialog({
             },
           )
         : pluginApi.catalog().then((response) => {
-              setWorkspaces([]);
-              setWorkspaceId("");
-              setCatalog(
-                mergeCatalogInstalled(response.plugins, installedPlugins),
-              );
-              if (response.error) setError(response.error);
-            });
+            setWorkspaces([]);
+            setWorkspaceId("");
+            setCatalog(
+              mergeCatalogInstalled(response.plugins, installedPlugins),
+            );
+            if (response.error) setError(response.error);
+          });
     void request
       .catch((reason: unknown) => setError(readableError(reason)))
       .finally(() => setLoading(false));
@@ -945,7 +947,8 @@ function AddCapabilityDialog({
                       size="sm"
                       disabled={!workspaceId || busy !== null}
                       onClick={() =>
-                        pendingPoolSkill && void importPoolSkill(pendingPoolSkill)
+                        pendingPoolSkill &&
+                        void importPoolSkill(pendingPoolSkill)
                       }
                     >
                       {t("skills.add.import")}
@@ -994,11 +997,7 @@ function AddCapabilityDialog({
                     onChange={(event) => setHubQuery(event.target.value)}
                     placeholder={t("skills.add.hubPlaceholder")}
                   />
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    size="sm"
-                  >
+                  <Button type="submit" variant="secondary" size="sm">
                     {t("skills.search")}
                   </Button>
                 </form>
@@ -1032,7 +1031,10 @@ function AddCapabilityDialog({
                       items={hubResults.map((skill) => ({
                         key: skill.slug,
                         name: skill.name,
-                        description: skillDescription(skill.name, skill.description),
+                        description: skillDescription(
+                          skill.name,
+                          skill.description,
+                        ),
                         version: skill.version,
                         installed: installedSkills.some(
                           (installed) =>
@@ -1072,9 +1074,7 @@ function AddCapabilityDialog({
                 }))}
                 busy={busy}
                 onInstall={(key) => {
-                  const plugin = catalog.find(
-                    (item) => item.plugin_id === key,
-                  );
+                  const plugin = catalog.find((item) => item.plugin_id === key);
                   if (plugin) {
                     void installPlugin(plugin.install_url, plugin.name);
                   }
@@ -1178,9 +1178,7 @@ function CapabilitySourceList({
             </p>
           </div>
           {item.installed ? (
-            <Badge tone="ok">
-              {t("skills.add.installedMark")}
-            </Badge>
+            <Badge tone="ok">{t("skills.add.installedMark")}</Badge>
           ) : (
             <Button
               variant="secondary"

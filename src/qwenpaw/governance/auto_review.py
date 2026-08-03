@@ -177,7 +177,9 @@ def _normalise_choice(value: Any, allowed: set[str]) -> str:
     return choice if choice in allowed else "unknown"
 
 
-def parse_review_response(text: str) -> ReviewDecision | None:
+def parse_review_response(  # pylint: disable=too-many-return-statements
+    text: str,
+) -> ReviewDecision | None:
     """Parse a structured reviewer response or the legacy bare token.
 
     The bare ``APPROVE``/``DENY`` form remains accepted for gateways whose
@@ -253,9 +255,9 @@ def _redact_review_value(value: Any, *, key: str = "") -> Any:
             for child_key, child_value in items[:_MAX_REVIEW_COLLECTION_ITEMS]
         }
         if len(items) > _MAX_REVIEW_COLLECTION_ITEMS:
-            redacted["__truncated__"] = (
-                f"{len(items) - _MAX_REVIEW_COLLECTION_ITEMS} items omitted"
-            )
+            redacted[
+                "__truncated__"
+            ] = f"{len(items) - _MAX_REVIEW_COLLECTION_ITEMS} items omitted"
         return redacted
     if isinstance(value, (list, tuple)):
         redacted = [
@@ -271,12 +273,12 @@ def _redact_review_value(value: Any, *, key: str = "") -> Any:
             )
         return redacted
     if isinstance(value, str):
-        redacted = value
+        redacted_text = value
         for pattern, replacement in _SECRET_TEXT_PATTERNS:
-            redacted = pattern.sub(replacement, redacted)
-        if len(redacted) > _MAX_REVIEW_VALUE_CHARS:
-            return redacted[:_MAX_REVIEW_VALUE_CHARS] + "…[truncated]"
-        return redacted
+            redacted_text = pattern.sub(replacement, redacted_text)
+        if len(redacted_text) > _MAX_REVIEW_VALUE_CHARS:
+            return redacted_text[:_MAX_REVIEW_VALUE_CHARS] + "…[truncated]"
+        return redacted_text
     return value
 
 
@@ -348,8 +350,7 @@ def _compact_review_value(value: Any, max_chars: int) -> Any:
         if len(compacted_list) < len(value):
             compacted_list.append("…[additional values omitted]")
             while (
-                _json_char_count(compacted_list) > max_chars
-                and compacted_list
+                _json_char_count(compacted_list) > max_chars and compacted_list
             ):
                 compacted_list.pop(-2 if len(compacted_list) > 1 else -1)
         return compacted_list

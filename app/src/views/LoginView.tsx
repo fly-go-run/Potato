@@ -101,8 +101,8 @@ export function LoginView() {
           {submitting
             ? t("login.processing")
             : status?.has_users === false
-              ? t("login.createAccount")
-              : t("login.signIn")}
+            ? t("login.createAccount")
+            : t("login.signIn")}
         </Button>
       </form>
     </div>

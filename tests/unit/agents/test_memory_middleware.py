@@ -479,9 +479,7 @@ async def test_compaction_status_multiplexes_one_start_and_terminal_event():
         await middleware.on_compress_context(agent, {}, compact)
         yield "answer"
 
-    output = [
-        item async for item in middleware.on_reply(agent, {}, inner)
-    ]
+    output = [item async for item in middleware.on_reply(agent, {}, inner)]
     events = [item for item in output if isinstance(item, CustomEvent)]
 
     assert [event.value["status"] for event in events] == [
@@ -509,9 +507,7 @@ async def test_compaction_failure_emits_fallback_and_continues_reply():
         await middleware.on_compress_context(agent, {}, compact)
         yield "answer"
 
-    output = [
-        item async for item in middleware.on_reply(agent, {}, inner)
-    ]
+    output = [item async for item in middleware.on_reply(agent, {}, inner)]
     events = [item for item in output if isinstance(item, CustomEvent)]
 
     assert [event.value["status"] for event in events] == [

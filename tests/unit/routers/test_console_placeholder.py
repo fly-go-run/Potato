@@ -103,7 +103,12 @@ async def test_new_message_during_active_run_returns_conflict(
     detached: list[tuple[str, asyncio.Queue]] = []
 
     class Tracker:
-        async def attach_or_start(self, run_key, payload, stream_fn):
+        async def attach_or_start(  # pylint: disable=unused-argument
+            self,
+            run_key,
+            payload,
+            stream_fn,
+        ):
             assert run_key == "chat-1"
             return queue, False
 

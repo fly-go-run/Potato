@@ -49,10 +49,9 @@ function responseFrame(status: "in_progress" | "completed") {
 }
 
 function sseResponse(status: "in_progress" | "completed") {
-  return new Response(
-    `data: ${JSON.stringify(responseFrame(status))}\n\n`,
-    { headers: { "Content-Type": "text/event-stream" } },
-  );
+  return new Response(`data: ${JSON.stringify(responseFrame(status))}\n\n`, {
+    headers: { "Content-Type": "text/event-stream" },
+  });
 }
 
 function history(status: ChatHistory["status"]): ChatHistory {

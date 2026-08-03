@@ -16,6 +16,7 @@ def test_default_static_candidates_prefer_app_before_legacy_console(
     repo_dir = tmp_path / "repo"
     cwd = tmp_path / "cwd"
 
+    # pylint: disable=protected-access
     candidates = console_static._default_static_candidates(
         package_dir=package_dir,
         repo_dir=repo_dir,

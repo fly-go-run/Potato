@@ -26,10 +26,16 @@ export function relativeTime(
   const elapsed = now - timestamp;
   if (elapsed < MINUTE) return { key: "time.justNow", params: { count: 0 } };
   if (elapsed < HOUR) {
-    return { key: "time.minutesAgo", params: { count: Math.floor(elapsed / MINUTE) } };
+    return {
+      key: "time.minutesAgo",
+      params: { count: Math.floor(elapsed / MINUTE) },
+    };
   }
   if (elapsed < DAY) {
-    return { key: "time.hoursAgo", params: { count: Math.floor(elapsed / HOUR) } };
+    return {
+      key: "time.hoursAgo",
+      params: { count: Math.floor(elapsed / HOUR) },
+    };
   }
   return { key: "time.daysAgo", params: { count: Math.floor(elapsed / DAY) } };
 }

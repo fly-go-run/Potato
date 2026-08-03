@@ -103,10 +103,7 @@ export function parseUnifiedDiff(text: string): UnifiedFileDiff[] {
         file.newPath = line.slice("rename to ".length);
         continue;
       }
-      if (
-        line.startsWith("Binary files ") ||
-        line === "GIT binary patch"
-      ) {
+      if (line.startsWith("Binary files ") || line === "GIT binary patch") {
         file.isBinary = true;
         continue;
       }

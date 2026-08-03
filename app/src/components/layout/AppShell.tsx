@@ -61,10 +61,7 @@ export function AppShell() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.altKey ||
-        !isPrimaryShortcut(event)
-      ) {
+      if (event.altKey || !isPrimaryShortcut(event)) {
         return;
       }
       const key = event.key.toLocaleLowerCase();
@@ -94,8 +91,7 @@ export function AppShell() {
         setSearchOpen(false);
         setShortcutsOpen(false);
         const onSettings =
-          window.location.hash.replace(/^#/, "").split("?")[0] ===
-          "/settings";
+          window.location.hash.replace(/^#/, "").split("?")[0] === "/settings";
         if (onSettings) {
           // 与设置面板 closePanel 同一逻辑:优先退回来路。
           const state = window.history.state as { idx?: number } | null;
@@ -164,10 +160,7 @@ export function AppShell() {
       </main>
       <Suspense fallback={null}>
         <ChatSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
-        <ShortcutsDialog
-          open={shortcutsOpen}
-          onOpenChange={setShortcutsOpen}
-        />
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       </Suspense>
     </div>
   );

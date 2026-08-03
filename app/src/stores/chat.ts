@@ -152,7 +152,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       get().loadApprovalLevel(),
     ]);
     const pendingSessionId = sessionStorage.getItem(PENDING_SESSION_KEY);
-    if (pendingSessionId && (!window.location.hash || window.location.hash === "#/")) {
+    if (
+      pendingSessionId &&
+      (!window.location.hash || window.location.hash === "#/")
+    ) {
       let chats = initialChats;
       let pendingChat = chats.find(
         (chat) => chat.session_id === pendingSessionId,
@@ -279,10 +282,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const history = await chatApi.get(chatId, controller.signal);
       if (controller.signal.aborted || get().activeChatId !== chatId) return;
       const messages = historyMessages(history);
-      const turnUsage = historyTurnUsage(
-        history,
-        chat.session_id,
-      );
+      const turnUsage = historyTurnUsage(history, chat.session_id);
       set({
         stream: {
           ...initialConversationStreamState,
@@ -292,7 +292,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         },
         historyLoading: false,
       });
-      const currentChat = get().chats.find((item) => item.id === chatId) ?? chat;
+      const currentChat =
+        get().chats.find((item) => item.id === chatId) ?? chat;
       const pendingSessionId = sessionStorage.getItem(PENDING_SESSION_KEY);
       if (
         currentChat &&
@@ -452,12 +453,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   stop: async () => {
-    const {
-      activeChatId,
-      requestController,
-      pendingImages,
-      sessionId,
-    } = get();
+    const { activeChatId, requestController, pendingImages, sessionId } = get();
     if (!activeChatId) {
       requestController?.abort();
       revokePreviews(pendingImages);
@@ -689,10 +685,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   switchRateLimitedModel: async (alternative) => {
     try {
-      await modelApi.setActive(
-        alternative.provider_id,
-        alternative.model_id,
-      );
+      await modelApi.setActive(alternative.provider_id, alternative.model_id);
       const activeModel = await modelApi.active();
       set((state) => ({
         activeModel,
@@ -840,9 +833,7 @@ function userMessage(content: OutboundContentBlock[]): StreamMessage {
     role: "user",
     status: "completed",
     metadata: null,
-    content: content.map((block, index) =>
-      localContentBlock(block, index, id),
-    ),
+    content: content.map((block, index) => localContentBlock(block, index, id)),
   };
 }
 
@@ -894,13 +885,13 @@ function delay(milliseconds: number) {
 
 function isTerminalStatus(status: ConversationStreamState["responseStatus"]) {
   return (
-    status === "completed" ||
-    status === "failed" ||
-    status === "cancelled"
+    status === "completed" || status === "failed" || status === "cancelled"
   );
 }
 
-async function uploadPendingFiles(files: File[]): Promise<UploadedAttachment[]> {
+async function uploadPendingFiles(
+  files: File[],
+): Promise<UploadedAttachment[]> {
   if (files.length === 0) return [];
 
   let uploadLimit: Awaited<ReturnType<typeof settingsApi.uploadLimit>>;

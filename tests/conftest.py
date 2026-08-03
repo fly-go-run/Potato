@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=redefined-outer-name
 # pylint: disable=reimported,unused-argument,unnecessary-pass
+# pylint: disable=wrong-import-position
 """
 Global pytest fixtures for CoPaw test suite.
 
@@ -29,7 +30,9 @@ _TEST_RUNTIME_DIR = Path(tempfile.mkdtemp(prefix="qwenpaw_pytest_"))
 os.environ["QWENPAW_WORKING_DIR"] = str(_TEST_RUNTIME_DIR / "working")
 os.environ["QWENPAW_SECRET_DIR"] = str(_TEST_RUNTIME_DIR / "secret")
 
-from qwenpaw.providers import provider_manager as _provider_manager_module
+from qwenpaw.providers import (  # noqa: E402
+    provider_manager as _provider_manager_module,
+)
 
 
 @pytest.fixture(autouse=True)

@@ -12,8 +12,8 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
       phase === "fallback"
         ? t("chat.contextCompaction.fallback")
         : phase === "completed"
-          ? t("chat.contextCompaction.completed")
-          : t("chat.contextCompaction.running");
+        ? t("chat.contextCompaction.completed")
+        : t("chat.contextCompaction.running");
     return (
       <div className="my-2 flex items-center gap-2 text-xs text-ink-muted">
         {phase === "in_progress" && (

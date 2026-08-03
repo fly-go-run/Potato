@@ -39,7 +39,10 @@ describe("findOversizedFile", () => {
 
   it("allows every file when the backend reports no limit", () => {
     expect(
-      findOversizedFile([{ name: "large.bin", size: Number.MAX_SAFE_INTEGER }], null),
+      findOversizedFile(
+        [{ name: "large.bin", size: Number.MAX_SAFE_INTEGER }],
+        null,
+      ),
     ).toBeNull();
   });
 });

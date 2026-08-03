@@ -128,20 +128,17 @@ export function SettingsView() {
   const [newModelId, setNewModelId] = useState("");
   const [newModelName, setNewModelName] = useState("");
   const [removingModel, setRemovingModel] = useState<string | null>(null);
-  const [providerToRemove, setProviderToRemove] =
-    useState<ProviderInfo | null>(null);
-  const [removingProvider, setRemovingProvider] = useState<string | null>(
+  const [providerToRemove, setProviderToRemove] = useState<ProviderInfo | null>(
     null,
   );
+  const [removingProvider, setRemovingProvider] = useState<string | null>(null);
 
   const [creating, setCreating] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createUrl, setCreateUrl] = useState("");
   const [createKey, setCreateKey] = useState("");
 
-  const [theme, setTheme] = useState<ThemePreference>(
-    getThemePreference(),
-  );
+  const [theme, setTheme] = useState<ThemePreference>(getThemePreference());
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>(() =>
     listCustomThemes(),
   );
@@ -179,9 +176,7 @@ export function SettingsView() {
       })
       .catch((reason: unknown) => {
         if (!active) return;
-        setError(
-          t("settings.loadFailed", { message: readableError(reason) }),
-        );
+        setError(t("settings.loadFailed", { message: readableError(reason) }));
         setLoading(false);
       });
     return () => {
@@ -526,9 +521,7 @@ export function SettingsView() {
         await modelApi.configure(createdInfo.id, { api_key: trimmedKey });
       }
       const providerList = await refreshProviders();
-      const created = providerList.find(
-        (item) => item.id === createdInfo.id,
-      );
+      const created = providerList.find((item) => item.id === createdInfo.id);
       setCreateName("");
       setCreateUrl("");
       setCreateKey("");
@@ -791,9 +784,7 @@ export function SettingsView() {
                     onNewModelName={setNewModelName}
                     onAddModel={() => void addCustomModel()}
                     onRemoveModel={(id) => void removeModel(id)}
-                    onRemoveProvider={() =>
-                      setProviderToRemove(detailProvider)
-                    }
+                    onRemoveProvider={() => setProviderToRemove(detailProvider)}
                   />
                 ) : providerView.kind === "create" ? (
                   <ProviderCreate
@@ -821,8 +812,7 @@ export function SettingsView() {
                           {activePair && (
                             <div className="mt-0.5 text-xs text-ink-tertiary">
                               {providerDisplayName(
-                                activeProvider?.name ??
-                                  activePair.provider_id,
+                                activeProvider?.name ?? activePair.provider_id,
                               )}
                               {activeModel?.effective_max_input_length
                                 ? ` · ${t("settings.models.contextWindow", {
@@ -945,9 +935,7 @@ export function SettingsView() {
                             )}
                           </span>
                           {activeThemeId === customTheme.id && (
-                            <Badge tone="ok">
-                              {t("settings.theme.inUse")}
-                            </Badge>
+                            <Badge tone="ok">{t("settings.theme.inUse")}</Badge>
                           )}
                         </button>
                         <IconButton
@@ -981,8 +969,7 @@ export function SettingsView() {
                     <SettingRow
                       title={t("settings.capabilities.title")}
                       description={t("settings.capabilities.summary", {
-                        enabled: skills.filter((skill) => skill.enabled)
-                          .length,
+                        enabled: skills.filter((skill) => skill.enabled).length,
                         skills: skills.length,
                         plugins: pluginCount,
                       })}
@@ -1054,7 +1041,10 @@ export function SettingsView() {
                     description={t("settings.security.approvalHint")}
                   >
                     <span className="text-[13px] text-ink-secondary">
-                      {t(APPROVAL_LABELS[approvalLevel] ?? "composer.approval.auto")}
+                      {t(
+                        APPROVAL_LABELS[approvalLevel] ??
+                          "composer.approval.auto",
+                      )}
                     </span>
                   </SettingRow>
                 </SettingsGroup>
@@ -1068,8 +1058,8 @@ export function SettingsView() {
                       {uploadLimitMb === "unknown"
                         ? "—"
                         : uploadLimitMb === "unlimited"
-                          ? t("settings.data.uploadUnlimited")
-                          : `${uploadLimitMb} MB`}
+                        ? t("settings.data.uploadUnlimited")
+                        : `${uploadLimitMb} MB`}
                     </span>
                   </SettingRow>
                   <SettingRow
@@ -1111,10 +1101,10 @@ export function SettingsView() {
                       backendHealth === "offline"
                         ? undefined
                         : backendHealth
-                          ? t("settings.about.backendAgents", {
-                              count: backendHealth.agents,
-                            })
-                          : undefined
+                        ? t("settings.about.backendAgents", {
+                            count: backendHealth.agents,
+                          })
+                        : undefined
                     }
                   >
                     {backendHealth === "offline" ? (
@@ -1124,9 +1114,9 @@ export function SettingsView() {
                     ) : backendHealth ? (
                       <span className="text-[13px] text-ink-secondary">
                         {t("settings.about.backendOnline", {
-                          hours: (
-                            backendHealth.uptimeSeconds / 3600
-                          ).toFixed(1),
+                          hours: (backendHealth.uptimeSeconds / 3600).toFixed(
+                            1,
+                          ),
                         })}
                       </span>
                     ) : (
@@ -1176,10 +1166,10 @@ function ProviderListRow({
   const summary = provider.is_local
     ? t("settings.provider.localReady")
     : configured
-      ? provider.api_key || provider.base_url
-      : provider.require_api_key
-        ? t("settings.provider.notConfigured")
-        : t("settings.provider.keyNotRequired");
+    ? provider.api_key || provider.base_url
+    : provider.require_api_key
+    ? t("settings.provider.notConfigured")
+    : t("settings.provider.keyNotRequired");
   return (
     <button
       type="button"
@@ -1295,9 +1285,7 @@ function ProviderDetail({
             onClick={onRemoveProvider}
           >
             <Trash2 size={13} className="text-danger" />
-            <span className="text-danger">
-              {t("settings.provider.delete")}
-            </span>
+            <span className="text-danger">{t("settings.provider.delete")}</span>
           </Button>
         )}
       </div>
@@ -1330,106 +1318,106 @@ function ProviderDetail({
             if (dirty && !busy) onSave();
           }}
         >
-        <SettingsGroup>
-          <SettingRow
-            title={t("settings.provider.apiKey")}
-            description={
-              hasKey
-                ? t("settings.provider.keySaved")
-                : !provider.require_api_key
+          <SettingsGroup>
+            <SettingRow
+              title={t("settings.provider.apiKey")}
+              description={
+                hasKey
+                  ? t("settings.provider.keySaved")
+                  : !provider.require_api_key
                   ? t("settings.provider.keyOptional")
                   : undefined
-            }
-          >
-            <div className="flex w-64 max-w-full items-center gap-1.5">
-              <Input
-                type="password"
-                value={keyDraft}
-                disabled={busy}
-                onChange={(event) => onKeyDraft(event.target.value)}
-                placeholder={
-                  hasKey
-                    ? provider.api_key
-                    : t("settings.provider.apiKeyPlaceholder")
-                }
-                aria-label={t("settings.provider.apiKey")}
-                autoComplete="off"
-                className="w-full"
-              />
-              {hasKey && !keyDraft && (
-                <Button
-                  variant="ghost"
-                  size="sm"
+              }
+            >
+              <div className="flex w-64 max-w-full items-center gap-1.5">
+                <Input
+                  type="password"
+                  value={keyDraft}
                   disabled={busy}
-                  title={t("settings.provider.clearKeyTitle")}
-                  onClick={onClearKey}
+                  onChange={(event) => onKeyDraft(event.target.value)}
+                  placeholder={
+                    hasKey
+                      ? provider.api_key
+                      : t("settings.provider.apiKeyPlaceholder")
+                  }
+                  aria-label={t("settings.provider.apiKey")}
+                  autoComplete="off"
+                  className="w-full"
+                />
+                {hasKey && !keyDraft && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    title={t("settings.provider.clearKeyTitle")}
+                    onClick={onClearKey}
+                  >
+                    {clearingKey ? (
+                      <LoaderCircle size={13} className="animate-spin" />
+                    ) : (
+                      t("settings.provider.clearKey")
+                    )}
+                  </Button>
+                )}
+              </div>
+            </SettingRow>
+            <SettingRow
+              title={t("settings.provider.baseUrl")}
+              description={
+                provider.freeze_url
+                  ? t("settings.provider.baseUrlFrozen")
+                  : undefined
+              }
+            >
+              <Input
+                type="url"
+                value={urlDraft}
+                disabled={provider.freeze_url || busy}
+                aria-label={t("settings.provider.baseUrl")}
+                onChange={(event) => onUrlDraft(event.target.value)}
+                className="w-64 max-w-full"
+              />
+            </SettingRow>
+            <SettingRow
+              title={t("settings.provider.test")}
+              description={
+                testState.phase === "ok" ? (
+                  <span className="text-ok">
+                    {t("settings.provider.testOk")}
+                  </span>
+                ) : testState.phase === "fail" ? (
+                  <span className="text-danger">{testState.message}</span>
+                ) : undefined
+              }
+            >
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!canTest || testState.phase === "busy" || busy}
+                  onClick={onTest}
                 >
-                  {clearingKey ? (
+                  {testState.phase === "busy" ? (
                     <LoaderCircle size={13} className="animate-spin" />
                   ) : (
-                    t("settings.provider.clearKey")
+                    <PlugZap size={13} />
                   )}
+                  {t("settings.provider.test")}
                 </Button>
-              )}
-            </div>
-          </SettingRow>
-          <SettingRow
-            title={t("settings.provider.baseUrl")}
-            description={
-              provider.freeze_url
-                ? t("settings.provider.baseUrlFrozen")
-                : undefined
-            }
-          >
-            <Input
-              type="url"
-              value={urlDraft}
-              disabled={provider.freeze_url || busy}
-              aria-label={t("settings.provider.baseUrl")}
-              onChange={(event) => onUrlDraft(event.target.value)}
-              className="w-64 max-w-full"
-            />
-          </SettingRow>
-          <SettingRow
-            title={t("settings.provider.test")}
-            description={
-              testState.phase === "ok" ? (
-                <span className="text-ok">
-                  {t("settings.provider.testOk")}
-                </span>
-              ) : testState.phase === "fail" ? (
-                <span className="text-danger">{testState.message}</span>
-              ) : undefined
-            }
-          >
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!canTest || testState.phase === "busy" || busy}
-                onClick={onTest}
-              >
-                {testState.phase === "busy" ? (
-                  <LoaderCircle size={13} className="animate-spin" />
-                ) : (
-                  <PlugZap size={13} />
-                )}
-                {t("settings.provider.test")}
-              </Button>
-              <Button
-                type="submit"
-                variant="secondary"
-                size="sm"
-                disabled={!dirty || busy}
-              >
-                {saving ? (
-                  <LoaderCircle size={13} className="animate-spin" />
-                ) : null}
-                {t("settings.provider.save")}
-              </Button>
-            </div>
-          </SettingRow>
-        </SettingsGroup>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  size="sm"
+                  disabled={!dirty || busy}
+                >
+                  {saving ? (
+                    <LoaderCircle size={13} className="animate-spin" />
+                  ) : null}
+                  {t("settings.provider.save")}
+                </Button>
+              </div>
+            </SettingRow>
+          </SettingsGroup>
         </form>
       )}
 

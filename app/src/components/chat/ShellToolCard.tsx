@@ -1,6 +1,10 @@
 import { Check, ChevronRight, CircleEllipsis, Terminal, X } from "lucide-react";
 import type { ToolPair } from "./ToolCard";
-import { richOutputText, showToolDebugStatus, toolPairStatus } from "./ToolCard";
+import {
+  richOutputText,
+  showToolDebugStatus,
+  toolPairStatus,
+} from "./ToolCard";
 import { useTranslation } from "../../lib/i18n";
 
 /**
@@ -62,11 +66,13 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
         />
         <Terminal
           size={12}
-          className={`shrink-0 ${debugStatus && failed ? "text-danger" : "text-ink-muted"}`}
+          className={`shrink-0 ${
+            debugStatus && failed ? "text-danger" : "text-ink-muted"
+          }`}
         />
         <code
           className={`min-w-0 flex-1 truncate font-mono text-[12px] ${
-          debugStatus && failed ? "text-danger" : "text-ink-tertiary"
+            debugStatus && failed ? "text-danger" : "text-ink-tertiary"
           }`}
         >
           {command || t("tool.shell")}

@@ -87,18 +87,18 @@ export interface PluginCatalog {
 export const skillApi = {
   list: () => apiJson<SkillInfo[]>("/api/skills"),
   pool: () => apiJson<PoolSkillInfo[]>("/api/skills/pool"),
-  workspaces: () =>
-    apiJson<WorkspaceSkillSummary[]>("/api/skills/workspaces"),
+  workspaces: () => apiJson<WorkspaceSkillSummary[]>("/api/skills/workspaces"),
   setEnabled: (name: string, enabled: boolean) =>
     apiJson<Record<string, unknown>>(
-      `/api/skills/${encodeURIComponent(name)}/${enabled ? "enable" : "disable"}`,
+      `/api/skills/${encodeURIComponent(name)}/${
+        enabled ? "enable" : "disable"
+      }`,
       { method: "POST" },
     ),
   delete: (name: string) =>
-    apiJson<{ deleted: boolean }>(
-      `/api/skills/${encodeURIComponent(name)}`,
-      { method: "DELETE" },
-    ),
+    apiJson<{ deleted: boolean }>(`/api/skills/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
   importFromPool: (name: string, workspaceId: string) =>
     apiJson<{ downloaded: Array<{ name: string }> }>(
       "/api/skills/pool/download",
@@ -193,9 +193,7 @@ export async function runOptimisticSkillToggle({
     await mutate();
   } catch (error) {
     if (previousEnabled !== undefined) {
-      onUpdate((current) =>
-        applySkillToggle(current, name, previousEnabled),
-      );
+      onUpdate((current) => applySkillToggle(current, name, previousEnabled));
     }
     throw error;
   }

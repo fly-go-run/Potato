@@ -211,9 +211,7 @@ export function CronsView() {
           (result) => result.status === "rejected",
         ).length;
         if (failed > 0) {
-          setGlobalRunsError(
-            t("crons.runs.partialFailed", { count: failed }),
-          );
+          setGlobalRunsError(t("crons.runs.partialFailed", { count: failed }));
         }
       })
       .finally(() => {
@@ -224,10 +222,7 @@ export function CronsView() {
     };
   }, [jobs, loading, t, view]);
 
-  const act = async (
-    job: CronJobSpec,
-    action: "pause" | "resume" | "run",
-  ) => {
+  const act = async (job: CronJobSpec, action: "pause" | "resume" | "run") => {
     if (!job.id) return;
     setBusyJobId(job.id);
     setError(null);
@@ -295,7 +290,11 @@ export function CronsView() {
           value={view}
           variant="track"
           options={[
-            { value: "tasks", label: t("crons.tabs.tasks"), count: jobs.length },
+            {
+              value: "tasks",
+              label: t("crons.tabs.tasks"),
+              count: jobs.length,
+            },
             {
               value: "runs",
               label: t("crons.tabs.runs"),
@@ -309,9 +308,7 @@ export function CronsView() {
         {(error || notice) && (
           <div
             className={`mb-5 rounded-md px-3 py-2 text-xs ${
-              error
-                ? "bg-danger-soft text-danger"
-                : "bg-fill-active text-ok"
+              error ? "bg-danger-soft text-danger" : "bg-fill-active text-ok"
             }`}
           >
             {error || notice}
@@ -412,8 +409,8 @@ export function CronsView() {
                             {stateFailed
                               ? t("crons.stateUnknown")
                               : active
-                                ? t("crons.enabled")
-                                : t("crons.paused")}
+                              ? t("crons.enabled")
+                              : t("crons.paused")}
                           </span>
                         </div>
                       </td>
@@ -473,50 +470,50 @@ export function CronsView() {
         )}
 
         {view === "tasks" && (
-        <section className="mt-8" aria-labelledby="cron-templates-title">
-          <div className="mb-3 flex items-center">
-            <h2
-              id="cron-templates-title"
-              className="text-sm font-medium text-ink"
-            >
-              {t("crons.templates.title")}
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {CRON_TEMPLATES.map((template) => {
-              const Icon = template.icon;
-              const name = t(template.nameKey);
-              const prompt = t(template.promptKey);
-              return (
-                <button
-                  key={template.nameKey}
-                  type="button"
-                  className="flex min-w-0 items-start gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-4 text-left shadow-[var(--shadow-sm)] transition-colors duration-[var(--dur-fast)] hover:border-line-strong focus-visible:border-line-strong focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_var(--ring)]"
-                  onClick={() =>
-                    openNew({
-                      name,
-                      cron: template.cron,
-                      prompt,
-                    })
-                  }
-                >
-                  <Icon
-                    size={16}
-                    className="mt-0.5 shrink-0 text-ink-tertiary"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-ink">
-                      {name}
+          <section className="mt-8" aria-labelledby="cron-templates-title">
+            <div className="mb-3 flex items-center">
+              <h2
+                id="cron-templates-title"
+                className="text-sm font-medium text-ink"
+              >
+                {t("crons.templates.title")}
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {CRON_TEMPLATES.map((template) => {
+                const Icon = template.icon;
+                const name = t(template.nameKey);
+                const prompt = t(template.promptKey);
+                return (
+                  <button
+                    key={template.nameKey}
+                    type="button"
+                    className="flex min-w-0 items-start gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-4 text-left shadow-[var(--shadow-sm)] transition-colors duration-[var(--dur-fast)] hover:border-line-strong focus-visible:border-line-strong focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_var(--ring)]"
+                    onClick={() =>
+                      openNew({
+                        name,
+                        cron: template.cron,
+                        prompt,
+                      })
+                    }
+                  >
+                    <Icon
+                      size={16}
+                      className="mt-0.5 shrink-0 text-ink-tertiary"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-ink">
+                        {name}
+                      </span>
+                      <span className="line-clamp-1 text-[13px] leading-5 text-ink-tertiary">
+                        {prompt}
+                      </span>
                     </span>
-                    <span className="line-clamp-1 text-[13px] leading-5 text-ink-tertiary">
-                      {prompt}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         )}
       </PageContainer>
 
@@ -534,9 +531,7 @@ export function CronsView() {
           setEditing(null);
           setNewDraft(null);
           // 保存接口已成功,反馈不依赖随后的列表刷新是否顺利。
-          setNotice(
-            t(updated ? "crons.updatedNotice" : "crons.savedNotice"),
-          );
+          setNotice(t(updated ? "crons.updatedNotice" : "crons.savedNotice"));
           void load();
         }}
       />
@@ -600,9 +595,7 @@ function CronFormDialog({
 
   /** 投递目标用会话名展示,裸 id 只留在悬停提示里。 */
   const targetLabel = (target: CronDispatchTarget) => {
-    const chat = chats.find(
-      (item) => item.session_id === target.session_id,
-    );
+    const chat = chats.find((item) => item.session_id === target.session_id);
     if (chat?.name) return `${chat.name} · ${target.channel}`;
     return `${target.channel} · ${target.session_id.slice(0, 12)}…`;
   };
@@ -647,7 +640,8 @@ function CronFormDialog({
       selectedTarget &&
       !saving,
   );
-  const preset = CRON_PRESETS.find((item) => item.value === form.cron)?.value ?? "";
+  const preset =
+    CRON_PRESETS.find((item) => item.value === form.cron)?.value ?? "";
 
   const save = async () => {
     if (!canSave || !selectedTarget) return;
@@ -784,9 +778,7 @@ function CronFormDialog({
                 className="mt-1.5"
               >
                 {!form.targetKey && (
-                  <option value="">
-                    {t("crons.form.targetPlaceholder")}
-                  </option>
+                  <option value="">{t("crons.form.targetPlaceholder")}</option>
                 )}
                 {effectiveTargets.map((target) => (
                   <option
@@ -913,7 +905,10 @@ function GlobalRunHistory({
                   <div className="flex items-center gap-2">
                     <StatusBadge status={record.status} />
                     {record.error && (
-                      <span className="min-w-0 truncate text-xs text-danger" title={record.error}>
+                      <span
+                        className="min-w-0 truncate text-xs text-danger"
+                        title={record.error}
+                      >
                         {record.error}
                       </span>
                     )}
@@ -992,7 +987,10 @@ function HistoryDrawer({
                     className="rounded-[var(--radius-md)] p-3"
                   >
                     <div className="flex items-start gap-3">
-                      <Clock3 size={15} className="mt-0.5 shrink-0 text-ink-muted" />
+                      <Clock3
+                        size={15}
+                        className="mt-0.5 shrink-0 text-ink-muted"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <time className="text-xs font-medium text-ink">
@@ -1047,20 +1045,16 @@ function ActionButton({
   );
 }
 
-function StatusBadge({
-  status,
-}: {
-  status: CronExecutionRecord["status"];
-}) {
+function StatusBadge({ status }: { status: CronExecutionRecord["status"] }) {
   const { t } = useTranslation();
   const tone =
     status === "success"
       ? "ok"
       : status === "error"
-        ? "danger"
-        : status === "running"
-          ? "accent"
-          : "neutral";
+      ? "danger"
+      : status === "running"
+      ? "accent"
+      : "neutral";
   return <Badge tone={tone}>{statusLabel(status, t)}</Badge>;
 }
 

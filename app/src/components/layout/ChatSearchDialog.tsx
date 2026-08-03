@@ -245,7 +245,10 @@ export function ChatSearchDialog({
                         >
                           <Icon size={15} className="shrink-0 text-ink-muted" />
                           {item.chat?.pinned && (
-                            <Pin size={12} className="shrink-0 text-ink-muted" />
+                            <Pin
+                              size={12}
+                              className="shrink-0 text-ink-muted"
+                            />
                           )}
                           <span className="min-w-0 flex-1">
                             <span className="block truncate">{item.label}</span>

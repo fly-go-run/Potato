@@ -36,11 +36,7 @@ import { useTranslation } from "../../lib/i18n";
 import type { RunStatus } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { isSuccessfulArtifactPair } from "./FileToolCard";
-import {
-  buildToolPair,
-  isSuccessfulToolState,
-  toolData,
-} from "./ToolCard";
+import { buildToolPair, isSuccessfulToolState, toolData } from "./ToolCard";
 
 export interface ConversationArtifact {
   id: string;
@@ -81,15 +77,11 @@ export function ConversationSidePanel({
     changes.length > 0
       ? "changes"
       : artifacts.length > 0
-        ? "artifacts"
-        : "overview",
+      ? "artifacts"
+      : "overview",
   );
   const completedSteps = useMemo(
-    () =>
-      messages.filter(
-        (message) =>
-          isSuccessfulToolOutput(message),
-      ).length,
+    () => messages.filter((message) => isSuccessfulToolOutput(message)).length,
     [messages],
   );
   const runPresentation = presentRunStatus(responseStatus);
@@ -325,7 +317,10 @@ function FilePreviewPanel({
           </button>
         )}
         <FileText size={15} className="shrink-0 text-ink-secondary" />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink" title={path}>
+        <span
+          className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink"
+          title={path}
+        >
           {filename}
         </span>
         <a
@@ -354,11 +349,28 @@ type PreviewSpec =
   | { kind: "iframe" };
 
 const IMAGE_EXTENSIONS = new Set([
-  "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "bmp",
+  "ico",
 ]);
 const PLAIN_TEXT_EXTENSIONS = new Set([
-  "txt", "log", "csv", "tsv", "ini", "toml", "conf", "cfg", "env",
-  "properties", "gitignore", "lock",
+  "txt",
+  "log",
+  "csv",
+  "tsv",
+  "ini",
+  "toml",
+  "conf",
+  "cfg",
+  "env",
+  "properties",
+  "gitignore",
+  "lock",
 ]);
 /** 少数扩展名和 shiki 语言名对不上,手工映射;其余直接用扩展名试。 */
 const LANGUAGE_BY_EXTENSION: Record<string, string> = {
@@ -466,10 +478,7 @@ function TextFilePreview({
       </div>
     );
   }
-  if (
-    state.phase === "error" ||
-    state.text.length > MAX_TEXT_PREVIEW_CHARS
-  ) {
+  if (state.phase === "error" || state.text.length > MAX_TEXT_PREVIEW_CHARS) {
     return (
       <iframe
         title={filename}
@@ -495,13 +504,7 @@ const MAX_HIGHLIGHT_CHARS = 300_000;
 /** DOM 行数上限,超出截断提示。 */
 const MAX_PREVIEW_LINES = 5000;
 
-function CodeFileView({
-  text,
-  language,
-}: {
-  text: string;
-  language?: string;
-}) {
+function CodeFileView({ text, language }: { text: string; language?: string }) {
   const { t } = useTranslation();
   const [tokens, setTokens] = useState<ThemedToken[][] | null>(null);
   useEffect(() => {
@@ -588,28 +591,28 @@ function ChangesList({
       {changes.map((change) => {
         const shortDir = directoryOf(shortenPath(change.path, projectDir));
         return (
-        <button
-          key={change.path}
-          type="button"
-          onClick={() => onOpen?.(change.path)}
-          title={change.path}
-          className="flex w-full items-center gap-3 rounded-[var(--radius-sm)] px-2.5 py-2 text-left transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-medium text-ink">
-              {change.name}
-            </span>
-            {shortDir && (
-              <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
-                {shortDir}
+          <button
+            key={change.path}
+            type="button"
+            onClick={() => onOpen?.(change.path)}
+            title={change.path}
+            className="flex w-full items-center gap-3 rounded-[var(--radius-sm)] px-2.5 py-2 text-left transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-medium text-ink">
+                {change.name}
               </span>
-            )}
-          </span>
-          <ChangeStat
-            additions={change.additions}
-            deletions={change.deletions}
-          />
-        </button>
+              {shortDir && (
+                <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+                  {shortDir}
+                </span>
+              )}
+            </span>
+            <ChangeStat
+              additions={change.additions}
+              deletions={change.deletions}
+            />
+          </button>
         );
       })}
     </div>
@@ -783,10 +786,7 @@ function ChangeDiffPanel({
         <span className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">
           {shortDir}
         </span>
-        <ChangeStat
-          additions={headerAdditions}
-          deletions={headerDeletions}
-        />
+        <ChangeStat additions={headerAdditions} deletions={headerDeletions} />
         {canUndo &&
           (undoState === "confirm" ? (
             <span className="ml-1 flex shrink-0 items-center gap-1">
@@ -927,8 +927,8 @@ function GitDiffView({
                     line.kind === "add"
                       ? "bg-ok/10"
                       : line.kind === "remove"
-                        ? "bg-danger-soft"
-                        : ""
+                      ? "bg-danger-soft"
+                      : ""
                   }`}
                 >
                   <span className="w-10 shrink-0 select-none pr-2 text-right text-[11px] leading-[1.85] text-ink-muted">
@@ -942,21 +942,19 @@ function GitDiffView({
                       line.kind === "add"
                         ? "text-ok"
                         : line.kind === "remove"
-                          ? "text-danger"
-                          : "text-ink-muted"
+                        ? "text-danger"
+                        : "text-ink-muted"
                     }`}
                   >
                     {line.kind === "add"
                       ? "+"
                       : line.kind === "remove"
-                        ? "-"
-                        : ""}
+                      ? "-"
+                      : ""}
                   </span>
                   <span
                     className={`whitespace-pre ${
-                      line.kind === "context"
-                        ? "text-ink-tertiary"
-                        : "text-ink"
+                      line.kind === "context" ? "text-ink-tertiary" : "text-ink"
                     }`}
                   >
                     {line.text || " "}
@@ -1029,8 +1027,8 @@ function DiffBlock({ edit, ordinal }: { edit: FileEdit; ordinal: number }) {
                 line.kind === "add"
                   ? "bg-ok/10"
                   : line.kind === "remove"
-                    ? "bg-danger-soft"
-                    : ""
+                  ? "bg-danger-soft"
+                  : ""
               }`}
             >
               <span
@@ -1038,8 +1036,8 @@ function DiffBlock({ edit, ordinal }: { edit: FileEdit; ordinal: number }) {
                   line.kind === "add"
                     ? "text-ok"
                     : line.kind === "remove"
-                      ? "text-danger"
-                      : "text-ink-muted"
+                    ? "text-danger"
+                    : "text-ink-muted"
                 }`}
               >
                 {line.kind === "add" ? "+" : line.kind === "remove" ? "-" : ""}
@@ -1211,7 +1209,25 @@ const ICON_BY_EXTENSION: Array<[readonly string[], LucideIcon]> = [
   [["xlsx", "xls", "csv", "tsv", "numbers"], FileSpreadsheet],
   [["ppt", "pptx", "key"], Presentation],
   [["zip", "tar", "gz", "tgz", "rar", "7z"], FileArchive],
-  [["ts", "tsx", "js", "jsx", "py", "go", "rs", "json", "yaml", "yml", "sh", "html", "css", "sql"], FileCode],
+  [
+    [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "py",
+      "go",
+      "rs",
+      "json",
+      "yaml",
+      "yml",
+      "sh",
+      "html",
+      "css",
+      "sql",
+    ],
+    FileCode,
+  ],
 ];
 
 function fileIcon(path: string): LucideIcon {

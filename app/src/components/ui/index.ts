@@ -12,9 +12,6 @@ export { Badge, CountBadge, type BadgeTone } from "./Badge";
 export { Card } from "./Card";
 export { EmptyState } from "./EmptyState";
 export { PageHeader, PageContainer, type PageWidth } from "./PageHeader";
-export {
-  SegmentedControl,
-  type SegmentOption,
-} from "./SegmentedControl";
+export { SegmentedControl, type SegmentOption } from "./SegmentedControl";
 export { Skeleton, SkeletonRows } from "./Skeleton";
 export { ConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialog";

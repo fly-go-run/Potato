@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  matchRepoRelativePath,
-  parseUnifiedDiff,
-} from "./unifiedDiff";
+import { matchRepoRelativePath, parseUnifiedDiff } from "./unifiedDiff";
 
 // Literal output from `git diff --no-color --no-ext-diff` in a temporary Git
 // repository. The trailing newline from each command is intentional.
@@ -160,12 +157,14 @@ describe("parseUnifiedDiff", () => {
       deletions: 2,
     });
     expect(file?.hunks).toHaveLength(2);
-    expect(file?.hunks.map(({ oldStart, oldCount, newStart, newCount }) => ({
-      oldStart,
-      oldCount,
-      newStart,
-      newCount,
-    }))).toEqual([
+    expect(
+      file?.hunks.map(({ oldStart, oldCount, newStart, newCount }) => ({
+        oldStart,
+        oldCount,
+        newStart,
+        newCount,
+      })),
+    ).toEqual([
       { oldStart: 1, oldCount: 5, newStart: 1, newCount: 6 },
       { oldStart: 11, oldCount: 7, newStart: 12, newCount: 8 },
     ]);
@@ -372,13 +371,11 @@ describe("matchRepoRelativePath", () => {
 
   it("normalizes backslashes and accepts a ./ candidate prefix", () => {
     expect(
-      matchRepoRelativePath("C:\\repo\\src\\main.ts", [
-        "src/main.ts",
-      ]),
+      matchRepoRelativePath("C:\\repo\\src\\main.ts", ["src/main.ts"]),
     ).toBe("src/main.ts");
-    expect(
-      matchRepoRelativePath("/repo/src/main.ts", ["./src/main.ts"]),
-    ).toBe("./src/main.ts");
+    expect(matchRepoRelativePath("/repo/src/main.ts", ["./src/main.ts"])).toBe(
+      "./src/main.ts",
+    );
   });
 
   it("returns null when no candidate is a path-boundary suffix", () => {

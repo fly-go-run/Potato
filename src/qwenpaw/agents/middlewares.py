@@ -94,11 +94,15 @@ class CompactionStatusMiddleware(MiddlewareBase):
         input_kwargs: dict[str, Any],
         next_handler: Callable[..., Any],
     ) -> None:
-        if MemoryMiddleware._is_automation_request(agent):
+        # pylint: disable=protected-access
+        if MemoryMiddleware._is_automation_request(
+            agent,
+        ):
             await next_handler(**input_kwargs)
             return
 
         try:
+            # pylint: disable=protected-access
             will_compact = await MemoryMiddleware._will_compress_context(
                 agent,
                 input_kwargs,
@@ -127,7 +131,7 @@ class CompactionStatusMiddleware(MiddlewareBase):
             )
         try:
             await next_handler(**input_kwargs)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pylint: disable=try-except-raise
             raise
         except Exception:
             if queue is not None:

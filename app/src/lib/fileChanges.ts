@@ -131,10 +131,7 @@ const LCS_LINE_BUDGET = 200_000;
  */
 const editCache = new Map<string, FileEdit | null>();
 
-function successfulEdit(
-  messageId: string,
-  pair: ToolPair,
-): FileEdit | null {
+function successfulEdit(messageId: string, pair: ToolPair): FileEdit | null {
   // 未到终态不缓存:等待 output 期间的 null 不能定格。
   if (!toolPairStatus(pair).completed) return null;
   // 带参数长度防 id 意外重复时串缓存(正常路径 id 全局唯一)。
@@ -220,10 +217,7 @@ function parseArguments(value: string): Record<string, unknown> {
  * 展示用路径缩短:项目内文件显示仓库相对路径,其余把用户主目录缩成 ~。
  * 只用于显示;定位/预览仍应传原始绝对路径。
  */
-export function shortenPath(
-  path: string,
-  projectDir?: string | null,
-): string {
+export function shortenPath(path: string, projectDir?: string | null): string {
   const normalized = path.replaceAll("\\", "/");
   if (projectDir) {
     const prefix = projectDir.replaceAll("\\", "/").replace(/\/$/, "");

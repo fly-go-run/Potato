@@ -549,7 +549,7 @@ async def _policy_tool_call(
 # ---------------------------------------------------------------------------
 
 
-async def _ask_user_approval(
+async def _ask_user_approval(  # pylint: disable=too-many-statements
     governor: ResourceGovernor,
     tc_spec: ToolCallSpec,
     request_context: dict[str, str],

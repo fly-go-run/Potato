@@ -1,7 +1,6 @@
 export function isMacPlatform(platform?: string): boolean {
   const value =
-    platform ??
-    (typeof navigator === "undefined" ? "" : navigator.platform);
+    platform ?? (typeof navigator === "undefined" ? "" : navigator.platform);
   return /mac|iphone|ipad|ipod/i.test(value);
 }
 

@@ -51,13 +51,7 @@ export interface CronJobSpec {
 export interface CronJobState {
   next_run_at: string | null;
   last_run_at: string | null;
-  last_status:
-    | "success"
-    | "error"
-    | "running"
-    | "skipped"
-    | "cancelled"
-    | null;
+  last_status: "success" | "error" | "running" | "skipped" | "cancelled" | null;
   last_error: string | null;
 }
 
@@ -82,11 +76,7 @@ export const CRON_PRESETS = [
 ] as const;
 
 export function targetKey(target: CronDispatchTarget): string {
-  return JSON.stringify([
-    target.channel,
-    target.user_id,
-    target.session_id,
-  ]);
+  return JSON.stringify([target.channel, target.user_id, target.session_id]);
 }
 
 export function findTarget(

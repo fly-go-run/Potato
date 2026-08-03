@@ -84,8 +84,7 @@ export function importCustomTheme(raw: string): CustomTheme {
     throw new Error("root must be an object");
   }
   const candidate = parsed as Record<string, unknown>;
-  const name =
-    typeof candidate.name === "string" ? candidate.name.trim() : "";
+  const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
   if (!name || name.length > 60) {
     throw new Error("`name` must be a 1-60 char string");
   }
@@ -94,11 +93,7 @@ export function importCustomTheme(raw: string): CustomTheme {
     throw new Error('`base` must be "light" or "dark"');
   }
   const tokensRaw = candidate.tokens;
-  if (
-    !tokensRaw ||
-    typeof tokensRaw !== "object" ||
-    Array.isArray(tokensRaw)
-  ) {
+  if (!tokensRaw || typeof tokensRaw !== "object" || Array.isArray(tokensRaw)) {
     throw new Error("`tokens` must be an object");
   }
   const entries = Object.entries(tokensRaw as Record<string, unknown>);
@@ -141,14 +136,29 @@ export function removeCustomTheme(id: string) {
 export function buildThemeTemplate(): string {
   const style = getComputedStyle(document.documentElement);
   const sample = [
-    "canvas", "bg", "surface", "raised",
-    "ink", "ink-secondary", "ink-tertiary", "ink-muted",
-    "line", "line-strong",
-    "fill-hover", "fill-active",
-    "accent", "accent-hover",
-    "btn-primary", "btn-primary-hover", "btn-primary-ink",
-    "bubble-user", "bubble-tool",
-    "ok", "warn", "danger", "danger-soft",
+    "canvas",
+    "bg",
+    "surface",
+    "raised",
+    "ink",
+    "ink-secondary",
+    "ink-tertiary",
+    "ink-muted",
+    "line",
+    "line-strong",
+    "fill-hover",
+    "fill-active",
+    "accent",
+    "accent-hover",
+    "btn-primary",
+    "btn-primary-hover",
+    "btn-primary-ink",
+    "bubble-user",
+    "bubble-tool",
+    "ok",
+    "warn",
+    "danger",
+    "danger-soft",
   ];
   const tokens: Record<string, string> = {};
   for (const name of sample) {

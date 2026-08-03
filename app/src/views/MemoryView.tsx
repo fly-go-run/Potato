@@ -93,10 +93,7 @@ export function MemoryView() {
   return (
     <>
       <PageContainer width="reading">
-        <PageHeader
-          title={t("memory.title")}
-          subtitle={t("memory.subtitle")}
-        />
+        <PageHeader title={t("memory.title")} subtitle={t("memory.subtitle")} />
 
         {error && (
           <div
@@ -277,8 +274,7 @@ function MemoryDetails({
     await onSaved();
   };
 
-  const isDirty =
-    editor.mode === "editing" && editor.draft !== editor.content;
+  const isDirty = editor.mode === "editing" && editor.draft !== editor.content;
 
   const confirmDiscard = () => {
     if (editor.saving) return;
@@ -328,165 +324,165 @@ function MemoryDetails({
   return (
     <>
       <Dialog.Root open={file !== null} onOpenChange={close}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
-        <Dialog.Content
-          onEscapeKeyDown={(event) => {
-            if (isDirty) {
-              event.preventDefault();
-              requestClose();
-            }
-          }}
-          onInteractOutside={(event) => {
-            if (isDirty) {
-              event.preventDefault();
-              requestClose();
-            }
-          }}
-          className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none"
-        >
-          <header className="flex items-start gap-3 border-b border-line px-5 py-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-ink-muted">
-              <NotebookPen size={18} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <Dialog.Title className="truncate font-medium text-ink">
-                {file ? memoryDisplayName(file) : ""}
-              </Dialog.Title>
-              <Dialog.Description className="mt-0.5 truncate text-xs text-ink-muted">
-                {file
-                  ? t(SOURCE_LABEL_KEYS[memoryGroupKey(file.filename)])
-                  : t("memory.detailsDescription")}
-              </Dialog.Description>
-            </div>
-            {!loading && !loadError && editor.mode === "view" && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setNotice(null);
-                  dispatch({ type: "edit" });
-                }}
-              >
-                <Pencil size={14} />
-                {t("memory.edit")}
-              </Button>
-            )}
-            <IconButton
-              size="sm"
-              title={t("memory.close")}
-              disabled={editor.saving}
-              onClick={requestClose}
-            >
-              <X size={16} />
-            </IconButton>
-          </header>
-
-          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-            {notice && (
-              <div
-                role="status"
-                className="mb-5 rounded-md bg-fill-active px-3 py-2 text-xs text-ok"
-              >
-                {notice}
+        <Dialog.Portal>
+          <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
+          <Dialog.Content
+            onEscapeKeyDown={(event) => {
+              if (isDirty) {
+                event.preventDefault();
+                requestClose();
+              }
+            }}
+            onInteractOutside={(event) => {
+              if (isDirty) {
+                event.preventDefault();
+                requestClose();
+              }
+            }}
+            className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none"
+          >
+            <header className="flex items-start gap-3 border-b border-line px-5 py-4">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-ink-muted">
+                <NotebookPen size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <Dialog.Title className="truncate font-medium text-ink">
+                  {file ? memoryDisplayName(file) : ""}
+                </Dialog.Title>
+                <Dialog.Description className="mt-0.5 truncate text-xs text-ink-muted">
+                  {file
+                    ? t(SOURCE_LABEL_KEYS[memoryGroupKey(file.filename)])
+                    : t("memory.detailsDescription")}
+                </Dialog.Description>
               </div>
-            )}
-            {loading ? (
-              <div className="py-8">
-                <SkeletonRows rows={6} />
-              </div>
-            ) : loadError ? (
-              <div
-                role="alert"
-                className="flex items-start gap-3 rounded-md bg-danger-soft px-3 py-3 text-xs text-danger"
-              >
-                <div className="min-w-0 flex-1">
-                  <p>{t(loadError.summaryKey)}</p>
-                  {loadError.detail && (
-                    <details className="mt-2 text-danger/80">
-                      <summary className="cursor-pointer">
-                        {t("common.technicalDetail")}
-                      </summary>
-                      <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px]">
-                        {loadError.detail}
-                      </pre>
-                    </details>
-                  )}
-                </div>
+              {!loading && !loadError && editor.mode === "view" && (
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={loading}
-                  onClick={retryLoad}
+                  onClick={() => {
+                    setNotice(null);
+                    dispatch({ type: "edit" });
+                  }}
                 >
-                  {t("common.retry")}
+                  <Pencil size={14} />
+                  {t("memory.edit")}
                 </Button>
-              </div>
-            ) : editor.mode === "editing" ? (
-              <div className="flex min-h-full flex-col">
-                {editor.error && (
-                  <div
-                    role="alert"
-                    className="mb-3 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger"
-                  >
-                    {editor.error}
-                  </div>
-                )}
-                <label htmlFor="memory-editor" className="sr-only">
-                  {t("memory.editorLabel")}
-                </label>
-                <textarea
-                  id="memory-editor"
-                  autoFocus
-                  value={editor.draft}
-                  disabled={editor.saving}
-                  onChange={(event) =>
-                    dispatch({ type: "change", draft: event.target.value })
-                  }
-                  className={`${inputClasses} min-h-[calc(100vh-13rem)] resize-none py-3 font-mono leading-6`}
-                />
-              </div>
-            ) : editor.content ? (
-              <Markdown>{editor.content}</Markdown>
-            ) : (
-              <div className="flex flex-col items-center py-20 text-center text-ink-muted">
-                <FileText size={24} />
-                <p className="mt-3 text-sm">{t("memory.emptyContent")}</p>
-              </div>
-            )}
-
-            {file && !loading && !loadError && editor.mode === "view" && (
-              <TechnicalDetails file={file} language={language} />
-            )}
-          </div>
-
-          {editor.mode === "editing" && !loading && !loadError && (
-            <footer className="flex justify-end gap-2 border-t border-line p-4">
-              <Button
-                variant="ghost"
+              )}
+              <IconButton
                 size="sm"
+                title={t("memory.close")}
                 disabled={editor.saving}
-                onClick={requestCancel}
+                onClick={requestClose}
               >
-                {t("memory.cancel")}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={editor.saving || editor.draft === editor.content}
-                onClick={() => void save()}
-              >
-                {editor.saving ? (
-                  <LoaderCircle size={14} className="animate-spin" />
-                ) : (
-                  <Save size={14} />
-                )}
-                {editor.saving ? t("memory.saving") : t("memory.save")}
-              </Button>
-            </footer>
-          )}
-        </Dialog.Content>
-      </Dialog.Portal>
+                <X size={16} />
+              </IconButton>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+              {notice && (
+                <div
+                  role="status"
+                  className="mb-5 rounded-md bg-fill-active px-3 py-2 text-xs text-ok"
+                >
+                  {notice}
+                </div>
+              )}
+              {loading ? (
+                <div className="py-8">
+                  <SkeletonRows rows={6} />
+                </div>
+              ) : loadError ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-md bg-danger-soft px-3 py-3 text-xs text-danger"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p>{t(loadError.summaryKey)}</p>
+                    {loadError.detail && (
+                      <details className="mt-2 text-danger/80">
+                        <summary className="cursor-pointer">
+                          {t("common.technicalDetail")}
+                        </summary>
+                        <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px]">
+                          {loadError.detail}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={loading}
+                    onClick={retryLoad}
+                  >
+                    {t("common.retry")}
+                  </Button>
+                </div>
+              ) : editor.mode === "editing" ? (
+                <div className="flex min-h-full flex-col">
+                  {editor.error && (
+                    <div
+                      role="alert"
+                      className="mb-3 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger"
+                    >
+                      {editor.error}
+                    </div>
+                  )}
+                  <label htmlFor="memory-editor" className="sr-only">
+                    {t("memory.editorLabel")}
+                  </label>
+                  <textarea
+                    id="memory-editor"
+                    autoFocus
+                    value={editor.draft}
+                    disabled={editor.saving}
+                    onChange={(event) =>
+                      dispatch({ type: "change", draft: event.target.value })
+                    }
+                    className={`${inputClasses} min-h-[calc(100vh-13rem)] resize-none py-3 font-mono leading-6`}
+                  />
+                </div>
+              ) : editor.content ? (
+                <Markdown>{editor.content}</Markdown>
+              ) : (
+                <div className="flex flex-col items-center py-20 text-center text-ink-muted">
+                  <FileText size={24} />
+                  <p className="mt-3 text-sm">{t("memory.emptyContent")}</p>
+                </div>
+              )}
+
+              {file && !loading && !loadError && editor.mode === "view" && (
+                <TechnicalDetails file={file} language={language} />
+              )}
+            </div>
+
+            {editor.mode === "editing" && !loading && !loadError && (
+              <footer className="flex justify-end gap-2 border-t border-line p-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={editor.saving}
+                  onClick={requestCancel}
+                >
+                  {t("memory.cancel")}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={editor.saving || editor.draft === editor.content}
+                  onClick={() => void save()}
+                >
+                  {editor.saving ? (
+                    <LoaderCircle size={14} className="animate-spin" />
+                  ) : (
+                    <Save size={14} />
+                  )}
+                  {editor.saving ? t("memory.saving") : t("memory.save")}
+                </Button>
+              </footer>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
       </Dialog.Root>
       <ConfirmDialog
         open={discardOpen}
@@ -518,7 +514,10 @@ function TechnicalDetails({
   const { t } = useTranslation();
   const rows: Array<{ label: string; value: string; mono?: boolean }> = [
     { label: t("memory.tech.filename"), value: file.filename, mono: true },
-    { label: t("memory.tech.size"), value: formatFileSize(file.size, language) },
+    {
+      label: t("memory.tech.size"),
+      value: formatFileSize(file.size, language),
+    },
     { label: t("memory.tech.path"), value: file.path, mono: true },
   ];
   return (

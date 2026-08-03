@@ -20,8 +20,8 @@ describe("platform shortcuts", () => {
   it("uses Control elsewhere", () => {
     expect(shortcutModifier("Win32")).toBe("Ctrl");
     expect(shortcutLabel("K", "Win32")).toBe("Ctrl+K");
-    expect(
-      isPrimaryShortcut({ metaKey: false, ctrlKey: true }, "Win32"),
-    ).toBe(true);
+    expect(isPrimaryShortcut({ metaKey: false, ctrlKey: true }, "Win32")).toBe(
+      true,
+    );
   });
 });

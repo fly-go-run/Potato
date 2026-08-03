@@ -68,7 +68,10 @@ describe("SSE parser", () => {
     while (cursor < input.length) {
       seed = (seed * 1664525 + 1013904223) >>> 0;
       const length = (seed % 17) + 1;
-      const parsed = parseSseBytes(input.subarray(cursor, cursor + length), parser);
+      const parsed = parseSseBytes(
+        input.subarray(cursor, cursor + length),
+        parser,
+      );
       frames.push(...parsed.frames);
       parser = parsed.state;
       cursor += length;

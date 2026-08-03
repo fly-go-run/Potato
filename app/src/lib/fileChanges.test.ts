@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RunStatus } from "./protocol/types";
 import type { StreamMessage } from "./stream";
-import {
-  collectFileChanges,
-  totalChangeStats,
-} from "./fileChanges";
+import { collectFileChanges, totalChangeStats } from "./fileChanges";
 
 type ToolMessageType =
   | "function_call"
@@ -49,8 +46,7 @@ function toolCall(
   name: string,
   argumentsValue: string,
   status: RunStatus = "completed",
-  type: "function_call" | "plugin_call" | "mcp_tool_call" =
-    "function_call",
+  type: "function_call" | "plugin_call" | "mcp_tool_call" = "function_call",
 ): StreamMessage {
   return toolMessage(
     id,
@@ -288,7 +284,10 @@ describe("collectFileChanges", () => {
       toolCall(
         "append-first",
         "append_file",
-        JSON.stringify({ file_path: "/workspace/append-edit.txt", content: "one" }),
+        JSON.stringify({
+          file_path: "/workspace/append-edit.txt",
+          content: "one",
+        }),
       ),
       toolOutput("append-first", "append_file"),
       toolCall(
@@ -333,7 +332,10 @@ describe("collectFileChanges", () => {
       toolCall(
         "second-file-again",
         "append_file",
-        JSON.stringify({ file_path: "/workspace/second.txt", content: "again" }),
+        JSON.stringify({
+          file_path: "/workspace/second.txt",
+          content: "again",
+        }),
       ),
       toolOutput("second-file-again", "append_file"),
     ]);
@@ -347,29 +349,30 @@ describe("collectFileChanges", () => {
   it.each([
     ["plugin_call", "plugin_call_output"],
     ["mcp_tool_call", "mcp_tool_call_output"],
-  ] as const)("accepts %s/%s tool message envelopes", (callType, outputType) => {
-    const changes = collectFileChanges([
-      toolCall(
-        `${callType}-call`,
-        "write_file",
-        JSON.stringify({ file_path: `/workspace/${callType}.txt`, content: "x" }),
-        "completed",
-        callType,
-      ),
-      toolOutput(
-        `${callType}-call`,
-        "write_file",
-        {},
-        outputType,
-      ),
-    ]);
+  ] as const)(
+    "accepts %s/%s tool message envelopes",
+    (callType, outputType) => {
+      const changes = collectFileChanges([
+        toolCall(
+          `${callType}-call`,
+          "write_file",
+          JSON.stringify({
+            file_path: `/workspace/${callType}.txt`,
+            content: "x",
+          }),
+          "completed",
+          callType,
+        ),
+        toolOutput(`${callType}-call`, "write_file", {}, outputType),
+      ]);
 
-    expect(changes).toHaveLength(1);
-    expect(changes[0]).toMatchObject({
-      path: `/workspace/${callType}.txt`,
-      additions: 1,
-    });
-  });
+      expect(changes).toHaveLength(1);
+      expect(changes[0]).toMatchObject({
+        path: `/workspace/${callType}.txt`,
+        additions: 1,
+      });
+    },
+  );
 
   it("excludes calls whose output state is error", () => {
     const changes = collectFileChanges([
@@ -390,21 +393,24 @@ describe("collectFileChanges", () => {
     "completed",
     "failed",
     "cancelled",
-  ] as RunStatus[])("excludes a call with no output regardless of call.status=%s", (status) => {
-    const changes = collectFileChanges([
-      toolCall(
-        `no-output-${status}`,
-        "write_file",
-        JSON.stringify({
-          file_path: `/workspace/no-output-${status}.txt`,
-          content: "x",
-        }),
-        status,
-      ),
-    ]);
+  ] as RunStatus[])(
+    "excludes a call with no output regardless of call.status=%s",
+    (status) => {
+      const changes = collectFileChanges([
+        toolCall(
+          `no-output-${status}`,
+          "write_file",
+          JSON.stringify({
+            file_path: `/workspace/no-output-${status}.txt`,
+            content: "x",
+          }),
+          status,
+        ),
+      ]);
 
-    expect(changes).toEqual([]);
-  });
+      expect(changes).toEqual([]);
+    },
+  );
 
   it("excludes output whose message status is cancelled", () => {
     const changes = collectFileChanges([

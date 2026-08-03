@@ -88,8 +88,8 @@ export function TriggerPopover({
             item.icon === "image"
               ? ImageIcon
               : item.icon === "file"
-                ? FileText
-                : Zap;
+              ? FileText
+              : Zap;
           return (
             <button
               key={`${item.value}-${index}`}

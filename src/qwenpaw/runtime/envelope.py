@@ -219,11 +219,15 @@ class Envelope:
             evt_type = evt_type.value
 
         # === APPLICATION PROGRESS ===
-        if evt_type == EventType.CUSTOM.value and getattr(
-            event,
-            "name",
-            "",
-        ) == "context_compaction":
+        if (
+            evt_type == EventType.CUSTOM.value
+            and getattr(
+                event,
+                "name",
+                "",
+            )
+            == "context_compaction"
+        ):
             value = getattr(event, "value", None) or {}
             operation_id = str(value.get("operation_id") or event.id)
             phase = str(value.get("status") or "in_progress")

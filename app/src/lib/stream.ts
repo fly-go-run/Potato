@@ -163,12 +163,12 @@ function completeUtf8PrefixLength(bytes: Uint8Array): number {
     (lead & 0x80) === 0
       ? 1
       : (lead & 0xe0) === 0xc0
-        ? 2
-        : (lead & 0xf0) === 0xe0
-          ? 3
-          : (lead & 0xf8) === 0xf0
-            ? 4
-            : 1;
+      ? 2
+      : (lead & 0xf0) === 0xe0
+      ? 3
+      : (lead & 0xf8) === 0xf0
+      ? 4
+      : 1;
   const available = continuationCount + 1;
   return expected > available ? cursor : bytes.length;
 }
@@ -266,7 +266,7 @@ function reduceMessage(
     content:
       frame.content.length > 0
         ? normalizeContent(frame.content)
-        : (existing?.content ?? []),
+        : existing?.content ?? [],
     metadata: frame.metadata,
     name: frame.name,
     usage: frame.usage,
@@ -308,9 +308,7 @@ function mergeContent(
   if (frame.type !== "data") return frame;
 
   const oldData =
-    previous?.type === "data"
-      ? (previous.data as Record<string, unknown>)
-      : {};
+    previous?.type === "data" ? (previous.data as Record<string, unknown>) : {};
   const incoming = frame.data as Record<string, unknown>;
   const merged = { ...oldData, ...incoming };
 
@@ -348,7 +346,7 @@ function upsertCompletedMessage(
     content:
       frame.content.length > 0
         ? normalizeContent(frame.content)
-        : (existing?.content ?? []),
+        : existing?.content ?? [],
     metadata: frame.metadata,
     name: frame.name,
     usage: frame.usage,

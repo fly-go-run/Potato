@@ -1,9 +1,4 @@
-export type ApprovalSeverity =
-  | "low"
-  | "medium"
-  | "high"
-  | "critical"
-  | string;
+export type ApprovalSeverity = "low" | "medium" | "high" | "critical" | string;
 
 export interface PendingApproval {
   request_id: string;
@@ -35,9 +30,7 @@ export function filterApprovalsForSession(
   sessionId: string,
 ): PendingApproval[] {
   if (!sessionId) return [];
-  return approvals.filter(
-    (approval) => approval.root_session_id === sessionId,
-  );
+  return approvals.filter((approval) => approval.root_session_id === sessionId);
 }
 
 export function approvalParameterSummary(

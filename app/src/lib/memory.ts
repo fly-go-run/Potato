@@ -15,12 +15,7 @@ export interface MemoryGroup {
   items: MdFileInfo[];
 }
 
-const GROUP_ORDER: MemoryGroupKey[] = [
-  "journal",
-  "procedure",
-  "wiki",
-  "other",
-];
+const GROUP_ORDER: MemoryGroupKey[] = ["journal", "procedure", "wiki", "other"];
 const JOURNAL_PATTERN = /^\d{4}-\d{2}-\d{2}(?:\.md|\/)/;
 
 export function memoryGroupKey(filename: string): MemoryGroupKey {

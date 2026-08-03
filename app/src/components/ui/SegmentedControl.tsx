@@ -62,9 +62,7 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       className={cn(
         "inline-flex items-center",
-        track
-          ? "gap-0.5 rounded-[10px] bg-fill-hover p-0.5"
-          : "gap-1",
+        track ? "gap-0.5 rounded-[10px] bg-fill-hover p-0.5" : "gap-1",
         className,
       )}
     >

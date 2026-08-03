@@ -33,8 +33,7 @@ export function lineDiff(before: string, after: string): DiffLine[] {
       oldIndex += 1;
       newIndex += 1;
     } else if (
-      lengths[oldIndex + 1]![newIndex]! >=
-      lengths[oldIndex]![newIndex + 1]!
+      lengths[oldIndex + 1]![newIndex]! >= lengths[oldIndex]![newIndex + 1]!
     ) {
       result.push({ kind: "remove", text: oldLines[oldIndex]! });
       oldIndex += 1;

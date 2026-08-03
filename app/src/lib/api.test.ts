@@ -128,7 +128,9 @@ describe("providerReady", () => {
   it("accepts local and keyless providers, but not unconfigured API providers", () => {
     expect(providerReady(baseProvider)).toBe(false);
     expect(providerReady({ ...baseProvider, api_key: "sk-******" })).toBe(true);
-    expect(providerReady({ ...baseProvider, require_api_key: false })).toBe(true);
+    expect(providerReady({ ...baseProvider, require_api_key: false })).toBe(
+      true,
+    );
     expect(providerReady({ ...baseProvider, is_local: true })).toBe(true);
   });
 });

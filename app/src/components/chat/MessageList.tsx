@@ -25,10 +25,7 @@ import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ConversationSidePanel";
 import { isArtifactTool } from "./FileToolCard";
 import { MessageContent } from "./MessageContent";
-import {
-  isContextCompactionMessage,
-  ProgressCard,
-} from "./ProgressCard";
+import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
 import {
   buildToolPair,
@@ -427,11 +424,11 @@ function ExecutionGroup({
       ? t("chat.contextCompaction.fallback")
       : t("chat.contextCompaction.completed")
     : failedCount
-      ? t("chat.toolGroupWithFailures", {
-          count: stepCount,
-          failed: failedCount,
-        })
-      : t("chat.toolGroup", { count: stepCount });
+    ? t("chat.toolGroupWithFailures", {
+        count: stepCount,
+        failed: failedCount,
+      })
+    : t("chat.toolGroup", { count: stepCount });
   return (
     <div className="my-1.5">
       <button
@@ -452,7 +449,13 @@ function ExecutionGroup({
         <div className="mt-0.5 space-y-1 pl-1">
           {entries.map((entry) => {
             if (entry.kind === "reasoning") {
-              return <ReasoningBlock key={entry.key} message={entry.message} compact />;
+              return (
+                <ReasoningBlock
+                  key={entry.key}
+                  message={entry.message}
+                  compact
+                />
+              );
             }
             if (entry.kind === "progress") {
               return <ProgressCard key={entry.key} message={entry.message} />;
@@ -519,9 +522,7 @@ function MessageActions({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const sendMessage = useChatStore((state) => state.sendMessage);
-  const busy = useChatStore(
-    (state) => state.isStreaming || state.isSubmitting,
-  );
+  const busy = useChatStore((state) => state.isStreaming || state.isSubmitting);
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {

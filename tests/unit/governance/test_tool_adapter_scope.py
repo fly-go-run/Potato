@@ -240,7 +240,7 @@ async def test_policy_guarded_tool_keeps_concurrent_invocations_isolated():
         await tool.check_permissions({"command": "first"})
         first_checked.set()
         await second_checked.wait()
-        await tool(command="first")
+        await tool(command="first")  # pylint: disable=not-callable
         first_finished.set()
 
     async def invoke_second() -> None:
@@ -248,7 +248,7 @@ async def test_policy_guarded_tool_keeps_concurrent_invocations_isolated():
         await tool.check_permissions({"command": "second"})
         second_checked.set()
         await first_finished.wait()
-        await tool(command="second")
+        await tool(command="second")  # pylint: disable=not-callable
 
     await asyncio.gather(invoke_first(), invoke_second())
 

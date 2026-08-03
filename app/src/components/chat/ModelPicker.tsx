@@ -113,10 +113,7 @@ export function ModelPicker() {
   const activeModelInfo = findActiveModelInfo(providers, model);
   const activeEffort = activeModelInfo?.info.reasoning_effort ?? null;
   const activeEffortOptions = activeModelInfo
-    ? getReasoningEffortOptions(
-        activeModelInfo.provider,
-        activeModelInfo.info,
-      )
+    ? getReasoningEffortOptions(activeModelInfo.provider, activeModelInfo.info)
     : [];
   const effortText = (effort: string | null) => {
     if (effort === null) return t("composer.effort.defaultValue");

@@ -98,15 +98,12 @@ function traceEventData(
 }
 
 /** 把后端事件对象归类成用户可读的时间线步骤;认不出的保底走原摘要。 */
-export function presentTraceStep(
-  event: Record<string, unknown>,
-): TraceStep {
+export function presentTraceStep(event: Record<string, unknown>): TraceStep {
   const data = traceEventData(event);
   const type = typeof event.type === "string" ? event.type.toLowerCase() : "";
   const status =
     typeof event.status === "string" ? event.status.toLowerCase() : "";
-  const state =
-    typeof data.state === "string" ? data.state.toLowerCase() : "";
+  const state = typeof data.state === "string" ? data.state.toLowerCase() : "";
   if (
     status === "failed" ||
     status === "error" ||
@@ -124,10 +121,10 @@ export function presentTraceStep(
     typeof data.name === "string"
       ? data.name
       : typeof event.name === "string"
-        ? event.name
-        : typeof event.tool_name === "string"
-          ? event.tool_name
-          : "";
+      ? event.name
+      : typeof event.tool_name === "string"
+      ? event.tool_name
+      : "";
   if (name) return { kind: "tool", name };
   const role = typeof event.role === "string" ? event.role : "";
   if (role === "assistant" || type.includes("message") || type === "result") {

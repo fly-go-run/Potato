@@ -86,8 +86,9 @@ def test_review_payload_redacts_secrets_and_bounds_large_values() -> None:
     assert len(redacted["command"]) == 4_000 + len("…[truncated]")
 
 
-def test_review_payload_redacts_finding_matches_and_plain_text_context(
-) -> None:
+def test_review_payload_redacts_finding_matches_and_plain_text_context() -> (
+    None
+):
     redacted = _redact_review_value(
         {
             "matched_value": "sk-1234567890abcdefghi",
@@ -124,7 +125,12 @@ async def test_review_tool_call_returns_structured_decision(
         lambda _agent, _settings: slots,
     )
 
-    async def fake_review_once(slot, *, agent_id, payload):
+    async def fake_review_once(  # pylint: disable=unused-argument
+        slot,
+        *,
+        agent_id,
+        payload,
+    ):
         captured["slot"] = slot.model
         captured["payload"] = payload
         return module.ReviewDecision(
@@ -179,7 +185,12 @@ async def test_review_tool_call_falls_back_to_main_model(monkeypatch) -> None:
         lambda _agent, _settings: slots,
     )
 
-    async def fake_review_once(slot, *, agent_id, payload):
+    async def fake_review_once(  # pylint: disable=unused-argument
+        slot,
+        *,
+        agent_id,
+        payload,
+    ):
         calls.append(slot.model)
         if slot.model == "reviewer":
             raise RuntimeError("review route unavailable")

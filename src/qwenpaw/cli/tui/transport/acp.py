@@ -642,7 +642,7 @@ class AcpTransport:
                 return
             yield item
 
-    async def close(self) -> None:
+    async def close(self) -> None:  # pylint: disable=too-many-branches
         if self._closed:
             return
         self._closed = True

@@ -277,7 +277,7 @@ def _parse_only(only: str | None) -> list[str]:
     return ids
 
 
-def _plan_fixes(
+def _plan_fixes(  # pylint: disable=unused-argument
     fix_ids: list[str],
     wd: Path,
     yes: bool,

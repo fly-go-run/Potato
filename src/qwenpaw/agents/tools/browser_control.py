@@ -15,7 +15,6 @@ from collections.abc import Iterable
 from concurrent import futures
 import json
 import logging
-import re
 import shlex
 from pathlib import Path
 import signal
@@ -908,7 +907,7 @@ def _sync_browser_launch(  # pylint: disable=too-many-branches,too-many-statemen
             user_data_dir = _resolve_user_data_dir(
                 ws_dir,
                 exe or "",
-                explicit_exe,
+                explicit_executable_path=explicit_exe,
             )
             state["user_data_dir"] = user_data_dir
             if user_data_dir:
@@ -1019,7 +1018,11 @@ async def _start_managed_cdp_browser(  # pylint: disable=too-many-statements
         )
 
     ws_dir = _workspace_dir_for_browser_state(state)
-    user_data_dir = _resolve_user_data_dir(ws_dir, exe or "", explicit_exe)
+    user_data_dir = _resolve_user_data_dir(
+        ws_dir,
+        exe or "",
+        explicit_executable_path=explicit_exe,
+    )
     state["user_data_dir"] = user_data_dir
 
     chosen_cdp_port = cdp_port or _find_free_local_port()

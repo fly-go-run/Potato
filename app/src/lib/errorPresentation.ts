@@ -14,8 +14,7 @@ export interface ErrorPresentation {
  * 各页面不要再把 Error.message 直接塞给用户。
  */
 export function presentError(error: unknown): ErrorPresentation {
-  const detail =
-    error instanceof Error ? error.message : String(error ?? "");
+  const detail = error instanceof Error ? error.message : String(error ?? "");
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) {
       return { summaryKey: "error.auth", detail };

@@ -46,10 +46,7 @@ export function isArtifactTool(name: string): boolean {
 
 /** 只有收到成功的终态输出，文件才算真正生成/交付。 */
 export function isSuccessfulArtifactPair(pair: ToolPair): boolean {
-  return Boolean(
-    isArtifactTool(pair.name) &&
-      toolPairStatus(pair).completed,
-  );
+  return Boolean(isArtifactTool(pair.name) && toolPairStatus(pair).completed);
 }
 
 export function FileToolCard({
@@ -70,9 +67,7 @@ export function FileToolCard({
   const detail = (
     <div className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
       <div className="flex gap-3 border-b border-line px-4 py-2 text-xs">
-        <span className="shrink-0 text-ink-muted">
-          {t("tool.file.path")}
-        </span>
+        <span className="shrink-0 text-ink-muted">{t("tool.file.path")}</span>
         {path && onOpenFile ? (
           <button
             type="button"
@@ -156,11 +151,13 @@ export function FileToolCard({
         />
         <FileText
           size={12}
-          className={`shrink-0 ${debugStatus && failed ? "text-danger" : "text-ink-muted"}`}
+          className={`shrink-0 ${
+            debugStatus && failed ? "text-danger" : "text-ink-muted"
+          }`}
         />
         <span
           className={`shrink-0 font-medium ${
-          debugStatus && failed ? "text-danger" : "text-ink-tertiary"
+            debugStatus && failed ? "text-danger" : "text-ink-tertiary"
           }`}
         >
           {t(titleKey)}
@@ -218,9 +215,7 @@ function ArtifactCard({
         <button
           type="button"
           onClick={() =>
-            onOpenFile
-              ? onOpenFile(path)
-              : setExpanded((value) => !value)
+            onOpenFile ? onOpenFile(path) : setExpanded((value) => !value)
           }
           aria-expanded={expanded}
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
@@ -260,8 +255,23 @@ const ICON_BY_EXTENSION: Array<[readonly string[], LucideIcon]> = [
   [["ppt", "pptx", "key"], Presentation],
   [["zip", "tar", "gz", "tgz", "rar", "7z"], FileArchive],
   [
-    ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java", "json", "yaml", "yml",
-      "sh", "html", "css", "sql"],
+    [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "py",
+      "go",
+      "rs",
+      "java",
+      "json",
+      "yaml",
+      "yml",
+      "sh",
+      "html",
+      "css",
+      "sql",
+    ],
     FileCode,
   ],
 ];
@@ -313,10 +323,7 @@ function sentFileSizeBytes(result: string): number | null {
 
     for (const block of blocks) {
       if (!isRecord(block) || !isRecord(block.source)) continue;
-      if (
-        block.source.type !== "url" ||
-        typeof block.source.url !== "string"
-      ) {
+      if (block.source.type !== "url" || typeof block.source.url !== "string") {
         continue;
       }
       const bytes = byteSize(block) ?? byteSize(block.source);
@@ -335,8 +342,8 @@ function byteSize(value: Record<string, unknown>): number | null {
       typeof raw === "number"
         ? raw
         : typeof raw === "string" && /^\d+$/.test(raw)
-          ? Number(raw)
-          : Number.NaN;
+        ? Number(raw)
+        : Number.NaN;
     if (Number.isFinite(bytes) && bytes >= 0) return bytes;
   }
   return null;
@@ -380,8 +387,8 @@ function FileToolContent({
     typeof rawContent === "string"
       ? rawContent
       : rawContent
-        ? JSON.stringify(rawContent, null, 2)
-        : "";
+      ? JSON.stringify(rawContent, null, 2)
+      : "";
 
   if (!content) {
     return (
@@ -411,12 +418,14 @@ function LineDiff({ before, after }: { before: string; after: string }) {
             line.kind === "add"
               ? "bg-ok/10"
               : line.kind === "remove"
-                ? "bg-danger-soft"
-                : ""
+              ? "bg-danger-soft"
+              : ""
           }`}
         >
           <span
-            className={`w-5 shrink-0 select-none text-center ${diffSignClass(line.kind)}`}
+            className={`w-5 shrink-0 select-none text-center ${diffSignClass(
+              line.kind,
+            )}`}
           >
             {line.kind === "remove" ? "-" : line.kind === "add" ? "+" : ""}
           </span>

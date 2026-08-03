@@ -79,38 +79,38 @@ function AppRoutes() {
             }
           />
           <Route
-              path="/crons"
-              element={
-                <Suspense fallback={<PageLoading label="crons.loading" />}>
-                  <CronsView />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/inbox"
-              element={
-                <Suspense fallback={<PageLoading label="inbox.loading" />}>
-                  <InboxView />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/skills"
-              element={
-                <Suspense fallback={<PageLoading label="skills.loading" />}>
-                  <SkillsView />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/memory"
-              element={
-                <Suspense fallback={<PageLoading label="memory.loading" />}>
-                  <MemoryView />
-                </Suspense>
-              }
-            />
-          </Route>
+            path="/crons"
+            element={
+              <Suspense fallback={<PageLoading label="crons.loading" />}>
+                <CronsView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/inbox"
+            element={
+              <Suspense fallback={<PageLoading label="inbox.loading" />}>
+                <InboxView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/skills"
+            element={
+              <Suspense fallback={<PageLoading label="skills.loading" />}>
+                <SkillsView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/memory"
+            element={
+              <Suspense fallback={<PageLoading label="memory.loading" />}>
+                <MemoryView />
+              </Suspense>
+            }
+          />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {background && location.pathname === "/settings" && (

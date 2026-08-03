@@ -31,7 +31,8 @@ export const dictionaries = {
     "composer.approval.offHint": "全部自动执行，不再询问，请谨慎使用。",
     "composer.skillsLoadFailed": "技能加载失败",
     "approval.similarConfirmTitle": "批准同类操作？",
-    "approval.similarConfirmBody": "之后匹配以下范围的操作将自动获准，不再逐一询问：",
+    "approval.similarConfirmBody":
+      "之后匹配以下范围的操作将自动获准，不再逐一询问：",
     "progress.working": "正在处理…",
     "progress.failedTitle": "这一步执行失败",
     "inbox.routineGroup": "{count} 次例行运行，没有新内容",
@@ -189,7 +190,8 @@ export const dictionaries = {
     "chat.panel.changesSummary": "文件改动",
     "chat.panel.changeCount": "本会话改动了 {count} 个文件。",
     "chat.panel.noChanges": "还没有文件改动",
-    "chat.panel.noChangesHint": "Potato 修改代码或文档后，逐行改动会集中出现在这里。",
+    "chat.panel.noChangesHint":
+      "Potato 修改代码或文档后，逐行改动会集中出现在这里。",
     "chat.changes.title": "修改了 {count} 个文件",
     "chat.changes.showMore": "显示其余 {count} 个文件",
     "chat.changes.showLess": "收起",

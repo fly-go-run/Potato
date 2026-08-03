@@ -331,9 +331,7 @@ export function ProjectPicker() {
                         <span
                           className={cn(
                             "block truncate text-[13px]",
-                            selected
-                              ? "font-medium text-accent"
-                              : "text-ink",
+                            selected ? "font-medium text-accent" : "text-ink",
                           )}
                         >
                           {entry.name}
@@ -395,7 +393,10 @@ export function ProjectPicker() {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {loading ? (
-            <div className="px-3 py-2" aria-label={t("projects.loadingDirectories")}>
+            <div
+              className="px-3 py-2"
+              aria-label={t("projects.loadingDirectories")}
+            >
               <SkeletonRows rows={5} />
             </div>
           ) : listing?.dirs.length ? (

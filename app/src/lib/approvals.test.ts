@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  filterApprovalsForSession,
-  type PendingApproval,
-} from "./approvals";
+import { filterApprovalsForSession, type PendingApproval } from "./approvals";
 
-function approval(
-  requestId: string,
-  rootSessionId: string,
-): PendingApproval {
+function approval(requestId: string, rootSessionId: string): PendingApproval {
   return {
     request_id: requestId,
     session_id: `${rootSessionId}-child`,
@@ -32,10 +26,7 @@ function approval(
 describe("filterApprovalsForSession", () => {
   it("uses root_session_id and excludes approvals from other roots", () => {
     const result = filterApprovalsForSession(
-      [
-        approval("same-root", "root-1"),
-        approval("other-root", "root-2"),
-      ],
+      [approval("same-root", "root-1"), approval("other-root", "root-2")],
       "root-1",
     );
 

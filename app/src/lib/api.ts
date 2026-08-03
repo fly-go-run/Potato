@@ -1,7 +1,4 @@
-import type {
-  PendingApproval,
-  PushMessagesResponse,
-} from "./approvals";
+import type { PendingApproval, PushMessagesResponse } from "./approvals";
 import type {
   CronDispatchTarget,
   CronExecutionRecord,
@@ -92,8 +89,7 @@ async function responseErrorMessage(response: Response) {
     );
   } catch {
     return (
-      response.statusText ||
-      t("api.requestFailed", { status: response.status })
+      response.statusText || t("api.requestFailed", { status: response.status })
     );
   }
 }
@@ -166,7 +162,9 @@ export interface ProviderInfo {
 
 /** Whether a provider can be selected without waiting for another setup step. */
 export function providerReady(provider: ProviderInfo): boolean {
-  return provider.is_local || !provider.require_api_key || Boolean(provider.api_key);
+  return (
+    provider.is_local || !provider.require_api_key || Boolean(provider.api_key)
+  );
 }
 
 /** Whether the user saved a real provider connection in settings. */
@@ -282,13 +280,17 @@ export const modelApi = {
     },
   ) =>
     apiJson<ProviderInfo>(
-      `/api/models/${encodeURIComponent(providerId)}/models/${encodeURIComponent(modelId).replace(/%2F/g, "/")}/config`,
+      `/api/models/${encodeURIComponent(
+        providerId,
+      )}/models/${encodeURIComponent(modelId).replace(/%2F/g, "/")}/config`,
       { method: "PUT", body: JSON.stringify(config) },
     ),
   removeModel: (providerId: string, modelId: string) =>
     apiJson<ProviderInfo>(
       // 后端路由是 {model_id:path},斜杠须保留原样(org/model 形式的 id)
-      `/api/models/${encodeURIComponent(providerId)}/models/${encodeURIComponent(modelId).replace(/%2F/g, "/")}`,
+      `/api/models/${encodeURIComponent(
+        providerId,
+      )}/models/${encodeURIComponent(modelId).replace(/%2F/g, "/")}`,
       { method: "DELETE" },
     ),
   addModel: (providerId: string, model: { id: string; name: string }) =>
@@ -358,13 +360,13 @@ export const workspaceApi = {
 };
 
 export const projectApi = {
-  current: () =>
-    apiJson<CodingProjectInfo>("/api/workspace/coding-project"),
-  list: () =>
-    apiJson<CodingProject[]>("/api/workspace/coding-project/list"),
+  current: () => apiJson<CodingProjectInfo>("/api/workspace/coding-project"),
+  list: () => apiJson<CodingProject[]>("/api/workspace/coding-project/list"),
   browse: (path = "~") =>
     apiJson<DirectoryListing>(
-      `/api/workspace/coding-project/browse-dirs?path=${encodeURIComponent(path)}`,
+      `/api/workspace/coding-project/browse-dirs?path=${encodeURIComponent(
+        path,
+      )}`,
     ),
   create: (name: string) =>
     apiJson<{ path: string; name: string }>(
@@ -394,9 +396,7 @@ export const cronApi = {
       { method: "DELETE" },
     ),
   state: (jobId: string) =>
-    apiJson<CronJobState>(
-      `/api/cron/jobs/${encodeURIComponent(jobId)}/state`,
-    ),
+    apiJson<CronJobState>(`/api/cron/jobs/${encodeURIComponent(jobId)}/state`),
   history: (jobId: string) =>
     apiJson<CronExecutionRecord[]>(
       `/api/cron/jobs/${encodeURIComponent(jobId)}/history`,
@@ -427,10 +427,13 @@ export const inboxApi = {
       body: JSON.stringify(payload),
     }),
   delete: (eventId: string) =>
-    apiJson<{ deleted: boolean; trace_deleted: boolean; run_id: string | null }>(
-      `/api/console/inbox/events/${encodeURIComponent(eventId)}`,
-      { method: "DELETE" },
-    ),
+    apiJson<{
+      deleted: boolean;
+      trace_deleted: boolean;
+      run_id: string | null;
+    }>(`/api/console/inbox/events/${encodeURIComponent(eventId)}`, {
+      method: "DELETE",
+    }),
   trace: (runId: string) =>
     apiJson<InboxTrace>(
       `/api/console/inbox/traces/${encodeURIComponent(runId)}`,
@@ -447,8 +450,7 @@ export interface SandboxStatus {
 
 export const settingsApi = {
   uploadLimit: () => apiJson<UploadLimit>("/api/settings/upload-limit"),
-  sandboxStatus: () =>
-    apiJson<SandboxStatus>("/api/config/security/sandbox"),
+  sandboxStatus: () => apiJson<SandboxStatus>("/api/config/security/sandbox"),
   setSandbox: (enabled: boolean) =>
     apiJson<SandboxStatus>("/api/config/security/sandbox", {
       method: "PUT",

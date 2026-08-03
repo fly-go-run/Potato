@@ -1,9 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import {
-  isMacDesktopShell,
-  startDesktopWindowDrag,
-} from "../../lib/desktop";
+import { isMacDesktopShell, startDesktopWindowDrag } from "../../lib/desktop";
 import {
   Blocks,
   ChevronDown,
@@ -154,7 +151,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <NavLink
           to="/crons"
           className={({ isActive }) =>
-              `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
               isActive
                 ? "bg-fill-active text-ink"
                 : "text-ink hover:bg-fill-hover"
@@ -163,7 +160,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         >
           {({ isActive }) => (
             <>
-              <Clock3 size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <Clock3
+                size={16}
+                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+              />
               <span className="flex-1">{t("sidebar.crons")}</span>
             </>
           )}
@@ -171,7 +171,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <NavLink
           to="/inbox"
           className={({ isActive }) =>
-              `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
               isActive
                 ? "bg-fill-active text-ink"
                 : "text-ink hover:bg-fill-hover"
@@ -180,7 +180,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         >
           {({ isActive }) => (
             <>
-              <Inbox size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <Inbox
+                size={16}
+                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+              />
               <span className="flex-1">{t("sidebar.inbox")}</span>
               <CountBadge count={unreadCount} />
             </>
@@ -189,7 +192,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <NavLink
           to="/skills"
           className={({ isActive }) =>
-              `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
               isActive
                 ? "bg-fill-active text-ink"
                 : "text-ink hover:bg-fill-hover"
@@ -198,7 +201,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         >
           {({ isActive }) => (
             <>
-              <Blocks size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <Blocks
+                size={16}
+                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+              />
               <span className="flex-1">{t("sidebar.skills")}</span>
             </>
           )}
@@ -206,7 +212,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <NavLink
           to="/memory"
           className={({ isActive }) =>
-              `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
+            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
               isActive
                 ? "bg-fill-active text-ink"
                 : "text-ink hover:bg-fill-hover"
@@ -215,7 +221,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         >
           {({ isActive }) => (
             <>
-              <NotebookPen size={16} className={isActive ? "text-ink-secondary" : "text-ink-muted"} />
+              <NotebookPen
+                size={16}
+                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+              />
               <span className="flex-1">{t("sidebar.memory")}</span>
             </>
           )}
@@ -275,7 +284,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                         title={project.path}
                         className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[12px] text-ink-secondary hover:bg-fill-hover"
                       >
-                        <FolderClosed size={14} className="shrink-0 text-ink-muted" />
+                        <FolderClosed
+                          size={14}
+                          className="shrink-0 text-ink-muted"
+                        />
                         <span className="min-w-0 flex-1 truncate">
                           {project.name}
                         </span>
@@ -315,7 +327,9 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
             onClick={() => setChatsExpanded((value) => !value)}
             aria-expanded={chatsExpanded}
             title={
-              chatsExpanded ? t("sidebar.collapseGroup") : t("sidebar.expandGroup")
+              chatsExpanded
+                ? t("sidebar.collapseGroup")
+                : t("sidebar.expandGroup")
             }
             className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink-secondary"
           >
@@ -531,88 +545,81 @@ function ChatRow({
   return (
     <>
       <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <div
-        onContextMenu={openContextMenu}
-        className={`group relative flex items-center rounded-md transition-colors duration-[var(--dur-fast)] ${
-          active ? "bg-fill-active" : "hover:bg-fill-hover"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => navigate(`/chat/${chat.id}`)}
-          className={`flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-sm leading-5 ${
-            nested ? "pl-2" : "pl-3"
-          } ${
-            active ? "text-ink" : "text-ink-secondary"
+        <div
+          onContextMenu={openContextMenu}
+          className={`group relative flex items-center rounded-md transition-colors duration-[var(--dur-fast)] ${
+            active ? "bg-fill-active" : "hover:bg-fill-hover"
           }`}
         >
-          {chat.pinned && (
-            <Pin
-              size={12}
-              className={`shrink-0 text-ink-muted`}
-            />
-          )}
-          <span className="min-w-0 flex-1 truncate">
-            {chat.name || t("sidebar.untitled")}
-          </span>
-        </button>
-        {/*
+          <button
+            type="button"
+            onClick={() => navigate(`/chat/${chat.id}`)}
+            className={`flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-sm leading-5 ${
+              nested ? "pl-2" : "pl-3"
+            } ${active ? "text-ink" : "text-ink-secondary"}`}
+          >
+            {chat.pinned && (
+              <Pin size={12} className={`shrink-0 text-ink-muted`} />
+            )}
+            <span className="min-w-0 flex-1 truncate">
+              {chat.name || t("sidebar.untitled")}
+            </span>
+          </button>
+          {/*
           时间与操作按钮共用行尾这块空间：时间占流内宽度（给按钮预留位置），
           hover / 菜单打开时淡出让位，绝对定位的「…」按钮淡入覆盖上来。
         */}
-        <span
-          aria-hidden={menuOpen ? true : undefined}
-          className={`pointer-events-none min-w-9 shrink-0 pr-2.5 text-right text-[11px] tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
-            menuOpen ? "opacity-0" : "group-hover:opacity-0"
-          }`}
-        >
-          {updatedAt ? t(updatedAt.key, updatedAt.params) : ""}
-        </span>
-        <DropdownMenu.Trigger asChild>
-          <IconButton
-            size="sm"
-            title={t("sidebar.chatActions")}
-            className="absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+          <span
+            aria-hidden={menuOpen ? true : undefined}
+            className={`pointer-events-none min-w-9 shrink-0 pr-2.5 text-right text-[11px] tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
+              menuOpen ? "opacity-0" : "group-hover:opacity-0"
+            }`}
           >
-            <MoreHorizontal size={15} />
-          </IconButton>
-        </DropdownMenu.Trigger>
-      </div>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={4}
-          className="qp-pop z-50 min-w-32 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
-        >
-          <MenuItem
-            icon={<PenLine size={14} />}
-            label={t("sidebar.rename")}
-            onSelect={() => {
-              setRenameValue(chat.name);
-              setRenameError(null);
-              setRenameOpen(true);
-            }}
-          />
-          <MenuItem
-            icon={chat.pinned ? <PinOff size={14} /> : <Pin size={14} />}
-            label={
-              chat.pinned ? t("sidebar.unpin") : t("sidebar.pin")
-            }
-            onSelect={() => void togglePin()}
-          />
-          <DropdownMenu.Separator className="my-1 h-px bg-line" />
-          <DropdownMenu.Item
-            onSelect={() => {
-              setDeleteError(null);
-              setDeleteOpen(true);
-            }}
-            className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-danger outline-none hover:bg-danger-soft focus:bg-danger-soft"
+            {updatedAt ? t(updatedAt.key, updatedAt.params) : ""}
+          </span>
+          <DropdownMenu.Trigger asChild>
+            <IconButton
+              size="sm"
+              title={t("sidebar.chatActions")}
+              className="absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+            >
+              <MoreHorizontal size={15} />
+            </IconButton>
+          </DropdownMenu.Trigger>
+        </div>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="end"
+            sideOffset={4}
+            className="qp-pop z-50 min-w-32 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
           >
-            <Trash2 size={14} />
-            {t("sidebar.delete")}
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
+            <MenuItem
+              icon={<PenLine size={14} />}
+              label={t("sidebar.rename")}
+              onSelect={() => {
+                setRenameValue(chat.name);
+                setRenameError(null);
+                setRenameOpen(true);
+              }}
+            />
+            <MenuItem
+              icon={chat.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              label={chat.pinned ? t("sidebar.unpin") : t("sidebar.pin")}
+              onSelect={() => void togglePin()}
+            />
+            <DropdownMenu.Separator className="my-1 h-px bg-line" />
+            <DropdownMenu.Item
+              onSelect={() => {
+                setDeleteError(null);
+                setDeleteOpen(true);
+              }}
+              className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-danger outline-none hover:bg-danger-soft focus:bg-danger-soft"
+            >
+              <Trash2 size={14} />
+              {t("sidebar.delete")}
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
       </DropdownMenu.Root>
       {pinError && (
         <div

@@ -118,15 +118,9 @@ const cppLanguage: LanguageRegistration = {
   },
 };
 
-let highlighterPromise:
-  | Promise<
-      Awaited<
-        ReturnType<
-          typeof import("shiki/core")["createHighlighterCore"]
-        >
-      >
-    >
-  | null = null;
+let highlighterPromise: Promise<
+  Awaited<ReturnType<typeof import("shiki/core")["createHighlighterCore"]>>
+> | null = null;
 const languagePromises = new Map<string, Promise<void>>();
 
 export function isSupportedLanguage(language?: string): boolean {
@@ -157,12 +151,13 @@ async function getHighlighter() {
       import("shiki/core"),
       import("shiki/engine/javascript"),
       import("@shikijs/themes/github-light"),
-    ]).then(([{ createHighlighterCore }, { createJavaScriptRegexEngine }, theme]) =>
-      createHighlighterCore({
-        themes: [theme.default],
-        langs: [],
-        engine: createJavaScriptRegexEngine(),
-      }),
+    ]).then(
+      ([{ createHighlighterCore }, { createJavaScriptRegexEngine }, theme]) =>
+        createHighlighterCore({
+          themes: [theme.default],
+          langs: [],
+          engine: createJavaScriptRegexEngine(),
+        }),
     );
   }
   return highlighterPromise;
