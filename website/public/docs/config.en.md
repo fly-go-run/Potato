@@ -108,7 +108,8 @@ You can customize paths and behavior via environment variables:
 | `QWENPAW_MEMORY_COMPACT_THRESHOLD`   | `100000`        | Character threshold to trigger memory compaction                             |
 | `QWENPAW_MEMORY_COMPACT_KEEP_RECENT` | `3`             | Number of recent messages to keep after compaction                           |
 | `QWENPAW_MEMORY_COMPACT_RATIO`       | `0.7`           | Threshold ratio for triggering compaction (relative to context window size)  |
-| `QWENPAW_CONSOLE_STATIC_DIR`         | _(auto-detect)_ | Console frontend static files path                                           |
+| `QWENPAW_WEB_STATIC_DIR`             | _(auto-detect)_ | Default web UI static files path                                             |
+| `QWENPAW_CONSOLE_STATIC_DIR`         | -               | Explicit legacy-console static files override                                |
 
 **Security & Authentication:**
 

@@ -75,12 +75,12 @@ Once `qwenpaw app` is running, open `http://127.0.0.1:8088/` in your browser to
 access the **Console** — a web UI for chat, channels, cron, skills, models,
 and more. See [Console](./console) for a full walkthrough.
 
-If the frontend was not built, the root URL returns a JSON message like `{"message": "QwenPaw Web Console is not available."}` but the API still works.
+If the frontend was not built, the root URL returns a JSON message like `{"message": "QwenPaw web UI is not available."}` but the API still works.
 
-**To build the frontend:** in the project's `console/` directory run
+**To build the default web UI:** in the project's `app/` directory run
 `npm ci && npm run build`, then copy the output to the package directory:
-`mkdir -p src/qwenpaw/console && cp -R console/dist/. src/qwenpaw/console/`.
-Docker images and pip packages already include the Console.
+`mkdir -p src/qwenpaw/console && cp -R app/dist/. src/qwenpaw/console/`.
+ Docker images and pip packages already include the web UI.
 
 ### qwenpaw daemon
 
@@ -775,7 +775,7 @@ See [Config & Working Directory](./config) and [Multi-Agent](./multi-agent) for 
 | ------------------- | ------------------------------------------------------------------------------------ | :--------------: |
 | `qwenpaw init`      | —                                                                                    |        No        |
 | `qwenpaw app`       | —                                                                                    |  — (starts it)   |
-| `qwenpaw desktop`   | —                                                                                    |  — (starts it)   |
+| `qwenpaw desktop` ² | —                                                                                    |  — (starts it)   |
 | `qwenpaw doctor`    | `fix`                                                                                |        No        |
 | `qwenpaw daemon`    | `status` · `restart` · `reload-config` · `version` · `logs`                          |        No        |
 | `qwenpaw models`    | `list` · `config` · `config-key` · `set-llm` · `download` · `local` · `remove-local` |        No        |
@@ -795,6 +795,10 @@ See [Config & Working Directory](./config) and [Multi-Agent](./multi-agent) for 
 | `qwenpaw uninstall` | —                                                                                    |        No        |
 
 ¹ `create` does not require server; `list`, `delete`, and `chat` require server.
+
+² Legacy source-only pywebview fallback. The supported desktop distribution is
+the Tauri app. Install the fallback explicitly with
+`pip install 'qwenpaw[legacy-desktop]'`.
 
 ---
 

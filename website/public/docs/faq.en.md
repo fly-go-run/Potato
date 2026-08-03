@@ -90,9 +90,9 @@ qwenpaw update
 ```
 cd QwenPaw
 git pull origin main
-cd console && npm ci && npm run build
+cd app && npm ci && npm run build
 cd .. && mkdir -p src/qwenpaw/console
-cp -R console/dist/. src/qwenpaw/console/
+cp -R app/dist/. src/qwenpaw/console/
 pip install -e .
 ```
 

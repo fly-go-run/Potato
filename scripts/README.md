@@ -2,13 +2,13 @@
 
 Run from **repo root**.
 
-## Build wheel (with latest console)
+## Build wheel (with the default web app)
 
 ```bash
 bash scripts/wheel_build.sh
 ```
 
-- Builds the console frontend (`console/`), copies `console/dist` to `src/qwenpaw/console/dist`, then builds the wheel. Output: `dist/*.whl`.
+- Builds the default web app (`app/`), copies `app/dist` to `src/qwenpaw/console/` (the historical package-data location for `/console`), then builds the wheel. Output: `dist/*.whl`.
 
 ## Build website
 
@@ -24,7 +24,7 @@ bash scripts/website_build.sh
 bash scripts/docker_build.sh [IMAGE_TAG] [EXTRA_ARGS...]
 ```
 
-- Default tag: `qwenpaw:latest`. Uses `deploy/Dockerfile` (multi-stage: builds console then Python app).
+- Default tag: `qwenpaw:latest`. Uses `deploy/Dockerfile` (multi-stage: builds the web app then Python app).
 - Example: `bash scripts/docker_build.sh myreg/qwenpaw:v1 --no-cache`.
 
 ## Run Test

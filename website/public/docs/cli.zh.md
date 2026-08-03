@@ -68,12 +68,12 @@ qwenpaw tui /path/to/repo       # 将其他目录绑定为本次 TUI 会话的�
 `qwenpaw app` 启动后，在浏览器打开 `http://127.0.0.1:8088/` 即可进入 **控制台** ——
 一个用于对话、频道、定时任务、技能、模型等的 Web 管理界面。详见 [控制台](./console)。
 
-若未构建前端，根路径会返回类似 `{"message": "QwenPaw Web Console is not available."}` 的提示信息（实际文案可能调整），API 仍可正常使用。
+若未构建前端，根路径会返回类似 `{"message": "QwenPaw web UI is not available."}` 的提示信息（实际文案可能调整），API 仍可正常使用。
 
-**构建方式：** 在项目 `console/` 目录下执行 `npm ci && npm run build`，
+**构建默认 Web UI：** 在项目 `app/` 目录下执行 `npm ci && npm run build`，
 然后将构建产物复制到包目录：
-`mkdir -p src/qwenpaw/console && cp -R console/dist/. src/qwenpaw/console/`。
-Docker 镜像或 pip 安装包已内置控制台，无需单独构建。
+`mkdir -p src/qwenpaw/console && cp -R app/dist/. src/qwenpaw/console/`。
+ Docker 镜像或 pip 安装包已内置 Web UI，无需单独构建。
 
 ### qwenpaw daemon
 
@@ -757,7 +757,7 @@ qwenpaw --host 0.0.0.0 --port 9090 cron list
 | ------------------- | ------------------------------------------------------------------------------------ | :---------------: |
 | `qwenpaw init`      | —                                                                                    |        否         |
 | `qwenpaw app`       | —                                                                                    | —（启动服务本身） |
-| `qwenpaw desktop`   | —                                                                                    | —（启动服务本身） |
+| `qwenpaw desktop` ² | —                                                                                    | —（启动服务本身） |
 | `qwenpaw doctor`    | `fix`                                                                                |        否         |
 | `qwenpaw daemon`    | `status` · `restart` · `reload-config` · `version` · `logs`                          |        否         |
 | `qwenpaw models`    | `list` · `config` · `config-key` · `set-llm` · `download` · `local` · `remove-local` |        否         |
@@ -777,6 +777,9 @@ qwenpaw --host 0.0.0.0 --port 9090 cron list
 | `qwenpaw uninstall` | —                                                                                    |        否         |
 
 ¹ `create` 不需要服务运行；`list`、`delete`、`chat` 需要服务运行。
+
+² 这是仅供源码安装使用的旧 pywebview 回退路径。正式桌面发行版为 Tauri
+应用；如确实需要旧路径，请显式安装 `pip install 'qwenpaw[legacy-desktop]'`。
 
 ---
 

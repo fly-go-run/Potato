@@ -474,13 +474,13 @@ Join [GitHub Discussions](https://github.com/agentscope-ai/QwenPaw/discussions) 
 git clone https://github.com/agentscope-ai/QwenPaw.git
 cd QwenPaw
 
-# Build console frontend first (required for web UI)
-cd console && npm ci && npm run build
+# Build the default web app first (required for web UI)
+cd app && npm ci && npm run build
 cd ..
 
-# Copy console build output to package directory
+# Copy web app build output to the package-data directory
 mkdir -p src/qwenpaw/console
-cp -R console/dist/. src/qwenpaw/console/
+cp -R app/dist/. src/qwenpaw/console/
 
 # Install Python package
 pip install -e .

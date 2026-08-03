@@ -77,7 +77,8 @@ $QWENPAW_SECRET_DIR/                       # 默认 ~/.qwenpaw.secret
 | `QWENPAW_MEMORY_COMPACT_THRESHOLD`   | `100000`       | 触发记忆压缩的字符阈值                                          |
 | `QWENPAW_MEMORY_COMPACT_KEEP_RECENT` | `3`            | 压缩后保留的最近消息数                                          |
 | `QWENPAW_MEMORY_COMPACT_RATIO`       | `0.7`          | 触发压缩的阈值比例（相对于上下文窗口大小）                      |
-| `QWENPAW_CONSOLE_STATIC_DIR`         | _（自动检测）_ | 控制台前端静态文件路径                                          |
+| `QWENPAW_WEB_STATIC_DIR`             | _（自动检测）_ | 默认 Web UI 静态文件路径                                         |
+| `QWENPAW_CONSOLE_STATIC_DIR`         | -              | 显式指定旧控制台静态文件路径                                       |
 
 **安全与认证：**
 
