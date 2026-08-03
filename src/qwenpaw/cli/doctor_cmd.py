@@ -24,7 +24,8 @@ from ..providers.provider import Provider
 from ..providers.provider_manager import ProviderManager
 from ..utils.console_static import (
     CONSOLE_STATIC_ENV,
-    resolve_console_static_dir,
+    WEB_STATIC_ENV,
+    resolve_web_static_dir,
 )
 from ..utils.http import trust_env_for_url
 from ..utils.system_info import summarize_python_environment
@@ -251,17 +252,18 @@ def _check_working_dir() -> tuple[bool, str]:
 
 
 def _check_console_static_files() -> tuple[bool, str]:
-    static_dir = resolve_console_static_dir()
+    static_dir = resolve_web_static_dir()
     index = Path(static_dir) / "index.html"
     if index.is_file():
         return True, f"{static_dir}"
     return (
         False,
         f"index.html missing under {static_dir}\n"
-        "        Build: `npm ci && npm run build` in the `console/` "
+        "        Build: `npm ci && npm run build` in the `app/` "
         "directory, "
-        f"or set {CONSOLE_STATIC_ENV} to a directory that contains "
-        "index.html.",
+        f"or set {WEB_STATIC_ENV} to a directory that contains index.html. "
+        f"{CONSOLE_STATIC_ENV} is reserved for an explicit legacy-console "
+        "override.",
     )
 
 
@@ -376,7 +378,8 @@ _DOCTOR_FIX_ONLY_HELP = (
     "Comma-separated fix ids: ensure-working-dir, ensure-workspace-dirs, "
     "validate-all-jobs-json, reconcile-workspace-skills, "
     "seed-missing-agent-json, reset-invalid-agent-json, "
-    "write-empty-jobs-json, normalize-jobs-cron, rebuild-console-npm. "
+    "write-empty-jobs-json, normalize-jobs-cron, rebuild-web-app-npm, "
+    "rebuild-console-npm. "
     "Default: safe fixes only (first two). "
     "reconcile-workspace-skills syncs each workspace skill.json with skills/ "
     "(no --yes required)."
@@ -795,7 +798,7 @@ def run_doctor_checks(
         for line in vol_notes:
             click.echo(click.style("Note:", fg="yellow") + f" {line}")
 
-    click.echo("\n=== Console (static files) ===")
+    click.echo("\n=== Web UI (static files) ===")
     cs_ok, detail = _check_console_static_files()
     if cs_ok:
         click.echo(click.style("OK", fg="green") + f" — {detail}")
@@ -803,12 +806,12 @@ def run_doctor_checks(
         failed = True
         click.echo(click.style("FAIL", fg="red") + f"\n{detail}", err=True)
         _doctor_fix_hint(
-            f"Fix: build `console/` or set {CONSOLE_STATIC_ENV}. From a git "
+            f"Fix: build `app/` or set {WEB_STATIC_ENV}. From a git "
             "checkout — "
             "Preview the plan (no writes): `qwenpaw doctor fix --dry-run "
-            "--only rebuild-console-npm`. "
+            "--only rebuild-web-app-npm`. "
             "Apply: run `without --dry-run` and include `-y` (runs npm; "
-            "copies dist → bundled console).",
+            "rebuilds app/dist).",
         )
     for line in console_static_diagnostic_notes():
         if _is_console_static_positive_note(line):

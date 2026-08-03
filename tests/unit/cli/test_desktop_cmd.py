@@ -5,6 +5,8 @@ import io
 import types
 import urllib.request
 
+from click.testing import CliRunner
+
 from qwenpaw.cli import desktop_cmd
 
 
@@ -14,6 +16,15 @@ class _Response(io.BytesIO):
 
     def __exit__(self, *_args: object) -> None:
         self.close()
+
+
+def test_legacy_desktop_requires_explicit_extra(monkeypatch) -> None:
+    monkeypatch.setattr(desktop_cmd, "webview", None)
+
+    result = CliRunner().invoke(desktop_cmd.desktop_cmd)
+
+    assert result.exit_code != 0
+    assert "qwenpaw[legacy-desktop]" in result.output
 
 
 def test_save_file_passes_headers_to_download_request(

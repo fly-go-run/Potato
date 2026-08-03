@@ -5,9 +5,10 @@ Backup, allowlist, atomic write. Includes ``reconcile-workspace-skills``,
 which calls the same ``reconcile_workspace_manifest`` as the app (CLI-only,
 no server).
 
-``rebuild-console-npm`` runs ``npm ci && npm run build`` under ``console/``
-in a source checkout and copies ``console/dist`` into
-``src/qwenpaw/console/`` (needs network for npm).
+``rebuild-web-app-npm`` runs ``npm ci && npm run build`` under ``app/``
+in a source checkout (needs network for npm).  ``rebuild-console-npm`` is
+retained only for an operator who explicitly selects the legacy-console
+static-directory override.
 
 ``validate-all-jobs-json`` reuses
 :func:`~qwenpaw.cli.doctor_checks.check_cron_jobs_files` (read-only); exits
@@ -65,6 +66,7 @@ RISKY_FIX_IDS = frozenset(
         "reset-invalid-agent-json",
         "write-empty-jobs-json",
         "normalize-jobs-cron",
+        "rebuild-web-app-npm",
         "rebuild-console-npm",
     },
 )
@@ -592,70 +594,44 @@ def _plan_fixes(
                 ),
             )
 
-    if "rebuild-console-npm" in fix_ids:
+    if "rebuild-web-app-npm" in fix_ids:
         repo = find_qwenpaw_source_repo_root()
         if repo is None:
             skip_msgs.append(
-                "rebuild-console-npm: only in a QwenPaw source checkout "
-                "(./console/package.json + ./console/package-lock.json + "
+                "rebuild-web-app-npm: only in a QwenPaw source checkout "
+                "(./app/package.json + ./app/package-lock.json + "
                 "./src/qwenpaw/)",
             )
         elif not shutil.which("npm"):
-            skip_msgs.append("rebuild-console-npm: npm not found on PATH")
+            skip_msgs.append("rebuild-web-app-npm: npm not found on PATH")
         else:
-            console = repo / "console"
-            dist = console / "dist"
-            dst = repo / "src" / "qwenpaw" / "console"
+            web_app = repo / "app"
+            dist = web_app / "dist"
             desc = (
-                f"npm ci + npm run build in {console}, then copy {dist} -> "
-                f"{dst} (bundles web UI for editable installs)"
+                f"npm ci + npm run build in {web_app} "
+                "(rebuilds the default web UI for this source checkout)"
             )
 
-            def _rebuild_console(
-                r: Path = repo,
-                cdir: Path = console,
+            def _rebuild_web_app(
+                app_dir: Path = web_app,
                 dist_dir: Path = dist,
-                target: Path = dst,
-                skip_prev_backup: bool = no_backup,
             ) -> None:
-                if not cdir.is_dir():
-                    raise RuntimeError(f"missing console directory: {cdir}")
-                if not (cdir / "package-lock.json").is_file():
+                if not app_dir.is_dir():
+                    raise RuntimeError(f"missing app directory: {app_dir}")
+                if not (app_dir / "package-lock.json").is_file():
                     raise RuntimeError(
-                        f"missing {cdir / 'package-lock.json'} "
+                        f"missing {app_dir / 'package-lock.json'} "
                         "(npm ci needs a lockfile)",
-                    )
-                if (
-                    not skip_prev_backup
-                    and target.exists()
-                    and any(target.iterdir())
-                ):
-                    bkp_root = r / ".qwenpaw-doctor-fix-backups"
-                    sid = _utc_session_id()
-                    bkp = bkp_root / sid
-                    prev = bkp / "previous-console-bundle"
-                    prev.parent.mkdir(parents=True, exist_ok=True)
-                    if prev.exists():
-                        shutil.rmtree(prev)
-                    shutil.copytree(target, prev)
-                    bkp.mkdir(parents=True, exist_ok=True)
-                    meta = {
-                        "qwenpaw_version": __version__,
-                        "previous_bundle": str(prev),
-                    }
-                    (bkp / "meta.json").write_text(
-                        json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
-                        encoding="utf-8",
                     )
                 subprocess.run(
                     ["npm", "ci"],
-                    cwd=str(cdir),
+                    cwd=str(app_dir),
                     check=True,
                     env=os.environ.copy(),
                 )
                 subprocess.run(
                     ["npm", "run", "build"],
-                    cwd=str(cdir),
+                    cwd=str(app_dir),
                     check=True,
                     env=os.environ.copy(),
                 )
@@ -667,17 +643,73 @@ def _plan_fixes(
                         f"after npm run build, expected "
                         f"{dist_dir / 'index.html'}",
                     )
-                if target.exists():
-                    shutil.rmtree(target)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(dist_dir, target)
+
+            planned.append(
+                PlannedFix(
+                    "rebuild-web-app-npm",
+                    desc,
+                    (),
+                    _rebuild_web_app,
+                ),
+            )
+
+    if "rebuild-console-npm" in fix_ids:
+        repo = find_qwenpaw_source_repo_root()
+        if repo is None:
+            skip_msgs.append(
+                "rebuild-console-npm: only in a QwenPaw source checkout "
+                "with ./console/package.json and ./src/qwenpaw/",
+            )
+        elif not shutil.which("npm"):
+            skip_msgs.append("rebuild-console-npm: npm not found on PATH")
+        else:
+            console = repo / "console"
+            dist = console / "dist"
+            desc = (
+                f"npm ci + npm run build in {console} "
+                "(legacy console; use only with QWENPAW_CONSOLE_STATIC_DIR)"
+            )
+
+            def _rebuild_legacy_console(
+                console_dir: Path = console,
+                dist_dir: Path = dist,
+            ) -> None:
+                if not console_dir.is_dir():
+                    raise RuntimeError(
+                        f"missing legacy console directory: {console_dir}",
+                    )
+                if not (console_dir / "package-lock.json").is_file():
+                    raise RuntimeError(
+                        f"missing {console_dir / 'package-lock.json'} "
+                        "(npm ci needs a lockfile)",
+                    )
+                subprocess.run(
+                    ["npm", "ci"],
+                    cwd=str(console_dir),
+                    check=True,
+                    env=os.environ.copy(),
+                )
+                subprocess.run(
+                    ["npm", "run", "build"],
+                    cwd=str(console_dir),
+                    check=True,
+                    env=os.environ.copy(),
+                )
+                if (
+                    not dist_dir.is_dir()
+                    or not (dist_dir / "index.html").is_file()
+                ):
+                    raise RuntimeError(
+                        f"after npm run build, expected "
+                        f"{dist_dir / 'index.html'}",
+                    )
 
             planned.append(
                 PlannedFix(
                     "rebuild-console-npm",
                     desc,
                     (),
-                    _rebuild_console,
+                    _rebuild_legacy_console,
                 ),
             )
 

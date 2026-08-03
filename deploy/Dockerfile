@@ -3,12 +3,12 @@ ARG NODE_IMAGE=agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/nod
 ARG UV_IMAGE=agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/uv:latest
 
 # -----------------------------------------------------------------------------
-# Stage 1: build console frontend (dist not committed in repo).
+# Stage 1: build the default web UI (dist is not committed in repo).
 # -----------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS console-builder
+FROM ${NODE_IMAGE} AS web-app-builder
 WORKDIR /app
-COPY console /app/console
-RUN cd /app/console && npm ci --include=dev && npm run build
+COPY app /app/app
+RUN cd /app/app && npm ci --include=dev && npm run build
 
 # Alias for uv binary so COPY --from can reference a build-arg image.
 FROM ${UV_IMAGE} AS uv-src
@@ -93,8 +93,9 @@ ENV PATH="/app/venv/bin:$PATH"
 COPY pyproject.toml setup.py README.md ./
 COPY src ./src
 COPY website/public/docs/ ./src/qwenpaw/docs/
-# Inject console dist from build stage (repo does not commit dist).
-COPY --from=console-builder /app/console/dist/ ./src/qwenpaw/console/
+# Stage the default web UI in the historical qwenpaw/console package-data
+# location used by the backend's /console route.
+COPY --from=web-app-builder /app/app/dist/ ./src/qwenpaw/console/
 # Speed up Python package installation with uv.
 COPY --from=uv-src /uv /bin/uv
 RUN uv pip install --no-cache-dir . && rm -rf ./build

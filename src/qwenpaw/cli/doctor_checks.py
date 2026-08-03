@@ -1313,24 +1313,31 @@ async def check_enabled_agents_model_connections(
 
 
 def console_static_diagnostic_notes() -> list[str]:
-    """Web console bundle context (paths, mtime, npm rebuild hint)."""
+    """Default web UI bundle context (paths, mtime, npm rebuild hint)."""
     from datetime import datetime, timezone
 
     from ..utils.console_static import (
         CONSOLE_STATIC_ENV,
+        WEB_STATIC_ENV,
         find_qwenpaw_source_repo_root,
-        resolve_console_static_dir,
+        resolve_web_static_dir,
     )
 
     notes: list[str] = []
-    env_dir = EnvVarLoader.get_str("QWENPAW_CONSOLE_STATIC_DIR", "").strip()
+    env_dir = EnvVarLoader.get_str(WEB_STATIC_ENV, "").strip()
     if env_dir:
         notes.append(
-            f"{CONSOLE_STATIC_ENV} is set — the app serves console files "
+            f"{WEB_STATIC_ENV} is set — the app serves web UI files "
             f"from that path ({env_dir}), not from the package or repo "
             "defaults.",
         )
-    static = Path(resolve_console_static_dir())
+    legacy_dir = EnvVarLoader.get_str(CONSOLE_STATIC_ENV, "").strip()
+    if legacy_dir:
+        notes.append(
+            f"{CONSOLE_STATIC_ENV} is set — serving the explicit legacy "
+            f"console override from {legacy_dir}.",
+        )
+    static = Path(resolve_web_static_dir())
     idx = static / "index.html"
     if idx.is_file():
         try:
@@ -1359,8 +1366,8 @@ def console_static_diagnostic_notes() -> list[str]:
     if repo is not None:
         notes.append(
             f"source checkout detected at {repo} — if you changed the web "
-            "console under `console/`, you could rebuild the bundled UI with "
-            "`qwenpaw doctor fix -y --only rebuild-console-npm`.",
+            "app under `app/`, rebuild it with "
+            "`qwenpaw doctor fix -y --only rebuild-web-app-npm`.",
         )
     else:
         notes.append(

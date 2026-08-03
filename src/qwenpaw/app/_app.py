@@ -35,6 +35,7 @@ from ..utils.logging import (
     add_project_file_handler,
     setup_logger,
 )
+from ..utils.console_static import resolve_web_static_dir
 from ..utils.startup_display import AgentStartupDisplay
 from ..utils.system_info import summarize_python_environment
 from .auth import (
@@ -81,6 +82,10 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
 ):
     startup_start_time = time.time()
     add_project_file_handler(LOG_FILE_PATH)
+    app.state.startup_ready = asyncio.Event()
+    app.state.startup_state = "starting"
+    app.state.startup_error = None
+    app.state.startup_time = startup_start_time
 
     # ================================================================
     # Fast synchronous setup (target < 100ms)
@@ -250,11 +255,21 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
                 exc_info=True,
             )
 
-    except Exception:
-        logger.debug(
-            "Runtime infrastructure init skipped",
+    except Exception as exc:
+        app.state.startup_state = "failed"
+        app.state.startup_error = (
+            f"Core runtime infrastructure failed: {type(exc).__name__}"
+        )
+        logger.critical(
+            "Core runtime infrastructure initialization failed",
             exc_info=True,
         )
+        if app_services is not None:
+            with suppress(Exception):
+                await app_services.stop()
+        raise RuntimeError(
+            "Core runtime infrastructure initialization failed",
+        ) from exc
 
     # Start token usage manager background tasks
     logger.debug("Starting TokenUsageManager background tasks...")
@@ -280,9 +295,6 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
         return await workspace_registry.get_agent(agent_id)
 
     app.state.get_agent_by_id = _get_agent_by_id
-
-    app.state.startup_ready = asyncio.Event()
-    app.state.startup_time = startup_start_time
 
     fast_elapsed = time.time() - startup_start_time
     logger.info(
@@ -336,9 +348,15 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             )
             logger.debug("Phase 1: channel plugins loaded")
 
-            def _mark_core_agents_ready(_results: dict[str, bool]) -> None:
+            def _mark_core_agents_ready(results: dict[str, bool]) -> None:
                 """Publish readiness after the core agent phase."""
                 core_elapsed = time.time() - startup_start_time
+                if results.get("default") is False:
+                    app.state.startup_state = "failed"
+                    app.state.startup_error = "Default agent failed to start"
+                    startup_display.mark_failed(app.state.startup_error)
+                    return
+                app.state.startup_state = "ready"
                 startup_display.mark_core_ready(core_elapsed)
                 app.state.startup_ready.set()
 
@@ -349,9 +367,9 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
                 )
             )
             if startup_results.get("default") is False:
-                startup_display.mark_failed(
-                    "Default agent failed to start",
-                )
+                app.state.startup_state = "failed"
+                app.state.startup_error = "Default agent failed to start"
+                startup_display.mark_failed(app.state.startup_error)
             elif app.state.startup_ready.is_set():
                 startup_display.mark_finalizing()
 
@@ -486,7 +504,20 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             if app.state.startup_ready.is_set():
                 startup_display.complete(startup_elapsed)
 
-        except Exception:
+        except Exception as exc:
+            if app.state.startup_ready.is_set():
+                app.state.startup_state = "degraded"
+                app.state.startup_error = (
+                    "Optional background startup failed: "
+                    f"{type(exc).__name__}"
+                )
+            else:
+                app.state.startup_state = "failed"
+                app.state.startup_error = (
+                    "Core background startup failed: "
+                    f"{type(exc).__name__}"
+                )
+                startup_display.mark_failed(app.state.startup_error)
             logger.error(
                 "Background startup encountered an error",
                 exc_info=True,
@@ -641,46 +672,11 @@ if CORS_ORIGINS:
     )
 
 
-_CONSOLE_STATIC_ENV = "QWENPAW_CONSOLE_STATIC_DIR"
-
-
-def _resolve_console_static_dir() -> str:
-    from ..constant import EnvVarLoader
-
-    static_dir = EnvVarLoader.get_str(_CONSOLE_STATIC_ENV)
-    if static_dir:
-        return static_dir
-    # Shipped dist lives in the package as static data
-    pkg_dir = Path(__file__).resolve().parent.parent
-    candidate = pkg_dir / "console"
-    if candidate.is_dir() and (candidate / "index.html").exists():
-        return str(candidate)
-
-    # Fallback to repo data
-    repo_dir = pkg_dir.parent.parent
-    candidate = repo_dir / "console" / "dist"
-    if candidate.is_dir() and (candidate / "index.html").exists():
-        return str(candidate)
-
-    # Fallback to cwd data
-    cwd = Path(os.getcwd())
-    for subdir in ("console/dist", "console_dist"):
-        candidate = cwd / subdir
-        if candidate.is_dir() and (candidate / "index.html").exists():
-            return str(candidate)
-
-    fallback = cwd / "console" / "dist"
-    logger.warning(
-        f"Console static directory not found. Falling back to '{fallback}'.",
-    )
-    return str(fallback)
-
-
-_CONSOLE_STATIC_DIR = _resolve_console_static_dir()
-_CONSOLE_INDEX = (
-    Path(_CONSOLE_STATIC_DIR) / "index.html" if _CONSOLE_STATIC_DIR else None
+_WEB_STATIC_DIR = resolve_web_static_dir()
+_WEB_INDEX = (
+    Path(_WEB_STATIC_DIR) / "index.html" if _WEB_STATIC_DIR else None
 )
-logger.info(f"STATIC_DIR: {_CONSOLE_STATIC_DIR}")
+logger.info("WEB_STATIC_DIR: %s", _WEB_STATIC_DIR)
 
 # The SPA entry (index.html) must never be cached: it references content-hashed
 # JS/CSS bundles, so a stale cached index.html would keep pointing the WebView
@@ -698,15 +694,15 @@ _INDEX_NO_CACHE_HEADERS = {
 
 @app.get("/")
 def read_root():
-    if _CONSOLE_INDEX and _CONSOLE_INDEX.exists():
-        return FileResponse(_CONSOLE_INDEX, headers=_INDEX_NO_CACHE_HEADERS)
+    if _WEB_INDEX and _WEB_INDEX.exists():
+        return FileResponse(_WEB_INDEX, headers=_INDEX_NO_CACHE_HEADERS)
     return {
         "message": (
-            f"{PROJECT_NAME} web console is not available. "
+            f"{PROJECT_NAME} web UI is not available. "
             "If you installed the project from source code, please run "
-            "`npm ci && npm run build` in the `console/` "
+            "`npm ci && npm run build` in the `app/` "
             f"directory, and restart {PROJECT_NAME} to enable the "
-            "web console."
+            "web UI."
         ),
     }
 
@@ -789,13 +785,13 @@ app.include_router(voice_router, tags=["voice"])
 
 # Console static files and SPA fallback
 # Register these AFTER API routes to ensure proper routing priority
-if os.path.isdir(_CONSOLE_STATIC_DIR):
-    _console_path = Path(_CONSOLE_STATIC_DIR)
+if os.path.isdir(_WEB_STATIC_DIR):
+    _console_path = Path(_WEB_STATIC_DIR)
 
     def _serve_console_index():
-        if _CONSOLE_INDEX and _CONSOLE_INDEX.exists():
+        if _WEB_INDEX and _WEB_INDEX.exists():
             return FileResponse(
-                _CONSOLE_INDEX,
+                _WEB_INDEX,
                 headers=_INDEX_NO_CACHE_HEADERS,
             )
 

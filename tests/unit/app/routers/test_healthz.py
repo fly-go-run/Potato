@@ -39,6 +39,18 @@ class TestHealthzNotReady:
         resp = client.get("/api/healthz")
         assert resp.status_code == 503
 
+    def test_returns_diagnostic_503_when_startup_failed(self, app, client):
+        app.state.startup_state = "failed"
+        app.state.startup_error = "Default agent failed to start"
+
+        resp = client.get("/api/healthz")
+
+        assert resp.status_code == 503
+        assert resp.json() == {
+            "status": "failed",
+            "detail": "Default agent failed to start",
+        }
+
 
 class TestHealthzReady:
     """200 when background startup completed."""
@@ -76,3 +88,16 @@ class TestHealthzReady:
         body = resp.json()
         assert body["status"] == "ok"
         assert body["agents_loaded"] == []
+
+    def test_returns_200_with_degraded_detail(self, app, client):
+        event = asyncio.Event()
+        event.set()
+        app.state.startup_ready = event
+        app.state.startup_state = "degraded"
+        app.state.startup_error = "Optional background startup failed"
+
+        resp = client.get("/api/healthz")
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "degraded"
+        assert resp.json()["detail"] == "Optional background startup failed"

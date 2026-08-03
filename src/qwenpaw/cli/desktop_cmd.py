@@ -159,12 +159,21 @@ def desktop_cmd(
     host: str,
     log_level: str,
 ) -> None:
-    """Run QwenPaw app on an auto-selected free port in a webview window.
+    """Run the legacy source-only pywebview desktop fallback.
 
     Starts the FastAPI app in a subprocess on a free port, then opens a
-    native webview window loading that URL. Use for a dedicated desktop
-    window without conflicting with an existing QwenPaw app instance.
+    native webview window loading that URL. Supported desktop distributions
+    use the Tauri application; this fallback requires the ``legacy-desktop``
+    optional dependency.
     """
+    if webview is None:
+        raise click.ClickException(
+            "The legacy pywebview desktop command is not installed. "
+            "Use the supported QwenPaw Tauri desktop app, or install this "
+            "fallback explicitly with "
+            "`pip install 'qwenpaw[legacy-desktop]'`.",
+        )
+
     # Setup logger for desktop command (separate from backend subprocess)
     setup_logger(log_level)
 

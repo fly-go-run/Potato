@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Resolve the web console static assets directory (shared by app and CLI)."""
+"""Resolve default web UI assets (shared by app and CLI)."""
 from __future__ import annotations
 
 import os
@@ -7,46 +7,76 @@ from pathlib import Path
 
 from ..constant import EnvVarLoader
 
-# Primary env key (``COPAW_CONSOLE_STATIC_DIR`` is accepted as a legacy
-# fallback via :class:`~qwenpaw.constant.EnvVarLoader`).
+# ``QWENPAW_WEB_STATIC_DIR`` selects an alternate build of the default web UI.
+# ``QWENPAW_CONSOLE_STATIC_DIR`` remains a deliberate escape hatch for the
+# legacy console while the old UI is still supported for recovery scenarios.
+WEB_STATIC_ENV = "QWENPAW_WEB_STATIC_DIR"
 CONSOLE_STATIC_ENV = "QWENPAW_CONSOLE_STATIC_DIR"
 
 
-def resolve_console_static_dir() -> str:
-    """Return the directory expected to contain ``index.html`` for the console.
+def _default_static_candidates(
+    *,
+    package_dir: Path,
+    repo_dir: Path,
+    cwd: Path,
+) -> tuple[Path, ...]:
+    """Return default UI locations in their intended precedence order.
 
-    Resolution order matches :mod:`qwenpaw.app._app`: env override, package
-    ``qwenpaw/console``, repo ``console/dist``, then cwd fallbacks.
+    ``qwenpaw/console`` is the historical package-data directory and now
+    contains the built ``app`` artifact in wheels and containers.  A source
+    checkout prefers ``app/dist`` so local development cannot accidentally
+    serve a stale bundled artifact from a previous package build.  Legacy
+    console locations are intentionally omitted; selecting them requires the
+    explicit :data:`CONSOLE_STATIC_ENV` override.
     """
-    static_dir = EnvVarLoader.get_str("QWENPAW_CONSOLE_STATIC_DIR")
+    return (
+        repo_dir / "app" / "dist",
+        package_dir / "console",
+        cwd / "app" / "dist",
+    )
+
+
+def resolve_web_static_dir() -> str:
+    """Return the directory expected to contain the default web UI.
+
+    Resolution order is: canonical web override, explicit legacy-console
+    override, source ``app/dist``, packaged web artifact, then the current
+    directory's ``app/dist``.  The legacy console is selected only when an
+    operator explicitly sets :data:`CONSOLE_STATIC_ENV`.
+    """
+    static_dir = EnvVarLoader.get_str(WEB_STATIC_ENV)
+    if static_dir:
+        return static_dir
+
+    static_dir = EnvVarLoader.get_str(CONSOLE_STATIC_ENV)
     if static_dir:
         return static_dir
 
     pkg_dir = Path(__file__).resolve().parent.parent
-    candidate = pkg_dir / "console"
-    if candidate.is_dir() and (candidate / "index.html").is_file():
-        return str(candidate)
-
     repo_dir = pkg_dir.parent.parent
-    candidate = repo_dir / "console" / "dist"
-    if candidate.is_dir() and (candidate / "index.html").is_file():
-        return str(candidate)
-
     cwd = Path(os.getcwd())
-    for subdir in ("console/dist", "console_dist"):
-        candidate = cwd / subdir
+    for candidate in _default_static_candidates(
+        package_dir=pkg_dir,
+        repo_dir=repo_dir,
+        cwd=cwd,
+    ):
         if candidate.is_dir() and (candidate / "index.html").is_file():
             return str(candidate)
 
-    return str(cwd / "console" / "dist")
+    return str(cwd / "app" / "dist")
+
+
+def resolve_console_static_dir() -> str:
+    """Backward-compatible alias for :func:`resolve_web_static_dir`."""
+    return resolve_web_static_dir()
 
 
 def find_qwenpaw_source_repo_root() -> Path | None:
     """Return the git checkout root if this Python
     is running from QwenPaw source.
 
-    Looks upward from :mod:`qwenpaw` for ``console/package.json``,
-    ``console/package-lock.json``, and ``src/qwenpaw/``
+    Looks upward from :mod:`qwenpaw` for ``app/package.json``,
+    ``app/package-lock.json``, and ``src/qwenpaw/``
     (bundled static target).
     Returns ``None`` for a normal pip/wheel install.
     """
@@ -56,10 +86,10 @@ def find_qwenpaw_source_repo_root() -> Path | None:
         return None
     cur = Path(qwenpaw.__file__).resolve().parent
     for _ in range(20):
-        con = cur / "console"
+        web_app = cur / "app"
         if (
-            (con / "package.json").is_file()
-            and (con / "package-lock.json").is_file()
+            (web_app / "package.json").is_file()
+            and (web_app / "package-lock.json").is_file()
             and (cur / "src" / "qwenpaw").is_dir()
         ):
             return cur

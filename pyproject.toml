@@ -28,7 +28,6 @@ dependencies = [
     "python-telegram-bot>=20.0",
     "slack-bolt>=1.22.0",
     "twilio>=9.10.2",
-    "pywebview>=4.0",
     "aiofiles>=24.1.0",
     "paho-mqtt>=2.0.0",
     "wecom-aibot-python-sdk==1.0.2",
@@ -84,7 +83,8 @@ packages = { find = { where = ["src"] } }
 include-package-data = true
 
 [tool.setuptools.package-data]
-# Dockerfile copies console build output to src/qwenpaw/console/ (no dist subdir).
+# Built app assets are staged in qwenpaw/console for the historical /console
+# route and package-data location; primary distributions do not ship console/dist.
 "qwenpaw" = [
     "console/**",
     "agents/md_files/**",
@@ -127,6 +127,11 @@ local = [
 ]
 whisper = [
     "openai-whisper>=20231117",
+]
+legacy-desktop = [
+    # Source-only fallback for `qwenpaw desktop`; supported desktop releases
+    # use the Tauri application and do not need pywebview at runtime.
+    "pywebview>=4.0",
 ]
 full = [
     "qwenpaw[local,whisper]",

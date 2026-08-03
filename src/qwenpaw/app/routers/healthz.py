@@ -14,6 +14,19 @@ router = APIRouter(tags=["healthz"])
 async def get_healthz(request: Request):
     """Return 200 after core agents are ready, otherwise return 503."""
     state = request.app.state
+    startup_state = getattr(state, "startup_state", "starting")
+    if startup_state == "failed":
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "failed",
+                "detail": getattr(
+                    state,
+                    "startup_error",
+                    "Core startup failed",
+                ),
+            },
+        )
     ready: asyncio.Event = getattr(state, "startup_ready", None)
     if ready is None or not ready.is_set():
         return JSONResponse(
@@ -28,7 +41,12 @@ async def get_healthz(request: Request):
     start_time = getattr(state, "startup_time", None)
     uptime = round(time.time() - start_time, 2) if start_time else None
     return {
-        "status": "ok",
+        "status": "degraded" if startup_state == "degraded" else "ok",
         "agents_loaded": agents,
         "uptime_seconds": uptime,
+        **(
+            {"detail": getattr(state, "startup_error", None)}
+            if startup_state == "degraded"
+            else {}
+        ),
     }

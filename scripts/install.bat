@@ -31,8 +31,8 @@ set "ARG_SOURCE_DIR="
 set "ARG_EXTRAS="
 set "ARG_UV_PATH="
 set "ARG_PRERELEASE=0"
-set "CONSOLE_COPIED=0"
-set "CONSOLE_AVAILABLE=0"
+set "WEB_ASSETS_COPIED=0"
+set "WEB_UI_AVAILABLE=0"
 
 REM ──── Parse arguments ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 :parse_args
@@ -232,45 +232,45 @@ echo [qwenpaw] uv installed via astral.sh
 :ensure_uv_done
 exit /b 0
 
-REM ──── Prepare console frontend ────────────────────────────────────────────────────────────────────────────────────────────────────
-:prepare_console
+REM ──── Prepare the default web app ───────────────────────────────────────────────────────────────────────────────────────────────
+:prepare_web_app
 REM %~1 = RepoDir
 set "_REPO_DIR=%~1"
-set "_CONSOLE_SRC=%_REPO_DIR%\console\dist"
-set "_CONSOLE_DEST=%_REPO_DIR%\src\qwenpaw\console"
+set "_WEB_SRC=%_REPO_DIR%\app\dist"
+set "_WEB_DEST=%_REPO_DIR%\src\qwenpaw\console"
 
 REM Already populated
-if exist "%_CONSOLE_DEST%\index.html" (
-    set "CONSOLE_AVAILABLE=1"
+if exist "%_WEB_DEST%\index.html" (
+    set "WEB_UI_AVAILABLE=1"
     exit /b 0
 )
 
 REM Copy pre-built assets if available
-if exist "%_CONSOLE_SRC%\index.html" (
-    echo [qwenpaw] Copying console frontend assets...
-    if not exist "%_CONSOLE_DEST%" mkdir "%_CONSOLE_DEST%"
-    xcopy /s /e /y /q "%_CONSOLE_SRC%\*" "%_CONSOLE_DEST%\" >nul
-    set "CONSOLE_COPIED=1"
-    set "CONSOLE_AVAILABLE=1"
+if exist "%_WEB_SRC%\index.html" (
+    echo [qwenpaw] Copying default web app assets...
+    if not exist "%_WEB_DEST%" mkdir "%_WEB_DEST%"
+    xcopy /s /e /y /q "%_WEB_SRC%\*" "%_WEB_DEST%\" >nul
+    set "WEB_ASSETS_COPIED=1"
+    set "WEB_UI_AVAILABLE=1"
     exit /b 0
 )
 
 REM Try to build if npm is available
-if not exist "%_REPO_DIR%\console\package.json" (
-    echo [qwenpaw] WARNING: Console source not found - the web UI won't be available.
+if not exist "%_REPO_DIR%\app\package.json" (
+    echo [qwenpaw] WARNING: Web app source not found - the web UI won't be available.
     exit /b 0
 )
 
 where npm >nul 2>&1
 if errorlevel 1 (
-    echo [qwenpaw] WARNING: npm not found - skipping console frontend build.
+    echo [qwenpaw] WARNING: npm not found - skipping web app build.
     echo [qwenpaw] WARNING: Install Node.js from https://nodejs.org/ then re-run this installer,
-    echo [qwenpaw] WARNING: or run 'cd console ^&^& npm ci ^&^& npm run build' manually.
+    echo [qwenpaw] WARNING: or run 'cd app ^&^& npm ci ^&^& npm run build' manually.
     exit /b 0
 )
 
-echo [qwenpaw] Building console frontend (npm ci ^&^& npm run build)...
-pushd "%_REPO_DIR%\console"
+echo [qwenpaw] Building default web app (npm ci ^&^& npm run build)...
+pushd "%_REPO_DIR%\app"
 npm ci
 if errorlevel 1 (
     popd
@@ -285,22 +285,22 @@ if errorlevel 1 (
 )
 popd
 
-if exist "%_CONSOLE_SRC%\index.html" (
-    if not exist "%_CONSOLE_DEST%" mkdir "%_CONSOLE_DEST%"
-    xcopy /s /e /y /q "%_CONSOLE_SRC%\*" "%_CONSOLE_DEST%\" >nul
-    set "CONSOLE_COPIED=1"
-    set "CONSOLE_AVAILABLE=1"
-    echo [qwenpaw] Console frontend built successfully
+if exist "%_WEB_SRC%\index.html" (
+    if not exist "%_WEB_DEST%" mkdir "%_WEB_DEST%"
+    xcopy /s /e /y /q "%_WEB_SRC%\*" "%_WEB_DEST%\" >nul
+    set "WEB_ASSETS_COPIED=1"
+    set "WEB_UI_AVAILABLE=1"
+    echo [qwenpaw] Default web app built successfully
     exit /b 0
 )
 
-echo [qwenpaw] WARNING: Console build completed but index.html not found - the web UI won't be available.
+echo [qwenpaw] WARNING: Web app build completed but index.html not found - the web UI won't be available.
 exit /b 0
 
-REM ──── Cleanup console frontend ────────────────────────────────────────────────────────────────────────────────────────────────────
-:cleanup_console
+REM ──── Cleanup web app assets ───────────────────────────────────────────────────────────────────────────────────────────────────
+:cleanup_web_app
 REM %~1 = RepoDir
-if "%CONSOLE_COPIED%"=="1" (
+if "%WEB_ASSETS_COPIED%"=="1" (
     set "_CLEANUP_DEST=%~1\src\qwenpaw\console"
     if exist "!_CLEANUP_DEST!" rd /s /q "!_CLEANUP_DEST!" 2>nul
 )
@@ -348,57 +348,55 @@ if "%ARG_FROM_SOURCE%"=="1" goto :install_from_source
 goto :install_from_pypi
 
 :install_from_source
+powershell -NoProfile -Command "$e=$env:EXTRAS_SUFFIX; if($e -and $e -notmatch '^\[[A-Za-z0-9,_-]+\]$'){exit 1}"
+if errorlevel 1 goto :invalid_extras_suffix
 if defined ARG_SOURCE_DIR goto :install_from_local
 goto :install_from_github_qwenpaw
 
 :install_from_local
-for %%I in ("%ARG_SOURCE_DIR%") do set "ARG_SOURCE_DIR=%%~fI"
-echo [qwenpaw] Installing QwenPaw from local source: %ARG_SOURCE_DIR%
-call :prepare_console "%ARG_SOURCE_DIR%"
 echo [qwenpaw] Installing package from source...
 
 rem === Secure Input Validation (Prevents Argument Injection) ===
 rem 1. Ensure non-empty
-if “%ARG_SOURCE_DIR%” == ‘’ set “ARG_SOURCE_DIR=.”
-if “%EXTRAS_SUFFIX%” == ‘’ set “EXTRAS_SUFFIX=”
+if not defined ARG_SOURCE_DIR set "ARG_SOURCE_DIR=."
+if not defined EXTRAS_SUFFIX set "EXTRAS_SUFFIX="
 
-rem 2. Define invalid character set (double quotes, pipe, logical AND, redirection, brackets, percent sign, caret)
-rem These characters can break command structure or inject new parameters
-set “INVALID_CHARS=\”|&<>()%%^"
+rem 2. Validate source path without echoing untrusted text through cmd.exe.
+rem PowerShell receives the value through the environment, so shell metacharacters
+rem are inspected as data instead of being reparsed as a batch command.
 
-rem 3. Validate ARG_SOURCE_DIR
-rem Logic: If the variable contains any invalid characters, findstr will match successfully (errorlevel 0)
-echo %ARG_SOURCE_DIR% | findstr /R "[\"|&<>()%%^]" >nul 2>&1
-if not errorlevel 1 (
-    echo [ERROR] Security Alert: ARG_SOURCE_DIR contains invalid characters.
-    echo [ERROR] Detected unsafe input: %ARG_SOURCE_DIR%
-    echo [ERROR] Installation aborted to prevent argument injection.
-    call :cleanup_console "%ARG_SOURCE_DIR%"
-    exit /b 1
-)
+powershell -NoProfile -Command "$p=$env:ARG_SOURCE_DIR; foreach($c in 33,34,37,38,40,41,60,62,124,94){if($p.IndexOf([char]$c) -ge 0){exit 1}}"
+if errorlevel 1 goto :invalid_source_path
 
-rem 4. Validate EXTRAS_SUFFIX (typically formatted as [dev,test])
-rem Whitelist policy: Only letters, digits, commas, square brackets, underscores, and hyphens are permitted
-rem Logic: If any non-whitelisted character is present, findstr succeeds
-echo %EXTRAS_SUFFIX% | findstr /R "[^a-zA-Z0-9_,\-\[\]]" >nul 2>&1
-if not errorlevel 1 (
-    echo [ERROR] Security Alert: EXTRAS_SUFFIX contains invalid characters.
-    echo [ERROR] Detected unsafe input: %EXTRAS_SUFFIX%
-    echo [ERROR] Only alphanumeric, commas, underscores, hyphens, and brackets are allowed.
-    call :cleanup_console "%ARG_SOURCE_DIR%"
-    exit /b 1
-)
+powershell -NoProfile -Command "$e=$env:EXTRAS_SUFFIX; if($e -and $e -notmatch '^\[[A-Za-z0-9,_-]+\]$'){exit 1}"
+if errorlevel 1 goto :invalid_extras_suffix
 rem === End Security Validation ===
+
+for %%I in ("%ARG_SOURCE_DIR%") do set "ARG_SOURCE_DIR=%%~fI"
+call :prepare_web_app "%ARG_SOURCE_DIR%"
 
 rem The input has now been verified as safe and can proceed with installation.
 uv pip install "%ARG_SOURCE_DIR%%EXTRAS_SUFFIX%" --python "%VENV_PYTHON%"
 set "_INST_ERR=%errorlevel%"
-call :cleanup_console "%ARG_SOURCE_DIR%"
+call :cleanup_web_app "%ARG_SOURCE_DIR%"
 if %_INST_ERR% neq 0 (
     echo [qwenpaw] ERROR: Installation from source failed
     exit /b 1
 )
 goto :install_verify
+
+:invalid_source_path
+echo [qwenpaw] ERROR: Source path contains unsafe shell characters.
+echo [qwenpaw] Installation aborted before preparing frontend assets.
+exit /b 1
+
+:invalid_extras_suffix
+echo [qwenpaw] ERROR: Extras must contain only letters, digits, commas, underscores, and hyphens inside brackets.
+exit /b 1
+
+:invalid_package_arguments
+echo [qwenpaw] ERROR: Version or extras contains unsupported characters.
+exit /b 1
 
 :install_from_github_qwenpaw
 where git >nul 2>&1
@@ -416,7 +414,7 @@ if errorlevel 1 (
     echo [qwenpaw] ERROR: Failed to clone repository
     exit /b 1
 )
-call :prepare_console "%CLONE_DIR%"
+call :prepare_web_app "%CLONE_DIR%"
 echo [qwenpaw] Installing package from source...
 uv pip install "%CLONE_DIR%%EXTRAS_SUFFIX%" --python "%VENV_PYTHON%"
 set "_INST_ERR=%errorlevel%"
@@ -430,19 +428,15 @@ goto :install_verify
 :install_from_pypi
 set "_PACKAGE=qwenpaw"
 
-rem === Secure Validation for ARG_VERSION ===
-if defined ARG_VERSION (
-    rem Version number whitelist: Only permits numbers, letters, periods, comparison symbols (=<>!), hyphens, and tilde characters
-    rem Prohibits spaces, quotation marks, slashes, and other characters potentially used for --index-url injection
-    echo %ARG_VERSION% | findstr /R "[^a-zA-Z0-9\.=<>\!\-~]" >nul 2>&1
-    if not errorlevel 1 (
-        echo [ERROR] Security Alert: ARG_VERSION contains invalid characters.
-        echo [ERROR] Detected unsafe input: %ARG_VERSION%
-        echo [ERROR] Installation aborted.
-        exit /b 1
-    )
-    set "_PACKAGE=qwenpaw%ARG_VERSION%"
-)
+rem === Secure Validation for ARG_VERSION and EXTRAS_SUFFIX ===
+if not defined ARG_VERSION goto :skip_arg_version
+powershell -NoProfile -Command "$v=$env:ARG_VERSION; $allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.=<>-~'; $allowed+=[char]33; foreach($ch in $v.ToCharArray()){if(-not $allowed.Contains($ch)){exit 1}}"
+if errorlevel 1 goto :invalid_package_arguments
+set "_PACKAGE=qwenpaw%ARG_VERSION%"
+
+:skip_arg_version
+powershell -NoProfile -Command "$e=$env:EXTRAS_SUFFIX; if($e -and $e -notmatch '^\[[A-Za-z0-9,_-]+\]$'){exit 1}"
+if errorlevel 1 goto :invalid_package_arguments
 rem === End Version Validation ===
 
 echo [qwenpaw] Installing %_PACKAGE%%EXTRAS_SUFFIX% from PyPI...
@@ -469,12 +463,12 @@ if not exist "%VENV_QWENPAW%" (
 )
 echo [qwenpaw] QwenPaw installed successfully
 
-REM Check console availability (for PyPI installs, probe the installed package)
-if "%CONSOLE_AVAILABLE%"=="0" (
+REM Check web UI availability (for PyPI installs, probe the installed package)
+if "%WEB_UI_AVAILABLE%"=="0" (
     "%VENV_PYTHON%" -c "import importlib.resources, qwenpaw; p=importlib.resources.files('qwenpaw')/'console'/'index.html'; print('yes' if p.is_file() else 'no')" > "%TEMP%\_qwenpaw_console_check.tmp" 2>&1
-    set /p CONSOLE_CHECK=<"%TEMP%\_qwenpaw_console_check.tmp"
+    set /p WEB_UI_CHECK=<"%TEMP%\_qwenpaw_console_check.tmp"
     del "%TEMP%\_qwenpaw_console_check.tmp" >nul 2>&1
-    if "!CONSOLE_CHECK!"=="yes" set "CONSOLE_AVAILABLE=1"
+    if "!WEB_UI_CHECK!"=="yes" set "WEB_UI_AVAILABLE=1"
 )
 
 REM ──── Step 4: Create wrapper scripts ────────────────────────────────────────────────────────────────────────────────────────
@@ -549,7 +543,7 @@ echo QwenPaw installed successfully!
 echo.
 echo   Install location:  %QWENPAW_HOME%
 echo   Python:            %PY_VERSION%
-if "%CONSOLE_AVAILABLE%"=="1" (
+if "%WEB_UI_AVAILABLE%"=="1" (
     echo   Console ^(web UI^):  available
 ) else (
     echo   Console ^(web UI^):  not available

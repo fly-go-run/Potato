@@ -1,15 +1,15 @@
-# Build a full wheel package including the latest console frontend.
+# Build a full wheel package including the default web app.
 # Run from repo root: pwsh -File scripts/wheel_build.ps1
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Get-Item $PSScriptRoot).Parent.FullName
 Set-Location $RepoRoot
 
-$ConsoleDir = Join-Path $RepoRoot "console"
-$ConsoleDest = Join-Path $RepoRoot "src\qwenpaw\console"
+$AppDir = Join-Path $RepoRoot "app"
+$WebDest = Join-Path $RepoRoot "src\qwenpaw\console"
 
-Write-Host "[wheel_build] Building console frontend..."
-Push-Location $ConsoleDir
+Write-Host "[wheel_build] Building default web app..."
+Push-Location $AppDir
 try {
   npm ci
   if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
@@ -19,14 +19,14 @@ try {
   Pop-Location
 }
 
-Write-Host "[wheel_build] Copying console/dist/* -> src/qwenpaw/console/..."
-if (Test-Path $ConsoleDest) {
-  Remove-Item -Path (Join-Path $ConsoleDest "*") -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "[wheel_build] Copying app/dist/* -> src/qwenpaw/console/..."
+if (Test-Path $WebDest) {
+  Remove-Item -Path (Join-Path $WebDest "*") -Recurse -Force -ErrorAction SilentlyContinue
 } else {
-  New-Item -ItemType Directory -Force -Path $ConsoleDest | Out-Null
+  New-Item -ItemType Directory -Force -Path $WebDest | Out-Null
 }
-$ConsoleDist = Join-Path $ConsoleDir "dist"
-Copy-Item -Path (Join-Path $ConsoleDist "*") -Destination $ConsoleDest -Recurse -Force
+$AppDist = Join-Path $AppDir "dist"
+Copy-Item -Path (Join-Path $AppDist "*") -Destination $WebDest -Recurse -Force
 
 Write-Host "[wheel_build] Bundling website docs into package..."
 $DocsSrc = Join-Path $RepoRoot "website\public\docs"

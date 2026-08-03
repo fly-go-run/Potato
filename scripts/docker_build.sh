@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Docker image (includes console frontend build in multi-stage).
+# Build Docker image (includes the default web app build in multi-stage).
 # Run from repo root: bash scripts/docker_build.sh [IMAGE_TAG] [EXTRA_ARGS...]
 # Example: bash scripts/docker_build.sh qwenpaw:latest
 #          bash scripts/docker_build.sh myreg/qwenpaw:v1 --no-cache

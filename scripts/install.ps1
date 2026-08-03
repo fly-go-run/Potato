@@ -214,44 +214,43 @@ Write-Info "Python environment ready ($pyVersion)"
 $ExtrasSuffix = ""
 if ($Extras) { $ExtrasSuffix = "[$Extras]" }
 
-$script:ConsoleCopied   = $false
-$script:ConsoleAvailable = $false
+$script:WebAppCopied   = $false
+$script:WebUiAvailable = $false
 
-function Prepare-Console {
+function Prepare-WebApp {
     param([string]$RepoDir)
 
-    $consoleSrc  = Join-Path $RepoDir "console\dist"
-    $consoleDest = Join-Path $RepoDir "src\qwenpaw\console"
-
-    # Already populated
-    if (Test-Path (Join-Path $consoleDest "index.html")) { $script:ConsoleAvailable = $true; return }
+    $appSrc  = Join-Path $RepoDir "app\dist"
+    # qwenpaw/console is the historical package-data location for /console.
+    $webDest = Join-Path $RepoDir "src\qwenpaw\console"
 
     # Copy pre-built assets if available
-    if ((Test-Path $consoleSrc) -and (Test-Path (Join-Path $consoleSrc "index.html"))) {
-        Write-Info "Copying console frontend assets..."
-        New-Item -ItemType Directory -Path $consoleDest -Force | Out-Null
-        Copy-Item -Path "$consoleSrc\*" -Destination $consoleDest -Recurse -Force
-        $script:ConsoleCopied   = $true
-        $script:ConsoleAvailable = $true
+    if ((Test-Path $appSrc) -and (Test-Path (Join-Path $appSrc "index.html"))) {
+        Write-Info "Copying default web app assets..."
+        Remove-Item -Path "$webDest\*" -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path $webDest -Force | Out-Null
+        Copy-Item -Path "$appSrc\*" -Destination $webDest -Recurse -Force
+        $script:WebAppCopied   = $true
+        $script:WebUiAvailable = $true
         return
     }
 
     # Try to build if npm is available
-    $packageJson = Join-Path $RepoDir "console\package.json"
+    $packageJson = Join-Path $RepoDir "app\package.json"
     if (-not (Test-Path $packageJson)) {
-        Write-Warn "Console source not found - the web UI won't be available."
+        Write-Warn "Web app source not found - the web UI won't be available."
         return
     }
 
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-        Write-Warn "npm not found - skipping console frontend build."
+        Write-Warn "npm not found - skipping web app build."
         Write-Warn "Install Node.js from https://nodejs.org/ then re-run this installer,"
-        Write-Warn "or run 'cd console && npm ci && npm run build' manually."
+        Write-Warn "or run 'cd app && npm ci && npm run build' manually."
         return
     }
 
-    Write-Info "Building console frontend (npm ci && npm run build)..."
-    Push-Location (Join-Path $RepoDir "console")
+    Write-Info "Building default web app (npm ci && npm run build)..."
+    Push-Location (Join-Path $RepoDir "app")
     try {
         npm ci
         if ($LASTEXITCODE -ne 0) { Write-Warn "npm ci failed - the web UI won't be available."; return }
@@ -260,24 +259,25 @@ function Prepare-Console {
     } finally {
         Pop-Location
     }
-    if (Test-Path (Join-Path $consoleSrc "index.html")) {
-        New-Item -ItemType Directory -Path $consoleDest -Force | Out-Null
-        Copy-Item -Path "$consoleSrc\*" -Destination $consoleDest -Recurse -Force
-        $script:ConsoleCopied   = $true
-        $script:ConsoleAvailable = $true
-        Write-Info "Console frontend built successfully"
+    if (Test-Path (Join-Path $appSrc "index.html")) {
+        Remove-Item -Path "$webDest\*" -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path $webDest -Force | Out-Null
+        Copy-Item -Path "$appSrc\*" -Destination $webDest -Recurse -Force
+        $script:WebAppCopied   = $true
+        $script:WebUiAvailable = $true
+        Write-Info "Default web app built successfully"
         return
     }
 
-    Write-Warn "Console build completed but index.html not found - the web UI won't be available."
+    Write-Warn "Web app build completed but index.html not found - the web UI won't be available."
 }
 
-function Cleanup-Console {
+function Cleanup-WebApp {
     param([string]$RepoDir)
-    if ($script:ConsoleCopied) {
-        $consoleDest = Join-Path $RepoDir "src\qwenpaw\console"
-        if (Test-Path $consoleDest) {
-            Remove-Item -Path "$consoleDest\*" -Recurse -Force -ErrorAction SilentlyContinue
+    if ($script:WebAppCopied) {
+        $webDest = Join-Path $RepoDir "src\qwenpaw\console"
+        if (Test-Path $webDest) {
+            Remove-Item -Path "$webDest\*" -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -288,11 +288,11 @@ if ($FromSource) {
     if ($SourceDir) {
         $SourceDir = (Resolve-Path $SourceDir).Path
         Write-Info "Installing QwenPaw from local source: $SourceDir"
-        Prepare-Console $SourceDir
+        Prepare-WebApp $SourceDir
         Write-Info "Installing package from source..."
         uv pip install "${SourceDir}${ExtrasSuffix}" --python $VenvPython
         if ($LASTEXITCODE -ne 0) { Stop-WithError "Installation from source failed" }
-        Cleanup-Console $SourceDir
+        Cleanup-WebApp $SourceDir
     } else {
         if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
             Stop-WithError "git is required for -FromSource without a local directory. Please install Git from https://git-scm.com/ or pass a local path: .\install.ps1 -FromSource -SourceDir C:\path\to\QwenPaw"
@@ -302,7 +302,7 @@ if ($FromSource) {
         try {
             git clone --depth 1 $QwenpawRepo $cloneDir
             if ($LASTEXITCODE -ne 0) { Stop-WithError "Failed to clone repository" }
-            Prepare-Console $cloneDir
+            Prepare-WebApp $cloneDir
             Write-Info "Installing package from source..."
             uv pip install "${cloneDir}${ExtrasSuffix}" --python $VenvPython
             if ($LASTEXITCODE -ne 0) { Stop-WithError "Installation from source failed" }
@@ -329,10 +329,10 @@ if (-not (Test-Path $VenvQwenpaw)) { Stop-WithError "Installation failed: qwenpa
 
 Write-Info "QwenPaw installed successfully"
 
-# Check console availability (for PyPI installs, check the installed package)
-if (-not $script:ConsoleAvailable) {
-    $consoleCheck = & $VenvPython -c "import importlib.resources, qwenpaw; p=importlib.resources.files('qwenpaw')/'console'/'index.html'; print('yes' if p.is_file() else 'no')" 2>&1
-    if ($consoleCheck -eq "yes") { $script:ConsoleAvailable = $true }
+# Check web UI availability (for PyPI installs, check the installed package)
+if (-not $script:WebUiAvailable) {
+    $webUiCheck = & $VenvPython -c "import importlib.resources, qwenpaw; p=importlib.resources.files('qwenpaw')/'console'/'index.html'; print('yes' if p.is_file() else 'no')" 2>&1
+    if ($webUiCheck -eq "yes") { $script:WebUiAvailable = $true }
 }
 
 # ── Step 4: Create wrapper scripts ───────────────────────────────────────────
@@ -461,10 +461,10 @@ Write-Host ""
 
 Write-Host "  Install location:  " -NoNewline; Write-Host "$QwenpawHome" -ForegroundColor White
 Write-Host "  Python:            " -NoNewline; Write-Host "$pyVersion"  -ForegroundColor White
-if ($script:ConsoleAvailable) {
-    Write-Host "  Console (web UI):  " -NoNewline; Write-Host "available"     -ForegroundColor Green
+if ($script:WebUiAvailable) {
+    Write-Host "  Web UI:             " -NoNewline; Write-Host "available"     -ForegroundColor Green
 } else {
-    Write-Host "  Console (web UI):  " -NoNewline; Write-Host "not available" -ForegroundColor Yellow
+    Write-Host "  Web UI:             " -NoNewline; Write-Host "not available" -ForegroundColor Yellow
     Write-Host "                     Install Node.js and re-run to enable the web UI."
 }
 Write-Host ""

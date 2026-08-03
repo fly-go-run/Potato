@@ -157,62 +157,59 @@ if [ -n "$EXTRAS" ]; then
     EXTRAS_SUFFIX="[$EXTRAS]"
 fi
 
-## Ensure console frontend assets are in src/qwenpaw/console/ for source installs.
-## Sets _CONSOLE_COPIED=1 if we populated the directory (so we can clean up).
-_CONSOLE_COPIED=0
-_CONSOLE_AVAILABLE=0
-prepare_console() {
+## Ensure the default web app is in the package-data directory for source
+## installs. Sets _WEB_ASSETS_COPIED=1 so local source trees are cleaned up.
+_WEB_ASSETS_COPIED=0
+_WEB_UI_AVAILABLE=0
+prepare_web_app() {
     local repo_dir="$1"
-    local console_src="$repo_dir/console/dist"
-    local console_dest="$repo_dir/src/qwenpaw/console"
+    local app_src="$repo_dir/app/dist"
+    # qwenpaw/console is the historical package-data location for /console.
+    local web_dest="$repo_dir/src/qwenpaw/console"
 
-    # Already populated
-    if [ -f "$console_dest/index.html" ]; then
-        _CONSOLE_AVAILABLE=1
-        return
-    fi
-
-    # Copy pre-built assets if available (e.g. developer already ran npm build)
-    if [ -d "$console_src" ] && [ -f "$console_src/index.html" ]; then
-        info "Copying console frontend assets..."
-        mkdir -p "$console_dest"
-        cp -R "$console_src/"* "$console_dest/"
-        _CONSOLE_COPIED=1
-        _CONSOLE_AVAILABLE=1
+    # Copy a current app build if available (e.g. a developer already built it).
+    if [ -d "$app_src" ] && [ -f "$app_src/index.html" ]; then
+        info "Copying default web app assets..."
+        rm -rf "$web_dest"/*
+        mkdir -p "$web_dest"
+        cp -R "$app_src/"* "$web_dest/"
+        _WEB_ASSETS_COPIED=1
+        _WEB_UI_AVAILABLE=1
         return
     fi
 
     # Try to build if npm is available
-    if [ ! -f "$repo_dir/console/package.json" ]; then
-        warn "Console source not found — the web UI won't be available."
+    if [ ! -f "$repo_dir/app/package.json" ]; then
+        warn "Web app source not found — the web UI won't be available."
         return
     fi
 
     if ! command -v npm &>/dev/null; then
-        warn "npm not found — skipping console frontend build."
+        warn "npm not found — skipping web app build."
         warn "Install Node.js from https://nodejs.org/ then re-run this installer,"
-        warn "or run 'cd console && npm ci && npm run build' manually."
+        warn "or run 'cd app && npm ci && npm run build' manually."
         return
     fi
 
-    info "Building console frontend (npm ci && npm run build)..."
-    (cd "$repo_dir/console" && npm ci && npm run build)
-    if [ -f "$console_src/index.html" ]; then
-        mkdir -p "$console_dest"
-        cp -R "$console_src/"* "$console_dest/"
-        _CONSOLE_COPIED=1
-        _CONSOLE_AVAILABLE=1
-        info "Console frontend built successfully"
+    info "Building default web app (npm ci && npm run build)..."
+    (cd "$repo_dir/app" && npm ci && npm run build)
+    if [ -f "$app_src/index.html" ]; then
+        rm -rf "$web_dest"/*
+        mkdir -p "$web_dest"
+        cp -R "$app_src/"* "$web_dest/"
+        _WEB_ASSETS_COPIED=1
+        _WEB_UI_AVAILABLE=1
+        info "Default web app built successfully"
         return
     fi
 
-    warn "Console build completed but index.html not found — the web UI won't be available."
+    warn "Web app build completed but index.html not found — the web UI won't be available."
 }
 
-## Remove console assets we copied into the source tree.
-cleanup_console() {
+## Remove web assets copied into the source tree for an installation.
+cleanup_web_app() {
     local repo_dir="$1"
-    if [ "$_CONSOLE_COPIED" = 1 ]; then
+    if [ "$_WEB_ASSETS_COPIED" = 1 ]; then
         rm -rf "$repo_dir/src/qwenpaw/console/"*
     fi
 }
@@ -245,22 +242,22 @@ cleanup_docs() {
 if [ "$FROM_SOURCE" = true ]; then
     if [ -n "$SOURCE_DIR" ]; then
         info "Installing QwenPaw from local source: $SOURCE_DIR"
-        prepare_console "$SOURCE_DIR"
+        prepare_web_app "$SOURCE_DIR"
         prepare_docs "$SOURCE_DIR"
         info "Installing package from source..."
         uv pip install "${SOURCE_DIR}${EXTRAS_SUFFIX}" --python "$QWENPAW_VENV/bin/python" --index-url "$PYPI_MIRROR"
-        cleanup_console "$SOURCE_DIR"
+        cleanup_web_app "$SOURCE_DIR"
         cleanup_docs "$SOURCE_DIR"
     else
         info "Installing QwenPaw from source (GitHub)..."
         CLONE_DIR="$(mktemp -d)"
         trap 'rm -rf "$CLONE_DIR"' EXIT
         git clone --depth 1 "$QWENPAW_REPO" "$CLONE_DIR"
-        prepare_console "$CLONE_DIR"
+        prepare_web_app "$CLONE_DIR"
         prepare_docs "$CLONE_DIR"
         info "Installing package from source..."
         uv pip install "${CLONE_DIR}${EXTRAS_SUFFIX}" --python "$QWENPAW_VENV/bin/python" --index-url "$PYPI_MIRROR"
-        # CLONE_DIR is cleaned up by trap; no need for cleanup_console/cleanup_docs
+        # CLONE_DIR is cleaned up by trap; no need for cleanup_web_app/cleanup_docs
     fi
 else
     PACKAGE="qwenpaw"
@@ -281,12 +278,11 @@ fi
 [ -x "$QWENPAW_VENV/bin/qwenpaw" ] || die "Installation failed: qwenpaw CLI not found in venv"
 info "QwenPaw installed successfully"
 
-# Check console availability (for PyPI installs, check the installed package)
-if [ "$_CONSOLE_AVAILABLE" = 0 ]; then
-    # Check if console assets were included in the installed package
-    CONSOLE_CHECK="$("$QWENPAW_VENV/bin/python" -c "import importlib.resources, qwenpaw; p=importlib.resources.files('qwenpaw')/'console'/'index.html'; print('yes' if p.is_file() else 'no')" 2>/dev/null || echo 'no')"
-    if [ "$CONSOLE_CHECK" = "yes" ]; then
-        _CONSOLE_AVAILABLE=1
+# Check web UI availability (for PyPI installs, check the installed package).
+if [ "$_WEB_UI_AVAILABLE" = 0 ]; then
+    WEB_UI_CHECK="$("$QWENPAW_VENV/bin/python" -c "import importlib.resources, qwenpaw; p=importlib.resources.files('qwenpaw')/'console'/'index.html'; print('yes' if p.is_file() else 'no')" 2>/dev/null || echo 'no')"
+    if [ "$WEB_UI_CHECK" = "yes" ]; then
+        _WEB_UI_AVAILABLE=1
     fi
 fi
 
@@ -352,10 +348,10 @@ echo ""
 # Install summary
 printf "  Install location:  ${BOLD}%s${RESET}\n" "$QWENPAW_HOME"
 printf "  Python:            ${BOLD}%s${RESET}\n" "$("$QWENPAW_VENV/bin/python" --version 2>&1)"
-if [ "$_CONSOLE_AVAILABLE" = 1 ]; then
-    printf "  Console (web UI):  ${GREEN}available${RESET}\n"
+if [ "$_WEB_UI_AVAILABLE" = 1 ]; then
+    printf "  Web UI:             ${GREEN}available${RESET}\n"
 else
-    printf "  Console (web UI):  ${YELLOW}not available${RESET}\n"
+    printf "  Web UI:             ${YELLOW}not available${RESET}\n"
     echo "                     Install Node.js and re-run to enable the web UI."
 fi
 echo ""
