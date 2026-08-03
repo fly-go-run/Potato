@@ -33,6 +33,11 @@ from ...config.config import AgentProfileRef
 from ...config.utils import load_config, save_config
 from ...constant import CONFIG_FILE, SECRET_DIR, WORKING_DIR
 from ...security.secret_store import reload_master_key_from_disk
+from ...utils.zip_security import (
+    BACKUP_ZIP_LIMITS,
+    ZipResourceLimitError,
+    validate_zip_archive,
+)
 from .restore_helpers import (
     collect_workspace_agents_from_zip,
     handle_master_key_conflict,
@@ -50,6 +55,16 @@ _SUPPORTED_BACKUP_VERSIONS = {"1"}
 # interleave their file operations (especially critical on Windows where open
 # handles prevent directory renames).
 _RESTORE_LOCK = asyncio.Lock()
+
+
+def _validate_backup_archive_resources(zf: zipfile.ZipFile) -> None:
+    try:
+        validate_zip_archive(zf, BACKUP_ZIP_LIMITS)
+    except ZipResourceLimitError as exc:
+        raise BackupValidationError(
+            "backup_archive_resource_limit",
+            str(exc),
+        ) from exc
 
 
 async def restore(backup_id: str, req: RestoreBackupRequest) -> BackupMeta:
@@ -434,8 +449,6 @@ def _commit_and_finalize(
     backup_id: str,
 ) -> None:
     """Phase 2: atomically commit all staged dirs then update config."""
-    _commit_staged_global_config(staged_config_tmp)
-
     committed: list[Path] = []
     try:
         for d in staged_dirs:
@@ -446,6 +459,8 @@ def _commit_and_finalize(
         remaining = [d for d in staged_dirs if d not in set(committed)]
         for d in remaining:
             discard_tmp(d)
+        if staged_config_tmp is not None:
+            staged_config_tmp.unlink(missing_ok=True)
         logger.exception(
             "Phase 2 commit failed after committing %d/%d dirs. "
             "Committed (already live): %s. Discarded (rolled back): %s.",
@@ -455,6 +470,13 @@ def _commit_and_finalize(
             remaining,
         )
         raise
+
+    # The config references restored workspaces and secrets, so it is the
+    # transaction's commit marker and must become live only after every
+    # directory swap succeeded. A failed directory commit therefore leaves
+    # the previous config intact instead of publishing references to a
+    # partially restored filesystem.
+    _commit_staged_global_config(staged_config_tmp)
 
     if SECRET_DIR in committed:
         reload_master_key_from_disk()
@@ -493,6 +515,7 @@ def _restore_sync_locked(
         raise FileNotFoundError(f"Backup not found: {backup_id}")
 
     with zipfile.ZipFile(zp, "r") as zf:
+        _validate_backup_archive_resources(zf)
         meta = _read_meta_or_missing(zf, backup_id)
         # Legacy/foreign backups are usable only after explicit user trust.
         # If trust is accepted, sign the archive locally before any file
@@ -510,6 +533,7 @@ def _restore_sync_locked(
         meta = sign_trusted_backup(zp, meta)
 
     with zipfile.ZipFile(zp, "r") as zf:
+        _validate_backup_archive_resources(zf)
         meta = _read_meta_or_missing(zf, backup_id)
         # Re-open after trust signing and verify the archive that will
         # actually be restored, including its newly written meta.json.

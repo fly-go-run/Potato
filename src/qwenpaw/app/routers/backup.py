@@ -33,6 +33,7 @@ from ...backup.models import (
     RestoreBackupRequest,
 )
 from ...constant import BACKUP_DIR
+from ..utils import save_upload_with_limit
 from ._backup_helpers import (
     backup_contains_global_config,
     parse_pending_token,
@@ -184,9 +185,8 @@ async def _handle_fresh_upload(
     tmp_fd, tmp_name = tempfile.mkstemp(dir=BACKUP_DIR, suffix=suffix)
     tmp_path = Path(tmp_name)
     try:
-        with os.fdopen(tmp_fd, "wb") as fp:
-            while chunk := await file.read(1024 * 1024):
-                fp.write(chunk)
+        os.close(tmp_fd)
+        await save_upload_with_limit(file, tmp_path)
 
         result = await import_backup(tmp_path, trust_mode=trust_mode)
         # The no-conflict path renames tmp_path to dest (unlink is a no-op).
@@ -213,6 +213,9 @@ async def _handle_fresh_upload(
     except ValueError as exc:
         tmp_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        tmp_path.unlink(missing_ok=True)
+        raise
     except Exception as exc:
         tmp_path.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -19,7 +19,12 @@ from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from ..utils import schedule_agent_reload
+from ..utils import read_upload_with_limit, schedule_agent_reload
+from ...utils.zip_security import (
+    WEB_UPLOAD_ZIP_LIMITS,
+    normalize_zip_member_name,
+    validate_zip_archive,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +102,13 @@ def _safe_extract_zip(
         ValueError: If any member would escape extract_path
     """
     extract_resolved = extract_path.resolve()
+    try:
+        validate_zip_archive(zip_ref, WEB_UPLOAD_ZIP_LIMITS)
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
     for member in zip_ref.namelist():
-        member_path = (extract_path / member).resolve()
+        member_name = normalize_zip_member_name(member)
+        member_path = (extract_path / member_name).resolve()
         if not member_path.is_relative_to(extract_resolved):
             raise ValueError(
                 f"Zip Slip detected: {member} would extract "
@@ -763,7 +773,7 @@ async def upload_plugin(
 
     temp_dir = Path(await asyncio.to_thread(tempfile.mkdtemp))
     try:
-        content = await file.read()
+        content = await read_upload_with_limit(file)
         source_path = await asyncio.to_thread(
             _extract_plugin_zip_bytes,
             content,

@@ -22,9 +22,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..agent_context import get_agent_for_request, get_coding_dir
-from ..utils import safe_project_dest
+from ..utils import read_upload_with_limit, safe_project_dest
 from ...constant import CODING_PROJECT_SUBDIR
 from ...utils.command_runner import run_command_async, start_command_async
+from ...utils.zip_security import (
+    WEB_UPLOAD_ZIP_LIMITS,
+    normalize_zip_member_name,
+    validate_zip_archive,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -416,35 +421,45 @@ async def upload_zip(
     The endpoint guards against zip-slip by validating each member path before
     extraction.
     """
+    if file.content_type and file.content_type not in {
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/octet-stream",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Expected a zip file, got content-type: "
+                f"{file.content_type}"
+            ),
+        )
     workspace = await get_agent_for_request(request)
     base = _projects_base(workspace.workspace_dir)
     dest = safe_project_dest(base, name)
 
-    content = await file.read()
+    content = await read_upload_with_limit(file)
 
     def _extract() -> Path:
-        base.mkdir(parents=True, exist_ok=True)
-        dest.mkdir(parents=True, exist_ok=True)
         dest_resolved = dest.resolve()
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            validate_zip_archive(zf, WEB_UPLOAD_ZIP_LIMITS)
             for member in zf.namelist():
-                if Path(member).is_absolute():
-                    raise ValueError(
-                        f"Absolute path in zip not allowed: {member}",
-                    )
-                member_path = (dest_resolved / member).resolve()
+                member_name = normalize_zip_member_name(member)
+                member_path = (dest_resolved / member_name).resolve()
                 try:
                     member_path.relative_to(dest_resolved)
                 except ValueError as exc:
                     raise ValueError(
                         f"Zip slip detected for member: {member}",
                     ) from exc
+            base.mkdir(parents=True, exist_ok=True)
+            dest.mkdir(parents=True, exist_ok=True)
             zf.extractall(str(dest))
         return dest
 
     try:
         project_path = await asyncio.to_thread(_extract)
-    except ValueError as exc:
+    except (ValueError, zipfile.BadZipFile) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

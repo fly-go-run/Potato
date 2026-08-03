@@ -121,7 +121,15 @@ class ModelSlotRequest(BaseModel):
 
 
 class CreateCustomProviderRequest(BaseModel):
-    id: str = Field(...)
+    id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$",
+        description=(
+            "Stable provider identifier; path separators are forbidden"
+        ),
+    )
     name: str = Field(...)
     default_base_url: str = Field(default="")
     api_key_prefix: str = Field(default="")

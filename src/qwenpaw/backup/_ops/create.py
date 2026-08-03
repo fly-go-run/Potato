@@ -15,6 +15,7 @@ from ..models import BackupMeta, CreateBackupRequest
 from ...config.utils import load_config
 from ...constant import BACKUP_DIR
 from .create_helpers import add_files_to_zip
+from ...utils.zip_security import BACKUP_ZIP_LIMITS, validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,12 @@ def _compress_to_tmp(
             meta.id,
         )
         return
+
+    # Enforce the same finite resource contract at creation time so QwenPaw
+    # never reports a successful local backup that its restore path will later
+    # reject as oversized.
+    with zipfile.ZipFile(tmp, "r") as validation_zip:
+        validate_zip_archive(validation_zip, BACKUP_ZIP_LIMITS)
 
     signed_meta = replace_meta_with_local_signature(tmp, meta, dest_zip=dest)
     meta.signature = signed_meta.signature

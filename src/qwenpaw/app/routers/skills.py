@@ -65,7 +65,7 @@ from ...agents.skill_system.store import (
 )
 from ...security.skill_scanner import SkillScanError
 from ..inbox_store import append_event as append_inbox_event
-from ..utils import check_upload_size, schedule_agent_reload
+from ..utils import read_upload_with_limit, schedule_agent_reload
 
 logger = logging.getLogger(__name__)
 
@@ -523,9 +523,7 @@ async def _read_validated_zip_upload(file: UploadFile) -> bytes:
             ),
         )
 
-    data = await file.read()
-    check_upload_size(data)
-    return data
+    return await read_upload_with_limit(file)
 
 
 def _cleanup_imported_skill(workspace_dir: Path, skill_name: str) -> None:

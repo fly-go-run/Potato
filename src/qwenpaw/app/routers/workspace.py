@@ -23,7 +23,11 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 from watchfiles import awatch, Change
 from pydantic import BaseModel, Field
 
-from ..utils import check_upload_size, safe_join, schedule_agent_reload
+from ..utils import (
+    read_upload_with_limit,
+    safe_join,
+    schedule_agent_reload,
+)
 from ...config import (
     load_config,
     save_config,
@@ -34,6 +38,12 @@ from ...agents.memory.agent_md_manager import AgentMdManager
 from ...agents.templates import get_workspace_md_template_id
 from ...agents.utils import copy_workspace_md_files
 from ...constant import BUILTIN_QA_AGENT_ID, SUPPORTED_AGENT_LANGUAGES
+from ...utils.zip_security import (
+    WEB_UPLOAD_ZIP_LIMITS,
+    ZipResourceLimitError,
+    normalize_zip_member_name,
+    validate_zip_archive,
+)
 from ..agent_context import get_agent_for_request, get_coding_dir
 
 
@@ -876,8 +886,7 @@ async def post_transcribe_audio(
             },
         )
 
-    data = await file.read()
-    check_upload_size(data)
+    data = await read_upload_with_limit(file)
 
     # Save uploaded file to temp directory
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -999,9 +1008,21 @@ def _validate_zip_data(data: bytes, workspace_dir: Path) -> None:
             detail="Uploaded file is not a valid zip archive",
         )
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        try:
+            validate_zip_archive(zf, WEB_UPLOAD_ZIP_LIMITS)
+        except ZipResourceLimitError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        workspace_resolved = workspace_dir.resolve()
         for name in zf.namelist():
-            resolved = (workspace_dir / name).resolve()
-            if not str(resolved).startswith(str(workspace_dir)):
+            try:
+                normalized_name = normalize_zip_member_name(name)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(exc),
+                ) from exc
+            resolved = (workspace_dir / normalized_name).resolve()
+            if not resolved.is_relative_to(workspace_resolved):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Zip contains unsafe path: {name}",
@@ -1124,7 +1145,7 @@ async def upload_workspace(
 
     agent = await get_agent_for_request(request)
     workspace_dir = agent.workspace_dir
-    data = await file.read()
+    data = await read_upload_with_limit(file)
 
     try:
         await asyncio.to_thread(_validate_and_extract_zip, data, workspace_dir)

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException
 
 if TYPE_CHECKING:
-    from fastapi import Request
+    from fastapi import Request, UploadFile
     from .multi_agent_manager import MultiAgentManager
 
 logger = logging.getLogger(__name__)
@@ -154,3 +154,76 @@ def check_upload_size(data: bytes) -> None:
                 f"Maximum is {UPLOAD_MAX_SIZE_MB} MB."
             ),
         )
+
+
+async def read_upload_with_limit(
+    file: "UploadFile",
+    *,
+    default_max_size_mb: int = 100,
+) -> bytes:
+    """Read an UploadFile incrementally and stop once its limit is exceeded.
+
+    ``QWENPAW_UPLOAD_MAX_SIZE_MB`` overrides the secure endpoint default.
+    Unlike reading everything and checking afterwards, this bounds peak input
+    memory for a client that keeps streaming a very large request body.
+    """
+    from ..constant import UPLOAD_MAX_SIZE_MB
+
+    max_mb = (
+        UPLOAD_MAX_SIZE_MB
+        if UPLOAD_MAX_SIZE_MB is not None
+        else default_max_size_mb
+    )
+    max_bytes = max_mb * 1024 * 1024
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(1024 * 1024):
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum is {max_mb} MB.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+async def save_upload_with_limit(
+    file: "UploadFile",
+    destination: Path,
+    *,
+    default_max_size_mb: int = 20 * 1024,
+) -> int:
+    """Stream an upload to *destination* with a finite disk budget.
+
+    This is the disk-backed counterpart to :func:`read_upload_with_limit` for
+    large archives such as backups.  The configured
+    ``QWENPAW_UPLOAD_MAX_SIZE_MB`` value still overrides the endpoint default,
+    while the destination is removed if the client exceeds the limit or the
+    write fails.
+    """
+    from ..constant import UPLOAD_MAX_SIZE_MB
+
+    max_mb = (
+        UPLOAD_MAX_SIZE_MB
+        if UPLOAD_MAX_SIZE_MB is not None
+        else default_max_size_mb
+    )
+    max_bytes = max_mb * 1024 * 1024
+    total = 0
+    try:
+        with destination.open("wb") as output:
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=(
+                            f"File exceeds the {max_mb} MB upload limit"
+                        ),
+                    )
+                output.write(chunk)
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+    return total

@@ -27,6 +27,7 @@ from ..models import (
     DeleteBackupsResponse,
 )
 from ...constant import BACKUP_DIR
+from ...utils.zip_security import BACKUP_ZIP_LIMITS, validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +241,11 @@ def _import_sync(
         raise ValueError("Uploaded file is not a valid zip archive")
 
     with zipfile.ZipFile(tmp_path, "r") as zf:
+        # Validate central-directory metadata before reading even the small
+        # metadata entry. This keeps imported archives subject to the same
+        # resource limits as restore and prevents a hostile archive from being
+        # persisted for a later decompression bomb attempt.
+        validate_zip_archive(zf, BACKUP_ZIP_LIMITS)
         meta_json = read_meta_from_zip(zf)
         if meta_json is None:
             raise ValueError("Zip does not contain a valid meta.json")

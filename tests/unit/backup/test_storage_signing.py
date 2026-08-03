@@ -19,6 +19,7 @@ from qwenpaw.backup.models import (
     BackupMeta,
     BackupValidationError,
 )
+from qwenpaw.utils.zip_security import ZipLimits
 
 
 def _patch_backup_dir(monkeypatch, backup_dir):
@@ -50,6 +51,31 @@ async def test_import_requires_trust_for_unsigned_backup(
         await storage.import_backup(upload)
 
     assert exc_info.value.code == "backup_legacy_unsigned"
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_archive_over_resource_limits(
+    tmp_path,
+    monkeypatch,
+):
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    _patch_backup_dir(monkeypatch, backup_dir)
+    monkeypatch.setattr(
+        storage,
+        "BACKUP_ZIP_LIMITS",
+        ZipLimits(
+            max_entries=1,
+            max_total_uncompressed=1_000,
+            max_member_uncompressed=1_000,
+            max_compression_ratio=100.0,
+        ),
+    )
+    upload = tmp_path / "oversized-metadata.zip"
+    _write_backup(upload, BackupMeta(id="limited", name="Limited"))
+
+    with pytest.raises(ValueError, match="too many entries"):
+        await storage.import_backup(upload)
 
 
 @pytest.mark.asyncio
