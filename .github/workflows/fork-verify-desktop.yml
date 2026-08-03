@@ -158,6 +158,9 @@ jobs:
           # Authenticate the python-build-standalone release lookup in
           # stage_python_runtime.py to avoid anonymous API rate limits.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 传入更新签名密钥,构建才会产出 updater .sig / sidecar
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         run: ./scripts/pack-tauri/build_win_pyinstaller.ps1
 
       - name: Stage Tauri Windows installer
@@ -169,7 +172,22 @@ jobs:
           $target = "dist/QwenPaw-Tauri-${{ steps.version.outputs.version }}-Windows-setup.exe"
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item -Force $installer.FullName $target
+          # 一并暂存更新签名与 sidecar(如产出)
+          Get-ChildItem "console/src-tauri/target/release/bundle/nsis/*.sig" -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item -Force $_.FullName "$target.sig" }
           Write-Host "Staged: $target"
+
+      # 上传放在 verify 之前:验证失败不应扣押安装包
+      - name: Upload Windows installer artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: potato-windows-${{ steps.version.outputs.version }}
+          path: |
+            dist/QwenPaw-Tauri-*-Windows-setup.exe
+            dist/QwenPaw-Tauri-*-Windows-setup.exe.sig
+            dist/tauri-windows-*-updater.json
+          if-no-files-found: error
 
       - name: Verify desktop (Tauri Windows)
         timeout-minutes: 10

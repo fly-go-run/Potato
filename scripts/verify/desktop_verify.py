@@ -142,9 +142,11 @@ def verify_frontend(base_url: str) -> None:
             f"Frontend root did not return HTML (first 200 chars): "
             f"{body[:200]}",
         )
-    if "qwenpaw" not in lower:
+    # 品牌可为 Potato(新前端)或 QwenPaw(历史包)
+    if "potato" not in lower and "qwenpaw" not in lower:
         raise RuntimeError(
-            "Frontend HTML does not mention QwenPaw — wrong bundle?",
+            "Frontend HTML mentions neither Potato nor QwenPaw — "
+            "wrong bundle?",
         )
     print("PASS  GET / -> frontend HTML served")
 

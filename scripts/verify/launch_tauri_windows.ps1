@@ -27,7 +27,7 @@ foreach ($hive in @("HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
                     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
                     "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall")) {
   $reg = Get-ChildItem $hive -ErrorAction SilentlyContinue |
-    Where-Object { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DisplayName -match "QwenPaw" } |
+    Where-Object { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DisplayName -match "Potato|QwenPaw" } |
     Select-Object -First 1
   if ($reg) {
     $loc = (Get-ItemProperty $reg.PSPath).InstallLocation
@@ -43,6 +43,10 @@ foreach ($hive in @("HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
 # Fallback: search known install candidate directories.
 if (-not $tauriExe) {
   $candidateRoots = @(
+    (Join-Path $env:LOCALAPPDATA "Potato"),
+    (Join-Path $env:LOCALAPPDATA "Programs\Potato"),
+    (Join-Path $env:ProgramFiles "Potato"),
+    (Join-Path ${env:ProgramFiles(x86)} "Potato"),
     (Join-Path $env:LOCALAPPDATA "QwenPaw Desktop"),
     (Join-Path $env:LOCALAPPDATA "Programs\QwenPaw Desktop"),
     (Join-Path $env:ProgramFiles "QwenPaw Desktop"),
