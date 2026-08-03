@@ -70,7 +70,7 @@ Windows 产物注意:CI 可能把 `-setup.exe` 与 `.sig` 分成多个 artifact,
 ```bash
 # 1. 生成预配置文件(密钥只进这份文件,不进仓库/CI)
 python3 scripts/pack-tauri/make_provision.py \
-  --provider-id sub2api --base-url https://sub2api.recodex.top/v1 \
+  --provider-id my-gateway --base-url https://<你的网关域名>/v1 \
   --api-key <给家人单独开的key> \
   --model gpt-5.6 --model gpt-5.6-luna --active-model gpt-5.6 \
   --output dist/provision.json
