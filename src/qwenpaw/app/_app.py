@@ -150,6 +150,16 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
     provider_manager = ProviderManager.get_instance()
     local_model_manager = LocalModelManager.get_instance()
 
+    # First-run provisioning(家人分发预配置):发现 provision.json 就
+    # 走设置页同款代码路径应用;任何失败只记日志,绝不阻塞启动。
+    try:
+        from .agent_context import get_active_agent_id
+        from .provisioning import apply_provision_file
+
+        await apply_provision_file(provider_manager, get_active_agent_id())
+    except Exception:  # noqa: BLE001 - provisioning must never block startup
+        logger.warning("provisioning failed", exc_info=True)
+
     # --- AppServiceManager + WorkspaceRegistry ---
     app_services = None
     workspace_registry = None

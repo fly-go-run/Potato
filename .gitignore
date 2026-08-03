@@ -152,3 +152,6 @@ docs-site/
 app/public/__qa.html
 
 PROJECT_OVERVIEW_TODO.md
+.pnpm-store/
+provision.json
+provision.applied.json

@@ -65,11 +65,27 @@ Windows 产物注意:CI 可能把 `-setup.exe` 与 `.sig` 分成多个 artifact,
 
 注意:CI 构建来自仓库内容,**app/ 前端与所有改动必须先 commit + push**。
 
-## 首次交付(给家人)
+## 首次交付(给家人,零配置开箱即用)
 
-1. 从 CI 下载 `Potato-<ver>-Windows-setup.exe` 发给对方(仅第一次)
-2. Defender SmartScreen 会拦未签名安装器:「更多信息 → 仍要运行」,教一次
-3. WebView2 由安装器静默自动装;之后所有更新走应用内自动更新,无需再发包
+```bash
+# 1. 生成预配置文件(密钥只进这份文件,不进仓库/CI)
+python3 scripts/pack-tauri/make_provision.py \
+  --provider-id sub2api --base-url https://sub2api.recodex.top/v1 \
+  --api-key <给家人单独开的key> \
+  --model gpt-5.6 --model gpt-5.6-luna --active-model gpt-5.6 \
+  --output dist/provision.json
+# 2. 和安装器一起打包
+cd dist && zip Potato-安装包.zip Potato-<ver>-Windows-setup.exe provision.json
+```
+
+对方:解压 → 双击安装器 → 打开即用(NSIS hook 自动收取同目录的
+provision.json,后端首启走设置页同款代码路径应用并本机加密,归档为
+provision.applied.json 防重复;实现见 `src/qwenpaw/app/provisioning.py`)。
+
+注意:
+- Defender SmartScreen 会拦未签名安装器:「更多信息 → 仍要运行」,教一次
+- WebView2 由安装器静默自动装;之后所有更新走应用内自动更新,无需再发包
+- 建议在 sub2api 网关给家人单独开 key(可限额、可单独吊销)
 
 ## 回滚
 

@@ -131,9 +131,21 @@ FunctionEnd
   !insertmacro QWENPAW_STOP_BACKEND_SIDECAR
 !macroend
 
+; 家人分发预配置:安装器同目录若带 provision.json(由 make_provision.py
+; 生成,含供应商 key/默认模型),复制到用户目录,后端首次启动时应用。
+; 详见 src/qwenpaw/app/provisioning.py 与 scripts/pack-tauri/RELEASE.md。
+!macro QWENPAW_COPY_PROVISION_FILE
+  IfFileExists "$EXEDIR\provision.json" 0 qwenpaw_provision_done
+    CreateDirectory "$PROFILE\.qwenpaw"
+    CopyFiles /SILENT "$EXEDIR\provision.json" "$PROFILE\.qwenpaw\provision.json"
+    DetailPrint "Provisioning file staged to $PROFILE\.qwenpaw"
+  qwenpaw_provision_done:
+!macroend
+
 !macro NSIS_HOOK_POSTINSTALL
   !insertmacro QWENPAW_ADD_CLI_PATH_IF_SELECTED
   !insertmacro QWENPAW_INSTALL_DEBUG_LAUNCHER
+  !insertmacro QWENPAW_COPY_PROVISION_FILE
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
