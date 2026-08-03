@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import abc
 import argparse
+import faulthandler
 import json
 import os
 import sys
@@ -933,20 +934,32 @@ def main() -> int:
                     if args.screenshot_dir
                     else None
                 )
+                # Playwright startup has hung indefinitely on macOS CI
+                # runners with zero output. If the next 5 minutes pass
+                # without progress, dump every thread's stack and exit
+                # so the logs show WHERE it hung instead of a bare
+                # step-level timeout.
+                faulthandler.dump_traceback_later(300, exit=True)
+                print(f"--> starting UI driver ({args.ui_mode})")
                 driver = make_driver(
                     args.ui_mode,
                     ss_dir,
                     headless=not args.headed,
                     cdp_url=args.cdp_url,
                 )
+                print("--> UI driver ready")
             except UIDriverInitError as exc:
+                faulthandler.cancel_dump_traceback_later()
                 print(f"FAIL  UI driver init: {exc}", file=sys.stderr)
                 return 3
-            verify_ui_loaded(
-                driver,
-                base_url,
-                skip_navigate=bool(args.cdp_url),
-            )
+            try:
+                verify_ui_loaded(
+                    driver,
+                    base_url,
+                    skip_navigate=bool(args.cdp_url),
+                )
+            finally:
+                faulthandler.cancel_dump_traceback_later()
 
         # ---- LLM chat round (only when key is available) ----
         if skip_chat:
