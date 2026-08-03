@@ -9,13 +9,23 @@
 #   - Python 3.10+ with virtual environment
 #   - PyInstaller 6.0+ (will be installed if not present)
 
-set -e
+set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 DIST="${DIST:-dist}"
 VERSION=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/qwenpaw/__version__.py)
+
+BACKEND_DIR="${DIST}/pyinstaller/qwenpaw-backend"
+BINARIES_DIR="${REPO_ROOT}/console/src-tauri/binaries"
+DEST="${BINARIES_DIR}/qwenpaw-backend"
+SIGNED_STAMP="${BINARIES_DIR}/.qwenpaw-backend-signed.stamp"
+PENDING_STAMP="${BINARIES_DIR}/.qwenpaw-backend-pending.stamp"
+REBUILT_MARKER="${BINARIES_DIR}/.qwenpaw-backend-rebuilt"
+REUSED_MARKER="${BINARIES_DIR}/.qwenpaw-backend-reused"
+
+rm -f "${REBUILT_MARKER}" "${REUSED_MARKER}"
 
 echo "========================================="
 echo "QwenPaw PyInstaller Build"
@@ -42,6 +52,69 @@ fi
 
 echo "Python: $("$PYTHON_BIN" --version)"
 
+if [ ! -f "${REPO_ROOT}/app/dist/index.html" ]; then
+    echo "ERROR: app/dist/index.html not found"
+    echo "Build the app frontend first: (cd app && npm run build)"
+    exit 1
+fi
+
+calculate_fingerprint() {
+    {
+        printf 'platform=%s/%s\n' "$(uname -s)" "$(uname -m)"
+        printf 'python=%s\n' "$("$PYTHON_BIN" --version 2>&1)"
+        printf 'codesign=%s\n' "${PYINSTALLER_CODESIGN_IDENTITY:-}"
+
+        for input in \
+            "pyproject.toml" \
+            "uv.lock" \
+            "scripts/pack-tauri/build_pyinstaller.sh" \
+            "scripts/pack-tauri/qwenpaw.spec" \
+            "scripts/pack-tauri/sign_macos_bundle.sh" \
+            "scripts/pack-tauri/stage_python_runtime.py" \
+            "scripts/pack-tauri/stage_node_runtime.py"; do
+            if [ -f "${REPO_ROOT}/${input}" ]; then
+                printf 'input=%s\n' "${input}"
+                shasum -a 256 "${REPO_ROOT}/${input}"
+            fi
+        done
+
+        for root in "${REPO_ROOT}/src/qwenpaw" "${REPO_ROOT}/app/dist"; do
+            if [ -d "${root}" ]; then
+                while IFS= read -r file; do
+                    printf 'input=%s\n' "${file#"${REPO_ROOT}/"}"
+                    shasum -a 256 "${file}"
+                done < <(
+                    find "${root}" -type f ! -path '*/__pycache__/*' -print |
+                        LC_ALL=C sort
+                )
+            fi
+        done
+    } | shasum -a 256 | awk '{print $1}'
+}
+
+calculate_dependency_fingerprint() {
+    {
+        printf 'python=%s\n' "$("$PYTHON_BIN" --version 2>&1)"
+        shasum -a 256 "${REPO_ROOT}/pyproject.toml"
+        shasum -a 256 "${REPO_ROOT}/uv.lock"
+        printf 'extras=full\n'
+    } | shasum -a 256 | awk '{print $1}'
+}
+
+BACKEND_FINGERPRINT="$(calculate_fingerprint)"
+BACKEND_CACHE_HIT=0
+if [[ "${QWENPAW_FORCE_PYINSTALLER:-0}" != "1" &&
+    -f "${SIGNED_STAMP}" &&
+    "$(<"${SIGNED_STAMP}")" == "${BACKEND_FINGERPRINT}" &&
+    -f "${DEST}/qwenpaw-backend" &&
+    -f "${DEST}/qwenpaw" &&
+    -f "${BACKEND_DIR}/qwenpaw-backend" &&
+    -f "${BACKEND_DIR}/qwenpaw" ]]; then
+    BACKEND_CACHE_HIT=1
+    touch "${REUSED_MARKER}"
+    echo "Reusing signed PyInstaller backend (inputs unchanged)"
+fi
+
 install_python_packages() {
     if command -v uv &>/dev/null; then
         uv pip install --python "$PYTHON_BIN" "$@"
@@ -58,49 +131,72 @@ uninstall_python_package() {
     fi
 }
 
-# Install PyInstaller if not present
-echo "== Installing PyInstaller =="
-if ! "$PYTHON_BIN" -c "import PyInstaller" 2> /dev/null; then
-    echo "Installing PyInstaller..."
-    install_python_packages "pyinstaller>=6.0.0"
+# Build PyInstaller only when the backend inputs changed. Frontend-only edits
+# therefore reuse the already signed 1.1G sidecar instead of rebuilding it.
+if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
+    # Install PyInstaller if not present
+    echo "== Installing PyInstaller =="
+    if ! "$PYTHON_BIN" -c "import PyInstaller" 2> /dev/null; then
+        echo "Installing PyInstaller..."
+        install_python_packages "pyinstaller>=6.0.0"
+    fi
+    echo "PyInstaller installed"
+
+    # Install project dependencies only when pyproject.toml or uv.lock changed.
+    DEPENDENCY_STAMP="${REPO_ROOT}/.venv/.qwenpaw-pack-deps.stamp"
+    DEPENDENCY_FINGERPRINT="$(calculate_dependency_fingerprint)"
+    if [ ! -f "${DEPENDENCY_STAMP}" ] ||
+        [ "$(<"${DEPENDENCY_STAMP}")" != "${DEPENDENCY_FINGERPRINT}" ]; then
+        echo "== Installing project dependencies =="
+        install_python_packages -e ".[full]"
+        printf '%s\n' "${DEPENDENCY_FINGERPRINT}" > "${DEPENDENCY_STAMP}"
+        echo "Project dependencies installed with full extras"
+    else
+        echo "Reusing Python dependencies (pyproject and uv.lock unchanged)"
+    fi
+
+    # Fix agent-client-protocol namespace collision
+    # PyPI has an empty 'acp' stub that shadows the real package
+    if ! "$PYTHON_BIN" -c "from acp import Agent" 2> /dev/null; then
+        echo "Fixing agent-client-protocol namespace..."
+        uninstall_python_package acp
+        install_python_packages "agent-client-protocol>=0.9.0,<0.11.0"
+        printf '%s\n' "${DEPENDENCY_FINGERPRINT}" > "${DEPENDENCY_STAMP}"
+    fi
+    echo ""
+
+    # Run PyInstaller
+    echo "== Running PyInstaller =="
+    echo "Building onedir backend bundle..."
+
+    SPEC_FILE="${REPO_ROOT}/scripts/pack-tauri/qwenpaw.spec"
+    if [ ! -f "$SPEC_FILE" ]; then
+        echo "ERROR: Spec file not found at ${SPEC_FILE}"
+        exit 1
+    fi
+
+    PYINSTALLER_ARGS=(
+        "${SPEC_FILE}"
+        --distpath "${DIST}/pyinstaller"
+        --workpath "${DIST}/pyinstaller-build"
+        --noconfirm
+    )
+    if [[ "${QWENPAW_FAST:-0}" != "1" ]]; then
+        PYINSTALLER_ARGS+=(--clean)
+    else
+        echo "Fast mode: retaining PyInstaller analysis cache"
+    fi
+
+    "$PYTHON_BIN" -m PyInstaller "${PYINSTALLER_ARGS[@]}"
+
+    echo "PyInstaller build complete"
+    echo ""
+else
+    echo "Skipping PyInstaller and dependency installation"
+    echo ""
 fi
-echo "PyInstaller installed"
-
-# Install project dependencies (ensures ALL runtime deps are importable)
-echo "== Installing project dependencies =="
-install_python_packages -e ".[full]"
-echo "Project dependencies installed with full extras"
-
-# Fix agent-client-protocol namespace collision
-# PyPI has an empty 'acp' stub that shadows the real package
-if ! "$PYTHON_BIN" -c "from acp import Agent" 2> /dev/null; then
-    echo "Fixing agent-client-protocol namespace..."
-    uninstall_python_package acp
-    install_python_packages "agent-client-protocol>=0.9.0,<0.11.0"
-fi
-echo ""
-
-# Run PyInstaller
-echo "== Running PyInstaller =="
-echo "Building onedir backend bundle..."
-
-SPEC_FILE="${REPO_ROOT}/scripts/pack-tauri/qwenpaw.spec"
-if [ ! -f "$SPEC_FILE" ]; then
-    echo "ERROR: Spec file not found at ${SPEC_FILE}"
-    exit 1
-fi
-
-"$PYTHON_BIN" -m PyInstaller "$SPEC_FILE" \
-    --distpath "${DIST}/pyinstaller" \
-    --workpath "${DIST}/pyinstaller-build" \
-    --clean \
-    --noconfirm
-
-echo "PyInstaller build complete"
-echo ""
 
 # Verify output
-BACKEND_DIR="${DIST}/pyinstaller/qwenpaw-backend"
 BACKEND_EXE="${BACKEND_DIR}/qwenpaw-backend"
 CLI_EXE="${BACKEND_DIR}/qwenpaw"
 if [ ! -d "${BACKEND_DIR}" ]; then
@@ -123,20 +219,25 @@ SIZE=$(du -sh "${BACKEND_DIR}" | cut -f1)
 echo "Bundle size: ${SIZE}"
 echo ""
 
-# Copy to Tauri resources directory
-echo "== Copying to Tauri binaries directory =="
-BINARIES_DIR="${REPO_ROOT}/console/src-tauri/binaries"
-mkdir -p "${BINARIES_DIR}"
+if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
+    # Copy to Tauri resources directory
+    echo "== Copying to Tauri binaries directory =="
+    mkdir -p "${BINARIES_DIR}"
 
-DEST="${BINARIES_DIR}/qwenpaw-backend"
-# 整目录删除后重建:find -exec rm -rf 在大目录上会因边遍历边删触发 fts_read 竞态
-rm -rf "${DEST}"
-mkdir -p "${DEST}"
-cp -R "${BACKEND_DIR}/." "${DEST}/"
-chmod +x "${DEST}/qwenpaw-backend"
-chmod +x "${DEST}/qwenpaw"
-echo "Copied to: ${DEST}"
-echo ""
+    # 整目录删除后重建:find -exec rm -rf 在大目录上会因边遍历边删触发 fts_read 竞态
+    rm -rf "${DEST}"
+    mkdir -p "${DEST}"
+    cp -R "${BACKEND_DIR}/." "${DEST}/"
+    chmod +x "${DEST}/qwenpaw-backend"
+    chmod +x "${DEST}/qwenpaw"
+    printf '%s\n' "${BACKEND_FINGERPRINT}" > "${PENDING_STAMP}"
+    touch "${REBUILT_MARKER}"
+    echo "Copied to: ${DEST}"
+    echo ""
+else
+    echo "Reusing Tauri backend resource: ${DEST}"
+    echo ""
+fi
 
 # Stage a standalone CPython (same X.Y/arch as this build's interpreter) so the
 # frozen backend can install third-party plugin dependencies at runtime.

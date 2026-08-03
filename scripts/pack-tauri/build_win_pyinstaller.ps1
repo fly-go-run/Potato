@@ -121,11 +121,11 @@ if ($missing.Count -gt 0) {
 }
 Write-Host ""
 
-# Step 1: Build console static assets
-Write-Host "== Step 1: Building Console Static Assets ==" -ForegroundColor Yellow
+# Step 1: Prepare the Tauri bootstrap and build the default web UI.
+Write-Host "== Step 1: Preparing Tauri Bootstrap and Web UI ==" -ForegroundColor Yellow
 Set-Location console
 
-Write-Host "Installing frontend dependencies..."
+Write-Host "Installing Tauri bootstrap dependencies..."
 npm ci
 if ($LASTEXITCODE -ne 0) {
     throw "npm ci failed"
@@ -143,14 +143,26 @@ if ($LASTEXITCODE -ne 0) {
     throw "Tauri version sync failed"
 }
 
-Write-Host "Building console frontend..."
-npm run build:prod
+Set-Location $REPO_ROOT
+Set-Location app
+
+Write-Host "Installing web app dependencies..."
+npm ci
 if ($LASTEXITCODE -ne 0) {
-    throw "console frontend build failed"
+    throw "web app npm ci failed"
 }
 
+Write-Host "Building default web app..."
+npm run build
+if ($LASTEXITCODE -ne 0) {
+    throw "web app build failed"
+}
+
+if (-not (Test-Path "dist\index.html")) {
+    throw "web app build completed without dist\index.html"
+}
 Set-Location $REPO_ROOT
-Write-Host "Console static assets built" -ForegroundColor Green
+Write-Host "Default web app static assets built" -ForegroundColor Green
 Write-Host ""
 
 # Step 2: Build PyInstaller backend

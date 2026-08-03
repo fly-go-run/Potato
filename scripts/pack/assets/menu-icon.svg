@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="50 44 176 174" fill="none">
+  <!-- Transparent macOS menu-bar template mark. AppKit uses the alpha mask
+       and supplies the foreground color for the current menu-bar appearance. -->
+  <path d="M128 87C126 76 119 65 109 56" stroke="#000" stroke-width="9" stroke-linecap="round"/>
+  <path d="M126 83C114 74 101 75 92 83C103 90 116 89 126 83Z" fill="#000"/>
+  <path d="M128 78C130 64 142 54 156 57C152 71 142 80 128 78Z" fill="#000"/>
+  <path d="M63 143C60 117 78 95 106 90C124 87 137 94 153 91C181 86 203 104 206 130C209 156 197 179 175 194C157 206 132 210 105 205C78 200 66 178 63 143Z" fill="#000"/>
+  <path d="M86 124C94 115 104 111 116 109" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".45"/>
+</svg>

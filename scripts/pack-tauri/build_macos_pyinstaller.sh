@@ -4,8 +4,14 @@
 #
 # Usage:
 #   ./scripts/pack-tauri/build_macos_pyinstaller.sh
+#
+# Optional local-build controls:
+#   QWENPAW_FAST=1                 Keep PyInstaller's analysis cache.
+#   QWENPAW_FORCE_NPM_CI=1         Reinstall frontend dependencies explicitly.
+#   QWENPAW_FORCE_PYINSTALLER=1    Rebuild the backend even when inputs match.
+#   QWENPAW_STAGE_APP=1            Keep a copied app under dist/tauri-macos.
 
-set -e
+set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
@@ -19,6 +25,47 @@ echo "Version: ${VERSION}"
 echo ""
 
 SIGN_MACOS_BUNDLE="${REPO_ROOT}/scripts/pack-tauri/sign_macos_bundle.sh"
+
+CONSOLE_DIR="${REPO_ROOT}/console"
+APP_DIR="${REPO_ROOT}/app"
+
+ensure_npm_dependencies() {
+    local package_dir="$1"
+    local required_binary="$2"
+    local hidden_lock="${package_dir}/node_modules/.package-lock.json"
+
+    if [[ "${QWENPAW_FORCE_NPM_CI:-0}" == "1" ||
+        ! -x "${package_dir}/node_modules/.bin/${required_binary}" ||
+        ! -f "${hidden_lock}" ||
+        "${package_dir}/package.json" -nt "${hidden_lock}" ||
+        ( -f "${package_dir}/package-lock.json" &&
+            "${package_dir}/package-lock.json" -nt "${hidden_lock}" ) ]]; then
+        echo "Installing ${package_dir##*/} npm dependencies..."
+        (cd "${package_dir}" && npm ci)
+    else
+        echo "Reusing ${package_dir##*/}/node_modules (lockfile unchanged)"
+    fi
+}
+
+app_frontend_needs_build() {
+    local output="${APP_DIR}/dist/index.html"
+
+    [[ ! -f "${output}" ]] && return 0
+
+    for input in \
+        "${APP_DIR}/package.json" \
+        "${APP_DIR}/package-lock.json" \
+        "${APP_DIR}/vite.config.ts" \
+        "${APP_DIR}/tsconfig.json" \
+        "${APP_DIR}/tsconfig.app.json"; do
+        if [[ -f "${input}" && "${input}" -nt "${output}" ]]; then
+            return 0
+        fi
+    done
+
+    find "${APP_DIR}/src" "${APP_DIR}/public" -type f -newer "${output}" \
+        -print -quit 2>/dev/null | grep -q .
+}
 
 # Step 0: Prerequisites
 echo "== Step 0: Checking Prerequisites =="
@@ -76,18 +123,28 @@ if [ -z "${PYINSTALLER_CODESIGN_IDENTITY:-}" ]; then
 fi
 echo ""
 
-# Step 1: Build console static assets
-echo "== Step 1: Building Console Static Assets =="
-cd console
-npm ci
-echo "Generating Tauri icons..."
-npm exec -- tauri icon ../scripts/pack/assets/icon.svg
+# Step 1: Prepare frontend assets
+echo "== Step 1: Preparing Frontend Assets =="
+ensure_npm_dependencies "${APP_DIR}" "vite"
+if app_frontend_needs_build; then
+    echo "Building app frontend..."
+    (cd "${APP_DIR}" && npm run build)
+else
+    echo "Reusing app/dist (frontend sources unchanged)"
+fi
+
+ensure_npm_dependencies "${CONSOLE_DIR}" "tauri"
+ICON_SOURCE="${REPO_ROOT}/scripts/pack/assets/icon.svg"
+ICON_OUTPUT="${CONSOLE_DIR}/src-tauri/icons/icon.png"
+if [[ ! -f "${ICON_OUTPUT}" || "${ICON_SOURCE}" -nt "${ICON_OUTPUT}" ]]; then
+    echo "Generating Tauri icons..."
+    (cd "${CONSOLE_DIR}" && ./node_modules/.bin/tauri icon ../scripts/pack/assets/icon.svg)
+else
+    echo "Reusing generated Tauri icons (source unchanged)"
+fi
 echo "Syncing Tauri version..."
-node ../scripts/pack-tauri/sync_tauri_version.mjs
-echo "Building console frontend..."
-npm run build:prod
-cd ..
-echo "Console static assets built"
+(cd "${CONSOLE_DIR}" && node ../scripts/pack-tauri/sync_tauri_version.mjs)
+echo "Console bootstrap will be built once by Tauri's beforeBuildCommand"
 echo ""
 
 # Step 2: Build PyInstaller backend
@@ -96,11 +153,21 @@ bash scripts/pack-tauri/build_pyinstaller.sh
 echo "PyInstaller backend built"
 echo ""
 
-echo "== Step 2b: Signing PyInstaller Backend =="
-bash "${SIGN_MACOS_BUNDLE}" \
-    "${REPO_ROOT}/console/src-tauri/binaries/qwenpaw-backend" \
-    "${APPLE_SIGNING_IDENTITY}"
-echo "PyInstaller backend signed"
+BACKEND_BINARIES_DIR="${REPO_ROOT}/console/src-tauri/binaries"
+BACKEND_REBUILT_MARKER="${BACKEND_BINARIES_DIR}/.qwenpaw-backend-rebuilt"
+BACKEND_PENDING_STAMP="${BACKEND_BINARIES_DIR}/.qwenpaw-backend-pending.stamp"
+BACKEND_SIGNED_STAMP="${BACKEND_BINARIES_DIR}/.qwenpaw-backend-signed.stamp"
+if [ -f "${BACKEND_REBUILT_MARKER}" ]; then
+    echo "== Step 2b: Signing PyInstaller Backend =="
+    bash "${SIGN_MACOS_BUNDLE}" \
+        "${BACKEND_BINARIES_DIR}/qwenpaw-backend" \
+        "${APPLE_SIGNING_IDENTITY}"
+    mv -f "${BACKEND_PENDING_STAMP}" "${BACKEND_SIGNED_STAMP}"
+    echo "PyInstaller backend signed"
+else
+    echo "== Step 2b: Reusing Signed PyInstaller Backend =="
+    echo "Backend inputs unchanged; skipping backend signing"
+fi
 echo ""
 
 # Step 3: Build Tauri app
@@ -109,14 +176,18 @@ BUNDLE_DIR="${REPO_ROOT}/console/src-tauri/target/release/bundle"
 rm -rf "${BUNDLE_DIR}/dmg" "${BUNDLE_DIR}/macos"
 cd console
 echo "Building for macOS..."
-npm exec -- tauri build \
+./node_modules/.bin/tauri build \
     --config src-tauri/tauri.version.conf.json \
     --bundles app
 cd ..
 echo "Tauri app built"
 echo ""
 
-APP_PATH="${BUNDLE_DIR}/macos/QwenPaw Desktop.app"
+# Keep the staged app name in sync with the desktop shell's public product name.
+# Leaving the old QwenPaw Desktop path here makes it very easy to launch a stale
+# bundle (and, in particular, its old opaque menu-bar icon) after a rebuild.
+APP_NAME="Potato"
+APP_PATH="${BUNDLE_DIR}/macos/${APP_NAME}.app"
 if [ ! -d "${APP_PATH}" ]; then
     echo "ERROR: No Tauri macOS app found at ${APP_PATH}"
     exit 1
@@ -138,13 +209,18 @@ else
     DIST_ROOT="${REPO_ROOT}/${DIST}"
 fi
 DIST_DIR="${DIST_ROOT}/tauri-macos"
-rm -rf "${DIST_DIR}"
-mkdir -p "${DIST_DIR}"
+ARCHIVE_SOURCE="${APP_PATH}"
+if [[ "${QWENPAW_STAGE_APP:-0}" == "1" ]]; then
+    rm -rf "${DIST_DIR}"
+    mkdir -p "${DIST_DIR}"
+    cp -R "${APP_PATH}" "${DIST_DIR}/"
+    ARCHIVE_SOURCE="${DIST_DIR}/$(basename "${APP_PATH}")"
+    echo ".app copied to ${ARCHIVE_SOURCE}"
+else
+    echo "Archiving Tauri app in place (set QWENPAW_STAGE_APP=1 to copy it)"
+fi
 
 # Match the legacy macOS package shape: one zip containing one .app bundle.
-cp -R "${APP_PATH}" "${DIST_DIR}/"
-STAGED_APP_PATH="${DIST_DIR}/$(basename "${APP_PATH}")"
-echo ".app copied to ${STAGED_APP_PATH}"
 
 # Create ZIP archive
 ZIP_NAME="${DIST_ROOT}/QwenPaw-Tauri-${VERSION}-macOS.zip"
@@ -152,10 +228,10 @@ if [ -f "${ZIP_NAME}" ]; then
     rm -f "${ZIP_NAME}"
 fi
 if command -v ditto &>/dev/null; then
-    ditto -c -k --sequesterRsrc --keepParent "${STAGED_APP_PATH}" "${ZIP_NAME}"
+    ditto -c -k --sequesterRsrc --keepParent "${ARCHIVE_SOURCE}" "${ZIP_NAME}"
 else
-    cd "${DIST_DIR}"
-    zip -r "${ZIP_NAME}" "$(basename "${STAGED_APP_PATH}")"
+    cd "$(dirname "${ARCHIVE_SOURCE}")"
+    zip -r "${ZIP_NAME}" "$(basename "${ARCHIVE_SOURCE}")"
     cd "${REPO_ROOT}"
 fi
 
@@ -192,9 +268,13 @@ echo "========================================="
 echo "Build Complete!"
 echo "========================================="
 echo "App:          ${APP_PATH}"
-echo "Distribution: ${DIST_DIR}"
+if [[ "${QWENPAW_STAGE_APP:-0}" == "1" ]]; then
+    echo "Staged app:   ${ARCHIVE_SOURCE}"
+else
+    echo "Staged app:   (disabled; set QWENPAW_STAGE_APP=1 to create one)"
+fi
 echo "Archive:      ${ZIP_NAME}"
 echo "Updater:      ${UPDATER_NAME}"
 echo ""
-echo "Test: open \"${STAGED_APP_PATH}\""
+echo "Test: open \"${ARCHIVE_SOURCE}\""
 echo ""

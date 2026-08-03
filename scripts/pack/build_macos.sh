@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-click build: console -> conda-pack -> QwenPaw.app. Run from repo root.
-# Requires: conda, node/npm (for console). Optional: icon.icns in assets/.
+# One-click build: web app -> conda-pack -> QwenPaw.app. Run from repo root.
+# Requires: conda, node/npm (for app). Optional: icon.icns in assets/.
 
 set -e
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -11,7 +11,7 @@ ARCHIVE="${DIST}/qwenpaw-env.tar.gz"
 APP_NAME="QwenPaw"
 APP_DIR="${DIST}/${APP_NAME}.app"
 
-echo "== Building wheel (includes console frontend) =="
+echo "== Building wheel (includes default web app) =="
 # Skip wheel_build if dist already has a wheel for current version
 VERSION_FILE="${REPO_ROOT}/src/qwenpaw/__version__.py"
 CURRENT_VERSION=""

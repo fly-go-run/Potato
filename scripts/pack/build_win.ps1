@@ -1,5 +1,5 @@
-# One-click build: console -> conda-pack -> NSIS .exe. Run from repo root.
-# Requires: conda, node/npm (for console), NSIS (makensis) on PATH.
+# One-click build: web app -> conda-pack -> NSIS .exe. Run from repo root.
+# Requires: conda, node/npm (for app), NSIS (makensis) on PATH.
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Get-Item $PSScriptRoot).Parent.Parent.FullName
@@ -23,7 +23,7 @@ $CondaUnpackAffectedPackages = @(
 
 New-Item -ItemType Directory -Force -Path $Dist | Out-Null
 
-Write-Host "== Building wheel (includes console frontend) =="
+Write-Host "== Building wheel (includes default web app) =="
 # Skip wheel_build if dist already has a wheel for current version
 $VersionFile = Join-Path $RepoRoot "src\qwenpaw\__version__.py"
 $CurrentVersion = ""

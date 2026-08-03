@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="background" x1="512" y1="24" x2="512" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#353535"/>
+      <stop offset="1" stop-color="#1B1B1B"/>
+    </linearGradient>
+    <linearGradient id="potato" x1="355" y1="392" x2="671" y2="794" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EBC17C"/>
+      <stop offset="1" stop-color="#D28A4B"/>
+    </linearGradient>
+    <filter id="shadow" x="190" y="170" width="644" height="690" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity=".4"/>
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="url(#background)"/>
+
+  <g filter="url(#shadow)">
+    <path d="M493 367C493 329 474 290 440 258" stroke="#A5C896" stroke-width="24" stroke-linecap="round"/>
+    <path d="M488 349C450 320 406 321 376 348C412 369 452 367 488 349Z" fill="#8FB782" stroke="#668A5F" stroke-width="16" stroke-linejoin="round"/>
+    <path d="M493 333C501 284 542 250 591 260C579 310 545 343 493 333Z" fill="#A7C99A" stroke="#668A5F" stroke-width="16" stroke-linejoin="round"/>
+
+    <path d="M270 578C261 489 322 411 420 394C483 383 527 408 582 398C680 380 758 440 769 532C780 624 739 704 664 756C604 798 518 812 426 794C334 776 279 697 270 578Z" fill="url(#potato)" stroke="#F1D4A6" stroke-width="26" stroke-linejoin="round"/>
+    <path d="M350 513C379 481 415 464 455 459" stroke="#FFF0CE" stroke-width="20" stroke-linecap="round" opacity=".68"/>
+    <circle cx="401" cy="601" r="14" fill="#9A6339"/>
+    <circle cx="595" cy="566" r="13" fill="#9A6339"/>
+    <circle cx="555" cy="688" r="11" fill="#9A6339"/>
+  </g>
+</svg>
