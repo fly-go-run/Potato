@@ -18,7 +18,7 @@ import {
   type KeyboardEvent,
   type SyntheticEvent,
 } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button, IconButton } from "../ui";
 import { useTranslation } from "../../lib/i18n";
 import { skillApi, type SkillInfo } from "../../lib/capabilities";
@@ -50,6 +50,7 @@ const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
 
 export function Composer({ wide = false }: { wide?: boolean }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +61,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissedToken, setDismissedToken] = useState<string | null>(null);
   const [skills, setSkills] = useState<SkillInfo[] | null>(null);
+  const [skillsError, setSkillsError] = useState(false);
   const skillsRequested = useRef(false);
 
   // 随内容自动增高:2 行(64px)起步,192px(约 7 行,与 max-h-48 一致)封顶后内部滚动
@@ -120,21 +122,56 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     });
     if (next?.kind === "slash" && !skillsRequested.current) {
       skillsRequested.current = true;
+      setSkillsError(false);
       skillApi
         .list()
-        .then((items) => setSkills(items))
-        .catch(() => setSkills([]));
+        .then((items) => {
+          setSkills(items);
+          setSkillsError(false);
+        })
+        .catch(() => {
+          // 失败不能伪装成"没有技能",并允许下次输入 / 时重试。
+          setSkills([]);
+          setSkillsError(true);
+          skillsRequested.current = false;
+        });
     }
   };
 
-  // 会话内可引用的文件:已发送消息里的 file 块 + 待发送附件(去重,新的在前)
+  const retrySkills = () => {
+    skillsRequested.current = false;
+    setSkills(null);
+    setSkillsError(false);
+    skillsRequested.current = true;
+    skillApi
+      .list()
+      .then((items) => setSkills(items))
+      .catch(() => {
+        setSkills([]);
+        setSkillsError(true);
+        skillsRequested.current = false;
+      });
+  };
+
+  // 会话内可引用的文件:已发送消息里的 file 块 + 待发送附件(新的在前)。
+  // 去重 key 带上 url:同名不同来源的文件不能互相覆盖,description
+  // 展示来源片段帮助区分。
   const conversationFiles = useMemo(() => {
     const seen = new Map<string, TriggerItem>();
     for (const message of stream.messages) {
       for (const block of message.content) {
         if (block.type === "file" && block.filename) {
-          seen.set(block.filename, {
+          const url = block.file_url ?? "";
+          const key = `${block.filename}::${url}`;
+          const duplicateName = Array.from(seen.values()).some(
+            (item) => item.value === block.filename,
+          );
+          seen.set(key, {
             value: block.filename,
+            description:
+              duplicateName && url
+                ? url.split("/").slice(-2).join("/")
+                : undefined,
             icon: IMAGE_EXT.test(block.filename) ? "image" : "file",
           });
         }
@@ -193,11 +230,28 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const approvalLevels: Array<{
     value: ApprovalLevel;
     label: string;
+    hint: string;
   }> = [
-    { value: "AUTO", label: t("composer.approval.auto") },
-    { value: "SMART", label: t("composer.approval.smart") },
-    { value: "STRICT", label: t("composer.approval.strict") },
-    { value: "OFF", label: t("composer.approval.off") },
+    {
+      value: "AUTO",
+      label: t("composer.approval.auto"),
+      hint: t("composer.approval.autoHint"),
+    },
+    {
+      value: "SMART",
+      label: t("composer.approval.smart"),
+      hint: t("composer.approval.smartHint"),
+    },
+    {
+      value: "STRICT",
+      label: t("composer.approval.strict"),
+      hint: t("composer.approval.strictHint"),
+    },
+    {
+      value: "OFF",
+      label: t("composer.approval.off"),
+      hint: t("composer.approval.offHint"),
+    },
   ];
   const model = activeModel?.active_llm;
   const busy = isStreaming || isSubmitting;
@@ -221,7 +275,8 @@ export function Composer({ wide = false }: { wide?: boolean }) {
           className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
         >
           <ShieldCheck size={15} className="text-ink-tertiary" />
-          {insideComposer ? t("composer.defaultPermission") : approvalLabel}
+          {/* 审批档位是安全边界,任何入口都必须显示当前档位 */}
+          {approvalLabel}
           <ChevronDown size={13} />
         </Button>
       </DropdownMenu.Trigger>
@@ -229,17 +284,22 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         <DropdownMenu.Content
           sideOffset={6}
           align="start"
-          className="qp-pop z-50 min-w-36 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
+          className="qp-pop z-50 min-w-64 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
         >
           {approvalLevels.map((item) => (
             <DropdownMenu.Item
               key={item.value}
               onSelect={() => setApprovalLevel(item.value)}
-              className="flex cursor-default items-center justify-between rounded-sm px-2 py-1.5 text-xs text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
+              className="flex cursor-default items-start justify-between gap-3 rounded-sm px-2.5 py-2 outline-none hover:bg-fill-hover focus:bg-fill-active"
             >
-              {item.label}
+              <span className="min-w-0">
+                <span className="block text-xs text-ink">{item.label}</span>
+                <span className="mt-0.5 block text-[11px] leading-4 text-ink-muted">
+                  {item.hint}
+                </span>
+              </span>
               {approvalLevel === item.value && (
-                <Check size={13} className="text-accent" />
+                <Check size={13} className="mt-0.5 shrink-0 text-accent" />
               )}
             </DropdownMenu.Item>
           ))}
@@ -304,7 +364,11 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       {!model && !modelLoading && (
         <div className={`mx-auto mb-2 text-center text-xs text-warn ${widthClass}`}>
           {t("composer.modelMissing")}
-          <Link to="/settings" className="ml-1 underline underline-offset-2">
+          <Link
+            to="/settings"
+            state={{ background: location }}
+            className="ml-1 underline underline-offset-2"
+          >
             {t("composer.openSettings")}
           </Link>
         </div>
@@ -316,6 +380,12 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             items={triggerItems}
             activeIndex={activeIndex}
             loading={Boolean(skillsLoading)}
+            errorText={
+              trigger.kind === "slash" && skillsError
+                ? t("composer.skillsLoadFailed")
+                : undefined
+            }
+            onRetry={retrySkills}
             onSelect={selectTriggerItem}
             onHover={setActiveIndex}
           />
@@ -413,6 +483,26 @@ export function Composer({ wide = false }: { wide?: boolean }) {
               {!wide && renderApprovalControl(true)}
 
               <div className="flex-1" />
+
+              {/* 上下文用量在会话里最需要被看到:接近压缩/上限前给用户预警 */}
+              {!wide &&
+                stream.turnUsage?.context_usage?.context_usage_ratio !==
+                  undefined && (
+                  <span
+                    className={`hidden pr-1 text-[11px] sm:inline ${
+                      stream.turnUsage.context_usage.context_usage_ratio >= 80
+                        ? "text-warn"
+                        : "text-ink-muted"
+                    }`}
+                  >
+                    {t("chat.contextUsed", {
+                      ratio:
+                        stream.turnUsage.context_usage.context_usage_ratio.toFixed(
+                          1,
+                        ),
+                    })}
+                  </span>
+                )}
 
               <ModelPicker />
 

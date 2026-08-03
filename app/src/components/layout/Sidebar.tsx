@@ -15,7 +15,6 @@ import {
   MoreHorizontal,
   NotebookPen,
   PanelLeft,
-  PawPrint,
   PenLine,
   PenSquare,
   Pin,
@@ -26,9 +25,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { PotatoMark } from "../brand/PotatoMark";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { ChatSpec } from "../../lib/api";
 import { APP_NAME } from "../../lib/appInfo";
+import { presentError } from "../../lib/errorPresentation";
 import { useTranslation } from "../../lib/i18n";
 import { relativeTime } from "../../lib/relativeTime";
 import { loadSessionProject } from "../../lib/projects";
@@ -52,12 +53,11 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const location = useLocation();
   const { chats, chatsLoading, activeChatId, newChat } = useChatStore();
   const unreadCount = useInboxStore((state) => state.unreadCount);
-  const activeProject = useChatStore((state) => state.project);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   // 分组展开态只活在内存里：刷新后回到默认展开，不值得占一个持久化键。
   const [chatsExpanded, setChatsExpanded] = useState(true);
-  const [workspacesExpanded, setWorkspacesExpanded] = useState(true);
-  const [expandedWorkspacePaths, setExpandedWorkspacePaths] = useState<
+  const [projectsExpanded, setProjectsExpanded] = useState(true);
+  const [expandedProjectPaths, setExpandedProjectPaths] = useState<
     Record<string, boolean>
   >({});
   const groupedChats = useMemo(() => {
@@ -231,92 +231,56 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        <button
-          type="button"
-          onClick={() => setChatsExpanded((value) => !value)}
-          aria-expanded={chatsExpanded}
-          title={
-            chatsExpanded ? t("sidebar.collapseGroup") : t("sidebar.expandGroup")
-          }
-          className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink-secondary"
-        >
-          <span className="truncate">
-            {t("sidebar.chatsGroup", { count: groupedChats.unbound.length })}
-          </span>
-          <ChevronDown
-            size={13}
-            className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
-              chatsExpanded ? "" : "-rotate-90"
-            }`}
-          />
-        </button>
-        {chatsExpanded &&
-          (chatsLoading && chats.length === 0 ? (
-            <div className="px-2 py-1">
-              <SkeletonRows rows={4} />
-            </div>
-          ) : groupedChats.unbound.length === 0 ? (
-            <div className="px-3 py-2 text-[13px] leading-5 text-ink-muted">
-              {groupedChats.workspaces.length === 0
-                ? t("sidebar.empty")
-                : t("sidebar.unboundEmpty")}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {groupedChats.unbound.map((chat) => (
-                <ChatRow
-                  key={chat.id}
-                  chat={chat}
-                  active={chat.id === activeChatId}
-                />
-              ))}
-            </div>
-          ))}
-
+        {/* Codex 的层级更符合工作台心智：先找项目，再找不属于项目的普通会话。 */}
         {groupedChats.workspaces.length > 0 && (
-          <div className="mt-3">
+          <div>
             <button
               type="button"
-              onClick={() => setWorkspacesExpanded((value) => !value)}
-              aria-expanded={workspacesExpanded}
+              onClick={() => setProjectsExpanded((value) => !value)}
+              aria-expanded={projectsExpanded}
+              title={
+                projectsExpanded
+                  ? t("sidebar.collapseGroup")
+                  : t("sidebar.expandGroup")
+              }
               className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors hover:text-ink-secondary"
             >
               <span className="truncate">
-                {t("sidebar.workspacesGroup", {
+                {t("sidebar.projectsGroup", {
                   count: groupedChats.workspaces.length,
                 })}
               </span>
               <ChevronDown
                 size={13}
-                className={`shrink-0 transition-transform ${
-                  workspacesExpanded ? "" : "-rotate-90"
+                className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+                  projectsExpanded ? "" : "-rotate-90"
                 }`}
               />
             </button>
-            {workspacesExpanded && (
+            {projectsExpanded && (
               <div className="space-y-1.5">
-                {groupedChats.workspaces.map((workspace) => {
-                  const open = expandedWorkspacePaths[workspace.path] ?? true;
+                {groupedChats.workspaces.map((project) => {
+                  const open = expandedProjectPaths[project.path] ?? true;
                   return (
-                    <div key={workspace.path}>
+                    <div key={project.path}>
                       <button
                         type="button"
                         onClick={() =>
-                          setExpandedWorkspacePaths((value) => ({
+                          setExpandedProjectPaths((value) => ({
                             ...value,
-                            [workspace.path]: !open,
+                            [project.path]: !open,
                           }))
                         }
                         aria-expanded={open}
-                        title={workspace.path}
+                        title={project.path}
                         className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[12px] text-ink-secondary hover:bg-fill-hover"
                       >
                         <FolderClosed size={14} className="shrink-0 text-ink-muted" />
                         <span className="min-w-0 flex-1 truncate">
-                          {workspace.name}
+                          {project.name}
                         </span>
                         <span className="text-[10px] tabular-nums text-ink-muted">
-                          {workspace.chats.length}
+                          {project.chats.length}
                         </span>
                         <ChevronDown
                           size={12}
@@ -327,7 +291,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                       </button>
                       {open && (
                         <div className="ml-3 border-l border-line pl-1">
-                          {workspace.chats.map((chat) => (
+                          {project.chats.map((chat) => (
                             <ChatRow
                               key={chat.id}
                               chat={chat}
@@ -344,28 +308,67 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
             )}
           </div>
         )}
+
+        <div className={groupedChats.workspaces.length > 0 ? "mt-3" : ""}>
+          <button
+            type="button"
+            onClick={() => setChatsExpanded((value) => !value)}
+            aria-expanded={chatsExpanded}
+            title={
+              chatsExpanded ? t("sidebar.collapseGroup") : t("sidebar.expandGroup")
+            }
+            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink-secondary"
+          >
+            <span className="truncate">
+              {t("sidebar.chatsGroup", { count: groupedChats.unbound.length })}
+            </span>
+            <ChevronDown
+              size={13}
+              className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+                chatsExpanded ? "" : "-rotate-90"
+              }`}
+            />
+          </button>
+          {chatsExpanded &&
+            (chatsLoading && chats.length === 0 ? (
+              <div className="px-2 py-1">
+                <SkeletonRows rows={4} />
+              </div>
+            ) : groupedChats.unbound.length === 0 ? (
+              <div className="px-3 py-2 text-[13px] leading-5 text-ink-muted">
+                {groupedChats.workspaces.length === 0
+                  ? t("sidebar.empty")
+                  : t("sidebar.unboundEmpty")}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {groupedChats.unbound.map((chat) => (
+                  <ChatRow
+                    key={chat.id}
+                    chat={chat}
+                    active={chat.id === activeChatId}
+                  />
+                ))}
+              </div>
+            ))}
+        </div>
       </nav>
 
       <div className="flex min-h-[56px] items-center gap-2 border-t border-line px-3 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink-secondary shadow-[var(--shadow-control)]">
-            <PawPrint size={14} strokeWidth={2} />
+            <PotatoMark size={18} />
           </span>
-          <div className="min-w-0 leading-tight">
+          <div className="min-w-0">
             <div className="truncate text-[14px] font-semibold text-ink">
               {APP_NAME}
-            </div>
-            <div
-              className="truncate text-[11px] text-ink-muted"
-              title={activeProject?.path}
-            >
-              {activeProject?.name ?? t("sidebar.localWorkspace")}
             </div>
           </div>
         </div>
         <ThemeToggle />
         <NavLink
           to="/settings"
+          state={{ background: location }}
           title={t("sidebar.settings")}
           aria-label={t("sidebar.settings")}
           className={({ isActive }) =>
@@ -437,11 +440,20 @@ function ChatRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState(chat.name);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { renameChat, togglePinned, deleteChat } = useChatStore();
+  const { renameChat, togglePinned, deleteChat, clearError } = useChatStore();
   // 每次渲染现算：列表本身随会话更新重渲染，不额外挂定时器。
   const updatedAt = relativeTime(chat.updated_at);
+
+  useEffect(() => {
+    if (!pinError) return;
+    const timer = window.setTimeout(() => setPinError(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [pinError]);
 
   const openContextMenu = (event: MouseEvent) => {
     event.preventDefault();
@@ -450,17 +462,70 @@ function ChatRow({
 
   const submitRename = async () => {
     if (!renameValue.trim()) return;
+    setRenameError(null);
     setBusy(true);
-    await renameChat(chat.id, renameValue);
+    clearError();
+    try {
+      await renameChat(chat.id, renameValue);
+    } catch (reason) {
+      setRenameError(actionFailureMessage(reason));
+      setBusy(false);
+      return;
+    }
+    const failure = actionFailureMessage();
+    if (failure) {
+      setRenameError(failure);
+      setBusy(false);
+      return;
+    }
     setBusy(false);
     setRenameOpen(false);
   };
 
   const confirmDelete = async () => {
+    setDeleteError(null);
     setBusy(true);
-    await deleteChat(chat.id);
+    clearError();
+    try {
+      await deleteChat(chat.id);
+    } catch (reason) {
+      setDeleteError(actionFailureMessage(reason));
+      setBusy(false);
+      return;
+    }
+    const failure = actionFailureMessage();
+    if (failure) {
+      setDeleteError(failure);
+      setBusy(false);
+      return;
+    }
     setBusy(false);
     setDeleteOpen(false);
+  };
+
+  const togglePin = async () => {
+    setPinError(null);
+    setBusy(true);
+    clearError();
+    try {
+      await togglePinned(chat.id);
+    } catch (reason) {
+      setPinError(actionFailureMessage(reason));
+      setBusy(false);
+      return;
+    }
+    const failure = actionFailureMessage();
+    if (failure) setPinError(failure);
+    setBusy(false);
+  };
+
+  const actionFailureMessage = (reason?: unknown) => {
+    const source = reason ?? useChatStore.getState().error;
+    if (source === null || source === undefined || source === "") return null;
+    const presentation = presentError(source);
+    return t("sidebar.actionFailed", {
+      message: t(presentation.summaryKey),
+    });
   };
 
   return (
@@ -481,12 +546,6 @@ function ChatRow({
             active ? "text-ink" : "text-ink-secondary"
           }`}
         >
-          {chat.status === "running" && (
-            <span
-              title={t("sidebar.running")}
-              className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-ok"
-            />
-          )}
           {chat.pinned && (
             <Pin
               size={12}
@@ -530,6 +589,7 @@ function ChatRow({
             label={t("sidebar.rename")}
             onSelect={() => {
               setRenameValue(chat.name);
+              setRenameError(null);
               setRenameOpen(true);
             }}
           />
@@ -538,11 +598,14 @@ function ChatRow({
             label={
               chat.pinned ? t("sidebar.unpin") : t("sidebar.pin")
             }
-            onSelect={() => void togglePinned(chat.id)}
+            onSelect={() => void togglePin()}
           />
           <DropdownMenu.Separator className="my-1 h-px bg-line" />
           <DropdownMenu.Item
-            onSelect={() => setDeleteOpen(true)}
+            onSelect={() => {
+              setDeleteError(null);
+              setDeleteOpen(true);
+            }}
             className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-danger outline-none hover:bg-danger-soft focus:bg-danger-soft"
           >
             <Trash2 size={14} />
@@ -551,7 +614,21 @@ function ChatRow({
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
       </DropdownMenu.Root>
-      <Dialog.Root open={renameOpen} onOpenChange={setRenameOpen}>
+      {pinError && (
+        <div
+          role="alert"
+          className="mx-2 mb-1 rounded-md bg-danger-soft px-2.5 py-1.5 text-[11px] leading-4 text-danger"
+        >
+          {pinError}
+        </div>
+      )}
+      <Dialog.Root
+        open={renameOpen}
+        onOpenChange={(open) => {
+          setRenameOpen(open);
+          if (!open) setRenameError(null);
+        }}
+      >
         <Dialog.Portal>
           <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
           <Dialog.Content className="qp-pop fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-lg)] border border-line bg-raised p-5 shadow-[var(--shadow-lg)] outline-none">
@@ -575,6 +652,14 @@ function ChatRow({
                 aria-label={t("sidebar.rename")}
                 onChange={(event) => setRenameValue(event.target.value)}
               />
+              {renameError && (
+                <div
+                  role="alert"
+                  className="mt-3 rounded-md bg-danger-soft px-2.5 py-2 text-xs text-danger"
+                >
+                  {renameError}
+                </div>
+              )}
               <div className="mt-5 flex justify-end gap-2">
                 <Button
                   variant="ghost"
@@ -600,12 +685,21 @@ function ChatRow({
       <ConfirmDialog
         open={deleteOpen}
         title={t("sidebar.delete")}
-        description={t("sidebar.deleteConfirm", {
-          name: chat.name || t("sidebar.untitled"),
-        })}
+        description={
+          deleteError
+            ? `${t("sidebar.deleteConfirm", {
+                name: chat.name || t("sidebar.untitled"),
+              })}\n${deleteError}`
+            : t("sidebar.deleteConfirm", {
+                name: chat.name || t("sidebar.untitled"),
+              })
+        }
         tone="danger"
         busy={busy}
-        onOpenChange={setDeleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (!open) setDeleteError(null);
+        }}
         onConfirm={() => void confirmDelete()}
       />
     </>

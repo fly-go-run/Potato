@@ -169,6 +169,18 @@ export function providerReady(provider: ProviderInfo): boolean {
   return provider.is_local || !provider.require_api_key || Boolean(provider.api_key);
 }
 
+/** Whether the user saved a real provider connection in settings. */
+export function providerConfigured(provider: ProviderInfo): boolean {
+  if (provider.api_key) return true;
+  // 自定义供应商:只有声明不需要 key 的,才能仅凭 URL 算已配置;
+  // 需要 key 却没有 key(比如刚被清除)必须诚实地显示未配置。
+  return (
+    provider.is_custom &&
+    Boolean(provider.base_url) &&
+    !provider.require_api_key
+  );
+}
+
 export interface UploadResponse {
   url: string;
   file_name: string;
@@ -294,6 +306,29 @@ export const modelApi = {
       body: JSON.stringify(config),
     });
   },
+  removeProvider: (providerId: string) =>
+    apiJson<ProviderInfo[]>(
+      `/api/models/custom-providers/${encodeURIComponent(providerId)}`,
+      { method: "DELETE" },
+    ),
+  /** 探活:可携带未保存的 key/url 试连,后端不落盘。 */
+  testProvider: (
+    providerId: string,
+    overrides?: { api_key?: string; base_url?: string },
+  ) =>
+    apiJson<{ success: boolean; message: string }>(
+      `/api/models/${encodeURIComponent(providerId)}/test`,
+      { method: "POST", body: JSON.stringify(overrides ?? {}) },
+    ),
+  createCustomProvider: (input: {
+    id: string;
+    name: string;
+    default_base_url: string;
+  }) =>
+    apiJson<ProviderInfo>("/api/models/custom-providers", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 };
 
 export const approvalApi = {
@@ -420,6 +455,70 @@ export const settingsApi = {
       body: JSON.stringify({ enabled }),
     }),
 };
+
+export interface GitChangedFile {
+  path: string;
+  status: string;
+  staged: boolean;
+}
+
+export interface GitStatus {
+  branch: string;
+  changes: GitChangedFile[];
+  ahead: number;
+  behind: number;
+}
+
+/**
+ * 工作区 git 只读接口。后端作用于 coding_mode.project_dir(未配置则
+ * agent workspace),不能按会话传目录 —— 调用方需自己做「拿不到就回落」。
+ */
+export const workspaceGitApi = {
+  status: (signal?: AbortSignal) =>
+    apiJson<GitStatus>("/api/workspace/git/status", { signal }),
+  diff: (
+    path: string,
+    options?: { staged?: boolean; untracked?: boolean },
+    signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams({ path });
+    if (options?.staged) params.set("staged", "true");
+    if (options?.untracked) params.set("untracked", "true");
+    return apiJson<{ diff: string }>(
+      `/api/workspace/git/diff?${params.toString()}`,
+      { signal },
+    );
+  },
+  /** 丢弃工作区改动:tracked 走 git restore,untracked 走 git clean。 */
+  discard: (paths: string[]) =>
+    apiJson<{ discarded: string[] }>("/api/workspace/git/discard", {
+      method: "POST",
+      body: JSON.stringify({ paths }),
+    }),
+};
+
+/** 拉取工作区文件的原始文本(预览端点),供前端高亮/渲染。 */
+export async function fetchFileText(
+  path: string,
+  signal?: AbortSignal,
+  maxBytes = 2_000_000,
+): Promise<string> {
+  const url = filePreviewUrl(path);
+  // 先 HEAD 看体积,超限直接失败让调用方回落 iframe,
+  // 避免把几百 MB 的日志整个拉进内存后才发现太大。
+  try {
+    const head = await apiFetch(url, { method: "HEAD", signal });
+    const length = Number(head.headers.get("content-length"));
+    if (Number.isFinite(length) && length > maxBytes) {
+      throw new ApiError("file too large for text preview", 413);
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 413) throw error;
+    // HEAD 不可用时继续走 GET,由调用方的字符数上限兜底。
+  }
+  const response = await apiFetch(url, { signal });
+  return response.text();
+}
 
 export function filePreviewUrl(value: string): string {
   if (!value) return "";

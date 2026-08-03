@@ -2,7 +2,7 @@ import { Check, ChevronRight, CircleEllipsis, X } from "lucide-react";
 import type { DataContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { t, useTranslation, type TranslationKey } from "../../lib/i18n";
-import { JsonView } from "./Markdown";
+import { JsonView } from "./JsonView";
 import { ShellToolCard } from "./ShellToolCard";
 import { FileToolCard, isFileTool } from "./FileToolCard";
 
@@ -24,8 +24,12 @@ export interface ToolPair {
  */
 export function toolPairStatus(pair: ToolPair) {
   const outputStatus = pair.output?.status;
+  // A call envelope can reach completed before its output envelope is
+  // appended. Keep that gap visible as an active step instead of hiding it
+  // inside the completed execution summary.
+  const waitingForOutput = Boolean(pair.call && !pair.output);
   const running =
-    (!pair.output && pair.call?.status === "in_progress") ||
+    waitingForOutput ||
     isRunningToolState(pair.state) ||
     outputStatus === "created" ||
     outputStatus === "in_progress";
@@ -102,7 +106,7 @@ export function ToolCard({
 
   if (running) {
     return (
-      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool" open>
+      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool">
         <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
           <ChevronRight
             size={14}
@@ -118,7 +122,9 @@ export function ToolCard({
           )}
           <ToolStatus running={running} failed={failed} />
         </summary>
-        <div className="border-t border-line px-4 py-3">{detail}</div>
+        <div className="max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain border-t border-line px-4 py-3">
+          {detail}
+        </div>
       </details>
     );
   }
@@ -230,7 +236,9 @@ function normalizedToolState(state: string | null): string {
 /** 旧历史可能没有 state；有 state 时只认后端的明确成功态。 */
 export function isSuccessfulToolState(state: string | null): boolean {
   const normalized = normalizedToolState(state);
-  return normalized === "" || normalized === "success" || normalized === "completed";
+  return (
+    normalized === "" || normalized === "success" || normalized === "completed"
+  );
 }
 
 export function isRunningToolState(state: string | null): boolean {

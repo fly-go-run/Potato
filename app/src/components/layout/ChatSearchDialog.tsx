@@ -18,7 +18,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { ChatSpec } from "../../lib/api";
 import { filterChats } from "../../lib/chats";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
@@ -50,6 +50,7 @@ export function ChatSearchDialog({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const chats = useChatStore((state) => state.chats);
   const newChat = useChatStore((state) => state.newChat);
   const [query, setQuery] = useState("");
@@ -103,7 +104,10 @@ export function ChatSearchDialog({
         id: "page-settings",
         label: t("sidebar.settings"),
         icon: Settings,
-        execute: () => closeAndNavigate("/settings"),
+        execute: () => {
+          navigate("/settings", { state: { background: location } });
+          onOpenChange(false);
+        },
       },
     ];
     const chatResults = normalized
@@ -134,7 +138,7 @@ export function ChatSearchDialog({
         items: chatItems,
       },
     ];
-  }, [chats, navigate, newChat, onOpenChange, query, t]);
+  }, [chats, location, navigate, newChat, onOpenChange, query, t]);
 
   const items = sections.flatMap((section) => section.items);
 
@@ -232,6 +236,7 @@ export function ChatSearchDialog({
                           key={item.id}
                           type="button"
                           onClick={item.execute}
+                          onMouseEnter={() => setSelectedIndex(index)}
                           className={`flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm transition-colors duration-[var(--dur-fast)] ${
                             selected
                               ? "bg-fill-active text-ink"
@@ -239,12 +244,6 @@ export function ChatSearchDialog({
                           }`}
                         >
                           <Icon size={15} className="shrink-0 text-ink-muted" />
-                          {item.chat?.status === "running" && (
-                            <span
-                              title={t("sidebar.running")}
-                              className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-ok"
-                            />
-                          )}
                           {item.chat?.pinned && (
                             <Pin size={12} className="shrink-0 text-ink-muted" />
                           )}

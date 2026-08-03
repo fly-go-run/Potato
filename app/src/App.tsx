@@ -1,10 +1,4 @@
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import {
   HashRouter,
   Navigate,
@@ -12,6 +6,7 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
+import { DesktopHostBridge } from "./components/desktop/DesktopHostBridge";
 import { AppShell } from "./components/layout/AppShell";
 import { authApi, getAuthToken } from "./lib/api";
 import { notifyDesktopReady } from "./lib/desktop";
@@ -50,21 +45,40 @@ export function App() {
   useThemeInit();
   return (
     <HashRouter>
+      <DesktopHostBridge />
       <AuthGate>
-        <Routes>
-          <Route path="/login" element={<LoginView />} />
-          <Route element={<AppShell />}>
-            <Route path="/" element={<ChatView />} />
-            <Route path="/chat/:chatId" element={<ChatView />} />
-            <Route
-              path="/settings"
-              element={
-                <Suspense fallback={<SettingsLoading />}>
-                  <SettingsView />
-                </Suspense>
-              }
-            />
-            <Route
+        <AppRoutes />
+      </AuthGate>
+    </HashRouter>
+  );
+}
+
+/**
+ * 设置是覆盖层不是页面:应用内打开时带上 background location,
+ * 底下的页面(会话等)保持挂载,模态悬浮其上——对齐 ChatGPT/Codex。
+ * 直接深链 /settings(无 background)时退化为整页路由。
+ */
+function AppRoutes() {
+  const location = useLocation();
+  const background = (
+    location.state as { background?: ReturnType<typeof useLocation> } | null
+  )?.background;
+  return (
+    <>
+      <Routes location={background ?? location}>
+        <Route path="/login" element={<LoginView />} />
+        <Route element={<AppShell />}>
+          <Route path="/" element={<ChatView />} />
+          <Route path="/chat/:chatId" element={<ChatView />} />
+          <Route
+            path="/settings"
+            element={
+              <Suspense fallback={<SettingsLoading />}>
+                <SettingsView />
+              </Suspense>
+            }
+          />
+          <Route
               path="/crons"
               element={
                 <Suspense fallback={<PageLoading label="crons.loading" />}>
@@ -97,10 +111,14 @@ export function App() {
               }
             />
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthGate>
-    </HashRouter>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      {background && location.pathname === "/settings" && (
+        <Suspense fallback={<SettingsLoading />}>
+          <SettingsView />
+        </Suspense>
+      )}
+    </>
   );
 }
 
@@ -178,11 +196,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   if (state === "checking") {
     return null;
   }
-  if (
-    state === "login" &&
-    !getAuthToken() &&
-    location.pathname !== "/login"
-  ) {
+  if (state === "login" && !getAuthToken() && location.pathname !== "/login") {
     return <Navigate to="/login" replace />;
   }
   return children;

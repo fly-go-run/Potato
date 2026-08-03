@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useChatStore } from "../stores/chat";
 import {
   Badge,
   Button,
@@ -53,6 +55,8 @@ import { useTranslation } from "../lib/i18n";
 interface JobRow {
   spec: CronJobSpec;
   state: CronJobState | null;
+  /** 状态接口失败时为 true:不能把"读不到状态"伪装成"已启用"。 */
+  stateFailed?: boolean;
 }
 
 interface GlobalRun {
@@ -152,11 +156,17 @@ export function CronsView() {
           try {
             return await cronApi.state(spec.id);
           } catch {
-            return null;
+            return "failed" as const;
           }
         }),
       );
-      setJobs(specs.map((spec, index) => ({ spec, state: states[index] })));
+      setJobs(
+        specs.map((spec, index) => ({
+          spec,
+          state: states[index] === "failed" ? null : states[index],
+          stateFailed: states[index] === "failed",
+        })),
+      );
       setTargets(targetResponse.items);
     } catch (reason) {
       setError(t("crons.loadFailed", { message: readableError(reason) }));
@@ -320,6 +330,14 @@ export function CronsView() {
           <Card className="p-4">
             <SkeletonRows rows={6} />
           </Card>
+        ) : error && jobs.length === 0 ? (
+          // 加载失败不能伪装成"暂无任务"再递上新建按钮
+          <Card className="flex items-center justify-between gap-3 p-4 text-sm text-ink-secondary">
+            <span>{error}</span>
+            <Button variant="secondary" size="sm" onClick={() => void load()}>
+              {t("common.retry")}
+            </Button>
+          </Card>
         ) : jobs.length === 0 ? (
           <EmptyState
             icon={<CalendarClock size={20} />}
@@ -348,7 +366,7 @@ export function CronsView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {jobs.map(({ spec, state }) => {
+                {jobs.map(({ spec, state, stateFailed }) => {
                   const busy = busyJobId === spec.id;
                   const active = isJobActive(spec, state);
                   return (
@@ -386,10 +404,16 @@ export function CronsView() {
                                 : t("crons.paused"),
                             })}
                           />
-                          <span className="text-xs">
-                            {active
-                              ? t("crons.enabled")
-                              : t("crons.paused")}
+                          <span
+                            className={
+                              stateFailed ? "text-xs text-warn" : "text-xs"
+                            }
+                          >
+                            {stateFailed
+                              ? t("crons.stateUnknown")
+                              : active
+                                ? t("crons.enabled")
+                                : t("crons.paused")}
                           </span>
                         </div>
                       </td>
@@ -506,9 +530,13 @@ export function CronsView() {
             setNewDraft(null);
           }
         }}
-        onSaved={() => {
+        onSaved={(updated) => {
           setEditing(null);
           setNewDraft(null);
+          // 保存接口已成功,反馈不依赖随后的列表刷新是否顺利。
+          setNotice(
+            t(updated ? "crons.updatedNotice" : "crons.savedNotice"),
+          );
           void load();
         }}
       />
@@ -546,13 +574,38 @@ function CronFormDialog({
   newDraft: CronTemplateDraft | null;
   targets: CronDispatchTarget[];
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
+  onSaved: (updated: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const chats = useChatStore((state) => state.chats);
   const existing = editing && editing !== "new" ? editing : undefined;
   const [form, setForm] = useState<CronFormValue>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 已有任务的目标可能已不在候选里(会话被删/超出候选上限):
+  // 注入进列表,保证编辑时能原样保留原目标,而不是整个表单卡死。
+  const effectiveTargets = useMemo(() => {
+    if (!existing) return targets;
+    const existingTarget = {
+      channel: existing.dispatch.channel,
+      user_id: existing.dispatch.target.user_id,
+      session_id: existing.dispatch.target.session_id,
+    };
+    return findTarget(targets, targetKey(existingTarget))
+      ? targets
+      : [existingTarget, ...targets];
+  }, [existing, targets]);
+
+  /** 投递目标用会话名展示,裸 id 只留在悬停提示里。 */
+  const targetLabel = (target: CronDispatchTarget) => {
+    const chat = chats.find(
+      (item) => item.session_id === target.session_id,
+    );
+    if (chat?.name) return `${chat.name} · ${target.channel}`;
+    return `${target.channel} · ${target.session_id.slice(0, 12)}…`;
+  };
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     [],
@@ -560,13 +613,15 @@ function CronFormDialog({
 
   useEffect(() => {
     if (!editing) return;
+    // 新任务不默认选中投递目标:结果发给谁必须用户显式决定,
+    // 默认选第一条存在误投风险(sol review P0)。
     const selectedTarget = existing
       ? {
           channel: existing.dispatch.channel,
           user_id: existing.dispatch.target.user_id,
           session_id: existing.dispatch.target.session_id,
         }
-      : targets[0];
+      : undefined;
     setForm(
       existing
         ? {
@@ -584,7 +639,7 @@ function CronFormDialog({
     setError(null);
   }, [editing, existing, newDraft, targets]);
 
-  const selectedTarget = findTarget(targets, form.targetKey);
+  const selectedTarget = findTarget(effectiveTargets, form.targetKey);
   const canSave = Boolean(
     form.name.trim() &&
       form.cron.trim() &&
@@ -607,7 +662,7 @@ function CronFormDialog({
       );
       if (existing?.id) await cronApi.replace(existing.id, spec);
       else await cronApi.create(spec);
-      onSaved();
+      onSaved(Boolean(existing));
     } catch (reason) {
       setError(readableError(reason));
     } finally {
@@ -712,12 +767,14 @@ function CronFormDialog({
             <Field
               label={t("crons.form.target")}
               hint={
-                targets.length === 0 ? t("crons.form.noTargets") : undefined
+                effectiveTargets.length === 0
+                  ? t("crons.form.noTargets")
+                  : undefined
               }
             >
               <Select
                 value={form.targetKey}
-                disabled={targets.length === 0}
+                disabled={effectiveTargets.length === 0}
                 onChange={(event) =>
                   setForm((value) => ({
                     ...value,
@@ -727,14 +784,30 @@ function CronFormDialog({
                 className="mt-1.5"
               >
                 {!form.targetKey && (
-                  <option value="">{t("crons.form.chooseTarget")}</option>
+                  <option value="">
+                    {t("crons.form.targetPlaceholder")}
+                  </option>
                 )}
-                {targets.map((target) => (
-                  <option key={targetKey(target)} value={targetKey(target)}>
-                    {target.channel} · {target.user_id} · {target.session_id}
+                {effectiveTargets.map((target) => (
+                  <option
+                    key={targetKey(target)}
+                    value={targetKey(target)}
+                    title={`${target.channel} · ${target.user_id} · ${target.session_id}`}
+                  >
+                    {targetLabel(target)}
                   </option>
                 ))}
               </Select>
+              {effectiveTargets.length === 0 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => navigate("/")}
+                >
+                  {t("crons.form.noTargetCta")}
+                </Button>
+              )}
             </Field>
             <div className="flex justify-end gap-2 pt-1">
               <Dialog.Close asChild>

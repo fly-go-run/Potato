@@ -101,7 +101,7 @@ export function FileToolCard({
 
   if (running) {
     return (
-      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool" open>
+      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool">
         <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
           <ChevronRight
             size={14}
@@ -129,7 +129,9 @@ export function FileToolCard({
           )}
           <ToolStatus running={running} failed={failed} />
         </summary>
-        <div className="border-t border-line">{detail}</div>
+        <div className="max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain border-t border-line">
+          {detail}
+        </div>
       </details>
     );
   }
@@ -397,6 +399,7 @@ function FileToolContent({
   );
 }
 
+/** 与侧栏 ChangeDiffPanel 同一套配色:整行底色 tint,符号列着色,正文保持 ink。 */
 function LineDiff({ before, after }: { before: string; after: string }) {
   const lines = lineDiff(before, after);
   return (
@@ -404,22 +407,36 @@ function LineDiff({ before, after }: { before: string; after: string }) {
       {lines.map((line, index) => (
         <div
           key={`${index}-${line.kind}`}
-          className={`flex min-w-max px-2 ${diffLineClass(line.kind)}`}
+          className={`flex min-w-max ${
+            line.kind === "add"
+              ? "bg-ok/10"
+              : line.kind === "remove"
+                ? "bg-danger-soft"
+                : ""
+          }`}
         >
-          <span className="w-5 shrink-0 select-none text-center">
-            {line.kind === "remove" ? "-" : line.kind === "add" ? "+" : " "}
+          <span
+            className={`w-5 shrink-0 select-none text-center ${diffSignClass(line.kind)}`}
+          >
+            {line.kind === "remove" ? "-" : line.kind === "add" ? "+" : ""}
           </span>
-          <span className="whitespace-pre pr-3">{line.text || " "}</span>
+          <span
+            className={`whitespace-pre pr-3 ${
+              line.kind === "same" ? "text-ink-tertiary" : "text-ink"
+            }`}
+          >
+            {line.text || " "}
+          </span>
         </div>
       ))}
     </div>
   );
 }
 
-function diffLineClass(kind: DiffLineKind): string {
-  if (kind === "remove") return "bg-danger-soft text-danger";
-  if (kind === "add") return "bg-ok/10 text-ok";
-  return "bg-line/30 text-ink-muted";
+function diffSignClass(kind: DiffLineKind): string {
+  if (kind === "remove") return "text-danger";
+  if (kind === "add") return "text-ok";
+  return "text-ink-muted";
 }
 
 function parseArguments(value: string): Record<string, unknown> {

@@ -42,12 +42,16 @@ import {
   type PluginInfo,
   type PoolSkillInfo,
   type SkillInfo,
+  type WorkspaceSkillSummary,
 } from "../lib/capabilities";
+import { presentError, type ErrorPresentation } from "../lib/errorPresentation";
 import { useTranslation } from "../lib/i18n";
+import { skillDescription } from "../lib/skillPresentation";
 
 type MainTab = "skills" | "plugins";
 type SkillSourceTab = "pool" | "hub" | "upload";
 type PluginSourceTab = "catalog" | "url" | "upload";
+type ActiveHubTask = HubInstallTask & { skillName: string };
 
 export function SkillsView() {
   const { t } = useTranslation();
@@ -55,6 +59,7 @@ export function SkillsView() {
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<ErrorPresentation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -68,6 +73,7 @@ export function SkillsView() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     setError(null);
     try {
       const [skillItems, pluginItems] = await Promise.all([
@@ -77,7 +83,7 @@ export function SkillsView() {
       setSkills(skillItems);
       setPlugins(pluginItems);
     } catch (reason) {
-      setError(t("skills.loadFailed", { message: readableError(reason) }));
+      setLoadError(presentError(reason));
     } finally {
       setLoading(false);
     }
@@ -208,7 +214,35 @@ export function SkillsView() {
           )}
         </div>
 
-        {error && (
+        {loadError && (
+          <section
+            role="alert"
+            className="mt-4 flex items-start gap-3 rounded-md bg-danger-soft px-3 py-3 text-xs text-danger"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{t("skills.loadFailedTitle")}</p>
+              <p className="mt-1">{t(loadError.summaryKey)}</p>
+              {loadError.detail && (
+                <details className="mt-2 text-danger/80">
+                  <summary className="cursor-pointer">
+                    {t("common.technicalDetail")}
+                  </summary>
+                  <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px]">
+                    {loadError.detail}
+                  </pre>
+                </details>
+              )}
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void load()}
+            >
+              {t("common.retry")}
+            </Button>
+          </section>
+        )}
+        {error && !loadError && (
           <Banner tone="danger" onDismiss={() => setError(null)}>
             {error}
           </Banner>
@@ -226,7 +260,7 @@ export function SkillsView() {
           <Card className="mt-5 p-4">
             <SkeletonRows rows={6} />
           </Card>
-        ) : tab === "skills" ? (
+        ) : loadError ? null : tab === "skills" ? (
           <section className="mt-5">
             {filteredSkills.length === 0 ? (
               <EmptyState
@@ -287,6 +321,7 @@ export function SkillsView() {
         installedSkills={skills}
         installedPlugins={plugins}
         onOpenChange={setAddOpen}
+        onNotice={setNotice}
         onChanged={async (message) => {
           setNotice(message);
           await load();
@@ -345,7 +380,7 @@ function SkillRow({
             skill.enabled ? "text-ink-tertiary" : "text-ink-muted"
           }`}
         >
-          <Blocks size={18} />
+          {skill.emoji || <Blocks size={18} />}
         </span>
         <div className="min-w-0 flex-1">
           <span
@@ -356,7 +391,8 @@ function SkillRow({
             {humanSkillName(skill.name)}
           </span>
           <p className="line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
-            {skill.description || t("skills.noDescription")}
+            {skillDescription(skill.name, skill.description) ||
+              t("skills.noDescription")}
           </p>
         </div>
       </button>
@@ -506,7 +542,10 @@ function SkillDetails({
             </div>
             <Detail label={t("skills.description")}>
               <p className="whitespace-pre-wrap text-sm leading-6 text-ink-secondary">
-                {skill?.description || t("skills.noDescription")}
+                {skill
+                  ? skillDescription(skill.name, skill.description) ||
+                    t("skills.noDescription")
+                  : t("skills.noDescription")}
               </p>
             </Detail>
             <div className="mt-6 grid grid-cols-2 gap-4">
@@ -580,6 +619,7 @@ function AddCapabilityDialog({
   installedSkills,
   installedPlugins,
   onOpenChange,
+  onNotice,
   onChanged,
 }: {
   open: boolean;
@@ -587,6 +627,7 @@ function AddCapabilityDialog({
   installedSkills: SkillInfo[];
   installedPlugins: PluginInfo[];
   onOpenChange: (open: boolean) => void;
+  onNotice: (message: string) => void;
   onChanged: (message: string) => Promise<void>;
 }) {
   const { language, t } = useTranslation();
@@ -594,34 +635,47 @@ function AddCapabilityDialog({
   const [pluginTab, setPluginTab] = useState<PluginSourceTab>("catalog");
   const [pool, setPool] = useState<PoolSkillInfo[]>([]);
   const [catalog, setCatalog] = useState<CatalogPlugin[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSkillSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
+  const [pendingPoolSkill, setPendingPoolSkill] =
+    useState<PoolSkillInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hubQuery, setHubQuery] = useState("");
   const [hubResults, setHubResults] = useState<HubSkillInfo[]>([]);
-  const [hubTask, setHubTask] = useState<
-    (HubInstallTask & { skillName: string }) | null
-  >(null);
+  const [hubTask, setHubTask] = useState<ActiveHubTask | null>(null);
   const [url, setUrl] = useState("");
   const skillFileRef = useRef<HTMLInputElement>(null);
   const pluginFileRef = useRef<HTMLInputElement>(null);
+  const hubTaskRef = useRef<ActiveHubTask | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
     setBusy(null);
     setHubTask(null);
+    hubTaskRef.current = null;
+    setPendingPoolSkill(null);
+    setWorkspaces([]);
+    setWorkspaceId("");
     setLoading(true);
     const request =
       mode === "skills"
         ? Promise.all([skillApi.pool(), skillApi.workspaces()]).then(
-            ([poolItems, workspaces]) => {
+            ([poolItems, availableWorkspaces]) => {
               setPool(poolItems);
-              setWorkspaceId(workspaces[0]?.agent_id ?? "");
+              setWorkspaces(availableWorkspaces);
+              setWorkspaceId(
+                availableWorkspaces.length === 1
+                  ? availableWorkspaces[0]?.agent_id ?? ""
+                  : "",
+              );
             },
           )
         : pluginApi.catalog().then((response) => {
+              setWorkspaces([]);
+              setWorkspaceId("");
               setCatalog(
                 mergeCatalogInstalled(response.plugins, installedPlugins),
               );
@@ -641,6 +695,7 @@ function AddCapabilityDialog({
     setError(null);
     try {
       await skillApi.importFromPool(skill.name, workspaceId);
+      setPendingPoolSkill(null);
       await onChanged(t("skills.add.imported", { name: skill.name }));
     } catch (reason) {
       setError(readableError(reason));
@@ -664,39 +719,74 @@ function AddCapabilityDialog({
   const installHubSkill = async (skill: HubSkillInfo) => {
     setBusy(skill.slug);
     setError(null);
+    let taskId: string | null = null;
     try {
       const started = await skillApi.startHubInstall(skill);
-      setHubTask({ ...started, skillName: skill.name });
+      taskId = started.task_id;
+      const activeTask = { ...started, skillName: skill.name };
+      hubTaskRef.current = activeTask;
+      setHubTask(activeTask);
       const result = await pollHubInstall(async (taskId) => {
         const status = await skillApi.hubInstallStatus(taskId);
-        setHubTask({ ...status, skillName: skill.name });
+        const currentTask = hubTaskRef.current;
+        if (
+          currentTask?.task_id === started.task_id &&
+          currentTask.status !== "cancelled"
+        ) {
+          const nextTask = { ...status, skillName: skill.name };
+          hubTaskRef.current = nextTask;
+          setHubTask(nextTask);
+        }
         return status;
       }, started.task_id);
-      if (result.status === "completed") {
+      const isCurrentTask = hubTaskRef.current?.task_id === started.task_id;
+      const wasCancelled =
+        isCurrentTask && hubTaskRef.current?.status === "cancelled";
+      if (result.status === "completed" && !wasCancelled && isCurrentTask) {
         await onChanged(t("skills.add.installed", { name: skill.name }));
-      } else if (result.status === "failed") {
+      } else if (result.status === "failed" && isCurrentTask) {
         setError(
           t("skills.add.installFailed", {
             message: result.error || t("skills.unknown"),
           }),
         );
+      } else if (result.status === "cancelled" && isCurrentTask) {
+        onNotice(t("skills.installCancelled", { name: skill.name }));
       }
     } catch (reason) {
       setError(readableError(reason));
     } finally {
-      setBusy(null);
+      if (!taskId || hubTaskRef.current?.task_id === taskId) {
+        setBusy(null);
+      }
     }
   };
 
   const cancelHub = async () => {
-    if (!hubTask) return;
+    const task = hubTask;
+    if (!task) return;
     try {
-      await skillApi.cancelHubInstall(hubTask.task_id);
-      setHubTask({ ...hubTask, status: "cancelled" });
-      setBusy(null);
+      await skillApi.cancelHubInstall(task.task_id);
+      const currentTask = hubTaskRef.current;
+      if (currentTask?.task_id === task.task_id) {
+        const cancelledTask = { ...currentTask, status: "cancelled" as const };
+        hubTaskRef.current = cancelledTask;
+        setHubTask(cancelledTask);
+        setBusy(null);
+        onNotice(t("skills.installCancelled", { name: task.skillName }));
+      }
     } catch (reason) {
       setError(readableError(reason));
     }
+  };
+
+  const requestPoolImport = (skill: PoolSkillInfo) => {
+    if (workspaces.length > 1) {
+      setWorkspaceId("");
+      setPendingPoolSkill(skill);
+      return;
+    }
+    void importPoolSkill(skill);
   };
 
   const uploadSkill = async (file: File) => {
@@ -796,6 +886,73 @@ function AddCapabilityDialog({
             />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            {mode === "skills" &&
+              skillTab === "pool" &&
+              pendingPoolSkill &&
+              workspaces.length > 1 && (
+                <section className="mb-4 rounded-md border border-line bg-surface p-4">
+                  <h3 className="text-sm font-medium text-ink">
+                    {t("skills.import.workspace")}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-ink-muted">
+                    {t("skills.import.workspaceHint")}
+                  </p>
+                  <p className="mt-3 text-xs text-ink-secondary">
+                    {humanSkillName(pendingPoolSkill.name)}
+                  </p>
+                  <div
+                    role="radiogroup"
+                    aria-label={t("skills.import.workspace")}
+                    className="mt-2 space-y-1.5"
+                  >
+                    {workspaces.map((workspace) => {
+                      const label = workspaceLabel(
+                        workspace,
+                        t("skills.import.workspace"),
+                      );
+                      return (
+                        <label
+                          key={workspace.agent_id}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-ink-secondary hover:bg-fill-hover"
+                        >
+                          <input
+                            type="radio"
+                            name="skill-import-workspace"
+                            value={workspace.agent_id}
+                            checked={workspaceId === workspace.agent_id}
+                            onChange={() => setWorkspaceId(workspace.agent_id)}
+                            className="accent-accent"
+                          />
+                          <span className="min-w-0 truncate">{label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy !== null}
+                      onClick={() => {
+                        setPendingPoolSkill(null);
+                        setWorkspaceId("");
+                      }}
+                    >
+                      {t("common.cancel")}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={!workspaceId || busy !== null}
+                      onClick={() =>
+                        pendingPoolSkill && void importPoolSkill(pendingPoolSkill)
+                      }
+                    >
+                      {t("skills.add.import")}
+                    </Button>
+                  </div>
+                </section>
+              )}
             {error && (
               <div className="mb-4 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger">
                 {error}
@@ -810,7 +967,8 @@ function AddCapabilityDialog({
                   key: skill.name,
                   name: humanSkillName(skill.name),
                   title: skill.name,
-                  description: skill.description,
+                  emoji: skill.emoji,
+                  description: skillDescription(skill.name, skill.description),
                   version: skill.version_text,
                   installed: installedSkills.some(
                     (installed) => installed.name === skill.name,
@@ -819,7 +977,7 @@ function AddCapabilityDialog({
                 busy={busy}
                 onInstall={(key) => {
                   const skill = pool.find((item) => item.name === key);
-                  if (skill) void importPoolSkill(skill);
+                  if (skill) requestPoolImport(skill);
                 }}
               />
             ) : mode === "skills" && skillTab === "hub" ? (
@@ -874,7 +1032,7 @@ function AddCapabilityDialog({
                       items={hubResults.map((skill) => ({
                         key: skill.slug,
                         name: skill.name,
-                        description: skill.description,
+                        description: skillDescription(skill.name, skill.description),
                         version: skill.version,
                         installed: installedSkills.some(
                           (installed) =>
@@ -977,6 +1135,7 @@ function CapabilitySourceList({
     key: string;
     name: string;
     title?: string;
+    emoji?: string;
     description?: string;
     version?: string;
     installed: boolean;
@@ -998,7 +1157,7 @@ function CapabilitySourceList({
       {items.map((item) => (
         <div key={item.key} className="flex items-center gap-3 px-4 py-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-tertiary">
-            {icon}
+            {item.emoji || icon}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
@@ -1131,6 +1290,13 @@ function humanSkillName(name: string) {
     .replace(/^mcp__/, "")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function workspaceLabel(workspace: WorkspaceSkillSummary, fallback: string) {
+  const agentName = workspace.agent_name?.trim();
+  if (agentName) return agentName;
+  const segments = workspace.workspace_dir.split(/[\\/]/).filter(Boolean);
+  return segments.at(-1) || fallback;
 }
 
 function readableError(error: unknown) {

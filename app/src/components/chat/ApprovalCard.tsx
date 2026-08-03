@@ -7,12 +7,14 @@ import {
 import { useTranslation } from "../../lib/i18n";
 import { useChatStore } from "../../stores/chat";
 import { Badge, Button } from "../ui";
-import { JsonView } from "./Markdown";
+import { JsonView } from "./JsonView";
 
 export function ApprovalCard({ approval }: { approval: PendingApproval }) {
   const { t } = useTranslation();
   const actOnApproval = useChatStore((state) => state.actOnApproval);
   const [processing, setProcessing] = useState<string | null>(null);
+  // 批准同类会扩大授权范围,必须先展示范围再确认,不允许一键生效。
+  const [confirmingSimilar, setConfirmingSimilar] = useState(false);
   const summary = approvalParameterSummary(approval.tool_params);
 
   const act = async (
@@ -110,9 +112,8 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             <Button
               variant="secondary"
               size="sm"
-              disabled={processing !== null}
-              onClick={() => void act("approve", "similar")}
-              title={approval.similar_target || undefined}
+              disabled={processing !== null || confirmingSimilar}
+              onClick={() => setConfirmingSimilar(true)}
             >
               <CopyCheck size={14} />
               {processing === "approve:similar"
@@ -132,6 +133,43 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
               : t("approval.deny")}
           </Button>
         </div>
+
+        {confirmingSimilar && (
+          <div className="rounded-md border border-line bg-bubble-tool px-3 py-3">
+            <div className="text-xs font-medium text-ink">
+              {t("approval.similarConfirmTitle")}
+            </div>
+            <div className="mt-1 text-xs leading-5 text-ink-secondary">
+              {t("approval.similarConfirmBody")}
+            </div>
+            <code className="mt-1.5 block break-all rounded bg-bg px-2 py-1.5 font-mono text-[11px] text-ink-secondary">
+              {approval.similar_target ||
+                approval.exact_target ||
+                approval.tool_name}
+            </code>
+            <div className="mt-2.5 flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={processing !== null}
+                onClick={() => {
+                  setConfirmingSimilar(false);
+                  void act("approve", "similar");
+                }}
+              >
+                {t("common.confirm")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={processing !== null}
+                onClick={() => setConfirmingSimilar(false)}
+              >
+                {t("common.cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -151,7 +189,7 @@ function SeverityBadge({ severity }: { severity: string }) {
     normalized === "low"
       ? "neutral"
       : normalized === "medium"
-        ? "warn"
-        : "danger";
+      ? "warn"
+      : "danger";
   return <Badge tone={tone}>{t(key)}</Badge>;
 }

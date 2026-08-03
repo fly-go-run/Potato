@@ -13,6 +13,7 @@ import { Markdown } from "../components/chat/Markdown";
 import {
   Button,
   Card,
+  ConfirmDialog,
   EmptyState,
   IconButton,
   PageContainer,
@@ -32,6 +33,7 @@ import {
   type MdFileInfo,
   type MemoryGroupKey,
 } from "../lib/memory";
+import { presentError, type ErrorPresentation } from "../lib/errorPresentation";
 import { relativeTime } from "../lib/relativeTime";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 
@@ -54,7 +56,7 @@ export function MemoryView() {
   const { language, t } = useTranslation();
   const [files, setFiles] = useState<MdFileInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorPresentation | null>(null);
   const [selected, setSelected] = useState<MdFileInfo | null>(null);
   const groups = useMemo(() => groupMemoryFiles(files), [files]);
 
@@ -67,9 +69,7 @@ export function MemoryView() {
       .then(setFiles)
       .catch((reason: unknown) => {
         if (!controller.signal.aborted) {
-          setError(
-            t("memory.loadFailed", { message: readableError(reason) }),
-          );
+          setError(presentError(reason));
         }
       })
       .finally(() => {
@@ -79,10 +79,14 @@ export function MemoryView() {
   }, []);
 
   const refreshFiles = async () => {
+    setLoading(true);
+    setError(null);
     try {
       setFiles(await memoryApi.list());
     } catch (reason) {
-      setError(t("memory.loadFailed", { message: readableError(reason) }));
+      setError(presentError(reason));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,16 +101,29 @@ export function MemoryView() {
         {error && (
           <div
             role="alert"
-            className="mt-5 flex items-start justify-between gap-3 rounded-md bg-danger-soft px-3 py-2 text-xs text-danger"
+            className="mt-5 flex items-start gap-3 rounded-md bg-danger-soft px-3 py-3 text-xs text-danger"
           >
-            <span>{error}</span>
-            <IconButton
+            <div className="min-w-0 flex-1">
+              <p>{t(error.summaryKey)}</p>
+              {error.detail && (
+                <details className="mt-2 text-danger/80">
+                  <summary className="cursor-pointer">
+                    {t("common.technicalDetail")}
+                  </summary>
+                  <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px]">
+                    {error.detail}
+                  </pre>
+                </details>
+              )}
+            </div>
+            <Button
+              variant="secondary"
               size="sm"
-              title={t("memory.dismiss")}
-              onClick={() => setError(null)}
+              disabled={loading}
+              onClick={() => void refreshFiles()}
             >
-              <X size={14} />
-            </IconButton>
+              {t("common.retry")}
+            </Button>
           </div>
         )}
 
@@ -114,7 +131,7 @@ export function MemoryView() {
           <Card className="mt-6 p-4">
             <SkeletonRows rows={5} />
           </Card>
-        ) : files.length === 0 ? (
+        ) : error ? null : files.length === 0 ? (
           <div className="mt-6">
             <EmptyState
               icon={<NotebookPen size={20} />}
@@ -213,8 +230,13 @@ function MemoryDetails({
     initialMemoryEditorState,
   );
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<ErrorPresentation | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [discardAction, setDiscardAction] = useState<"close" | "cancel" | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!file) return;
@@ -228,18 +250,14 @@ function MemoryDetails({
       .then(({ content }) => dispatch({ type: "load", content }))
       .catch((reason: unknown) => {
         if (!controller.signal.aborted) {
-          setLoadError(
-            t("memory.contentLoadFailed", {
-              message: readableError(reason),
-            }),
-          );
+          setLoadError(presentError(reason));
         }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [file?.filename]);
+  }, [file?.filename, loadAttempt]);
 
   const save = async () => {
     if (!file) return;
@@ -259,16 +277,74 @@ function MemoryDetails({
     await onSaved();
   };
 
+  const isDirty =
+    editor.mode === "editing" && editor.draft !== editor.content;
+
+  const confirmDiscard = () => {
+    if (editor.saving) return;
+    const shouldClose = discardAction === "close";
+    dispatch({ type: "cancel" });
+    setDiscardOpen(false);
+    setDiscardAction(null);
+    if (shouldClose) onOpenChange(false);
+  };
+
+  const requestClose = () => {
+    if (editor.saving) return;
+    if (isDirty) {
+      setDiscardAction("close");
+      setDiscardOpen(true);
+      return;
+    }
+    dispatch({ type: "cancel" });
+    onOpenChange(false);
+  };
+
+  const requestCancel = () => {
+    if (editor.saving) return;
+    if (isDirty) {
+      setDiscardAction("cancel");
+      setDiscardOpen(true);
+      return;
+    }
+    dispatch({ type: "cancel" });
+  };
+
   const close = (open: boolean) => {
-    if (!open && editor.saving) return;
-    onOpenChange(open);
+    if (open) {
+      onOpenChange(true);
+      return;
+    }
+    requestClose();
+  };
+
+  const retryLoad = () => {
+    if (!file) return;
+    setLoading(true);
+    setLoadError(null);
+    setLoadAttempt((attempt) => attempt + 1);
   };
 
   return (
-    <Dialog.Root open={file !== null} onOpenChange={close}>
+    <>
+      <Dialog.Root open={file !== null} onOpenChange={close}>
       <Dialog.Portal>
         <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
-        <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
+        <Dialog.Content
+          onEscapeKeyDown={(event) => {
+            if (isDirty) {
+              event.preventDefault();
+              requestClose();
+            }
+          }}
+          onInteractOutside={(event) => {
+            if (isDirty) {
+              event.preventDefault();
+              requestClose();
+            }
+          }}
+          className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none"
+        >
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-ink-muted">
               <NotebookPen size={18} />
@@ -296,15 +372,14 @@ function MemoryDetails({
                 {t("memory.edit")}
               </Button>
             )}
-            <Dialog.Close asChild>
-              <IconButton
-                size="sm"
-                title={t("memory.close")}
-                disabled={editor.saving}
-              >
-                <X size={16} />
-              </IconButton>
-            </Dialog.Close>
+            <IconButton
+              size="sm"
+              title={t("memory.close")}
+              disabled={editor.saving}
+              onClick={requestClose}
+            >
+              <X size={16} />
+            </IconButton>
           </header>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
@@ -323,9 +398,29 @@ function MemoryDetails({
             ) : loadError ? (
               <div
                 role="alert"
-                className="rounded-md bg-danger-soft px-3 py-2 text-xs text-danger"
+                className="flex items-start gap-3 rounded-md bg-danger-soft px-3 py-3 text-xs text-danger"
               >
-                {loadError}
+                <div className="min-w-0 flex-1">
+                  <p>{t(loadError.summaryKey)}</p>
+                  {loadError.detail && (
+                    <details className="mt-2 text-danger/80">
+                      <summary className="cursor-pointer">
+                        {t("common.technicalDetail")}
+                      </summary>
+                      <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px]">
+                        {loadError.detail}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={loading}
+                  onClick={retryLoad}
+                >
+                  {t("common.retry")}
+                </Button>
               </div>
             ) : editor.mode === "editing" ? (
               <div className="flex min-h-full flex-col">
@@ -371,7 +466,7 @@ function MemoryDetails({
                 variant="ghost"
                 size="sm"
                 disabled={editor.saving}
-                onClick={() => dispatch({ type: "cancel" })}
+                onClick={requestCancel}
               >
                 {t("memory.cancel")}
               </Button>
@@ -392,7 +487,21 @@ function MemoryDetails({
           )}
         </Dialog.Content>
       </Dialog.Portal>
-    </Dialog.Root>
+      </Dialog.Root>
+      <ConfirmDialog
+        open={discardOpen}
+        title={t("memory.discardTitle")}
+        description={t("memory.discardDescription")}
+        confirmLabel={t("memory.discardConfirm")}
+        tone="danger"
+        busy={editor.saving}
+        onOpenChange={(open) => {
+          setDiscardOpen(open);
+          if (!open) setDiscardAction(null);
+        }}
+        onConfirm={confirmDiscard}
+      />
+    </>
   );
 }
 

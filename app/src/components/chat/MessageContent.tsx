@@ -1,8 +1,12 @@
 import { FileText } from "lucide-react";
+import { lazy, Suspense } from "react";
 import { filePreviewUrl } from "../../lib/api";
 import { useTranslation } from "../../lib/i18n";
 import type { ContentBlock } from "../../lib/protocol/types";
-import { Markdown } from "./Markdown";
+
+const Markdown = lazy(() =>
+  import("./Markdown").then((module) => ({ default: module.Markdown })),
+);
 
 export function MessageContent({
   content,
@@ -18,7 +22,16 @@ export function MessageContent({
       {content.map((part, index) => {
         if (part.type === "text" && part.text) {
           return markdown ? (
-            <Markdown key={index}>{part.text}</Markdown>
+            <Suspense
+              key={index}
+              fallback={
+                <div className="whitespace-pre-wrap break-words text-sm leading-6 text-ink">
+                  {part.text}
+                </div>
+              }
+            >
+              <Markdown>{part.text}</Markdown>
+            </Suspense>
           ) : (
             <div
               key={index}
@@ -43,7 +56,9 @@ export function MessageContent({
             >
               <img
                 src={filePreviewUrl(part.image_url)}
-                alt={filenameFromPath(part.image_url) || t("attachment.imageAlt")}
+                alt={
+                  filenameFromPath(part.image_url) || t("attachment.imageAlt")
+                }
                 className="max-h-80 w-full object-contain"
               />
             </a>
@@ -52,7 +67,9 @@ export function MessageContent({
 
         if (part.type === "file" && part.file_url) {
           const filename =
-            part.filename || filenameFromPath(part.file_url) || t("attachment.file");
+            part.filename ||
+            filenameFromPath(part.file_url) ||
+            t("attachment.file");
           return (
             <a
               key={index}

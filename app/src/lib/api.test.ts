@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { modelApi, providerReady, type ProviderInfo } from "./api";
+import {
+  modelApi,
+  providerConfigured,
+  providerReady,
+  type ProviderInfo,
+} from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -79,6 +84,30 @@ describe("modelApi.configure", () => {
   });
 });
 
+describe("modelApi.removeProvider", () => {
+  it("deletes a custom provider and returns the refreshed provider list", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await modelApi.removeProvider("open-code/custom");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/models/custom-providers/open-code%2Fcustom",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+});
+
 describe("providerReady", () => {
   const baseProvider = {
     id: "provider",
@@ -101,5 +130,57 @@ describe("providerReady", () => {
     expect(providerReady({ ...baseProvider, api_key: "sk-******" })).toBe(true);
     expect(providerReady({ ...baseProvider, require_api_key: false })).toBe(true);
     expect(providerReady({ ...baseProvider, is_local: true })).toBe(true);
+  });
+});
+
+describe("providerConfigured", () => {
+  const baseProvider = {
+    id: "provider",
+    name: "Provider",
+    base_url: "https://example.com",
+    api_key: "",
+    chat_model: "OpenAIChatModel",
+    models: [],
+    extra_models: [],
+    api_key_prefix: "",
+    api_key_prefixes: [],
+    is_local: false,
+    freeze_url: false,
+    require_api_key: true,
+    is_custom: false,
+  } satisfies ProviderInfo;
+
+  it("only marks saved credentials or custom endpoints as configured", () => {
+    expect(providerConfigured(baseProvider)).toBe(false);
+    expect(
+      providerConfigured({ ...baseProvider, require_api_key: false }),
+    ).toBe(false);
+    expect(providerConfigured({ ...baseProvider, api_key: "sk-******" })).toBe(
+      true,
+    );
+    // 需要 key 的自定义供应商,没有 key(如刚被清除)不能算已配置
+    expect(
+      providerConfigured({
+        ...baseProvider,
+        is_custom: true,
+        api_key: "",
+      }),
+    ).toBe(false);
+    // 声明不需要 key 的自定义供应商,仅凭端点即算已配置
+    expect(
+      providerConfigured({
+        ...baseProvider,
+        is_custom: true,
+        api_key: "",
+        require_api_key: false,
+      }),
+    ).toBe(true);
+    expect(
+      providerConfigured({
+        ...baseProvider,
+        is_local: true,
+        require_api_key: false,
+      }),
+    ).toBe(false);
   });
 });

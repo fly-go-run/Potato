@@ -86,10 +86,11 @@
 
   /* -- 字体 -- */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
-    "Microsoft YaHei", Arial, sans-serif;
+    "Segoe UI", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB",
+    "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif;
   --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont,
-    "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    "Segoe UI", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB",
+    sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, Menlo,
     "Cascadia Code", Consolas, monospace;
 }

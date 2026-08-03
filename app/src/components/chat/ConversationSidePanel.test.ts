@@ -6,9 +6,11 @@ import {
   presentRunStatus,
 } from "./ConversationSidePanel";
 import {
+  buildToolPair,
   isFailedToolState,
   isRunningToolState,
   isSuccessfulToolState,
+  toolPairStatus,
 } from "./ToolCard";
 
 function toolMessage(
@@ -195,6 +197,20 @@ describe("presentRunStatus", () => {
 });
 
 describe("tool result state presentation", () => {
+  it("keeps a completed call visible while its output is still missing", () => {
+    const call = toolMessage("call-pending", "function_call", {
+      call_id: "pending",
+      name: "execute_shell_command",
+      arguments: JSON.stringify({ command: "printf pending" }),
+    });
+
+    expect(toolPairStatus(buildToolPair(call, null))).toMatchObject({
+      running: true,
+      completed: false,
+      failed: false,
+    });
+  });
+
   it.each([null, "", "success", "completed", " SUCCESS "])(
     "accepts %s as successful",
     (state) => {

@@ -5,7 +5,7 @@ import { useTranslation } from "../../lib/i18n";
 
 /**
  * 完成态收敛为无填充的"安静行"(正文是版面主角,执行过程退居次要);
- * 运行中保持突出卡片,失败以 danger 色保持可见。展开后明细落在描边卡内。
+ * 运行中保持当前步骤可见，长输出在卡内滚动，失败以 danger 色保持可见。
  */
 export function ShellToolCard({ pair }: { pair: ToolPair }) {
   const { t } = useTranslation();
@@ -21,7 +21,7 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
         <span className="whitespace-pre-wrap break-all">{command}</span>
       </div>
       {output ? (
-        <pre className="whitespace-pre-wrap break-words text-ink">
+        <pre className="max-h-[min(18rem,34vh)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words text-ink">
           {typeof output === "string"
             ? output
             : JSON.stringify(output, null, 2)}
@@ -36,7 +36,7 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
 
   if (running) {
     return (
-      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool" open>
+      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool">
         <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
           <ChevronRight
             size={14}

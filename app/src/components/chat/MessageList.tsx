@@ -1,12 +1,28 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Copy, PawPrint, RefreshCw } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  FileDiff,
+  RefreshCw,
+} from "lucide-react";
 import { APP_NAME } from "../../lib/appInfo";
+import {
+  collectFileChanges,
+  directoryOf,
+  shortenPath,
+  totalChangeStats,
+  type FileChange,
+} from "../../lib/fileChanges";
 import { useTranslation } from "../../lib/i18n";
 import type { ContentBlock } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
+import { PotatoMark } from "../brand/PotatoMark";
 import { ApprovalCard } from "./ApprovalCard";
+import { ChangeStat } from "./ConversationSidePanel";
 import { isArtifactTool } from "./FileToolCard";
 import { MessageContent } from "./MessageContent";
 import {
@@ -18,7 +34,6 @@ import {
   buildToolPair,
   toolData,
   toolPairStatus,
-  showToolDebugStatus,
   ToolCard,
   type ToolPair,
 } from "./ToolCard";
@@ -27,6 +42,7 @@ interface MessageListProps {
   messages: StreamMessage[];
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
 }
 
 interface Turn {
@@ -39,6 +55,7 @@ export function MessageList({
   messages,
   activeMessageId,
   onOpenFile,
+  onOpenChange,
 }: MessageListProps) {
   const turns = groupIntoTurns(messages);
   const pendingApprovals = useChatStore((state) => state.pendingApprovals);
@@ -58,6 +75,7 @@ export function MessageList({
             key={turn.id}
             messages={turn.messages}
             onOpenFile={onOpenFile}
+            onOpenChange={onOpenChange}
             // 流式进行中的最后一轮不显示动作行。
             showActions={!(isStreaming && index === lastIndex)}
             // 只有最后一轮能「重新生成」：它等价于重发上一条用户消息。
@@ -126,15 +144,18 @@ function AssistantTurn({
   regeneratePrompt,
   activeMessageId,
   onOpenFile,
+  onOpenChange,
 }: {
   messages: StreamMessage[];
   showActions: boolean;
   regeneratePrompt: string;
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
 }) {
   const pairedOutputs = new Set<string>();
   const copyText = plainText(messages);
+  const turnChanges = collectFileChanges(messages);
 
   // WorkBuddy keeps the conversational narration that happens before/among
   // tool calls inside the execution disclosure. Only the final assistant
@@ -286,13 +307,93 @@ function AssistantTurn({
     <div className="qp-msg-in mb-10">
       <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-ink-secondary">
         <span className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-btn-primary text-btn-primary-ink">
-          <PawPrint size={13} strokeWidth={2.2} />
+          <PotatoMark size={16} />
         </span>
         <span>{APP_NAME}</span>
       </div>
       {rendered}
+      {turnChanges.length > 0 && (
+        <FileChangesCard changes={turnChanges} onOpenChange={onOpenChange} />
+      )}
       {showActions && copyText && (
         <MessageActions text={copyText} regeneratePrompt={regeneratePrompt} />
+      )}
+    </div>
+  );
+}
+
+/** 对标 Codex「Edited N files」:一轮结束后的改动收口卡,行点击进侧栏 diff。 */
+const CHANGES_COLLAPSED_COUNT = 3;
+
+function FileChangesCard({
+  changes,
+  onOpenChange,
+}: {
+  changes: FileChange[];
+  onOpenChange?: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  const projectDir = useChatStore((state) => state.project?.path ?? null);
+  const [expanded, setExpanded] = useState(false);
+  const stats = totalChangeStats(changes);
+  const visible = expanded
+    ? changes
+    : changes.slice(0, CHANGES_COLLAPSED_COUNT);
+  const hiddenCount = changes.length - visible.length;
+
+  return (
+    <div className="my-3 overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
+      <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-fill-hover text-ink-secondary">
+          <FileDiff size={15} />
+        </span>
+        <span className="text-[13px] font-medium text-ink">
+          {t("chat.changes.title", { count: stats.files })}
+        </span>
+        <ChangeStat additions={stats.additions} deletions={stats.deletions} />
+      </div>
+      <div className="border-t border-line">
+        {visible.map((change) => {
+          const shortDir = directoryOf(shortenPath(change.path, projectDir));
+          return (
+            <button
+              key={change.path}
+              type="button"
+              onClick={() => onOpenChange?.(change.path)}
+              title={change.path}
+              className="flex w-full items-center gap-4 px-3.5 py-2 text-left transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
+            >
+              <span className="min-w-0 flex-1 truncate text-[13px]">
+                {shortDir && (
+                  <span className="text-ink-tertiary">{shortDir}/</span>
+                )}
+                <span className="font-medium text-ink">{change.name}</span>
+              </span>
+              <ChangeStat
+                additions={change.additions}
+                deletions={change.deletions}
+              />
+            </button>
+          );
+        })}
+      </div>
+      {(hiddenCount > 0 || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          className="flex w-full items-center gap-1 border-t border-line px-3.5 py-2 text-left text-[12px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+        >
+          {expanded
+            ? t("chat.changes.showLess")
+            : t("chat.changes.showMore", { count: hiddenCount })}
+          <ChevronDown
+            size={13}
+            className={`transition-transform duration-[var(--dur-fast)] ${
+              expanded ? "rotate-180" : ""
+            }`}
+          />
+        </button>
       )}
     </div>
   );
@@ -312,11 +413,9 @@ function ExecutionGroup({
     1,
     entries.filter((entry) => entry.kind !== "message").length,
   );
-  const failedCount = showToolDebugStatus()
-    ? entries.filter(
-        (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
-      ).length
-    : 0;
+  const failedCount = entries.filter(
+    (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
+  ).length;
   const compactionEntry =
     entries.length === 1 &&
     entries[0]?.kind === "progress" &&

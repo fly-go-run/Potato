@@ -18,6 +18,9 @@ interface TriggerPopoverProps {
   items: TriggerItem[];
   activeIndex: number;
   loading: boolean;
+  /** 列表加载失败:显示错误与重试,而不是伪装成空列表。 */
+  errorText?: string;
+  onRetry?: () => void;
   onSelect: (item: TriggerItem) => void;
   onHover: (index: number) => void;
 }
@@ -29,6 +32,8 @@ export function TriggerPopover({
   items,
   activeIndex,
   loading,
+  errorText,
+  onRetry,
   onSelect,
   onHover,
 }: TriggerPopoverProps) {
@@ -53,7 +58,24 @@ export function TriggerPopover({
       <div className="px-3.5 pb-1 pt-2.5 text-[11px] font-medium text-ink-tertiary">
         {loading ? t("composer.trigger.loading") : title}
       </div>
-      {!loading && items.length === 0 && (
+      {!loading && errorText && (
+        <div className="flex items-center justify-between gap-3 px-3.5 pb-3 pt-1 text-[13px] text-danger">
+          <span>{errorText}</span>
+          {onRetry && (
+            <button
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                onRetry();
+              }}
+              className="shrink-0 text-xs text-ink-secondary underline underline-offset-2 hover:text-ink"
+            >
+              {t("common.retry")}
+            </button>
+          )}
+        </div>
+      )}
+      {!loading && !errorText && items.length === 0 && (
         <div className="px-3.5 pb-3 pt-1 text-[13px] text-ink-muted">
           {kind === "slash"
             ? t("composer.trigger.noSkills")

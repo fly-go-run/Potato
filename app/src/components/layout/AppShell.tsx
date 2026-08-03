@@ -1,6 +1,6 @@
 import { MessageCirclePlus, PanelLeft } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type MouseEvent } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "../../lib/i18n";
 import {
   isMacDesktopShell,
@@ -29,6 +29,7 @@ const ShortcutsDialog = lazy(() =>
 export function AppShell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const initialize = useChatStore((state) => state.initialize);
@@ -84,11 +85,30 @@ export function AppShell() {
         event.preventDefault();
         setSearchOpen(false);
         setShortcutsOpen(true);
+      } else if (key === "," && !event.shiftKey) {
+        // ⌘, 开/关设置,与桌面应用惯例一致。
+        // 注意:设置以 background-location 覆盖层渲染时,AppShell 位于
+        // <Routes location={background}> 子树,useLocation 拿到的是背景页;
+        // 判断"当前是否在设置"必须看真实 hash。
+        event.preventDefault();
+        setSearchOpen(false);
+        setShortcutsOpen(false);
+        const onSettings =
+          window.location.hash.replace(/^#/, "").split("?")[0] ===
+          "/settings";
+        if (onSettings) {
+          // 与设置面板 closePanel 同一逻辑:优先退回来路。
+          const state = window.history.state as { idx?: number } | null;
+          if (typeof state?.idx === "number" && state.idx > 0) navigate(-1);
+          else navigate("/");
+        } else {
+          navigate("/settings", { state: { background: location } });
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [navigate, newChat, toggleSidebar]);
+  }, [location, navigate, newChat, toggleSidebar]);
 
   const startNewChat = () => {
     newChat();

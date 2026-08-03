@@ -1,18 +1,28 @@
-import { useEffect, useState, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
+import { useEffect, useState } from "react";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ThemedToken } from "@shikijs/types";
 import { highlightCode, isSupportedLanguage } from "../../lib/highlight";
 
 interface MarkdownProps {
   children: string;
+  /**
+   * 相对资源解析:文件预览等场景把 `./img.png` 之类的相对引用
+   * 转成可加载的地址。绝对/协议地址原样返回。
+   */
+  transformUrl?: (url: string) => string;
 }
 
-export function Markdown({ children }: MarkdownProps) {
+export function Markdown({ children, transformUrl }: MarkdownProps) {
   return (
     <div className="min-w-0 text-[15px] leading-[1.75] text-ink">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={
+          transformUrl
+            ? (url) => transformUrl(defaultUrlTransform(url))
+            : defaultUrlTransform
+        }
         components={{
           p: ({ children: value }) => (
             <p className="my-2 first:mt-0 last:mb-0">{value}</p>
@@ -140,7 +150,7 @@ function HighlightedCode({ code, language }: HighlightedCodeProps) {
   );
 }
 
-function tokenClass(token: ThemedToken) {
+export function tokenClass(token: ThemedToken) {
   const scopes = (token.explanation ?? [])
     .flatMap((entry) => entry.scopes)
     .map((scope) => scope.scopeName)
@@ -158,33 +168,4 @@ function tokenClass(token: ThemedToken) {
     return "text-ink-secondary";
   }
   return "text-ink";
-}
-
-export function textFromContent(
-  content: Array<{ type: string; text?: string }>,
-): string {
-  return content
-    .filter(
-      (part): part is { type: "text"; text: string } =>
-        part.type === "text" && typeof part.text === "string",
-    )
-    .map((part) => part.text)
-    .join("");
-}
-
-export function JsonView({ value }: { value: unknown }) {
-  let rendered: ReactNode;
-  try {
-    rendered =
-      typeof value === "string"
-        ? JSON.stringify(JSON.parse(value), null, 2)
-        : JSON.stringify(value, null, 2);
-  } catch {
-    rendered = String(value ?? "");
-  }
-  return (
-    <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-ink-secondary">
-      {rendered}
-    </pre>
-  );
 }

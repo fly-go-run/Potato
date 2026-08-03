@@ -26,20 +26,35 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
     );
   }
 
-  const title = progressTitle(message) || t("tool.progress");
+  const rawTitle = progressTitle(message);
+  // 后端事件名(英文 slug/工具内部名)不直出;认不出的统一"正在处理"。
+  const title = presentTitle(rawTitle) || t("progress.working");
   const status = progressStatus(message);
   const completed = message.status === "completed";
   const failed = message.status === "failed" || message.status === "cancelled";
   const debugStatus = showToolDebugStatus();
   const Icon = failed ? X : completed ? Check : CircleEllipsis;
 
-  if (completed || failed) {
+  // 失败终态不分环境,必须始终可见:静默吞掉失败比暴露内部字段更伤。
+  if (failed) {
     return (
-      <div
-        className={`my-2 flex items-center gap-2 text-xs ${
-          debugStatus && failed ? "text-danger" : "text-ink-muted"
-        }`}
-      >
+      <div className="my-2 flex items-center gap-2 text-xs text-danger">
+        <Icon size={14} className="shrink-0" />
+        <span className="min-w-0 truncate font-medium">
+          {t("progress.failedTitle")}
+        </span>
+        {status && (
+          <span className="min-w-0 truncate" title={status}>
+            · {status}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (completed) {
+    return (
+      <div className="my-2 flex items-center gap-2 text-xs text-ink-muted">
         {debugStatus && <Icon size={14} className="shrink-0" />}
         <span className="min-w-0 truncate font-medium text-ink-secondary">
           {title}
@@ -65,6 +80,17 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
       </div>
     </div>
   );
+}
+
+/**
+ * 标题只拦"明显是内部标识符"的文本:含 _ . : 的 slug、全小写单词。
+ * 中文、带空格的句子、TitleCase 单词(Planning/Uploading)都放行。
+ */
+function presentTitle(value: string): string {
+  if (!value) return "";
+  if (/[_.:]/.test(value) && !value.includes(" ")) return "";
+  if (/^[a-z0-9-]+$/.test(value)) return "";
+  return value;
 }
 
 export function isContextCompactionMessage(message: StreamMessage): boolean {

@@ -33,21 +33,19 @@ import {
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Composer } from "../components/chat/Composer";
 import {
   collectConversationArtifacts,
   ConversationSidePanel,
 } from "../components/chat/ConversationSidePanel";
-import { textFromContent } from "../components/chat/Markdown";
+import { collectFileChanges } from "../lib/fileChanges";
+import { textFromContent } from "../lib/content";
 import { MessageList } from "../components/chat/MessageList";
 import { Banner } from "../components/ui/Banner";
 import { Button, Card, SkeletonRows } from "../components/ui";
 import { getChatBanner } from "../lib/chatBanner";
-import {
-  isMacDesktopShell,
-  startDesktopWindowDrag,
-} from "../lib/desktop";
+import { isMacDesktopShell, startDesktopWindowDrag } from "../lib/desktop";
 import { useTranslation } from "../lib/i18n";
 import { isAtBottom as isScrollAtBottom } from "../lib/scroll";
 import { shortcutLabel } from "../lib/shortcuts";
@@ -59,35 +57,108 @@ function CapabilityChips({ wide = false }: { wide?: boolean }) {
   const [category, setCategory] = useState<"office" | "code" | "design">(
     "office",
   );
-  const setComposerDraft = useChatStore((state) => state.setComposerDraft);
-  const busy = useChatStore(
-    (state) => state.isSubmitting || state.isStreaming,
+  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(
+    null,
   );
+  const setComposerDraft = useChatStore((state) => state.setComposerDraft);
+  const busy = useChatStore((state) => state.isSubmitting || state.isStreaming);
   // key 是胶囊上的短标签,prompt 是点击后填入的完整任务指令(部分留白等用户补充)
   const groups = {
     office: [
-      { key: "chat.suggest.inbox", prompt: "chat.suggest.inbox.prompt", icon: Inbox },
-      { key: "chat.suggest.report", prompt: "chat.suggest.report.prompt", icon: NotebookPen },
-      { key: "chat.suggest.doc", prompt: "chat.suggest.doc.prompt", icon: FileText },
-      { key: "chat.suggest.sheet", prompt: "chat.suggest.sheet.prompt", icon: Table2 },
-      { key: "chat.suggest.slides", prompt: "chat.suggest.slides.prompt", icon: Presentation },
-      { key: "chat.suggest.cron", prompt: "chat.suggest.cron.prompt", icon: CalendarClock },
+      {
+        key: "chat.suggest.inbox",
+        prompt: "chat.suggest.inbox.prompt",
+        icon: Inbox,
+      },
+      {
+        key: "chat.suggest.report",
+        prompt: "chat.suggest.report.prompt",
+        icon: NotebookPen,
+      },
+      {
+        key: "chat.suggest.doc",
+        prompt: "chat.suggest.doc.prompt",
+        icon: FileText,
+      },
+      {
+        key: "chat.suggest.sheet",
+        prompt: "chat.suggest.sheet.prompt",
+        icon: Table2,
+      },
+      {
+        key: "chat.suggest.slides",
+        prompt: "chat.suggest.slides.prompt",
+        icon: Presentation,
+      },
+      {
+        key: "chat.suggest.cron",
+        prompt: "chat.suggest.cron.prompt",
+        icon: CalendarClock,
+      },
     ],
     code: [
-      { key: "chat.suggest.code.explain", prompt: "chat.suggest.code.explain.prompt", icon: FileCode2 },
-      { key: "chat.suggest.code.fix", prompt: "chat.suggest.code.fix.prompt", icon: Bug },
-      { key: "chat.suggest.code.test", prompt: "chat.suggest.code.test.prompt", icon: TestTube2 },
-      { key: "chat.suggest.code.review", prompt: "chat.suggest.code.review.prompt", icon: ScanSearch },
-      { key: "chat.suggest.code.refactor", prompt: "chat.suggest.code.refactor.prompt", icon: Gauge },
-      { key: "chat.suggest.code.project", prompt: "chat.suggest.code.project.prompt", icon: CodeXml },
+      {
+        key: "chat.suggest.code.explain",
+        prompt: "chat.suggest.code.explain.prompt",
+        icon: FileCode2,
+      },
+      {
+        key: "chat.suggest.code.fix",
+        prompt: "chat.suggest.code.fix.prompt",
+        icon: Bug,
+      },
+      {
+        key: "chat.suggest.code.test",
+        prompt: "chat.suggest.code.test.prompt",
+        icon: TestTube2,
+      },
+      {
+        key: "chat.suggest.code.review",
+        prompt: "chat.suggest.code.review.prompt",
+        icon: ScanSearch,
+      },
+      {
+        key: "chat.suggest.code.refactor",
+        prompt: "chat.suggest.code.refactor.prompt",
+        icon: Gauge,
+      },
+      {
+        key: "chat.suggest.code.project",
+        prompt: "chat.suggest.code.project.prompt",
+        icon: CodeXml,
+      },
     ],
     design: [
-      { key: "chat.suggest.design.ui", prompt: "chat.suggest.design.ui.prompt", icon: LayoutTemplate },
-      { key: "chat.suggest.design.image", prompt: "chat.suggest.design.image.prompt", icon: Image },
-      { key: "chat.suggest.design.interaction", prompt: "chat.suggest.design.interaction.prompt", icon: MousePointer2 },
-      { key: "chat.suggest.design.prototype", prompt: "chat.suggest.design.prototype.prompt", icon: Palette },
-      { key: "chat.suggest.design.review", prompt: "chat.suggest.design.review.prompt", icon: ScanSearch },
-      { key: "chat.suggest.design.system", prompt: "chat.suggest.design.system.prompt", icon: SwatchBook },
+      {
+        key: "chat.suggest.design.ui",
+        prompt: "chat.suggest.design.ui.prompt",
+        icon: LayoutTemplate,
+      },
+      {
+        key: "chat.suggest.design.image",
+        prompt: "chat.suggest.design.image.prompt",
+        icon: Image,
+      },
+      {
+        key: "chat.suggest.design.interaction",
+        prompt: "chat.suggest.design.interaction.prompt",
+        icon: MousePointer2,
+      },
+      {
+        key: "chat.suggest.design.prototype",
+        prompt: "chat.suggest.design.prototype.prompt",
+        icon: Palette,
+      },
+      {
+        key: "chat.suggest.design.review",
+        prompt: "chat.suggest.design.review.prompt",
+        icon: ScanSearch,
+      },
+      {
+        key: "chat.suggest.design.system",
+        prompt: "chat.suggest.design.system.prompt",
+        icon: SwatchBook,
+      },
     ],
   } as const;
   const categories = [
@@ -113,7 +184,10 @@ function CapabilityChips({ wide = false }: { wide?: boolean }) {
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                onClick={() => setCategory(value)}
+                onClick={() => {
+                  setCategory(value);
+                  setSelectedSuggestion(null);
+                }}
                 className={`flex h-9 items-center gap-2 rounded-full px-5 text-[14px] font-medium transition-[background-color,color,box-shadow] duration-[var(--dur-fast)] ${
                   selected
                     ? "bg-btn-primary text-btn-primary-ink shadow-[var(--shadow-control)]"
@@ -137,12 +211,24 @@ function CapabilityChips({ wide = false }: { wide?: boolean }) {
             key={key}
             type="button"
             disabled={busy}
-            onClick={() => setComposerDraft(t(prompt))}
-            className="group flex h-9 items-center gap-1.5 rounded-full border border-transparent bg-surface px-4 text-[13px] leading-5 text-ink-secondary shadow-[var(--shadow-control)] transition-[background-color,color,box-shadow,opacity] duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink active:bg-fill-active disabled:pointer-events-none disabled:opacity-40"
+            aria-pressed={selectedSuggestion === key}
+            onClick={() => {
+              setSelectedSuggestion(key);
+              setComposerDraft(t(prompt));
+            }}
+            className={`group flex h-9 items-center gap-1.5 rounded-full border border-transparent px-4 text-[13px] leading-5 shadow-[var(--shadow-control)] transition-[background-color,color,box-shadow,opacity] duration-[var(--dur-fast)] disabled:pointer-events-none disabled:opacity-40 ${
+              selectedSuggestion === key
+                ? "bg-fill-active text-ink"
+                : "bg-surface text-ink-secondary hover:bg-fill-hover hover:text-ink active:bg-fill-active"
+            }`}
           >
             <Icon
               size={16}
-              className="shrink-0 text-ink-tertiary transition-colors duration-[var(--dur-fast)] group-hover:text-ink-secondary"
+              className={`shrink-0 transition-colors duration-[var(--dur-fast)] ${
+                selectedSuggestion === key
+                  ? "text-ink-secondary"
+                  : "text-ink-tertiary group-hover:text-ink-secondary"
+              }`}
             />
             {t(key)}
           </button>
@@ -155,6 +241,7 @@ function CapabilityChips({ wide = false }: { wide?: boolean }) {
 export function ChatView() {
   const { t } = useTranslation();
   const { chatId } = useParams();
+  const routerNavigate = useNavigate();
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -166,6 +253,7 @@ export function ChatView() {
   const [activeSearchMessageId, setActiveSearchMessageId] = useState("");
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [selectedFilePath, setSelectedFilePath] = useState("");
+  const [selectedChangePath, setSelectedChangePath] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const {
     activeChatId,
@@ -178,6 +266,7 @@ export function ChatView() {
     openChat,
     pollApprovals,
     switchRateLimitedModel,
+    sendMessage,
     clearError,
     addImages,
   } = useChatStore();
@@ -189,6 +278,22 @@ export function ChatView() {
   const dragDepth = useRef(0);
   const artifacts = useMemo(
     () => collectConversationArtifacts(stream.messages),
+    [stream.messages],
+  );
+  // 限流后"切换模型"要能接着把失败的那次请求补回去,
+  // 否则用户以为已恢复,实际任务还停在原地。
+  const lastUserText = useMemo(() => {
+    for (let index = stream.messages.length - 1; index >= 0; index -= 1) {
+      const message = stream.messages[index]!;
+      if (message.role === "user" && message.type === "message") {
+        const text = textFromContent(message.content).trim();
+        if (text) return text;
+      }
+    }
+    return "";
+  }, [stream.messages]);
+  const fileChanges = useMemo(
+    () => collectFileChanges(stream.messages),
     [stream.messages],
   );
   const searchMatches = useMemo(() => {
@@ -236,8 +341,7 @@ export function ChatView() {
     banner && /^internal server error$/i.test(banner.message.trim())
       ? t("chat.error.serviceUnavailable")
       : banner?.message;
-  const isEmpty =
-    stream.messages.length === 0 && pendingApprovals.length === 0;
+  const isEmpty = stream.messages.length === 0 && pendingApprovals.length === 0;
 
   useEffect(() => {
     if (chatId && chatId !== activeChatId) void openChat(chatId);
@@ -276,6 +380,7 @@ export function ChatView() {
     setActiveSearchMessageId("");
     setSidePanelOpen(false);
     setSelectedFilePath("");
+    setSelectedChangePath("");
   }, [chatId]);
 
   useEffect(() => {
@@ -320,12 +425,25 @@ export function ChatView() {
 
   const openFilePreview = (path: string) => {
     if (!path) return;
+    setSelectedChangePath("");
     setSelectedFilePath(path);
     setSidePanelOpen(true);
   };
 
-  const closeSidePanel = () => {
+  const openChangeDiff = (path: string) => {
+    if (!path) return;
     setSelectedFilePath("");
+    setSelectedChangePath(path);
+    setSidePanelOpen(true);
+  };
+
+  const backToPanelHome = () => {
+    setSelectedFilePath("");
+    setSelectedChangePath("");
+  };
+
+  const closeSidePanel = () => {
+    backToPanelHome();
     setSidePanelOpen(false);
   };
 
@@ -405,19 +523,33 @@ export function ChatView() {
                           disabled={switchingModel !== null}
                           onClick={() => {
                             setSwitchingModel(key);
-                            void switchRateLimitedModel(alternative).finally(() =>
-                              setSwitchingModel(null),
-                            );
+                            void switchRateLimitedModel(alternative)
+                              .then((switched) => {
+                                // 切换失败还在旧模型上,重发只会再次限流
+                                if (switched !== false && lastUserText) {
+                                  return sendMessage(
+                                    lastUserText,
+                                    routerNavigate,
+                                  );
+                                }
+                                return undefined;
+                              })
+                              .finally(() => setSwitchingModel(null));
                           }}
                           className="border-warn/30 text-warn"
                         >
                           {switchingModel === key
                             ? t("chat.switchingModel")
-                            : t("chat.switchModel", {
-                                name:
-                                  alternative.model_name ||
-                                  alternative.model_id,
-                              })}
+                            : t(
+                                lastUserText
+                                  ? "chat.switchModelRetry"
+                                  : "chat.switchModel",
+                                {
+                                  name:
+                                    alternative.model_name ||
+                                    alternative.model_id,
+                                },
+                              )}
                         </Button>
                       );
                     })
@@ -486,18 +618,6 @@ export function ChatView() {
                 </span>
               )}
             </div>
-            {isStreaming && (
-              <span
-                data-tauri-drag-region
-                className="flex shrink-0 items-center gap-1.5 text-[11px] text-ink-tertiary"
-              >
-                <span
-                  data-tauri-drag-region
-                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok"
-                />
-                {t("sidebar.running")}
-              </span>
-            )}
             <div className="ml-2 flex shrink-0 items-center gap-0.5">
               <button
                 type="button"
@@ -528,9 +648,11 @@ export function ChatView() {
                 }`}
               >
                 <PanelRightOpen size={15} />
-                {artifacts.length > 0 && (
+                {artifacts.length + fileChanges.length > 0 && (
                   <span className="absolute right-0.5 top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-btn-primary px-1 text-[9px] leading-3.5 text-btn-primary-ink">
-                    {artifacts.length > 9 ? "9+" : artifacts.length}
+                    {artifacts.length + fileChanges.length > 9
+                      ? "9+"
+                      : artifacts.length + fileChanges.length}
                   </span>
                 )}
               </button>
@@ -613,6 +735,7 @@ export function ChatView() {
                     messages={stream.messages}
                     activeMessageId={activeSearchMessageId}
                     onOpenFile={openFilePreview}
+                    onOpenChange={openChangeDiff}
                   />
                 )}
               </div>
@@ -636,11 +759,14 @@ export function ChatView() {
               <ConversationSidePanel
                 messages={stream.messages}
                 artifacts={artifacts}
+                changes={fileChanges}
                 responseStatus={stream.responseStatus}
                 selectedFilePath={selectedFilePath}
+                selectedChangePath={selectedChangePath}
                 onClose={closeSidePanel}
-                onFileClose={() => setSelectedFilePath("")}
+                onFileClose={backToPanelHome}
                 onOpenFile={openFilePreview}
+                onOpenChange={openChangeDiff}
                 onLocate={locateMessage}
               />
             )}

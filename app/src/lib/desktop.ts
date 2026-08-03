@@ -16,11 +16,153 @@ export function isMacDesktopShell(): boolean {
  * 官方 plugin JS 包也是包着它调 invoke;这里直接用避免给 web 构建带上依赖。 */
 interface TauriInternals {
   invoke: (cmd: string, args?: unknown) => Promise<unknown>;
+  transformCallback?: (
+    callback: (event: unknown) => void,
+    once?: boolean,
+  ) => number;
 }
 
 function tauriInternals(): TauriInternals | null {
+  if (typeof window === "undefined") return null;
   const holder = window as unknown as { __TAURI_INTERNALS__?: TauriInternals };
   return holder.__TAURI_INTERNALS__ ?? null;
+}
+
+interface TauriEventPluginInternals {
+  unregisterListener?: (event: string, eventId: number) => void;
+}
+
+export interface DesktopUpdateInfo {
+  version: string;
+  body?: string | null;
+  supportsLaterInstall?: boolean;
+}
+
+export interface DesktopUpdateProgress {
+  downloaded: number;
+  total: number | null;
+}
+
+export interface DesktopUpdateError {
+  stage: "check" | "download" | "install";
+  kind: "network" | "signature" | "appLocation" | "other";
+  message: string;
+}
+
+/** The backend-hosted app deliberately has no Tauri npm dependency.  Keep the
+ * small bridge here so a normal browser build simply degrades to a no-op. */
+export function hasDesktopHostBridge(): boolean {
+  return isDesktopShell() && tauriInternals() !== null;
+}
+
+async function invokeDesktop<T>(
+  command: string,
+  args?: unknown,
+): Promise<T | null> {
+  const internals = tauriInternals();
+  if (!isDesktopShell() || !internals) return null;
+  return (await internals.invoke(command, args)) as T;
+}
+
+/** Listen without importing @tauri-apps/api into the backend-hosted bundle. */
+export async function listenDesktopEvent<T>(
+  event: string,
+  handler: (payload: T) => void,
+): Promise<(() => void) | null> {
+  const internals = tauriInternals();
+  if (!isDesktopShell() || !internals?.transformCallback) return null;
+
+  const callbackId = internals.transformCallback((rawEvent) => {
+    const payload = (rawEvent as { payload?: T }).payload;
+    handler(payload as T);
+  });
+
+  let eventId: number;
+  try {
+    eventId = await invokeDesktop<number>("plugin:event|listen", {
+      event,
+      target: { kind: "Any" },
+      handler: callbackId,
+    }).then((value) => {
+      if (typeof value !== "number") {
+        throw new Error("desktop event listener was not registered");
+      }
+      return value;
+    });
+  } catch {
+    return null;
+  }
+
+  return () => {
+    const holder = window as unknown as {
+      __TAURI_EVENT_PLUGIN_INTERNALS__?: TauriEventPluginInternals;
+    };
+    holder.__TAURI_EVENT_PLUGIN_INTERNALS__?.unregisterListener?.(
+      event,
+      eventId,
+    );
+    void invokeDesktop("plugin:event|unlisten", { event, eventId });
+  };
+}
+
+export async function acknowledgeDesktopClose(): Promise<void> {
+  await invokeDesktop("ack_close");
+}
+
+export type DesktopCloseAction = "minimize-to-tray" | "quit";
+
+const CLOSE_ACTION_STORAGE_KEY = "qwenpaw_desktop_close_action";
+
+export function getRememberedDesktopCloseAction(): DesktopCloseAction | null {
+  try {
+    const value = globalThis.localStorage?.getItem(CLOSE_ACTION_STORAGE_KEY);
+    return value === "minimize-to-tray" || value === "quit" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setRememberedDesktopCloseAction(
+  action: DesktopCloseAction,
+): void {
+  try {
+    globalThis.localStorage?.setItem(CLOSE_ACTION_STORAGE_KEY, action);
+  } catch {
+    // The action still proceeds when storage is unavailable.
+  }
+}
+
+export async function runDesktopCloseAction(
+  action: DesktopCloseAction,
+): Promise<void> {
+  await invokeDesktop(action === "quit" ? "quit_app" : "minimize_to_tray");
+}
+
+export async function setDesktopTrayLabels(
+  showWindow: string,
+  quit: string,
+): Promise<void> {
+  await invokeDesktop("set_tray_labels", { showWindow, quit });
+}
+
+export async function checkDesktopUpdate(): Promise<DesktopUpdateInfo | null> {
+  return invokeDesktop<DesktopUpdateInfo>("check_desktop_update");
+}
+
+export async function checkCachedDesktopUpdate(): Promise<string | null> {
+  return invokeDesktop<string>("check_cached_update");
+}
+
+export async function installDesktopUpdate(): Promise<void> {
+  await invokeDesktop("install_desktop_update");
+}
+
+export async function downloadDesktopUpdate(): Promise<void> {
+  await invokeDesktop("download_desktop_update");
+}
+
+export async function installCachedDesktopUpdate(): Promise<void> {
+  await invokeDesktop("install_downloaded_update");
 }
 
 /** Start native window dragging from a custom overlay titlebar. The CSS
