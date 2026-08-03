@@ -20,8 +20,15 @@ class _BuildPyWithOfficeSkillAssets(_build_py):
 
     def run(self) -> None:
         super().run()
+        # Editable installs (pip/uv `-e .`) run straight off the source
+        # tree: build_py copies no package data into build_lib, so there is
+        # nothing to materialize — and the sync would fail on the empty dir.
+        if getattr(self, "editable_mode", False):
+            return
         build_agents_dir = Path(self.build_lib) / "qwenpaw" / "agents"
         build_skills_dir = build_agents_dir / "skills"
+        if not build_skills_dir.is_dir():
+            return
         _sync_office_skill_assets(
             build_skills_dir,
             source_skills_dir=_ROOT / "src" / "qwenpaw" / "agents" / "skills",
