@@ -27,7 +27,7 @@ from ..utils.registry import Registry
 
 logger = logging.getLogger(__name__)
 AUTO_MEMORY_TURN_STATE_TTL_SECONDS = 24 * 60 * 60
-MAX_QUERY_CHARS = 50
+MAX_QUERY_CHARS = 200
 SUMMARY_WORKER_CLOSE_TIMEOUT_SECONDS = 5.0
 MAX_SUMMARY_TASK_HISTORY = 100
 SUMMARY_TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
@@ -301,6 +301,14 @@ class BaseMemoryManager(ABC):
             dict with updated kwargs if memory context should be merged.
         """
         return None
+
+    def reset_auto_search_dedup(self, session_id: str) -> None:
+        """Forget which memory chunks auto-search already injected.
+
+        Called when the session's live context is cleared (``/new``,
+        ``/clear``): previously injected chunks are gone from context, so
+        they must become retrievable again. Base implementation is a no-op.
+        """
 
     @staticmethod
     def _build_query(messages: list[Msg]) -> str:

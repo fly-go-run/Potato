@@ -325,7 +325,7 @@ class TestAutoMemorySearchSanitization:
         assert manager._build_query(messages) == "台积电股价"
 
     def test_build_query_truncates_long_user_message(self, manager):
-        long_text = "a" * 60
+        long_text = "a" * 260
         messages = [
             Msg(
                 name="user",
@@ -334,7 +334,7 @@ class TestAutoMemorySearchSanitization:
             ),
         ]
 
-        assert manager._build_query(messages) == "a" * 50
+        assert manager._build_query(messages) == "a" * 200
 
     def test_build_query_returns_empty_without_user_text(self, manager):
         messages = [

@@ -12,6 +12,7 @@ import hashlib
 import logging
 import os
 import re
+import time
 from typing import Any, TYPE_CHECKING
 
 from agentscope.message import Msg, TextBlock
@@ -39,6 +40,10 @@ INBOX_RESULT_JOB_NAMES = {"auto_memory", "auto_dream", "auto_resource"}
 INBOX_RESULT_HOOK_KEY = "qwenpaw_memory_result_hook"
 INBOX_EMITTED_METADATA_KEY = "_qwenpaw_inbox_emitted"
 MAX_INBOX_BODY_CHARS = 4000
+_AUTO_SEARCH_DEDUP_PREFIX = "auto_memory_search:"
+_AUTO_SEARCH_DEDUP_TTL_SECONDS = 24 * 60 * 60
+_REME_TOOL_CONTEXTS_KEY = "tool_contexts"
+_REME_SEARCH_SEEN_KEY = "search_seen_chunk_ids"
 _REME_SESSION_ID_PREFIX = "qpsid_"
 _REME_SESSION_ID_B64_PREFIX = f"{_REME_SESSION_ID_PREFIX}b64_"
 _REME_SESSION_ID_HASH_PREFIX = f"{_REME_SESSION_ID_PREFIX}sha256_"
@@ -182,6 +187,7 @@ class ReMeLightMemoryManager(BaseMemoryManager):
         return build_memory_guidance_prompt(
             agent_config.language,
             daily_dir=cfg.daily_dir,
+            digest_dir=cfg.digest_dir,
         )
 
     def get_memory_config(self) -> Any:
@@ -453,6 +459,54 @@ class ReMeLightMemoryManager(BaseMemoryManager):
             return ""
         return str(response.answer or "")
 
+    def _auto_search_tool_contexts(self) -> dict | None:
+        """Return ReMe's shared tool-context dedup store, if reachable."""
+        context = getattr(self._reme, "context", None)
+        metadata = getattr(context, "metadata", None)
+        if not isinstance(metadata, dict):
+            return None
+        contexts = metadata.get(_REME_TOOL_CONTEXTS_KEY)
+        return contexts if isinstance(contexts, dict) else None
+
+    def reset_auto_search_dedup(self, session_id: str) -> None:
+        """Drop a session's auto-search dedup bucket after a context clear."""
+        if not session_id:
+            return
+        contexts = self._auto_search_tool_contexts()
+        if contexts is None:
+            return
+        contexts.pop(f"{_AUTO_SEARCH_DEDUP_PREFIX}{session_id}", None)
+
+    def _prune_auto_search_dedup(self, now: float) -> None:
+        """Drop auto-search dedup buckets whose entries have all expired.
+
+        ReMe's TTL only prunes chunk ids inside a bucket when that bucket is
+        touched again; buckets of finished sessions would otherwise linger
+        for the process lifetime.
+        """
+        contexts = self._auto_search_tool_contexts()
+        if not contexts:
+            return
+        for key in [
+            k for k in contexts if k.startswith(_AUTO_SEARCH_DEDUP_PREFIX)
+        ]:
+            bucket = contexts.get(key)
+            seen = (
+                bucket.get(_REME_SEARCH_SEEN_KEY)
+                if isinstance(bucket, dict)
+                else None
+            )
+            if not isinstance(seen, dict) or not seen:
+                contexts.pop(key, None)
+                continue
+            try:
+                latest = max(float(ts) for ts in seen.values())
+            except (TypeError, ValueError):
+                contexts.pop(key, None)
+                continue
+            if now - latest >= _AUTO_SEARCH_DEDUP_TTL_SECONDS:
+                contexts.pop(key, None)
+
     async def auto_memory_search(
         self,
         messages: list[Msg] | Msg,
@@ -461,7 +515,7 @@ class ReMeLightMemoryManager(BaseMemoryManager):
     ) -> dict | None:
         """Auto-search memory and expose it as a completed tool interaction."""
         del agent_name
-        del kwargs
+        session_id = str(kwargs.get("session_id") or "")
         agent_config = load_agent_config(self.agent_id)
         memory_cfg = agent_config.running.reme_light_memory_config
         if not memory_cfg.auto_memory_search_config.enabled:
@@ -475,11 +529,19 @@ class ReMeLightMemoryManager(BaseMemoryManager):
         search_cfg = memory_cfg.auto_memory_search_config
 
         max_results = max(1, search_cfg.max_results)
+        # Scope ReMe's seen-chunk dedup to this session so repeated auto
+        # searches don't re-inject the same snippets every turn. Manual
+        # memory_search calls stay undeduped on purpose.
+        tool_context_id = (
+            f"{_AUTO_SEARCH_DEDUP_PREFIX}{session_id}" if session_id else ""
+        )
+        self._prune_auto_search_dedup(time.time())
         response = await self._run_reme_job(
             "search",
             query=query,
             limit=max_results,
             min_score=0,
+            tool_context_id=tool_context_id,
         )
         if response is None or not response.success:
             return None

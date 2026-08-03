@@ -659,6 +659,18 @@ class CommandHandler(ConversationCommandHandlerMixin):
             except Exception as e:
                 logger.warning("offloader.offload_context failed: %s", e)
         state.context.clear()
+        # Injected memory snippets are gone with the context; make them
+        # retrievable again for this session's future auto searches.
+        if self.memory_manager is not None:
+            try:
+                self.memory_manager.reset_auto_search_dedup(
+                    self._current_session_id(),
+                )
+            except Exception:
+                logger.warning(
+                    "reset_auto_search_dedup failed",
+                    exc_info=True,
+                )
 
     async def _process_compact_str(
         self,

@@ -120,7 +120,11 @@ def _kill_process_tree(pid: int) -> None:
         parent = psutil.Process(pid)
     except Exception:
         return
-    for child in parent.children(recursive=True):
+    try:
+        children = parent.children(recursive=True)
+    except Exception:
+        children = []
+    for child in children:
         try:
             child.kill()
         except Exception:
@@ -664,7 +668,10 @@ class AcpTransport:
             except Exception:  # noqa: BLE001
                 pass
         if self._process is not None:
-            _kill_process_tree(self._process.pid)
+            try:
+                _kill_process_tree(self._process.pid)
+            except Exception:  # noqa: BLE001 - cleanup must keep progressing
+                logger.debug("failed to kill ACP process tree", exc_info=True)
         if self._stack is not None:
             try:
                 await self._stack.aclose()

@@ -30,17 +30,20 @@ def _kill_process_tree(pid: int) -> None:
     """Recursively kill a process and all its descendants (cross-platform)."""
     try:
         parent = psutil.Process(pid)
-    except psutil.NoSuchProcess:
+    except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
         return
-    children = parent.children(recursive=True)
+    try:
+        children = parent.children(recursive=True)
+    except (psutil.AccessDenied, PermissionError):
+        children = []
     for child in children:
         try:
             child.kill()
-        except psutil.NoSuchProcess:
+        except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
             pass
     try:
         parent.kill()
-    except psutil.NoSuchProcess:
+    except (psutil.NoSuchProcess, psutil.AccessDenied, PermissionError):
         pass
 
 

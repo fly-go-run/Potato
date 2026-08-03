@@ -180,6 +180,14 @@ def _base_config() -> dict[str, Any]:
                             "description": "min fused score",
                             "default": 0.0,
                         },
+                        "tool_context_id": {
+                            "type": "string",
+                            "description": (
+                                "dedup scope id; repeated searches in the "
+                                "same scope skip already-returned chunks"
+                            ),
+                            "default": "",
+                        },
                     },
                     "required": ["query"],
                 },

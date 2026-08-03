@@ -43,6 +43,12 @@ from ...constant import WORKING_DIR, EnvVarLoader
 from ...exceptions import DirectUrlDownloadRejectedError
 from ...runtime.tool_registry import tool_descriptor
 
+from .browser_paths import (
+    browser_type_from_executable as _browser_type_from_exe,
+    resolve_browser_user_data_dir as _resolve_user_data_dir,
+    safe_download_filename as _safe_download_filename,
+    validate_browser_executable_path as _validate_executable_path,
+)
 from .browser_snapshot import build_role_snapshot_from_aria
 
 logger = logging.getLogger(__name__)
@@ -59,63 +65,6 @@ _HEADLESS_VERIFICATION_WARNING = (
 )
 
 
-# Keywords used to validate executable_path — the binary filename must
-# contain at least one of these (case-insensitive) to be accepted.
-_TRUSTED_BROWSER_KEYWORDS = frozenset(
-    {
-        "chrome",  # Google Chrome
-        "chromium",  # Chromium (open-source)
-        "edge",  # Microsoft Edge
-        "firefox",  # Mozilla Firefox
-        "brave",  # Brave Browser
-        "vivaldi",  # Vivaldi Browser
-        "opera",  # Opera
-        "360se",  # 360 Secure Browser
-        "yandex",  # Yandex Browser
-        "tor",  # Tor Browser
-    },
-)
-
-
-def _validate_executable_path(executable_path: str) -> None:
-    """Raise ValueError if *executable_path* is not a trusted browser binary."""
-    if not executable_path:
-        return
-    name = Path(executable_path).name.lower()
-    if not any(kw in name for kw in _TRUSTED_BROWSER_KEYWORDS):
-        raise ValueError(
-            f"executable_path rejected: '{Path(executable_path).name}' "
-            f"does not match any trusted browser name "
-            f"(keywords: {', '.join(sorted(_TRUSTED_BROWSER_KEYWORDS))})",
-        )
-    if not Path(executable_path).is_file():
-        raise ValueError(
-            f"executable_path rejected: '{executable_path}' does not exist",
-        )
-
-
-def _browser_type_from_exe(exe_path: str) -> str:
-    """Infer browser type keyword from an executable path (lowercase)."""
-    if not exe_path:
-        return ""
-    name = Path(exe_path).name.lower()
-    for browser_type in (
-        "edge",
-        "chromium",
-        "chrome",
-        "brave",
-        "vivaldi",
-        "opera",
-        "firefox",
-        "360se",
-        "yandex",
-        "tor",
-    ):
-        if browser_type in name:
-            return browser_type
-    return ""
-
-
 def _workspace_dir_for_browser_state(state: dict) -> str:
     """Return a usable workspace directory for browser profile storage."""
     workspace_dir = state.get("workspace_dir")
@@ -127,31 +76,6 @@ def _workspace_dir_for_browser_state(state: dict) -> str:
     return str(WORKING_DIR)
 
 
-def _resolve_user_data_dir(
-    workspace_dir: str,
-    exe_path: str,
-    explicit_executable_path: bool = False,
-) -> str:
-    """Return the user-data directory for a browser launch.
-
-    * No explicit executable_path → ``{workspace}/browser/user_data``
-    * Explicit executable_path    → ``{workspace}/browser/user_data_{type}``
-
-    Keeping the implicit/default launch on the legacy directory preserves
-    existing users' cookies and sessions. Explicit browser paths get isolated
-    profiles to avoid profile-format conflicts when switching browsers.
-    """
-    if not workspace_dir:
-        return ""
-    base = Path(workspace_dir) / "browser"
-    if not explicit_executable_path:
-        return str(base / "user_data")
-    browser_type = _browser_type_from_exe(exe_path)
-    if not browser_type:
-        return str(base / "user_data")
-    return str(base / f"user_data_{browser_type}")
-
-
 def _resolve_output_path(path: str) -> str:
     """Resolve relative output paths under workspace_dir/browser/."""
     if Path(path).is_absolute():
@@ -159,14 +83,6 @@ def _resolve_output_path(path: str) -> str:
     base_dir = (get_current_workspace_dir() or WORKING_DIR) / "browser"
     base_dir.mkdir(parents=True, exist_ok=True)
     return str(base_dir / path)
-
-
-def _safe_download_filename(filename: Any, default: str = "download") -> str:
-    """Return a filesystem-safe filename for browser downloads."""
-    name = Path(str(filename or "")).name.strip()
-    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", name)
-    name = name.strip(" .")
-    return name or default
 
 
 def _browser_output_dir(state: dict, name: str) -> Path:
