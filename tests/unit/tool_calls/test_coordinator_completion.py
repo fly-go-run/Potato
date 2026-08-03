@@ -277,11 +277,13 @@ async def test_same_provider_tool_id_is_isolated_by_session_and_agent():
     assert coordinator.list_entries(
         session_id="session-a",
         agent_id="agent-a",
-    ) == [coordinator.get(
-        "provider-call-1",
-        session_id="session-a",
-        agent_id="agent-a",
-    )]
+    ) == [
+        coordinator.get(
+            "provider-call-1",
+            session_id="session-a",
+            agent_id="agent-a",
+        ),
+    ]
     assert coordinator.get("provider-call-1") is None
     entry_a = coordinator.get("provider-call-1", session_id="session-a")
     entry_b = coordinator.get("provider-call-1", session_id="session-b")

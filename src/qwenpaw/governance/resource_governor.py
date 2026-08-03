@@ -252,7 +252,8 @@ class ResourceGovernor:
         is_shell = DEFAULT_REGISTRY.get_type(tc_spec.tool_name) == "shell"
         needs_sandbox = (
             decision.action is GovernanceAction.SANDBOX_FALLBACK
-            or decision.action is GovernanceAction.ALLOW and is_shell
+            or decision.action is GovernanceAction.ALLOW
+            and is_shell
         )
 
         # Sandbox not usable (platform unsupported OR the global
@@ -261,10 +262,7 @@ class ResourceGovernor:
         # a distinct action so audit/UI consumers can tell it from ALLOW.  The
         # command has still cleared all policy/detector checks; only the
         # containment layer is unavailable.
-        if (
-            needs_sandbox
-            and not self._sandbox_usable()
-        ):
+        if needs_sandbox and not self._sandbox_usable():
             if self._sandbox_available:
                 reason = "sandbox disabled by config"
             else:

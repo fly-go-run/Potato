@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 from pathlib import Path
 import subprocess
@@ -23,7 +24,8 @@ def _create_skill_roots(skills_dir: Path) -> None:
         skill_dir = skills_dir / skill_name
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
-            "---\nname: office\n---\n", encoding="utf-8"
+            "---\nname: office\n---\n",
+            encoding="utf-8",
         )
 
 

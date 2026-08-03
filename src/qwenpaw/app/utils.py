@@ -218,9 +218,7 @@ async def save_upload_with_limit(
                 if total > max_bytes:
                     raise HTTPException(
                         status_code=413,
-                        detail=(
-                            f"File exceeds the {max_mb} MB upload limit"
-                        ),
+                        detail=(f"File exceeds the {max_mb} MB upload limit"),
                     )
                 output.write(chunk)
     except BaseException:

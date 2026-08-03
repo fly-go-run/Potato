@@ -63,7 +63,8 @@ async def apply_provision_file(
         await _apply(manager, agent_id, data)
     except Exception:  # pylint: disable=broad-except
         logger.exception(
-            "[provision] failed to apply %s; will retry next startup", path,
+            "[provision] failed to apply %s; will retry next startup",
+            path,
         )
         return
     try:
@@ -118,8 +119,12 @@ async def _apply(
             logger.info("[provision] configured provider %s", provider_id)
 
     active = data.get("active")
-    if isinstance(active, dict) and active.get("provider_id") and active.get(
-        "model",
+    if (
+        isinstance(active, dict)
+        and active.get("provider_id")
+        and active.get(
+            "model",
+        )
     ):
         agent_config = load_agent_config(agent_id)
         agent_config.active_model = ModelSlotConfig(

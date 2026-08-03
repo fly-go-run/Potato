@@ -256,8 +256,11 @@ class ToolCoordinator:
         """
         matches = [
             entry
-            for (entry_session_id, entry_agent_id, entry_call_id), entry
-            in self._entries.items()
+            for (
+                entry_session_id,
+                entry_agent_id,
+                entry_call_id,
+            ), entry in self._entries.items()
             if entry_call_id == tool_call_id
             and (session_id is None or entry_session_id == session_id)
             and (agent_id is None or entry_agent_id == agent_id)

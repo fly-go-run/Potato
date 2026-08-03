@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Validate or materialize the generated Office runtime in built-in skills.
 
 Examples:

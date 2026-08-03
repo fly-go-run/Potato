@@ -524,8 +524,7 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             else:
                 app.state.startup_state = "failed"
                 app.state.startup_error = (
-                    "Core background startup failed: "
-                    f"{type(exc).__name__}"
+                    "Core background startup failed: " f"{type(exc).__name__}"
                 )
                 startup_display.mark_failed(app.state.startup_error)
             logger.error(
@@ -683,9 +682,7 @@ if CORS_ORIGINS:
 
 
 _WEB_STATIC_DIR = resolve_web_static_dir()
-_WEB_INDEX = (
-    Path(_WEB_STATIC_DIR) / "index.html" if _WEB_STATIC_DIR else None
-)
+_WEB_INDEX = Path(_WEB_STATIC_DIR) / "index.html" if _WEB_STATIC_DIR else None
 logger.info("WEB_STATIC_DIR: %s", _WEB_STATIC_DIR)
 
 # The SPA entry (index.html) must never be cached: it references content-hashed

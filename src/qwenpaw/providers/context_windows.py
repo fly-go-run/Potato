@@ -48,9 +48,7 @@ DEFAULT_CONTEXT_WINDOW = 128 * 1024
 _CONTEXT_WINDOWS_BY_PROVIDER: dict[str, tuple[tuple[str, int], ...]] = {
     # The configured sub2api models currently used by Potato are GPT-5.6
     # variants. Do not apply this to every OpenAI-compatible provider.
-    "sub2api": (
-        ("gpt-5.6", 1_050_000),
-    ),
+    "sub2api": (("gpt-5.6", 1_050_000),),
     # Official DeepSeek V4 models expose a 1M input window. The legacy
     # compatibility aliases route to V4 on the current official API.
     "deepseek": (
