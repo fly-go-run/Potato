@@ -94,7 +94,7 @@ jobs:
           bash scripts/pack-tauri/build_macos_pyinstaller.sh
 
       - name: Verify desktop (Tauri macOS)
-        timeout-minutes: 10
+        timeout-minutes: 20
         uses: ./.github/actions/verify-tauri-macos
         with:
           dashscope-api-key: ${{ secrets.QWENPAW_DASHSCOPE_API_KEY }}
@@ -196,8 +196,9 @@ jobs:
             dist/tauri-windows-*-updater.json
           if-no-files-found: error
 
+      # 20 分钟:慢 runner 上 NSIS 安装+启动就可能吃掉 8 分钟
       - name: Verify desktop (Tauri Windows)
-        timeout-minutes: 10
+        timeout-minutes: 20
         uses: ./.github/actions/verify-tauri-windows
         with:
           dashscope-api-key: ${{ secrets.QWENPAW_DASHSCOPE_API_KEY }}

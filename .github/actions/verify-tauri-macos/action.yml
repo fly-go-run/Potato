@@ -40,8 +40,8 @@ runs:
         if [ "$ALLOW_FLAKY_LLM" = "true" ]; then
           extra_flags+=("--allow-flaky-llm")
         fi
+        # headless:CI runner 没有桌面会话,headed WebKit 建窗口会无限挂起
         python scripts/verify/desktop_verify.py \
           --base-url "$BASE_URL" \
           --ui-mode tauri-macos \
-          --headed \
           ${extra_flags[@]+"${extra_flags[@]}"}
