@@ -110,11 +110,16 @@ async def get_agent_for_request(
     # Get MultiAgentManager
     if not hasattr(request.app.state, "multi_agent_manager"):
         raise HTTPException(
-            status_code=500,
+            status_code=503,
             detail="MultiAgentManager not initialized",
         )
 
     manager: MultiAgentManager = request.app.state.multi_agent_manager
+    if manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="MultiAgentManager not available",
+        )
 
     try:
         workspace = await manager.get_agent(target_agent_id)
@@ -124,6 +129,8 @@ async def get_agent_for_request(
                 detail=f"Agent '{target_agent_id}' not found",
             )
         return workspace
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=404,
