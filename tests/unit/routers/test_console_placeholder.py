@@ -10,6 +10,13 @@ labels like ``{"type": ...`` in the session drawer (regression for PR #3).
 """
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+from fastapi import HTTPException
+
+import qwenpaw.app.routers.console as console_router
 from qwenpaw.app.routers.console import _extract_placeholder_name
 
 
@@ -86,3 +93,58 @@ def test_falsy_first_part_is_media() -> None:
     name, first_text = _extract_placeholder_name([None])
     assert name == "Media Message"
     assert first_text == ""
+
+
+@pytest.mark.asyncio
+async def test_new_message_during_active_run_returns_conflict(
+    monkeypatch,
+) -> None:
+    queue: asyncio.Queue = asyncio.Queue()
+    detached: list[tuple[str, asyncio.Queue]] = []
+
+    class Tracker:
+        async def attach_or_start(self, run_key, payload, stream_fn):
+            assert run_key == "chat-1"
+            return queue, False
+
+        async def detach_subscriber(self, run_key, subscriber):
+            detached.append((run_key, subscriber))
+
+    channel = SimpleNamespace(
+        resolve_session_id=lambda **_kwargs: "console:user-1",
+        stream_one=lambda _payload: None,
+    )
+    workspace = SimpleNamespace(
+        channel_manager=SimpleNamespace(
+            get_channel=lambda _name: None,
+        ),
+        chat_manager=SimpleNamespace(),
+        task_tracker=Tracker(),
+    )
+
+    async def get_channel(_name):
+        return channel
+
+    async def get_or_create_chat(*_args, **_kwargs):
+        return SimpleNamespace(id="chat-1", name="Existing chat")
+
+    workspace.channel_manager.get_channel = get_channel
+    workspace.chat_manager.get_or_create_chat = get_or_create_chat
+
+    async def get_workspace(_request):
+        return workspace
+
+    monkeypatch.setattr(console_router, "get_agent_for_request", get_workspace)
+
+    request_data = {
+        "channel": "console",
+        "user_id": "user-1",
+        "session_id": "session-1",
+        "input": [{"content": [{"type": "text", "text": "second"}]}],
+    }
+    with pytest.raises(HTTPException) as exc_info:
+        await console_router.post_console_chat(request_data, object())
+
+    assert exc_info.value.status_code == 409
+    assert "reconnect=true" in exc_info.value.detail
+    assert detached == [("chat-1", queue)]

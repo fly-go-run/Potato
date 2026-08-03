@@ -31,7 +31,7 @@ from ...utils.logging import LOG_FILE_PATH, sanitize_log_value
 from ..agent_context import get_agent_for_request
 from ..approvals.display import approval_display_fields
 from ..chats.title_generator import generate_and_update_title
-from ..utils import check_upload_size
+from ..utils import read_upload_with_limit
 
 
 logger = logging.getLogger(__name__)
@@ -226,19 +226,6 @@ async def post_console_chat(
     )
     tracker = workspace.task_tracker
 
-    # Kick off an LLM-backed title generation in the background when the chat
-    # was just created with the truncated placeholder. This runs detached so
-    # the streaming response is never blocked by title generation latency.
-    if first_text and chat.name == name:
-        asyncio.create_task(
-            generate_and_update_title(
-                workspace=workspace,
-                chat_id=chat.id,
-                user_message=first_text,
-                placeholder_name=name,
-            ),
-        )
-
     is_reconnect = False
     if isinstance(request_data, dict):
         is_reconnect = request_data.get("reconnect") is True
@@ -248,10 +235,37 @@ async def post_console_chat(
         if queue is None:
             return
     else:
-        queue, _ = await tracker.attach_or_start(
+        queue, is_new_run = await tracker.attach_or_start(
             chat.id,
             native_payload,
             console_channel.stream_one,
+        )
+        if not is_new_run:
+            # A normal message must never be treated as a reconnect: doing so
+            # would return the existing stream while silently discarding this
+            # request's payload. Clients can explicitly reconnect, or retry
+            # the new message after the active turn finishes.
+            await tracker.detach_subscriber(chat.id, queue)
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "A response is already running for this chat. "
+                    "Use reconnect=true to follow it, or retry this message "
+                    "after it finishes."
+                ),
+            )
+
+    # Generate a title only after the payload was accepted. Starting this
+    # before the active-run check would produce side effects for rejected
+    # duplicate messages.
+    if first_text and chat.name == name:
+        asyncio.create_task(
+            generate_and_update_title(
+                workspace=workspace,
+                chat_id=chat.id,
+                user_message=first_text,
+                placeholder_name=name,
+            ),
         )
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -343,8 +357,7 @@ async def post_console_upload(
         )
     media_dir = console_channel.media_dir
     media_dir.mkdir(parents=True, exist_ok=True)
-    data = await file.read()
-    check_upload_size(data)
+    data = await read_upload_with_limit(file)
     safe_name = _safe_filename(file.filename or "file")
     stored_name = f"{uuid.uuid4().hex}_{safe_name}"
 
