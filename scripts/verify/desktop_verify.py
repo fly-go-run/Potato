@@ -816,6 +816,53 @@ def _run_llm_with_retry(
 # =============================================================================
 
 
+def _start_ui_and_verify_loaded(
+    args: argparse.Namespace,
+    base_url: str,
+) -> tuple[UIDriver | None, int]:
+    """Start the Playwright driver and prove the SPA loads.
+
+    Returns ``(driver, 0)`` on success or ``(None, exit_code)`` when the
+    driver cannot start. Load failures propagate as RuntimeError after
+    the driver is closed. Playwright startup has hung indefinitely on
+    macOS CI runners with zero output, so a faulthandler watchdog dumps
+    every thread's stack and exits if any phase stalls for 5 minutes —
+    the logs then show WHERE it hung instead of a bare step timeout.
+    """
+    ss_dir = (
+        os.path.join(args.screenshot_dir, "verify-screenshots")
+        if args.screenshot_dir
+        else None
+    )
+    faulthandler.dump_traceback_later(300, exit=True)
+    print(f"--> starting UI driver ({args.ui_mode})")
+    try:
+        driver = make_driver(
+            args.ui_mode,
+            ss_dir,
+            headless=not args.headed,
+            cdp_url=args.cdp_url,
+        )
+    except UIDriverInitError as exc:
+        faulthandler.cancel_dump_traceback_later()
+        print(f"FAIL  UI driver init: {exc}", file=sys.stderr)
+        return None, 3
+    print("--> UI driver ready")
+    faulthandler.dump_traceback_later(300, exit=True)
+    try:
+        verify_ui_loaded(
+            driver,
+            base_url,
+            skip_navigate=bool(args.cdp_url),
+        )
+    except BaseException:
+        driver.close()
+        raise
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+    return driver, 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -925,41 +972,9 @@ def main() -> int:
         if args.skip_ui:
             print("SKIP  UI verification (--skip-ui)")
         else:
-            try:
-                ss_dir = (
-                    os.path.join(
-                        args.screenshot_dir,
-                        "verify-screenshots",
-                    )
-                    if args.screenshot_dir
-                    else None
-                )
-                # Playwright startup has hung indefinitely on macOS CI
-                # runners with zero output. If the next 5 minutes pass
-                # without progress, dump every thread's stack and exit
-                # so the logs show WHERE it hung instead of a bare
-                # step-level timeout.
-                faulthandler.dump_traceback_later(300, exit=True)
-                print(f"--> starting UI driver ({args.ui_mode})")
-                driver = make_driver(
-                    args.ui_mode,
-                    ss_dir,
-                    headless=not args.headed,
-                    cdp_url=args.cdp_url,
-                )
-                print("--> UI driver ready")
-            except UIDriverInitError as exc:
-                faulthandler.cancel_dump_traceback_later()
-                print(f"FAIL  UI driver init: {exc}", file=sys.stderr)
-                return 3
-            try:
-                verify_ui_loaded(
-                    driver,
-                    base_url,
-                    skip_navigate=bool(args.cdp_url),
-                )
-            finally:
-                faulthandler.cancel_dump_traceback_later()
+            driver, rc = _start_ui_and_verify_loaded(args, base_url)
+            if driver is None:
+                return rc
 
         # ---- LLM chat round (only when key is available) ----
         if skip_chat:
