@@ -10,7 +10,14 @@ from __future__ import annotations
 
 # pylint: disable=protected-access
 
-from qwenpaw.governance.policy import ToolCallSpec
+import asyncio
+
+from qwenpaw.governance import PolicyGuardedTool
+from qwenpaw.governance.policy import (
+    GovernanceAction,
+    GovernanceDecision,
+    ToolCallSpec,
+)
 from qwenpaw.security.tool_guard.approval import (
     ApprovalDecision,
     ApprovalScope,
@@ -187,3 +194,65 @@ class TestApprovalScopeConsumer:
         assert display["is_generalized"] is True
         assert display["exact_target"] == "git status"
         assert display["similar_target"] == "git *"
+
+
+class _SandboxDecisionGovernor:
+    """Governor double for a pre-authorized, sandboxed Bash decision."""
+
+    def __init__(self) -> None:
+        self.workspace_dir = "/tmp/workspace"
+        self.audits: list[tuple[ToolCallSpec, GovernanceDecision]] = []
+
+    def assert_policy(self, tc_spec: ToolCallSpec) -> GovernanceDecision:
+        command = tc_spec.raw_params["command"]
+        return GovernanceDecision(
+            action=GovernanceAction.ALLOW,
+            reason="test",
+            sandbox_config=f"sandbox-for-{command}",
+        )
+
+    def audit(self, tc_spec, decision):  # noqa: ANN
+        self.audits.append((tc_spec, decision))
+
+
+async def test_policy_guarded_tool_keeps_concurrent_invocations_isolated():
+    """A/B pre-authorized shell calls keep their own sandbox configs."""
+    governor = _SandboxDecisionGovernor()
+    seen: list[tuple[str, object]] = []
+    first_checked = asyncio.Event()
+    second_checked = asyncio.Event()
+    first_finished = asyncio.Event()
+
+    async def shell_like_tool(
+        command: str,
+        sandbox_config=None,  # noqa: ANN001
+    ) -> str:
+        seen.append((command, sandbox_config))
+        return command
+
+    tool = PolicyGuardedTool(
+        shell_like_tool,
+        governor=governor,
+        request_context={},
+    )
+
+    async def invoke_first() -> None:
+        await tool.check_permissions({"command": "first"})
+        first_checked.set()
+        await second_checked.wait()
+        await tool(command="first")
+        first_finished.set()
+
+    async def invoke_second() -> None:
+        await first_checked.wait()
+        await tool.check_permissions({"command": "second"})
+        second_checked.set()
+        await first_finished.wait()
+        await tool(command="second")
+
+    await asyncio.gather(invoke_first(), invoke_second())
+
+    assert seen == [
+        ("first", "sandbox-for-first"),
+        ("second", "sandbox-for-second"),
+    ]

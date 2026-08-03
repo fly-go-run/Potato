@@ -26,6 +26,7 @@ from .policy import (
     _parse_match,
 )
 from .audit import AuditLog
+from .tool_registry import DEFAULT_REGISTRY
 from ..constant import WORKING_DIR
 from ..utils.io_utils import get_sync_path_lock, run_sync_io
 
@@ -168,8 +169,8 @@ class ResourceGovernor:
         """Effective sandbox availability: platform support AND global switch.
 
         When the operator turns the switch off, the sandbox is treated as
-        if the platform did not support it — ``SANDBOX_FALLBACK`` then
-        escalates to ASK rather than running the command unsandboxed.
+        unavailable and shell execution is surfaced as an explicit
+        ``ALLOW_UNSANDBOXED`` decision.
         """
         return self._sandbox_available and self._sandbox_globally_enabled()
 
@@ -207,7 +208,8 @@ class ResourceGovernor:
         if not self._sandbox_available:
             logger.warning(
                 "ResourceGovernor: sandbox not available — %s. "
-                "SANDBOX_FALLBACK will escalate to ASK.",
+                "Shell execution will be explicitly audited as "
+                "ALLOW_UNSANDBOXED after policy checks.",
                 self._sandbox_capability.reason,
             )
 
@@ -229,9 +231,9 @@ class ResourceGovernor:
 
         Flow:
             1. policy.evaluate(tc_spec) → GovernanceDecision
-            2. Sandbox degradation: if SANDBOX_FALLBACK and sandbox
-               unavailable → escalate to ASK
-            3. If SANDBOX_FALLBACK → compile sandbox config and attach
+            2. Sandbox degradation: a shell command with unavailable
+               containment → explicit ALLOW_UNSANDBOXED
+            3. Sandboxed shell decisions → compile sandbox config and attach
             4. Log the governance decision (observability)
             5. Return decision (does NOT record audit)
 
@@ -239,42 +241,59 @@ class ResourceGovernor:
             ALLOW            → explicit resource tool executes directly;
                                bash tool executes with sandbox
                                pre-authorization
+            ALLOW_UNSANDBOXED→ shell command runs without containment only
+                               when it was explicitly disabled/unavailable
             DENY             → rejected
             ASK              → ask user
             SANDBOX_FALLBACK → bash tool with no rule match, sandbox fallback
         """
         decision = self.policy.evaluate(tc_spec)
 
-        # Sandbox not usable (platform unsupported OR the global
-        # security.sandbox_enabled switch is off): a SANDBOX_FALLBACK cannot
-        # run inside a sandbox. Reaching this point means the command already
-        # cleared Phase 1 deep scan (CRITICAL → DENY), Phase 1.5 shell-danger
-        # keywords, and every builtin/user DENY/ASK rule — i.e. nothing
-        # flagged it. Rather than nag the user, run it unsandboxed (ALLOW).
-        # Only the sandbox isolation layer is dropped; Phase 0-2 protections
-        # stay fully in force. STRICT never reaches here (it returns ASK in
-        # evaluate() before producing SANDBOX_FALLBACK).
-        if (
+        is_shell = DEFAULT_REGISTRY.get_type(tc_spec.tool_name) == "shell"
+        needs_sandbox = (
             decision.action is GovernanceAction.SANDBOX_FALLBACK
+            or decision.action is GovernanceAction.ALLOW and is_shell
+        )
+
+        # Sandbox not usable (platform unsupported OR the global
+        # security.sandbox_enabled switch is off): a shell decision cannot
+        # preserve its containment guarantee.  Keep the degraded execution as
+        # a distinct action so audit/UI consumers can tell it from ALLOW.  The
+        # command has still cleared all policy/detector checks; only the
+        # containment layer is unavailable.
+        if (
+            needs_sandbox
             and not self._sandbox_usable()
         ):
-            reason = (
-                "sandbox disabled by config"
-                if self._sandbox_available
-                else f"sandbox unavailable ({self._sandbox_capability.reason})"
-            )
+            if self._sandbox_available:
+                reason = "sandbox disabled by config"
+            else:
+                capability_reason = (
+                    self._sandbox_capability.reason
+                    if self._sandbox_capability is not None
+                    else "sandbox probe has not completed"
+                )
+                reason = f"sandbox unavailable ({capability_reason})"
             logger.info(
-                "ResourceGovernor: %s, running '%s' unsandboxed (ALLOW)",
+                "ResourceGovernor: %s, running '%s' unsandboxed "
+                "(ALLOW_UNSANDBOXED)",
                 reason,
                 tc_spec.tool_name,
             )
             decision = GovernanceDecision(
-                action=GovernanceAction.ALLOW,
+                action=GovernanceAction.ALLOW_UNSANDBOXED,
                 reason=f"{reason}, running unsandboxed",
+                source=decision.source,
             )
 
-        # compile sandbox config
-        if decision.action is GovernanceAction.SANDBOX_FALLBACK:
+        # Explicit Bash ALLOW is also sandboxed.  Only resource-oriented
+        # tools execute directly on ALLOW; shell commands must carry an actual
+        # config to the adapter.  SANDBOX_FALLBACK follows the same path.
+        if (
+            decision.action
+            in (GovernanceAction.SANDBOX_FALLBACK, GovernanceAction.ALLOW)
+            and is_shell
+        ):
             decision.sandbox_config = self.compile_sandbox_config(tc_spec)
 
         # Observability: log every governance decision so operators can

@@ -38,6 +38,12 @@ logger = logging.getLogger(__name__)
 
 class GovernanceAction(str, Enum):
     ALLOW = "allow"
+    # Internal-only action: a Bash rule was explicitly allowed but its
+    # required sandbox is unavailable or disabled by the operator.  Keeping
+    # this distinct from ALLOW prevents audit records from implying that a
+    # shell command was contained when it was not.  policy.yaml cannot emit
+    # this action directly.
+    ALLOW_UNSANDBOXED = "allow_unsandboxed"
     DENY = "deny"
     ASK = "ask"
     # bash tool with no hit → sandbox fallback
@@ -113,6 +119,8 @@ class GovernanceRule:
             ask   → ask user, execute directly after approval
         Bash-type tools:
             allow → execute in sandbox (pre-authorized, no violation expected)
+            allow_unsandboxed → internal degraded-mode result only, emitted
+                when sandbox containment was explicitly disabled/unavailable
             deny  → reject (no sandbox)
             ask   → ask user, execute in sandbox after approval
     """
@@ -1506,6 +1514,11 @@ def _parse_rules(
         try:
             action = GovernanceAction(action_str)
         except ValueError:
+            action = GovernanceAction.DENY
+        # ALLOW_UNSANDBOXED is an internal degradation result emitted only by
+        # ResourceGovernor after evaluating a normal shell ALLOW rule.  Never
+        # accept it from persisted/user-controlled policy YAML.
+        if action is GovernanceAction.ALLOW_UNSANDBOXED:
             action = GovernanceAction.DENY
         rules.append(
             GovernanceRule(

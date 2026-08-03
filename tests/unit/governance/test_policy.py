@@ -18,6 +18,7 @@ from qwenpaw.governance.policy import (
     GovernanceRule,
     ToolCallSpec,
     _create_default_policy,
+    _parse_rules,
     load_governance_policy,
     save_governance_policy,
 )
@@ -131,6 +132,13 @@ class TestDefaultPolicyLoad:
             policy = load_governance_policy(str(policy_dir), "/tmp/ws")
             assert len(policy.builtin_rules) == len(DEFAULT_BUILTIN_RULES)
             assert len(policy.user_rules) == len(DEFAULT_USER_RULES)
+
+    def test_yaml_cannot_request_unsandboxed_allow(self):
+        rules = _parse_rules(
+            [{"match": "Bash(*)", "action": "allow_unsandboxed"}],
+        )
+
+        assert rules[0].action is GovernanceAction.DENY
 
     def test_workspace_dir_placeholder_resolved(self):
         policy = _create_default_policy(workspace_dir="/home/user/project")
@@ -602,11 +610,11 @@ class TestAssertPolicySSHCommands:
         decision = governor.assert_policy(tc)
         governor.audit(tc, decision)
         # Sandbox available -> SANDBOX_FALLBACK (runs in sandbox); sandbox
-        # unavailable -> ALLOW (runs unsandboxed, no prompt). Either way it
-        # must not be DENY or the SSH-related ASK.
+        # unavailable -> ALLOW_UNSANDBOXED (visible degraded mode). Either
+        # way it must not be DENY or the SSH-related ASK.
         assert decision.action in (
             GovernanceAction.SANDBOX_FALLBACK,
-            GovernanceAction.ALLOW,
+            GovernanceAction.ALLOW_UNSANDBOXED,
         )
 
     def test_audit_level_none_skips_persistence(self, governor):
@@ -819,8 +827,9 @@ class TestGovernancePolicyEvaluate:
 
 class TestAssertPolicySandboxEscalation:
     """When sandbox is unavailable, a shell SANDBOX_FALLBACK runs unsandboxed
-    (ALLOW) instead of prompting — the command already cleared all danger
-    checks, and the operator has accepted running without the sandbox."""
+    (ALLOW_UNSANDBOXED) instead of prompting — the command already cleared
+    all danger checks, and the operator has accepted running without the
+    sandbox."""
 
     @pytest.fixture()
     def governor_no_sandbox(self, tmp_path):
@@ -840,11 +849,42 @@ class TestAssertPolicySandboxEscalation:
 
     def test_bash_echo_allows_unsandboxed(self, governor_no_sandbox):
         """Bash(echo hello) — no rule match → SANDBOX_FALLBACK, but sandbox
-        unavailable → run unsandboxed (ALLOW)."""
+        unavailable → run unsandboxed (ALLOW_UNSANDBOXED)."""
         tc = _tc("Bash", "echo hello")
         decision = governor_no_sandbox.assert_policy(tc)
         governor_no_sandbox.audit(tc, decision)
-        assert decision.action == GovernanceAction.ALLOW
+        assert decision.action == GovernanceAction.ALLOW_UNSANDBOXED
+
+    def test_uninitialized_sandbox_reports_a_safe_reason(
+        self,
+        governor_no_sandbox,
+    ):
+        governor_no_sandbox._sandbox_capability = None
+
+        decision = governor_no_sandbox.assert_policy(
+            _tc("Bash", "echo startup-race"),
+        )
+
+        assert decision.action is GovernanceAction.ALLOW_UNSANDBOXED
+        assert "probe has not completed" in decision.reason
+
+    def test_explicit_bash_allow_carries_sandbox_config(
+        self,
+        governor_no_sandbox,
+        monkeypatch,
+    ):
+        """A matching Bash ALLOW is contained just like a fallback call."""
+        monkeypatch.setattr(
+            governor_no_sandbox,
+            "_sandbox_usable",
+            lambda: True,
+        )
+        tc = _tc("Bash", "gh api user")
+
+        decision = governor_no_sandbox.assert_policy(tc)
+
+        assert decision.action is GovernanceAction.ALLOW
+        assert decision.sandbox_config is not None
 
 
 # ---------------------------------------------------------------------------
