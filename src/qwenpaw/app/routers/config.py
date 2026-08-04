@@ -21,7 +21,7 @@ from ...config import (
     save_config,
     ChannelConfig,
     ChannelConfigUnion,
-    get_available_channels,
+    get_loadable_channels,
     ToolGuardConfig,
     ToolGuardRuleConfig,
 )
@@ -103,7 +103,7 @@ async def list_channels(request: Request) -> dict:
 
     agent = await get_agent_for_request(request)
     agent_config = agent.config
-    available = get_available_channels()
+    available = get_loadable_channels()
 
     # Get channel configs from agent's config (with fallback to empty)
     channels_config = agent_config.channels
@@ -141,7 +141,7 @@ async def list_channels(request: Request) -> dict:
 )
 async def list_channel_types() -> List[str]:
     """Return available channel type identifiers (env-filtered)."""
-    return list(get_available_channels())
+    return list(get_loadable_channels())
 
 
 @router.get(
@@ -211,7 +211,7 @@ async def _resolve_channel_manager(
     """Shared dependency: validate channel name and return channel_manager."""
     from ..agent_context import get_agent_for_request
 
-    available = get_available_channels()
+    available = get_loadable_channels()
     if channel_name not in available:
         raise HTTPException(
             status_code=404,
@@ -356,7 +356,7 @@ async def get_channel(
     """Get a specific channel config by name."""
     from ..agent_context import get_agent_for_request
 
-    available = get_available_channels()
+    available = get_loadable_channels()
     if channel_name not in available:
         raise HTTPException(
             status_code=404,
@@ -405,7 +405,7 @@ async def put_channel(
     from ..agent_context import get_agent_for_request
     from ...config.config import save_agent_config
 
-    available = get_available_channels()
+    available = get_loadable_channels()
     if channel_name not in available:
         raise HTTPException(
             status_code=404,

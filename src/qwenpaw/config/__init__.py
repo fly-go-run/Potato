@@ -17,6 +17,7 @@ from .config import (
 )
 from .utils import (
     get_available_channels,
+    get_loadable_channels,
     get_config_path,
     get_heartbeat_config,
     get_heartbeat_query_path,
@@ -46,6 +47,7 @@ __all__ = [
     "ACPConfig",
     "ACPAgentConfig",
     "get_available_channels",
+    "get_loadable_channels",
     "get_config_path",
     "get_heartbeat_config",
     "get_dream_cron",

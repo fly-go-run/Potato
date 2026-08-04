@@ -392,10 +392,9 @@ def get_available_channels() -> Tuple[str, ...]:
     * If both are set, QWENPAW_ENABLED_CHANNELS takes precedence.
     * If neither is set, all discovered channels are returned.
     """
-    from ..app.channels.registry import get_channel_registry
+    from ..app.channels.registry import get_channel_keys
 
-    registry = get_channel_registry()
-    all_keys = tuple(registry.keys())
+    all_keys = get_channel_keys()
 
     raw_enabled = EnvVarLoader.get_str("QWENPAW_ENABLED_CHANNELS", "").strip()
     if raw_enabled:
@@ -411,6 +410,23 @@ def get_available_channels() -> Tuple[str, ...]:
         return tuple(k for k in all_keys if k not in disabled) or all_keys
 
     return all_keys
+
+
+def get_loadable_channels() -> Tuple[str, ...]:
+    """``get_available_channels()`` narrowed to channels whose class loads.
+
+    Resolving a class imports the channel's SDK, so keep this OFF the
+    startup path. Config API endpoints use it so the UI never lists or
+    accepts a channel that cannot actually run (missing optional
+    dependency, broken module).
+    """
+    from ..app.channels.registry import get_channel_class
+
+    return tuple(
+        key
+        for key in get_available_channels()
+        if get_channel_class(key) is not None
+    )
 
 
 def is_running_in_container() -> bool:

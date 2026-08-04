@@ -39,60 +39,74 @@ _BUILTIN_SPECS: dict[str, tuple[str, str]] = {
 # Required channels must load; failures are raised, not skipped.
 _REQUIRED_CHANNEL_KEYS: frozenset[str] = frozenset({"console"})
 
-_BUILTIN_CHANNEL_CACHE: dict[str, type[BaseChannel]] | None = None
-_BUILTIN_CHANNEL_CACHE_LOCK = threading.Lock()
+# Per-key cache: value is the loaded class, or None when the module failed
+# to import (missing optional dependency). Populated lazily so that desktop
+# startup never pays the import cost of channel SDKs nobody enabled
+# (lark_oapi alone is thousands of generated modules).
+_BUILTIN_CLASS_CACHE: dict[str, type[BaseChannel] | None] = {}
+# RLock: the lock is held across module imports, and an imported channel
+# module (or something it pulls in) may itself resolve a channel class.
+_BUILTIN_CHANNEL_CACHE_LOCK = threading.RLock()
 
 
-def _load_builtin_channels() -> dict[str, type[BaseChannel]]:
-    """Load built-in channels safely.
+def _load_builtin_channel(key: str) -> type[BaseChannel] | None:
+    """Import a single built-in channel class.
 
     A single optional dependency failure should not break CLI startup.
     """
-    out: dict[str, type[BaseChannel]] = {}
-    for key, (module_name, class_name) in _BUILTIN_SPECS.items():
-        try:
-            mod = importlib.import_module(module_name, package=__package__)
-            cls = getattr(mod, class_name)
-            if not (
-                isinstance(cls, type)
-                and issubclass(cls, BaseChannel)
-                and cls is not BaseChannel
-            ):
-                raise TypeError(
-                    f"{module_name}.{class_name} is not a BaseChannel subtype",
-                )
-        except Exception:
-            if key in _REQUIRED_CHANNEL_KEYS:
-                logger.error(
-                    'failed to load required built-in channel "%s"',
-                    key,
-                    exc_info=True,
-                )
-                raise
-            logger.debug(
-                "built-in channel unavailable: %s",
+    module_name, class_name = _BUILTIN_SPECS[key]
+    try:
+        mod = importlib.import_module(module_name, package=__package__)
+        cls = getattr(mod, class_name)
+        if not (
+            isinstance(cls, type)
+            and issubclass(cls, BaseChannel)
+            and cls is not BaseChannel
+        ):
+            raise TypeError(
+                f"{module_name}.{class_name} is not a BaseChannel subtype",
+            )
+    except Exception:
+        if key in _REQUIRED_CHANNEL_KEYS:
+            logger.error(
+                'failed to load required built-in channel "%s"',
                 key,
                 exc_info=True,
             )
-            continue
-        out[key] = cls
-    return out
+            raise
+        logger.debug(
+            "built-in channel unavailable: %s",
+            key,
+            exc_info=True,
+        )
+        return None
+    return cls
+
+
+def _get_builtin_channel_class(key: str) -> type[BaseChannel] | None:
+    """Return one cached built-in channel class, importing on first use."""
+    if key not in _BUILTIN_SPECS:
+        return None
+    with _BUILTIN_CHANNEL_CACHE_LOCK:
+        if key not in _BUILTIN_CLASS_CACHE:
+            _BUILTIN_CLASS_CACHE[key] = _load_builtin_channel(key)
+        return _BUILTIN_CLASS_CACHE[key]
 
 
 def _get_cached_builtin_channels() -> dict[str, type[BaseChannel]]:
-    """Return cached built-in channels (loaded once per process)."""
-    global _BUILTIN_CHANNEL_CACHE
-    with _BUILTIN_CHANNEL_CACHE_LOCK:
-        if _BUILTIN_CHANNEL_CACHE is None:
-            _BUILTIN_CHANNEL_CACHE = _load_builtin_channels()
-        return dict(_BUILTIN_CHANNEL_CACHE)
+    """Return all built-in channels, importing any not yet loaded."""
+    out: dict[str, type[BaseChannel]] = {}
+    for key in _BUILTIN_SPECS:
+        cls = _get_builtin_channel_class(key)
+        if cls is not None:
+            out[key] = cls
+    return out
 
 
 def clear_builtin_channel_cache() -> None:
     """Reset built-in channel cache. Primarily for tests."""
-    global _BUILTIN_CHANNEL_CACHE
     with _BUILTIN_CHANNEL_CACHE_LOCK:
-        _BUILTIN_CHANNEL_CACHE = None
+        _BUILTIN_CLASS_CACHE.clear()
 
 
 BUILTIN_CHANNEL_KEYS = frozenset(_BUILTIN_SPECS.keys())
@@ -120,7 +134,12 @@ def _get_plugin_channels() -> dict[str, type[BaseChannel]]:
 
 
 def get_channel_registry() -> dict[str, type[BaseChannel]]:
-    """Built-in + plugin-registered channels."""
+    """Built-in + plugin-registered channels.
+
+    Eagerly imports every built-in channel module. Prefer
+    ``get_channel_keys()`` + ``get_channel_class()`` on startup paths so
+    unconfigured channel SDKs are never imported.
+    """
     out = _get_cached_builtin_channels()
     for key, ch_cls in _get_plugin_channels().items():
         if key in out:
@@ -132,3 +151,28 @@ def get_channel_registry() -> dict[str, type[BaseChannel]]:
             continue
         out[key] = ch_cls
     return out
+
+
+def get_channel_keys() -> tuple[str, ...]:
+    """All channel keys (built-in + plugin) without importing SDK modules."""
+    keys = list(_BUILTIN_SPECS)
+    for key in _get_plugin_channels():
+        if key not in _BUILTIN_SPECS:
+            keys.append(key)
+    return tuple(keys)
+
+
+def get_channel_class(key: str) -> type[BaseChannel] | None:
+    """Resolve one channel class, importing its module on first use.
+
+    Returns ``None`` when the key is unknown or the channel's optional
+    dependencies are unavailable.
+    """
+    cls = _get_builtin_channel_class(key)
+    if cls is not None:
+        return cls
+    if key in _BUILTIN_SPECS:
+        # Built-in key whose module failed to import; a plugin must not
+        # shadow it.
+        return None
+    return _get_plugin_channels().get(key)
