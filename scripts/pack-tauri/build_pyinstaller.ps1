@@ -130,8 +130,8 @@ Write-Host ""
 
 # Install project dependencies (ensures ALL runtime deps are importable)
 Write-Host "== Installing project dependencies ==" -ForegroundColor Yellow
-Install-PythonPackages -Packages @("-e", ".[full]")
-Write-Host "Project dependencies installed with full extras" -ForegroundColor Green
+Install-PythonPackages -Packages @("-e", ".[local]")
+Write-Host "Project dependencies installed with local extras" -ForegroundColor Green
 
 # Fix agent-client-protocol namespace collision
 # PyPI has an empty 'acp' stub that shadows the real package
@@ -140,6 +140,13 @@ if (-not (Test-PythonImport "from acp import Agent")) {
     Uninstall-PythonPackage "acp"
     Install-PythonPackages -Packages @("agent-client-protocol>=0.9.0,<0.11.0")
     Write-Host "agent-client-protocol installed" -ForegroundColor Green
+}
+
+# The repository .venv may have been used for a previous full desktop build.
+# Remove Whisper and its heavyweight dependency chain before PyInstaller
+# analyzes the environment.
+foreach ($package in @("openai-whisper", "torch", "numba", "llvmlite", "triton", "tiktoken")) {
+    Uninstall-PythonPackage $package
 }
 
 # Run PyInstaller

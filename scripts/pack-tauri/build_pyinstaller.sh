@@ -97,7 +97,7 @@ calculate_dependency_fingerprint() {
         printf 'python=%s\n' "$("$PYTHON_BIN" --version 2>&1)"
         shasum -a 256 "${REPO_ROOT}/pyproject.toml"
         shasum -a 256 "${REPO_ROOT}/uv.lock"
-        printf 'extras=full\n'
+        printf 'extras=local\n'
     } | shasum -a 256 | awk '{print $1}'
 }
 
@@ -132,7 +132,7 @@ uninstall_python_package() {
 }
 
 # Build PyInstaller only when the backend inputs changed. Frontend-only edits
-# therefore reuse the already signed 1.1G sidecar instead of rebuilding it.
+# therefore reuse the already signed sidecar instead of rebuilding it.
 if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
     # Install PyInstaller if not present
     echo "== Installing PyInstaller =="
@@ -148,9 +148,9 @@ if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
     if [ ! -f "${DEPENDENCY_STAMP}" ] ||
         [ "$(<"${DEPENDENCY_STAMP}")" != "${DEPENDENCY_FINGERPRINT}" ]; then
         echo "== Installing project dependencies =="
-        install_python_packages -e ".[full]"
+        install_python_packages -e ".[local]"
         printf '%s\n' "${DEPENDENCY_FINGERPRINT}" > "${DEPENDENCY_STAMP}"
-        echo "Project dependencies installed with full extras"
+        echo "Project dependencies installed with local extras"
     else
         echo "Reusing Python dependencies (pyproject and uv.lock unchanged)"
     fi
@@ -163,6 +163,13 @@ if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
         install_python_packages "agent-client-protocol>=0.9.0,<0.11.0"
         printf '%s\n' "${DEPENDENCY_FINGERPRINT}" > "${DEPENDENCY_STAMP}"
     fi
+
+    # The repository .venv may have been used for a previous full desktop
+    # build. Remove Whisper and its heavyweight dependency chain before
+    # PyInstaller analyzes the environment.
+    for package in openai-whisper torch numba llvmlite triton tiktoken; do
+        uninstall_python_package "${package}"
+    done
     echo ""
 
     # Run PyInstaller
@@ -195,6 +202,13 @@ else
     echo "Skipping PyInstaller and dependency installation"
     echo ""
 fi
+
+for forbidden_dir in torch whisper; do
+    if [ -d "${BACKEND_DIR}/_internal/${forbidden_dir}" ]; then
+        echo "ERROR: Forbidden ${forbidden_dir} directory found in PyInstaller bundle"
+        exit 1
+    fi
+done
 
 # Verify output
 BACKEND_EXE="${BACKEND_DIR}/qwenpaw-backend"

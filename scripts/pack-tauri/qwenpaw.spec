@@ -88,7 +88,6 @@ datas += collect_tree(CONSOLE_DIST, "qwenpaw/console")
 
 # Include reme package data files (configs, tool yamls, etc.)
 datas += collect_data_files("reme")
-datas += collect_data_files("whisper")
 datas += collect_data_files("agentscope")
 datas += collect_data_files(
     "agentscope.tool._builtin._scripts",
@@ -122,7 +121,6 @@ _metadata_pkgs = [
     "agentscope-runtime",
     "huggingface_hub",
     "modelscope",
-    "openai-whisper",
 ]
 for _pkg in _metadata_pkgs:
     try:
@@ -181,13 +179,12 @@ a = Analysis(
         "modelscope.hub.snapshot_download",
         *collect_submodules("agentscope.tool._builtin._scripts"),
         *collect_submodules("agentscope.workspace._mcp_gateway"),
-        *collect_submodules("whisper"),
         *collect_submodules("chromadb"),
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=["torch", "whisper", "numba", "llvmlite", "triton"],
     noarchive=False,
 )
 
