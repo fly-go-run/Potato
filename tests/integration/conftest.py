@@ -52,6 +52,13 @@ import pytest
 _INTEGRATION_COVERAGE_DIR: Path | None = None
 _COVERAGE_SUBPROC_BASENAME = "integration_subproc"
 _COVERAGE_RCFILE_NAME = "coverage_subprocess.ini"
+_APP_START_ATTEMPTS = 5
+_UVICORN_LISTENING_MARKER = "Uvicorn running on"
+_BIND_ERROR_MARKERS = (
+    "address already in use",
+    "errno 98",
+    "winerror 10048",
+)
 
 
 def _write_integration_subprocess_rc(root: Path, dest_ini: Path) -> None:
@@ -205,6 +212,17 @@ def _find_free_port(host: str = "127.0.0.1") -> int:
         return int(sock.getsockname()[1])
 
 
+def _app_bind_failed(logs: list[str]) -> bool:
+    """Return whether startup logs show that the selected port was stolen."""
+    text = "".join(logs).casefold()
+    return any(marker in text for marker in _BIND_ERROR_MARKERS)
+
+
+def _app_is_listening(logs: list[str]) -> bool:
+    """Return whether this subprocess, rather than a rival, bound its port."""
+    return _UVICORN_LISTENING_MARKER in "".join(logs)
+
+
 def _tee_stream(stream, buffer: list[str]) -> None:
     """Read subprocess output, tag and print live, keep a raw copy."""
     prefix = "[app server] "
@@ -312,7 +330,6 @@ def app_server(  # pylint: disable=too-many-statements,too-many-branches
     """
     tmp_path = tmp_path_factory.mktemp("app_server")
     host = "127.0.0.1"
-    port = _find_free_port(host)
 
     working_dir = tmp_path / "working"
     secret_dir = tmp_path / "working.secret"
@@ -358,113 +375,146 @@ def app_server(  # pylint: disable=too-many-statements,too-many-branches
             _INTEGRATION_COVERAGE_DIR / _COVERAGE_SUBPROC_BASENAME,
         )
 
-    logs: list[str] = []
     # Windows + subprocess coverage: create a new process group so the
     # child can receive CTRL_BREAK_EVENT for graceful shutdown
     # (TerminateProcess skips atexit and coverage data is lost).
     popen_kwargs: dict[str, Any] = {}
     if sys.platform == "win32" and _integration_coverage_requested():
         popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "qwenpaw",
-            "app",
-            "--host",
-            host,
-            "--port",
-            str(port),
-            "--log-level",
-            "info",
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        # Decode subprocess output as UTF-8 in the parent. Without this,
-        # Popen falls back to locale.getpreferredencoding(False) which
-        # is cp1252 on Windows CI runners and crashes _tee_stream.
-        encoding="utf-8",
-        errors="replace",
-        env=env,
-        **popen_kwargs,
-    ) as process:
-        assert process.stdout is not None
+    # 15s default lets cold-start endpoints (ACP getter, heartbeat)
+    # finish without hiding real deadlocks; 30s in coverage mode
+    # for tracer overhead.
+    http_timeout = 30.0 if _integration_coverage_requested() else 15.0
 
-        log_thread = threading.Thread(
-            target=_tee_stream,
-            args=(process.stdout, logs),
-            daemon=True,
-        )
-        log_thread.start()
+    for attempt in range(1, _APP_START_ATTEMPTS + 1):
+        port = _find_free_port(host)
+        logs: list[str] = []
+        with subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "qwenpaw",
+                "app",
+                "--host",
+                host,
+                "--port",
+                str(port),
+                "--log-level",
+                "info",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            # Decode subprocess output as UTF-8 in the parent. Without this,
+            # Popen falls back to locale.getpreferredencoding(False) which
+            # is cp1252 on Windows CI runners and crashes _tee_stream.
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            **popen_kwargs,
+        ) as process:
+            assert process.stdout is not None
 
-        # 15s default lets cold-start endpoints (ACP getter, heartbeat)
-        # finish without hiding real deadlocks; 30s in coverage mode
-        # for tracer overhead.
-        http_timeout = 30.0 if _integration_coverage_requested() else 15.0
-        client = httpx.Client(timeout=http_timeout, trust_env=False)
+            log_thread = threading.Thread(
+                target=_tee_stream,
+                args=(process.stdout, logs),
+                daemon=True,
+            )
+            log_thread.start()
+            client = httpx.Client(timeout=http_timeout, trust_env=False)
+            retry_bind = False
 
-        try:
-            max_wait_seconds = 60
-            start_at = time.time()
-            last_error: str | None = None
-            while time.time() - start_at < max_wait_seconds:
-                if process.poll() is not None:
+            try:
+                max_wait_seconds = 60
+                start_at = time.time()
+                last_error: str | None = None
+                while time.time() - start_at < max_wait_seconds:
+                    if process.poll() is not None:
+                        log_thread.join(timeout=2)
+                        if _app_bind_failed(logs):
+                            retry_bind = True
+                            break
+                        raise AssertionError(
+                            "qwenpaw app exited during startup.\n"
+                            f"exit_code={process.returncode}\n"
+                            f"logs:\n{''.join(logs)[-4000:]}",
+                        )
+
+                    # A competing xdist worker can bind the chosen port after
+                    # _find_free_port releases it. Do not accept that worker's
+                    # health response: first require this process's own
+                    # successful-listen log line.
+                    if not _app_is_listening(logs):
+                        time.sleep(0.1)
+                        continue
+
+                    try:
+                        resp = client.get(f"http://{host}:{port}/api/healthz")
+                        if resp.status_code == 200:
+                            break
+                    except (
+                        httpx.ConnectError,
+                        httpx.TimeoutException,
+                    ) as exc:
+                        last_error = str(exc)
+                    time.sleep(0.5)
+                else:
                     raise AssertionError(
-                        "qwenpaw app exited during startup.\n"
-                        f"exit_code={process.returncode}\n"
+                        "qwenpaw core agents did not become ready in time.\n"
+                        f"last_error={last_error}\n"
                         f"logs:\n{''.join(logs)[-4000:]}",
                     )
 
-                try:
-                    resp = client.get(f"http://{host}:{port}/api/healthz")
-                    if resp.status_code == 200:
-                        break
-                except (httpx.ConnectError, httpx.TimeoutException) as exc:
-                    last_error = str(exc)
-                time.sleep(0.5)
-            else:
-                raise AssertionError(
-                    "qwenpaw core agents did not become ready in time.\n"
-                    f"last_error={last_error}\n"
-                    f"logs:\n{''.join(logs)[-4000:]}",
-                )
+                if retry_bind:
+                    if attempt == _APP_START_ATTEMPTS:
+                        raise AssertionError(
+                            "qwenpaw app could not bind a port after "
+                            f"{_APP_START_ATTEMPTS} attempts.\n"
+                            f"logs:\n{''.join(logs)[-4000:]}",
+                        )
+                    print(
+                        "[integration] app port was claimed during startup; "
+                        f"retrying ({attempt}/{_APP_START_ATTEMPTS})",
+                        flush=True,
+                    )
+                    continue
 
-            yield AppServer(
-                host=host,
-                port=port,
-                process=process,
-                client=client,
-                logs=logs,
-                log_thread=log_thread,
-                working_dir=working_dir,
-            )
-        finally:
-            client.close()
-            if process.poll() is None:
-                # On POSIX, SIGINT lets uvicorn shut down cleanly so
-                # subprocess coverage data flushes (SIGTERM often skips
-                # atexit / data-file write). On Windows, SIGINT is not
-                # delivered reliably to subprocesses; when subprocess
-                # coverage is enabled we create the child with
-                # CREATE_NEW_PROCESS_GROUP and send CTRL_BREAK_EVENT so
-                # the child can run atexit / flush coverage data.
-                # Without coverage we use terminate() for fast shutdown.
-                try:
-                    if sys.platform == "win32":
-                        if _integration_coverage_requested():
-                            process.send_signal(signal.CTRL_BREAK_EVENT)
-                        else:
-                            process.terminate()
-                    else:
-                        process.send_signal(signal.SIGINT)
-                    process.wait(timeout=15)
-                except subprocess.TimeoutExpired:
-                    process.terminate()
+                yield AppServer(
+                    host=host,
+                    port=port,
+                    process=process,
+                    client=client,
+                    logs=logs,
+                    log_thread=log_thread,
+                    working_dir=working_dir,
+                )
+                return
+            finally:
+                client.close()
+                if process.poll() is None:
+                    # On POSIX, SIGINT lets uvicorn shut down cleanly so
+                    # subprocess coverage data flushes (SIGTERM often skips
+                    # atexit / data-file write). On Windows, SIGINT is not
+                    # delivered reliably to subprocesses; when subprocess
+                    # coverage is enabled we create the child with
+                    # CREATE_NEW_PROCESS_GROUP and send CTRL_BREAK_EVENT so
+                    # the child can run atexit / flush coverage data.
+                    # Without coverage we use terminate() for fast shutdown.
                     try:
-                        process.wait(timeout=5)
+                        if sys.platform == "win32":
+                            if _integration_coverage_requested():
+                                process.send_signal(signal.CTRL_BREAK_EVENT)
+                            else:
+                                process.terminate()
+                        else:
+                            process.send_signal(signal.SIGINT)
+                        process.wait(timeout=15)
                     except subprocess.TimeoutExpired:
-                        process.kill()
-                        process.wait(timeout=5)
-            log_thread.join(timeout=2)
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            process.wait(timeout=5)
+                log_thread.join(timeout=2)

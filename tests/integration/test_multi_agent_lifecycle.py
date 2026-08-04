@@ -983,31 +983,37 @@ def test_reorder_partial_list_rejected(app_server) -> None:
       is rejected.
 
     Test flow:
-    1. GET /api/agents to get full list.
-    2. PUT /api/agents/order with only a subset of ids.
-    3. Assert 400 or 422.
+    1. Create a second agent so the test does not depend on shared state.
+    2. GET /api/agents to get full list.
+    3. PUT /api/agents/order with only a subset of ids.
+    4. Assert 400 or 422 and clean up the created agent.
 
     API endpoints:
     - GET /api/agents
     - PUT /api/agents/order
     """
-    list_resp = app_server.api_request(
-        "GET",
-        "/api/agents",
-        timeout=_AGENT_HTTP_TIMEOUT,
-    )
-    assert list_resp.status_code == 200, app_server.logs_tail()
-    all_ids = [a["id"] for a in list_resp.json().get("agents", [])]
-    assert len(all_ids) >= 2, "need at least 2 agents for test"
+    agent_id = "integ_ma_reorder_partial_01"
+    try:
+        create_agent(app_server, agent_id)
+        list_resp = app_server.api_request(
+            "GET",
+            "/api/agents",
+            timeout=_AGENT_HTTP_TIMEOUT,
+        )
+        assert list_resp.status_code == 200, app_server.logs_tail()
+        all_ids = [a["id"] for a in list_resp.json().get("agents", [])]
+        assert len(all_ids) >= 2, "need at least 2 agents for test"
 
-    partial = all_ids[:1]
-    resp = app_server.api_request(
-        "PUT",
-        "/api/agents/order",
-        json={"agent_ids": partial},
-        timeout=_AGENT_HTTP_TIMEOUT,
-    )
-    assert resp.status_code in (400, 422), (
-        f"expected 400/422, got {resp.status_code}: "
-        f"{app_server.logs_tail()}"
-    )
+        partial = all_ids[:1]
+        resp = app_server.api_request(
+            "PUT",
+            "/api/agents/order",
+            json={"agent_ids": partial},
+            timeout=_AGENT_HTTP_TIMEOUT,
+        )
+        assert resp.status_code in (400, 422), (
+            f"expected 400/422, got {resp.status_code}: "
+            f"{app_server.logs_tail()}"
+        )
+    finally:
+        delete_agent_quietly(app_server, agent_id)

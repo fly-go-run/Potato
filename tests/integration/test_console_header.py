@@ -163,13 +163,13 @@ def test_console_upload_header_accepts_file_at_max_size_limit(
 def test_console_upload_header_rejects_oversized_file(app_server) -> None:
     """Test purpose:
     - Verify POST /api/console/upload rejects files larger than the
-      ``MAX_UPLOAD_BYTES`` (10 MiB) limit with 400, before storing
+      ``MAX_UPLOAD_BYTES`` (10 MiB) limit with 413, before storing
       anything on disk. A regression here lets users DoS storage by
       uploading huge attachments.
 
     Test flow:
     1. POST multipart upload with payload size = MAX_UPLOAD_BYTES + 1.
-    2. Assert 400 + detail contains "File too large" + the size limit
+    2. Assert 413 + detail contains "File too large" + the size limit
        (10 MB).
 
     API endpoints:
@@ -188,7 +188,7 @@ def test_console_upload_header_rejects_oversized_file(app_server) -> None:
         },
         timeout=_CONSOLE_HTTP_TIMEOUT,
     )
-    assert resp.status_code == 400, app_server.logs_tail()
+    assert resp.status_code == 413, app_server.logs_tail()
     detail = resp.json().get("detail", "")
     assert "File too large" in detail
     assert "10" in detail  # the "(max 10 MB)" suffix
