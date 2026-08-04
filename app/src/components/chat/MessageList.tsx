@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Check,
@@ -22,7 +22,7 @@ import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
 import { PotatoMark } from "../brand/PotatoMark";
 import { ApprovalCard } from "./ApprovalCard";
-import { ChangeStat } from "./ConversationSidePanel";
+import { ChangeStat } from "./ChangeStat";
 import { isArtifactTool } from "./FileToolCard";
 import { MessageContent } from "./MessageContent";
 import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
@@ -54,7 +54,7 @@ export function MessageList({
   onOpenFile,
   onOpenChange,
 }: MessageListProps) {
-  const turns = groupIntoTurns(messages);
+  const turns = useMemo(() => groupIntoTurns(messages), [messages]);
   const pendingApprovals = useChatStore((state) => state.pendingApprovals);
   const isStreaming = useChatStore((state) => state.isStreaming);
   const lastIndex = turns.length - 1;
@@ -90,13 +90,15 @@ export function MessageList({
   );
 }
 
-function UserTurn({
-  messages,
-  activeMessageId,
-}: {
+interface UserTurnProps {
   messages: StreamMessage[];
   activeMessageId?: string;
-}) {
+}
+
+const UserTurn = memo(function UserTurn({
+  messages,
+  activeMessageId,
+}: UserTurnProps) {
   return (
     <div data-testid="turn-user" className="qp-msg-in mb-8 flex justify-end">
       {/* 70% 上限 + 中档圆角:对表 WB(682px 宽的 18px 圆角灰板太"网页") */}
@@ -117,7 +119,7 @@ function UserTurn({
       </div>
     </div>
   );
-}
+}, areUserTurnPropsEqual);
 
 type RenderItem =
   | { kind: "node"; key: string; node: ReactNode }
@@ -135,22 +137,30 @@ function isGroupable(pair: ToolPair): boolean {
   return !toolPairStatus(pair).running && !isArtifactTool(pair.name);
 }
 
-function AssistantTurn({
-  messages,
-  showActions,
-  regeneratePrompt,
-  activeMessageId,
-  onOpenFile,
-  onOpenChange,
-}: {
+interface AssistantTurnProps {
   messages: StreamMessage[];
   showActions: boolean;
   regeneratePrompt: string;
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
-}) {
+}
+
+const AssistantTurn = memo(function AssistantTurn({
+  messages,
+  showActions,
+  regeneratePrompt,
+  activeMessageId,
+  onOpenFile,
+  onOpenChange,
+}: AssistantTurnProps) {
   const pairedOutputs = new Set<string>();
+  const outputsByCallId = new Map<string, StreamMessage>();
+  for (const message of messages) {
+    if (!isToolOutput(message.type)) continue;
+    const callId = stringValue(toolData(message).call_id);
+    if (!outputsByCallId.has(callId)) outputsByCallId.set(callId, message);
+  }
   const copyText = plainText(messages);
   const turnChanges = collectFileChanges(messages);
 
@@ -202,11 +212,7 @@ function AssistantTurn({
     }
     if (isToolCall(message.type)) {
       const callId = stringValue(toolData(message).call_id);
-      const output = messages.find(
-        (candidate) =>
-          isToolOutput(candidate.type) &&
-          stringValue(toolData(candidate).call_id) === callId,
-      );
+      const output = outputsByCallId.get(callId);
       if (output) pairedOutputs.add(output.id);
       const pair = buildToolPair(message, output ?? null);
       if (isGroupable(pair)) {
@@ -316,6 +322,40 @@ function AssistantTurn({
         <MessageActions text={copyText} regeneratePrompt={regeneratePrompt} />
       )}
     </div>
+  );
+}, areAssistantTurnPropsEqual);
+
+function areUserTurnPropsEqual(
+  previous: UserTurnProps,
+  next: UserTurnProps,
+): boolean {
+  return (
+    messageReferencesEqual(previous.messages, next.messages) &&
+    Object.is(previous.activeMessageId, next.activeMessageId)
+  );
+}
+
+function areAssistantTurnPropsEqual(
+  previous: AssistantTurnProps,
+  next: AssistantTurnProps,
+): boolean {
+  return (
+    messageReferencesEqual(previous.messages, next.messages) &&
+    Object.is(previous.activeMessageId, next.activeMessageId) &&
+    Object.is(previous.showActions, next.showActions) &&
+    Object.is(previous.regeneratePrompt, next.regeneratePrompt) &&
+    Object.is(previous.onOpenFile, next.onOpenFile) &&
+    Object.is(previous.onOpenChange, next.onOpenChange)
+  );
+}
+
+function messageReferencesEqual(
+  previous: StreamMessage[],
+  next: StreamMessage[],
+): boolean {
+  return (
+    previous.length === next.length &&
+    previous.every((message, index) => Object.is(message, next[index]))
   );
 }
 

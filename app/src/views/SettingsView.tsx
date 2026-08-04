@@ -108,7 +108,8 @@ type TestState =
 export function SettingsView() {
   const { language, setLanguage, t } = useTranslation();
   const navigate = useNavigate();
-  const { activeModel, loadActiveModel } = useChatStore();
+  const activeModel = useChatStore((state) => state.activeModel);
+  const loadActiveModel = useChatStore((state) => state.loadActiveModel);
   const [section, setSection] = useState<SectionId>("models");
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);

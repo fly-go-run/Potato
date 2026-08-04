@@ -19,6 +19,10 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ThemedToken } from "@shikijs/types";
 import { fetchFileText, filePreviewUrl, workspaceGitApi } from "../../lib/api";
 import {
+  presentRunStatus,
+  type ConversationArtifact,
+} from "../../lib/conversationArtifacts";
+import {
   shortenPath,
   type FileChange,
   type FileEdit,
@@ -35,15 +39,8 @@ import {
 import { useTranslation } from "../../lib/i18n";
 import type { RunStatus } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
-import { isSuccessfulArtifactPair } from "./FileToolCard";
-import { buildToolPair, isSuccessfulToolState, toolData } from "./ToolCard";
-
-export interface ConversationArtifact {
-  id: string;
-  path: string;
-  name: string;
-  sourceMessageId: string;
-}
+import { ChangeStat } from "./ChangeStat";
+import { isSuccessfulToolState, toolData } from "./ToolCard";
 
 interface ConversationSidePanelProps {
   messages: StreamMessage[];
@@ -619,23 +616,6 @@ function ChangesList({
   );
 }
 
-/** codex 式 ± 统计:等宽、绿加红减,0 的一侧不显示。 */
-export function ChangeStat({
-  additions,
-  deletions,
-}: {
-  additions: number;
-  deletions: number;
-}) {
-  if (additions === 0 && deletions === 0) return null;
-  return (
-    <span className="flex shrink-0 items-center gap-1.5 font-mono text-[12px] tabular-nums">
-      {additions > 0 && <span className="text-ok">+{additions}</span>}
-      {deletions > 0 && <span className="text-danger">-{deletions}</span>}
-    </span>
-  );
-}
-
 /**
  * diff 数据源三态:优先向工作区 git 拿真实行号的 unified diff;
  * 文件不在 git 视野(非 coding 项目/已提交/被 ignore)时回落到
@@ -1116,80 +1096,12 @@ function PanelTab({
   );
 }
 
-export function collectConversationArtifacts(
-  messages: StreamMessage[],
-): ConversationArtifact[] {
-  const outputsByCallId = new Map<string, StreamMessage>();
-  for (const message of messages) {
-    if (!isToolOutput(message.type)) continue;
-    const callId = stringValue(toolData(message).call_id);
-    if (callId) outputsByCallId.set(callId, message);
-  }
-
-  const byPath = new Map<string, ConversationArtifact>();
-  for (const message of messages) {
-    if (!isToolCall(message.type)) continue;
-    const callId = stringValue(toolData(message).call_id);
-    const pair = buildToolPair(
-      message,
-      callId ? outputsByCallId.get(callId) ?? null : null,
-    );
-    if (!isSuccessfulArtifactPair(pair)) continue;
-    const path = filePathFromArguments(pair.arguments);
-    if (!path) continue;
-    byPath.set(path, {
-      id: `${message.id}:${path}`,
-      path,
-      name: fileBaseName(path) || path,
-      sourceMessageId: message.id,
-    });
-  }
-  return Array.from(byPath.values()).reverse();
-}
-
 function isSuccessfulToolOutput(message: StreamMessage): boolean {
   if (!isToolOutput(message.type) || message.status !== "completed") {
     return false;
   }
   const state = stringValue(toolData(message).state).toLocaleLowerCase();
   return isSuccessfulToolState(state);
-}
-
-export function presentRunStatus(status: RunStatus | "idle"): {
-  label:
-    | "chat.panel.running"
-    | "chat.panel.completed"
-    | "chat.panel.failed"
-    | "chat.panel.cancelled";
-  dotClass: string;
-} {
-  if (status === "created" || status === "in_progress") {
-    return { label: "chat.panel.running", dotClass: "animate-pulse bg-ok" };
-  }
-  if (status === "failed") {
-    return { label: "chat.panel.failed", dotClass: "bg-danger" };
-  }
-  if (status === "cancelled") {
-    return { label: "chat.panel.cancelled", dotClass: "bg-warn" };
-  }
-  return { label: "chat.panel.completed", dotClass: "bg-ink-muted" };
-}
-
-function filePathFromArguments(argumentsValue: string): string {
-  try {
-    const parsed = JSON.parse(argumentsValue) as Record<string, unknown>;
-    return typeof parsed.file_path === "string" ? parsed.file_path : "";
-  } catch {
-    return "";
-  }
-}
-
-function isToolCall(type: StreamMessage["type"]): boolean {
-  return (
-    type === "plugin_call" ||
-    type === "function_call" ||
-    type === "mcp_tool_call"
-  );
 }
 
 function isToolOutput(type: StreamMessage["type"]): boolean {

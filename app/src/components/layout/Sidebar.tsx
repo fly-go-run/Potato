@@ -48,7 +48,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { chats, chatsLoading, activeChatId, newChat } = useChatStore();
+  const chats = useChatStore((state) => state.chats);
+  const chatsLoading = useChatStore((state) => state.chatsLoading);
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const newChat = useChatStore((state) => state.newChat);
   const unreadCount = useInboxStore((state) => state.unreadCount);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   // 分组展开态只活在内存里：刷新后回到默认展开，不值得占一个持久化键。
@@ -459,7 +462,10 @@ function ChatRow({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { renameChat, togglePinned, deleteChat, clearError } = useChatStore();
+  const renameChat = useChatStore((state) => state.renameChat);
+  const togglePinned = useChatStore((state) => state.togglePinned);
+  const deleteChat = useChatStore((state) => state.deleteChat);
+  const clearError = useChatStore((state) => state.clearError);
   // 每次渲染现算：列表本身随会话更新重渲染，不额外挂定时器。
   const updatedAt = relativeTime(chat.updated_at);
 

@@ -399,13 +399,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         controller.signal,
       );
 
-      const chats = await get().refreshChats();
-      const created = chats.find((chat) => chat.session_id === sessionId);
-      if (created && get().sessionId === sessionId) {
-        set({ activeChatId: created.id });
-        navigate(`/chat/${created.id}`, { replace: true });
-      }
+      const navigationDone = get()
+        .refreshChats()
+        .then((chats) => {
+          const created = chats.find((chat) => chat.session_id === sessionId);
+          if (created && get().sessionId === sessionId) {
+            set({ activeChatId: created.id });
+            navigate(`/chat/${created.id}`, { replace: true });
+          }
+        })
+        .catch(() => {});
       await consumeResponse(response, controller, set, get);
+      await navigationDone;
     } catch (error) {
       if (!isAbort(error)) {
         const message = readableError(error);
@@ -644,12 +649,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         get().isStreaming &&
         get().sessionId === sessionId
       ) {
-        set({
-          pendingApprovals: filterApprovalsForSession(
-            response.pending_approvals,
-            sessionId,
-          ),
-        });
+        const pendingApprovals = filterApprovalsForSession(
+          response.pending_approvals,
+          sessionId,
+        );
+        const current = get().pendingApprovals;
+        const unchanged =
+          current.length === pendingApprovals.length &&
+          current.every(
+            (approval, index) =>
+              approval.request_id === pendingApprovals[index]?.request_id,
+          );
+        if (!unchanged) set({ pendingApprovals });
       }
     } catch (error) {
       if (!isAbort(error)) {
@@ -729,20 +740,55 @@ async function consumeResponse(
   if (!response.body) throw new Error(t("stream.unreadable"));
   const reader = response.body.getReader();
   let parser = initialSseParserState;
+  let pending = get().stream;
+  let hasPending = false;
+  let lastFlushAt = Date.now();
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    if (controller.signal.aborted) break;
-    const parsed = parseSseBytes(value, parser);
-    parser = parsed.state;
-    for (const frame of parsed.frames) {
-      const next = reduceStreamFrame(get().stream, frame);
-      set({
-        stream: next,
-        error: next.error,
-      });
+  const clearFlushTimer = () => {
+    if (flushTimer !== null) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
     }
+  };
+  const flush = () => {
+    clearFlushTimer();
+    if (!hasPending || controller.signal.aborted) return;
+    set({ stream: pending, error: pending.error });
+    hasPending = false;
+    lastFlushAt = Date.now();
+  };
+  const scheduleFlush = () => {
+    if (flushTimer !== null || controller.signal.aborted) return;
+    const delay = Math.max(0, 40 - (Date.now() - lastFlushAt));
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      flush();
+    }, delay);
+  };
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (controller.signal.aborted) break;
+      const parsed = parseSseBytes(value, parser);
+      parser = parsed.state;
+      for (const frame of parsed.frames) {
+        const previous = pending;
+        pending = reduceStreamFrame(pending, frame);
+        hasPending = hasPending || pending !== previous;
+        const flushImmediately =
+          pending.responseStatus !== previous.responseStatus ||
+          pending.error !== previous.error ||
+          pending.rateLimited !== previous.rateLimited;
+        if (flushImmediately) flush();
+        else if (hasPending) scheduleFlush();
+      }
+    }
+  } finally {
+    flush();
+    clearFlushTimer();
   }
   if (parser.errors.length > 0) {
     throw new Error(

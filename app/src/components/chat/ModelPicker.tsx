@@ -104,7 +104,9 @@ export function ModelPicker() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeModel, modelLoading, loadActiveModel } = useChatStore();
+  const activeModel = useChatStore((state) => state.activeModel);
+  const modelLoading = useChatStore((state) => state.modelLoading);
+  const loadActiveModel = useChatStore((state) => state.loadActiveModel);
   const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
   const [listLoading, setListLoading] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);

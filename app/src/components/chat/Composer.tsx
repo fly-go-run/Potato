@@ -68,22 +68,31 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     el.style.height = "auto";
     el.style.height = `${Math.max(64, Math.min(el.scrollHeight, 192))}px`;
   }, [text]);
-  const {
-    activeModel,
-    modelLoading,
-    isStreaming,
-    isSubmitting,
-    pendingImages,
-    stream,
-    approvalLevel,
-    composerDraft,
-    sendMessage,
-    stop,
-    addImages,
-    removeImage,
-    setApprovalLevel,
-    setComposerDraft,
-  } = useChatStore();
+  const activeModel = useChatStore((state) => state.activeModel);
+  const modelLoading = useChatStore((state) => state.modelLoading);
+  const isStreaming = useChatStore((state) => state.isStreaming);
+  const isSubmitting = useChatStore((state) => state.isSubmitting);
+  const pendingImages = useChatStore((state) => state.pendingImages);
+  const turnUsage = useChatStore((state) => state.stream.turnUsage);
+  const conversationFileKey = useChatStore((state) =>
+    state.stream.messages
+      .flatMap((message) =>
+        message.content.flatMap((block) =>
+          block.type === "file" && block.filename
+            ? [`${block.filename}\u0000${block.file_url ?? ""}`]
+            : [],
+        ),
+      )
+      .join("\u0001"),
+  );
+  const approvalLevel = useChatStore((state) => state.approvalLevel);
+  const composerDraft = useChatStore((state) => state.composerDraft);
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const stop = useChatStore((state) => state.stop);
+  const addImages = useChatStore((state) => state.addImages);
+  const removeImage = useChatStore((state) => state.removeImage);
+  const setApprovalLevel = useChatStore((state) => state.setApprovalLevel);
+  const setComposerDraft = useChatStore((state) => state.setComposerDraft);
 
   // 建议卡等外部入口写入的草稿:填入、聚焦、光标停在文末方便续写
   useEffect(() => {
@@ -152,7 +161,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   // 展示来源片段帮助区分。
   const conversationFiles = useMemo(() => {
     const seen = new Map<string, TriggerItem>();
-    for (const message of stream.messages) {
+    for (const message of useChatStore.getState().stream.messages) {
       for (const block of message.content) {
         if (block.type === "file" && block.filename) {
           const url = block.file_url ?? "";
@@ -179,7 +188,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       });
     }
     return Array.from(seen.values()).reverse();
-  }, [stream.messages, pendingImages, t]);
+  }, [conversationFileKey, pendingImages, t]);
 
   const triggerItems = useMemo<TriggerItem[]>(() => {
     if (!trigger) return [];
@@ -487,20 +496,17 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               {/* 上下文用量在会话里最需要被看到:接近压缩/上限前给用户预警 */}
               {!wide &&
-                stream.turnUsage?.context_usage?.context_usage_ratio !==
-                  undefined && (
+                turnUsage?.context_usage?.context_usage_ratio !== undefined && (
                   <span
                     className={`hidden pr-1 text-[11px] sm:inline ${
-                      stream.turnUsage.context_usage.context_usage_ratio >= 80
+                      turnUsage.context_usage.context_usage_ratio >= 80
                         ? "text-warn"
                         : "text-ink-muted"
                     }`}
                   >
                     {t("chat.contextUsed", {
                       ratio:
-                        stream.turnUsage.context_usage.context_usage_ratio.toFixed(
-                          1,
-                        ),
+                        turnUsage.context_usage.context_usage_ratio.toFixed(1),
                     })}
                   </span>
                 )}
@@ -541,15 +547,12 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               <div className="flex-1" />
 
-              {stream.turnUsage?.context_usage?.context_usage_ratio !==
-                undefined && (
+              {turnUsage?.context_usage?.context_usage_ratio !== undefined && (
                 <span className="hidden pr-1 text-[11px] text-ink-muted sm:inline">
                   {t("chat.contextUsed", {
                     // 后端 ratio 已是百分数(context_stats.py 乘过 100)
                     ratio:
-                      stream.turnUsage.context_usage.context_usage_ratio.toFixed(
-                        1,
-                      ),
+                      turnUsage.context_usage.context_usage_ratio.toFixed(1),
                   })}
                 </span>
               )}

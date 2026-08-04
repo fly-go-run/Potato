@@ -110,21 +110,26 @@ function HighlightedCode({ code, language }: HighlightedCodeProps) {
 
   useEffect(() => {
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    setLines(null);
     if (!isSupportedLanguage(language)) {
-      setLines(null);
       return () => {
         active = false;
       };
     }
-    void highlightCode(code, language)
-      .then((result) => {
-        if (active) setLines(result);
-      })
-      .catch(() => {
-        if (active) setLines(null);
-      });
+    timer = setTimeout(() => {
+      timer = null;
+      void highlightCode(code, language)
+        .then((result) => {
+          if (active) setLines(result);
+        })
+        .catch(() => {
+          if (active) setLines(null);
+        });
+    }, 200);
     return () => {
       active = false;
+      if (timer !== null) clearTimeout(timer);
     };
   }, [code, language]);
 

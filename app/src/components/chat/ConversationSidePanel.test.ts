@@ -4,7 +4,7 @@ import type { StreamMessage } from "../../lib/stream";
 import {
   collectConversationArtifacts,
   presentRunStatus,
-} from "./ConversationSidePanel";
+} from "../../lib/conversationArtifacts";
 import {
   buildToolPair,
   isFailedToolState,

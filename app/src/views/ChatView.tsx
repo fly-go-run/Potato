@@ -25,6 +25,9 @@ import {
   X,
 } from "lucide-react";
 import {
+  lazy,
+  Suspense,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -35,10 +38,7 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Composer } from "../components/chat/Composer";
-import {
-  collectConversationArtifacts,
-  ConversationSidePanel,
-} from "../components/chat/ConversationSidePanel";
+import { collectConversationArtifacts } from "../lib/conversationArtifacts";
 import { collectFileChanges } from "../lib/fileChanges";
 import { textFromContent } from "../lib/content";
 import { MessageList } from "../components/chat/MessageList";
@@ -51,6 +51,12 @@ import { isAtBottom as isScrollAtBottom } from "../lib/scroll";
 import { shortcutLabel } from "../lib/shortcuts";
 import { useChatStore } from "../stores/chat";
 import { useUiStore } from "../stores/ui";
+
+const ConversationSidePanel = lazy(() =>
+  import("../components/chat/ConversationSidePanel").then((module) => ({
+    default: module.ConversationSidePanel,
+  })),
+);
 
 function CapabilityChips({ wide = false }: { wide?: boolean }) {
   const { t } = useTranslation();
@@ -244,6 +250,7 @@ export function ChatView() {
   const routerNavigate = useNavigate();
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRafRef = useRef<number | null>(null);
   const atBottomRef = useRef(true);
   const [atBottom, setAtBottom] = useState(true);
   const [hasNewContent, setHasNewContent] = useState(false);
@@ -255,21 +262,25 @@ export function ChatView() {
   const [selectedFilePath, setSelectedFilePath] = useState("");
   const [selectedChangePath, setSelectedChangePath] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const {
-    activeChatId,
-    stream,
-    historyLoading,
-    error,
-    isStreaming,
-    sessionId,
-    pendingApprovals,
-    openChat,
-    pollApprovals,
-    switchRateLimitedModel,
-    sendMessage,
-    clearError,
-    addImages,
-  } = useChatStore();
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const messages = useChatStore((state) => state.stream.messages);
+  const responseStatus = useChatStore(
+    (state) => state.stream.responseStatus,
+  );
+  const rateLimited = useChatStore((state) => state.stream.rateLimited);
+  const historyLoading = useChatStore((state) => state.historyLoading);
+  const error = useChatStore((state) => state.error);
+  const isStreaming = useChatStore((state) => state.isStreaming);
+  const sessionId = useChatStore((state) => state.sessionId);
+  const pendingApprovals = useChatStore((state) => state.pendingApprovals);
+  const openChat = useChatStore((state) => state.openChat);
+  const pollApprovals = useChatStore((state) => state.pollApprovals);
+  const switchRateLimitedModel = useChatStore(
+    (state) => state.switchRateLimitedModel,
+  );
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const clearError = useChatStore((state) => state.clearError);
+  const addImages = useChatStore((state) => state.addImages);
   const chats = useChatStore((state) => state.chats);
   const activeProject = useChatStore((state) => state.project);
   const activeChatName =
@@ -277,29 +288,29 @@ export function ChatView() {
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const artifacts = useMemo(
-    () => collectConversationArtifacts(stream.messages),
-    [stream.messages],
+    () => collectConversationArtifacts(messages),
+    [messages],
   );
   // 限流后"切换模型"要能接着把失败的那次请求补回去,
   // 否则用户以为已恢复,实际任务还停在原地。
   const lastUserText = useMemo(() => {
-    for (let index = stream.messages.length - 1; index >= 0; index -= 1) {
-      const message = stream.messages[index]!;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index]!;
       if (message.role === "user" && message.type === "message") {
         const text = textFromContent(message.content).trim();
         if (text) return text;
       }
     }
     return "";
-  }, [stream.messages]);
+  }, [messages]);
   const fileChanges = useMemo(
-    () => collectFileChanges(stream.messages),
-    [stream.messages],
+    () => collectFileChanges(messages),
+    [messages],
   );
   const searchMatches = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
     if (!query) return [];
-    return stream.messages
+    return messages
       .filter(
         (message) =>
           (message.role === "user" || message.role === "assistant") &&
@@ -311,7 +322,7 @@ export function ChatView() {
         text: textFromContent(message.content).trim(),
       }))
       .filter((message) => message.text.toLocaleLowerCase().includes(query));
-  }, [searchQuery, stream.messages]);
+  }, [searchQuery, messages]);
 
   const onDragEnter = (event: DragEvent) => {
     if (!event.dataTransfer.types.includes("Files")) return;
@@ -336,12 +347,12 @@ export function ChatView() {
     const files = Array.from(event.dataTransfer.files);
     if (files.length) addImages(files);
   };
-  const banner = getChatBanner(error, stream.rateLimited);
+  const banner = getChatBanner(error, rateLimited);
   const bannerMessage =
     banner && /^internal server error$/i.test(banner.message.trim())
       ? t("chat.error.serviceUnavailable")
       : banner?.message;
-  const isEmpty = stream.messages.length === 0 && pendingApprovals.length === 0;
+  const isEmpty = messages.length === 0 && pendingApprovals.length === 0;
 
   useEffect(() => {
     if (chatId && chatId !== activeChatId) void openChat(chatId);
@@ -363,13 +374,25 @@ export function ChatView() {
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
-    if (atBottomRef.current) {
-      element.scrollTop = element.scrollHeight;
-      setHasNewContent(false);
-    } else {
-      setHasNewContent(true);
+    if (scrollRafRef.current !== null) {
+      window.cancelAnimationFrame(scrollRafRef.current);
     }
-  }, [pendingApprovals, stream.messages]);
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      if (atBottomRef.current) {
+        element.scrollTop = element.scrollHeight;
+        setHasNewContent(false);
+      } else {
+        setHasNewContent(true);
+      }
+    });
+    return () => {
+      if (scrollRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
+  }, [pendingApprovals, messages]);
 
   useEffect(() => {
     atBottomRef.current = true;
@@ -423,19 +446,19 @@ export function ChatView() {
 
   const showBackToBottom = !atBottom && (isStreaming || hasNewContent);
 
-  const openFilePreview = (path: string) => {
+  const openFilePreview = useCallback((path: string) => {
     if (!path) return;
     setSelectedChangePath("");
     setSelectedFilePath(path);
     setSidePanelOpen(true);
-  };
+  }, []);
 
-  const openChangeDiff = (path: string) => {
+  const openChangeDiff = useCallback((path: string) => {
     if (!path) return;
     setSelectedFilePath("");
     setSelectedChangePath(path);
     setSidePanelOpen(true);
-  };
+  }, []);
 
   const backToPanelHome = () => {
     setSelectedFilePath("");
@@ -732,7 +755,7 @@ export function ChatView() {
                   </div>
                 ) : (
                   <MessageList
-                    messages={stream.messages}
+                    messages={messages}
                     activeMessageId={activeSearchMessageId}
                     onOpenFile={openFilePreview}
                     onOpenChange={openChangeDiff}
@@ -756,19 +779,21 @@ export function ChatView() {
               </div>
             </section>
             {sidePanelOpen && (
-              <ConversationSidePanel
-                messages={stream.messages}
-                artifacts={artifacts}
-                changes={fileChanges}
-                responseStatus={stream.responseStatus}
-                selectedFilePath={selectedFilePath}
-                selectedChangePath={selectedChangePath}
-                onClose={closeSidePanel}
-                onFileClose={backToPanelHome}
-                onOpenFile={openFilePreview}
-                onOpenChange={openChangeDiff}
-                onLocate={locateMessage}
-              />
+              <Suspense fallback={null}>
+                <ConversationSidePanel
+                  messages={messages}
+                  artifacts={artifacts}
+                  changes={fileChanges}
+                  responseStatus={responseStatus}
+                  selectedFilePath={selectedFilePath}
+                  selectedChangePath={selectedChangePath}
+                  onClose={closeSidePanel}
+                  onFileClose={backToPanelHome}
+                  onOpenFile={openFilePreview}
+                  onOpenChange={openChangeDiff}
+                  onLocate={locateMessage}
+                />
+              </Suspense>
             )}
           </div>
         </>
