@@ -38,17 +38,17 @@ def test_browser_type_and_profile_directory_preserve_default_profile() -> None:
         == "chromium"
     )
     assert browser_type_from_executable("/opt/custom-browser") == ""
-    assert (
-        resolve_browser_user_data_dir("/workspace", "/opt/custom-browser")
-        == "/workspace/browser/user_data"
-    )
-    assert (
+    assert Path(
+        resolve_browser_user_data_dir("/workspace", "/opt/custom-browser"),
+    ) == Path("/workspace/browser/user_data")
+    assert Path(
         resolve_browser_user_data_dir(
             "/workspace",
             "/Applications/Google Chrome",
             explicit_executable_path=True,
-        )
-        == "/workspace/browser/user_data_chrome"
+        ),
+    ) == Path(
+        "/workspace/browser/user_data_chrome",
     )
 
 
