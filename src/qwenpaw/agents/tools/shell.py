@@ -11,6 +11,8 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Optional
@@ -28,6 +30,11 @@ from ...runtime.tool_registry import tool_descriptor
 from ...sandbox import ExecutionResult
 
 
+def _windows_taskkill_args(pid: int) -> list[str]:
+    """Return the native command that force-kills a Windows process tree."""
+    return ["taskkill", "/F", "/T", "/PID", str(pid)]
+
+
 def _kill_process_tree_win32(pid: int) -> None:
     """Kill a process and all its descendants on Windows via taskkill.
 
@@ -36,7 +43,7 @@ def _kill_process_tree_win32(pid: int) -> None:
     """
     try:
         subprocess.call(
-            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            _windows_taskkill_args(pid),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=10,
@@ -48,6 +55,26 @@ def _kill_process_tree_win32(pid: int) -> None:
 def _windows_shell_creationflags() -> int:
     """Return Windows process flags for shell commands."""
     return getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
+
+def _wait_process_win32(
+    proc: subprocess.Popen,
+    timeout: float,
+    cancel_event: threading.Event | None,
+) -> str:
+    """Wait for a Windows process while observing cross-thread cancellation."""
+    deadline = time.monotonic() + max(timeout, 0.0)
+    while True:
+        if cancel_event is not None and cancel_event.is_set():
+            return "cancelled"
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return "timed_out"
+        try:
+            proc.wait(timeout=min(0.1, remaining))
+            return "completed"
+        except subprocess.TimeoutExpired:
+            continue
 
 
 def _collapse_newlines_outside_quotes(cmd: str) -> str:
@@ -229,6 +256,7 @@ def _execute_subprocess_sync(
     timeout: float,
     env: dict | None = None,
     shell_executable: str | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> tuple[int, str, str]:
     """Execute subprocess synchronously in a thread.
 
@@ -263,6 +291,8 @@ def _execute_subprocess_sync(
         shell_executable (`str | None`):
             Path to the shell executable. When ``None``, defaults to
             ``cmd.exe``.
+        cancel_event (`threading.Event | None`):
+            Cross-thread signal used to terminate the spawned process tree.
 
     Returns:
         `tuple[int, str, str]`:
@@ -319,11 +349,8 @@ def _execute_subprocess_sync(
         stderr_file.close()
         stderr_file = None
 
-        timed_out = False
-        try:
-            proc.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
+        wait_state = _wait_process_win32(proc, timeout, cancel_event)
+        if wait_state != "completed":
             _kill_process_tree_win32(proc.pid)
             try:
                 proc.wait(timeout=5)
@@ -336,14 +363,19 @@ def _execute_subprocess_sync(
         stdout_str = _read_temp_file(stdout_path)
         stderr_str = _read_temp_file(stderr_path)
 
-        if timed_out:
-            timeout_msg = (
-                f"Command execution exceeded the timeout of {timeout} seconds."
+        if wait_state != "completed":
+            stop_message = (
+                "Command execution was cancelled."
+                if wait_state == "cancelled"
+                else (
+                    "Command execution exceeded the timeout of "
+                    f"{timeout} seconds."
+                )
             )
             if stderr_str:
-                stderr_str = f"{stderr_str}\n{timeout_msg}"
+                stderr_str = f"{stderr_str}\n{stop_message}"
             else:
-                stderr_str = timeout_msg
+                stderr_str = stop_message
             return -1, stdout_str, stderr_str
 
         returncode = proc.returncode if proc.returncode is not None else -1
@@ -660,14 +692,32 @@ async def execute_shell_command(
     try:
         if sys.platform == "win32":
             # Windows: use thread pool to avoid asyncio subprocess limitations
-            returncode, stdout_str, stderr_str = await asyncio.to_thread(
-                _execute_subprocess_sync,
-                cmd,
-                str(working_dir),
-                timeout,
-                env,
-                shell_executable,
+            from ...tool_calls import cancellable_wait
+
+            cancel_event = threading.Event()
+            worker_task = asyncio.create_task(
+                asyncio.to_thread(
+                    _execute_subprocess_sync,
+                    cmd,
+                    str(working_dir),
+                    timeout,
+                    env,
+                    shell_executable,
+                    cancel_event,
+                ),
             )
+            try:
+                # Shield the worker so cancellable_wait only cancels this
+                # awaiter. Python cannot stop a running thread; the explicit
+                # event lets that thread kill and reap its process tree.
+                returncode, stdout_str, stderr_str = await cancellable_wait(
+                    asyncio.shield(worker_task),
+                )
+            except asyncio.CancelledError:
+                cancel_event.set()
+                returncode, stdout_str, stderr_str = await asyncio.shield(
+                    worker_task,
+                )
         else:
             proc = await asyncio.create_subprocess_shell(
                 cmd,

@@ -14,10 +14,12 @@ Covers:
 """
 # pylint: disable=protected-access,unused-argument
 
+import asyncio
 import os
 import shlex
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -34,6 +36,7 @@ from qwenpaw.agents.tools.shell import (
     _read_temp_file,
     _sanitize_win_cmd,
     _shell_basename,
+    _windows_taskkill_args,
     smart_decode,
 )
 from qwenpaw.sandbox import (
@@ -101,6 +104,44 @@ class TestIsCmd:
 
     def test_non_cmd(self):
         assert _is_cmd("/bin/bash") is False
+
+
+def test_windows_taskkill_args_targets_entire_process_tree():
+    assert _windows_taskkill_args(4321) == [
+        "taskkill",
+        "/F",
+        "/T",
+        "/PID",
+        "4321",
+    ]
+
+
+def test_windows_sync_cancel_kills_process_tree(monkeypatch, tmp_path):
+    from qwenpaw.agents.tools import shell
+
+    process = MagicMock(pid=4321, returncode=None)
+    cancel_event = threading.Event()
+    cancel_event.set()
+    kill_tree = MagicMock()
+    monkeypatch.setattr(
+        shell.subprocess,
+        "Popen",
+        MagicMock(return_value=process),
+    )
+    monkeypatch.setattr(shell, "_kill_process_tree_win32", kill_tree)
+
+    returncode, stdout, stderr = shell._execute_subprocess_sync(
+        "python -c pass",
+        str(tmp_path),
+        30,
+        cancel_event=cancel_event,
+    )
+
+    kill_tree.assert_called_once_with(4321)
+    process.wait.assert_called_once_with(timeout=5)
+    assert returncode == -1
+    assert stdout == ""
+    assert "cancelled" in stderr.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +442,62 @@ class TestIsDangerousSelfKill:
 
 class TestExecuteShellCommand:
     """Tests for execute_shell_command with mocked subprocess."""
+
+    @pytest.mark.asyncio
+    async def test_windows_cancel_signals_sync_worker(self, monkeypatch):
+        from qwenpaw.agents.tools import shell
+        from qwenpaw.tool_calls import (
+            ToolCallContext,
+            reset_call_context,
+            set_call_context,
+        )
+
+        worker_started = threading.Event()
+        worker_stopped = threading.Event()
+
+        def fake_execute_sync(
+            cmd,
+            cwd,
+            timeout,
+            env,
+            shell_executable,
+            cancel_event,
+        ):
+            worker_started.set()
+            assert cancel_event.wait(timeout=2)
+            worker_stopped.set()
+            return -1, "", "Command execution was cancelled."
+
+        monkeypatch.setattr(shell.sys, "platform", "win32")
+        monkeypatch.setattr(
+            shell,
+            "_execute_subprocess_sync",
+            fake_execute_sync,
+        )
+
+        loop = asyncio.get_running_loop()
+        ctx = ToolCallContext(
+            tool_call_id="call-win-cancel",
+            tool_name="execute_shell_command",
+            session_id="session-win-cancel",
+            agent_id="agent-win-cancel",
+            root_session_id="session-win-cancel",
+            started_at=loop.time(),
+            deadline=None,
+            cancel_event=asyncio.Event(),
+        )
+        token = set_call_context(ctx)
+        try:
+            task = asyncio.create_task(shell.execute_shell_command("sleep"))
+            while not worker_started.is_set():
+                await asyncio.sleep(0.01)
+            ctx.cancel_event.set()
+            result = await asyncio.wait_for(task, timeout=2)
+        finally:
+            reset_call_context(token)
+
+        assert worker_stopped.is_set()
+        assert "cancelled" in result.content[0].text.lower()
 
     @pytest.mark.asyncio
     @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
