@@ -339,11 +339,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return false;
     }
 
+    const submittedImages = get().pendingImages;
     set({ isSubmitting: true, error: null });
     let uploadedAttachments: UploadedAttachment[];
     try {
       uploadedAttachments = await uploadPendingFiles(
-        get().pendingImages.map((attachment) => attachment.file),
+        submittedImages.map((attachment) => attachment.file),
       );
     } catch (error) {
       set({ isSubmitting: false, error: readableError(error) });
@@ -354,11 +355,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const outboundContent = buildOutboundContent(text, uploadedAttachments);
     const localMessage = userMessage(outboundContent);
     const controller = new AbortController();
+    const previousStream = get().stream;
     const baseStream: ConversationStreamState = {
-      ...get().stream,
+      ...previousStream,
       responseId: null,
       responseStatus: "created",
-      messages: [...get().stream.messages, localMessage],
+      messages: [...previousStream.messages, localMessage],
       rateLimited: null,
       error: null,
       lastSequenceNumber: 0,
@@ -376,6 +378,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       requestController: controller,
     });
 
+    let requestAccepted = false;
     try {
       const response = await chatApi.stream(
         {
@@ -398,6 +401,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         },
         controller.signal,
       );
+      requestAccepted = true;
+      revokePreviews(submittedImages);
+      const submittedImageIds = new Set(
+        submittedImages.map((attachment) => attachment.id),
+      );
+      set((state) => ({
+        pendingImages: state.pendingImages.filter(
+          (attachment) => !submittedImageIds.has(attachment.id),
+        ),
+      }));
 
       const navigationDone = get()
         .refreshChats()
@@ -412,23 +425,34 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await consumeResponse(response, controller, set, get);
       await navigationDone;
     } catch (error) {
-      if (!isAbort(error)) {
+      if (!isAbort(error) && !controller.signal.aborted) {
         const message = readableError(error);
-        const knownChat =
-          get().chats.find((chat) => chat.session_id === sessionId) ??
-          (await get().refreshChats()).find(
-            (chat) => chat.session_id === sessionId,
-          );
+        const knownChat = requestAccepted
+          ? get().chats.find((chat) => chat.session_id === sessionId) ??
+            (await get().refreshChats()).find(
+              (chat) => chat.session_id === sessionId,
+            )
+          : (await get().refreshChats()).find(
+              (chat) => chat.session_id === sessionId,
+            );
+        if (controller.signal.aborted) return false;
         if (knownChat?.status === "running") {
-          await get().reconnect(knownChat);
+          if (requestAccepted) {
+            await get().reconnect(knownChat);
+          } else {
+            set({ error: null, stream: previousStream });
+            void get().reconnect(knownChat);
+          }
         } else {
           set((state) => ({
             stream: {
-              ...state.stream,
+              ...(requestAccepted ? state.stream : previousStream),
               responseStatus:
                 error instanceof ApiError
                   ? "failed"
-                  : state.stream.responseStatus,
+                  : requestAccepted
+                  ? state.stream.responseStatus
+                  : previousStream.responseStatus,
               error: message,
             },
             error: message,
@@ -439,22 +463,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       if (get().requestController === controller) {
         if (
           sessionStorage.getItem(PENDING_SESSION_KEY) === sessionId &&
-          isTerminalStatus(get().stream.responseStatus)
+          (!requestAccepted || isTerminalStatus(get().stream.responseStatus))
         ) {
           sessionStorage.removeItem(PENDING_SESSION_KEY);
         }
-        revokePreviews(get().pendingImages);
         set({
           isStreaming: false,
           isSubmitting: false,
           requestController: null,
-          pendingImages: [],
           pendingApprovals: [],
         });
       }
       await get().refreshChats();
     }
-    return true;
+    return requestAccepted;
   },
 
   stop: async () => {
@@ -503,6 +525,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       channel: chat.channel,
       isStreaming: true,
       isSubmitting: false,
+      error: null,
       pendingApprovals: [],
       requestController: controller,
       stream: {

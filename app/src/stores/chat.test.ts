@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { chatApi, type ChatHistory, type ChatSpec } from "../lib/api";
+import {
+  ApiError,
+  chatApi,
+  settingsApi,
+  type ChatHistory,
+  type ChatSpec,
+} from "../lib/api";
 import { initialConversationStreamState } from "../lib/stream";
 import { useChatStore } from "./chat";
 
@@ -52,6 +58,32 @@ function sseResponse(status: "in_progress" | "completed") {
   return new Response(`data: ${JSON.stringify(responseFrame(status))}\n\n`, {
     headers: { "Content-Type": "text/event-stream" },
   });
+}
+
+function controlledSseResponse() {
+  const encoder = new TextEncoder();
+  let finish!: () => void;
+  const response = new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify(responseFrame("in_progress"))}\n\n`,
+          ),
+        );
+        finish = () => {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify(responseFrame("completed"))}\n\n`,
+            ),
+          );
+          controller.close();
+        };
+      },
+    }),
+    { headers: { "Content-Type": "text/event-stream" } },
+  );
+  return { response, finish: () => finish() };
 }
 
 function history(status: ChatHistory["status"]): ChatHistory {
@@ -174,6 +206,185 @@ describe("chat stream interruption recovery", () => {
     expect(accepted).toBe(false);
     expect(streamSpy).not.toHaveBeenCalled();
     expect(useChatStore.getState().error).toContain("上一条消息仍在后台运行");
+  });
+
+  it("refreshes stale chat status after a conflict and preserves the rejected attachment", async () => {
+    const revokeObjectURL = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => {});
+    vi.spyOn(settingsApi, "uploadLimit").mockResolvedValue({
+      upload_max_size_mb: 10,
+    });
+    vi.spyOn(chatApi, "upload").mockResolvedValue({
+      url: "/api/files/preview/uploaded.png",
+      file_name: "uploaded.png",
+      size: 5,
+    });
+    vi.spyOn(chatApi, "stream")
+      .mockRejectedValueOnce(
+        new ApiError("A response is already running for this chat.", 409),
+      )
+      .mockResolvedValueOnce(sseResponse("completed"));
+    const listSpy = vi
+      .spyOn(chatApi, "list")
+      .mockResolvedValueOnce([chat("running")])
+      .mockResolvedValue([chat("idle")]);
+    vi.spyOn(chatApi, "get").mockResolvedValue(history("idle"));
+    const pendingImage = {
+      id: "preview-conflict",
+      file: new File(["image"], "conflict.png", { type: "image/png" }),
+      previewUrl: "blob:preview-conflict",
+    };
+    useChatStore.setState({
+      chats: [chat("idle")],
+      activeChatId: "chat-1",
+      pendingImages: [pendingImage],
+    });
+
+    const accepted = await useChatStore
+      .getState()
+      .sendMessage("keep this draft", vi.fn());
+
+    expect(accepted).toBe(false);
+    expect(listSpy).toHaveBeenCalled();
+    expect(chatApi.stream).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(chatApi.stream).mock.calls[1]?.[0]).toEqual({
+      reconnect: true,
+      session_id: "session-1",
+      user_id: "default",
+      channel: "console",
+    });
+    expect(useChatStore.getState().pendingImages).toEqual([pendingImage]);
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    expect(useChatStore.getState().error).toBeNull();
+  });
+
+  it("restores the previous stream when a rejected request is no longer running", async () => {
+    vi.spyOn(chatApi, "stream").mockRejectedValue(
+      new ApiError("A response is already running for this chat.", 409),
+    );
+    vi.spyOn(chatApi, "list").mockResolvedValue([chat("idle")]);
+    const previousMessage = {
+      id: "previous-message",
+      type: "message" as const,
+      role: "assistant" as const,
+      status: "completed" as const,
+      content: [],
+      metadata: null,
+    };
+    useChatStore.setState({
+      chats: [chat("idle")],
+      activeChatId: "chat-1",
+      stream: {
+        ...initialConversationStreamState,
+        responseStatus: "completed",
+        messages: [previousMessage],
+      },
+    });
+
+    const accepted = await useChatStore
+      .getState()
+      .sendMessage("retry me", vi.fn());
+
+    expect(accepted).toBe(false);
+    expect(chatApi.stream).toHaveBeenCalledTimes(1);
+    expect(useChatStore.getState()).toMatchObject({
+      isStreaming: false,
+      error: "A response is already running for this chat.",
+      stream: {
+        responseStatus: "failed",
+        messages: [previousMessage],
+      },
+    });
+  });
+
+  it("does not restore an old chat after the conflict refresh is aborted", async () => {
+    let resolveChats!: (chats: ChatSpec[]) => void;
+    const delayedChats = new Promise<ChatSpec[]>((resolve) => {
+      resolveChats = resolve;
+    });
+    const streamSpy = vi
+      .spyOn(chatApi, "stream")
+      .mockRejectedValue(
+        new ApiError("A response is already running for this chat.", 409),
+      );
+    const listSpy = vi
+      .spyOn(chatApi, "list")
+      .mockImplementationOnce(() => delayedChats)
+      .mockResolvedValue([]);
+    useChatStore.setState({
+      chats: [chat("idle")],
+      activeChatId: "chat-1",
+      stream: {
+        ...initialConversationStreamState,
+        responseStatus: "completed",
+        messages: [
+          {
+            id: "old-chat-message",
+            type: "message",
+            role: "assistant",
+            status: "completed",
+            content: [],
+            metadata: null,
+          },
+        ],
+      },
+    });
+
+    const sending = useChatStore
+      .getState()
+      .sendMessage("do not resurrect this", vi.fn());
+    await vi.waitFor(() => expect(listSpy).toHaveBeenCalledTimes(1));
+
+    useChatStore.getState().newChat();
+    resolveChats([chat("running")]);
+
+    await expect(sending).resolves.toBe(false);
+    expect(streamSpy).toHaveBeenCalledTimes(1);
+    expect(useChatStore.getState()).toMatchObject({
+      activeChatId: null,
+      isStreaming: false,
+      error: null,
+      stream: { responseStatus: "idle", messages: [] },
+    });
+  });
+
+  it("clears submitted attachments as soon as the request is accepted", async () => {
+    const revokeObjectURL = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => {});
+    vi.spyOn(settingsApi, "uploadLimit").mockResolvedValue({
+      upload_max_size_mb: 10,
+    });
+    vi.spyOn(chatApi, "upload").mockResolvedValue({
+      url: "/api/files/preview/uploaded.png",
+      file_name: "uploaded.png",
+      size: 5,
+    });
+    const controlled = controlledSseResponse();
+    vi.spyOn(chatApi, "stream").mockResolvedValue(controlled.response);
+    vi.spyOn(chatApi, "list").mockResolvedValue([]);
+    const pendingImage = {
+      id: "preview-accepted",
+      file: new File(["image"], "accepted.png", { type: "image/png" }),
+      previewUrl: "blob:preview-accepted",
+    };
+    useChatStore.setState({ pendingImages: [pendingImage] });
+
+    const sending = useChatStore
+      .getState()
+      .sendMessage("describe this image", vi.fn());
+
+    await vi.waitFor(() => {
+      expect(useChatStore.getState()).toMatchObject({
+        isStreaming: true,
+        pendingImages: [],
+      });
+    });
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:preview-accepted");
+
+    controlled.finish();
+    await expect(sending).resolves.toBe(true);
   });
 
   it("can send again after immediately stopping a new chat", async () => {
