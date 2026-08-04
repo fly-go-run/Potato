@@ -4,11 +4,20 @@
 import os
 from typing import Any
 
-from agentscope.model import ChatModelBase
-from openai import AsyncOpenAI
-
 from qwenpaw.providers.capping_formatter import _CappingOpenAIFormatter
 from qwenpaw.providers.openai_provider import OpenAIProvider
+
+
+class _LazyAsyncOpenAI:
+    """Callable compatibility seam that imports OpenAI only when called."""
+
+    def __call__(self, **kwargs):
+        from openai import AsyncOpenAI as openai_async_client
+
+        return openai_async_client(**kwargs)
+
+
+AsyncOpenAI = _LazyAsyncOpenAI()
 
 
 class OllamaProvider(OpenAIProvider):
@@ -42,7 +51,7 @@ class OllamaProvider(OpenAIProvider):
         super().update_config(config)
         self.base_url = self._normalize_base_url(self.base_url)
 
-    def _client(self, timeout: float = 5) -> AsyncOpenAI:
+    def _client(self, timeout: float = 5) -> Any:
         kwargs: dict = {
             "base_url": self._openai_compatible_base_url(),
             "api_key": self.api_key,
@@ -72,7 +81,7 @@ class OllamaProvider(OpenAIProvider):
         default."""
         return False
 
-    def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
+    def get_chat_model_instance(self, model_id: str) -> Any:
         from agentscope.credential._openai import OpenAICredential
         from agentscope.model import OpenAIChatModel
 

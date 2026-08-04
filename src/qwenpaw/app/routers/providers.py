@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 from fastapi import (
     APIRouter,
     Body,
@@ -22,12 +22,19 @@ from qwenpaw.exceptions import (
 
 from ..agent_context import get_agent_for_request
 from ..utils import schedule_agent_reload
+from ._runtime_dependencies import get_runtime_manager
 from ...config.config import load_agent_config, save_agent_config
 from ...providers.provider import ProviderInfo, ModelInfo
 from ...config.config import ActiveModelsInfo
-from ...providers.provider_manager import ProviderManager
-from ...providers.openrouter_provider import OpenRouterProvider
 from ...config.config import ModelSlotConfig
+
+if TYPE_CHECKING:
+    from ...providers.provider_manager import ProviderManager
+else:
+    # Only the object supplied by app.state is needed at request time.  The
+    # concrete manager imports every provider implementation, so do not load
+    # it while FastAPI is assembling routes.
+    ProviderManager = Any
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +55,20 @@ ActiveModelReadScope = Literal["effective", "global", "agent"]
 ActiveModelWriteScope = Literal["global", "agent"]
 
 
+def _is_openrouter_provider(provider: Any) -> bool:
+    """Check the concrete OpenRouter type only when that endpoint is used."""
+    from ...providers.openrouter_provider import OpenRouterProvider
+
+    return isinstance(provider, OpenRouterProvider)
+
+
 async def get_provider_manager(request: Request) -> ProviderManager:
     """Get the provider manager from app state.
 
     Args:
         request: FastAPI request object
     """
-    return request.app.state.provider_manager
+    return await get_runtime_manager(request, "provider_manager")
 
 
 def _active_models_info(
@@ -890,7 +904,7 @@ async def get_openrouter_series(
             detail="OpenRouter provider not found",
         )
 
-    if not isinstance(provider, OpenRouterProvider):
+    if not _is_openrouter_provider(provider):
         raise HTTPException(
             status_code=400,
             detail="Provider is not an OpenRouter provider",
@@ -923,7 +937,7 @@ async def discover_openrouter_extended(
             detail="OpenRouter provider not found",
         )
 
-    if not isinstance(provider, OpenRouterProvider):
+    if not _is_openrouter_provider(provider):
         raise HTTPException(
             status_code=400,
             detail="Provider is not an OpenRouter provider",
@@ -985,7 +999,7 @@ async def filter_openrouter_models(
             detail="OpenRouter provider not found",
         )
 
-    if not isinstance(provider, OpenRouterProvider):
+    if not _is_openrouter_provider(provider):
         raise HTTPException(
             status_code=400,
             detail="Provider is not an OpenRouter provider",

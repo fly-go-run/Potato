@@ -286,16 +286,23 @@ class ServiceManager:
         if not descriptor.service_class:
             return None
 
-        # service_class may be a callable that resolves to the actual class
-        if not isinstance(descriptor.service_class, type):
-            service_cls = descriptor.service_class(self.workspace)
-        else:
-            service_cls = descriptor.service_class
+        def _resolve_constructor() -> tuple[Any, dict]:
+            """Resolve class and arguments without holding the event loop."""
+            # service_class may be a callable that resolves to the actual
+            # class.  Some resolvers import optional backends or read config.
+            if not isinstance(descriptor.service_class, type):
+                service_cls = descriptor.service_class(self.workspace)
+            else:
+                service_cls = descriptor.service_class
 
-        # Get init args from callable
-        init_kwargs = {}
-        if descriptor.init_args:
-            init_kwargs = descriptor.init_args(self.workspace)
+            init_kwargs = {}
+            if descriptor.init_args:
+                init_kwargs = descriptor.init_args(self.workspace)
+            return service_cls, init_kwargs
+
+        service_cls, init_kwargs = await asyncio.to_thread(
+            _resolve_constructor,
+        )
 
         # Offload synchronous constructor to thread pool to avoid blocking
         # the event loop during background startup.
@@ -324,6 +331,7 @@ class ServiceManager:
         if not descriptor.post_init:
             return service
 
+        await asyncio.sleep(0)
         result = descriptor.post_init(self.workspace, service)
         if asyncio.iscoroutine(result):
             result = await result
@@ -358,6 +366,7 @@ class ServiceManager:
         if is_reused or not descriptor.start_method or not service:
             return
 
+        await asyncio.sleep(0)
         start_fn = getattr(service, descriptor.start_method)
         if asyncio.iscoroutinefunction(start_fn):
             await start_fn()

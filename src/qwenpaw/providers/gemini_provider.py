@@ -5,14 +5,11 @@ GeminiChatModel."""
 from __future__ import annotations
 
 import copy
+import importlib
 import logging
 import time
 from typing import Any, List
 
-from agentscope.model import ChatModelBase
-from google import genai
-from google.genai import errors as genai_errors
-from google.genai import types as genai_types
 from pydantic import Field
 
 from qwenpaw.providers.multimodal_prober import (
@@ -28,6 +25,30 @@ from .capping_formatter import _CappingGeminiFormatter
 from .capping_formatter import MAX_INLINE_MEDIA_BYTES
 
 logger = logging.getLogger(__name__)
+
+
+class _LazyModuleProxy:
+    """Expose a patchable module seam while deferring the real import."""
+
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module = None
+
+    def __getattr__(self, name: str):
+        if self._module is None:
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+
+genai = _LazyModuleProxy("google.genai")
+
+
+def _google_genai_types():
+    """Load the Gemini SDK only when a Gemini operation is requested."""
+    from google.genai import errors as genai_errors
+    from google.genai import types as genai_types
+
+    return genai, genai_errors, genai_types
 
 
 # TODO: Remove _flatten_json_schema and _sanitize_schema_for_gemini once
@@ -181,6 +202,7 @@ class GeminiProvider(Provider):
         return dict(self.custom_headers) if self.custom_headers else {}
 
     def _client(self, timeout: float = 10) -> Any:
+        genai, _, genai_types = _google_genai_types()
         headers = self._build_default_headers() or None
         return genai.Client(
             api_key=self.api_key,
@@ -224,6 +246,7 @@ class GeminiProvider(Provider):
 
     async def check_connection(self, timeout: float = 10) -> tuple[bool, str]:
         """Check if Google Gemini provider is reachable."""
+        _, genai_errors, _ = _google_genai_types()
         try:
             client = self._client(timeout=timeout)
             # Use the async list models endpoint to verify connectivity
@@ -244,6 +267,7 @@ class GeminiProvider(Provider):
 
     async def fetch_models(self, timeout: float = 10) -> List[ModelInfo]:
         """Fetch available models from Gemini API."""
+        _, genai_errors, _ = _google_genai_types()
         try:
             client = self._client(timeout=timeout)
             payload = []
@@ -266,6 +290,7 @@ class GeminiProvider(Provider):
         if not target:
             return False, "Empty model ID"
 
+        _, genai_errors, _ = _google_genai_types()
         try:
             client = self._client(timeout=timeout)
             response = await client.aio.models.generate_content_stream(
@@ -303,7 +328,7 @@ class GeminiProvider(Provider):
             adapted["max_output_tokens"] = max_tokens
         return adapted
 
-    def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
+    def get_chat_model_instance(self, model_id: str) -> Any:
         from agentscope.credential import GeminiCredential
         from agentscope.model import GeminiChatModel
 
@@ -374,6 +399,7 @@ class GeminiProvider(Provider):
         Sends a solid-red 16x16 PNG and asks the model to name the colour.
         """
         import base64
+        _, genai_errors, genai_types = _google_genai_types()
 
         logger.info(
             "Image probe start: model=%s url=%s",
@@ -438,6 +464,7 @@ class GeminiProvider(Provider):
 
         Asks the model whether the video contains moving content.
         """
+        _, genai_errors, genai_types = _google_genai_types()
         logger.info(
             "Video probe start: model=%s url=%s",
             model_id,
@@ -554,6 +581,7 @@ class _GeminiChatModelCompat:
                 tool_choice=None,
                 **config_kwargs,
             ):
+                genai, _, genai_types = _google_genai_types()
                 disable_thinking = bool(
                     config_kwargs.pop("disable_thinking", False),
                 )

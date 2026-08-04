@@ -6,8 +6,6 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import Any, List, Optional
 
-from agentscope.model import ChatModelBase
-from openai import APIError, AsyncOpenAI
 from pydantic import Field
 
 from qwenpaw.providers.provider import (
@@ -17,6 +15,7 @@ from qwenpaw.providers.provider import (
 )
 from .capping_formatter import _CappingOpenAIFormatter
 from .capping_formatter import MAX_INLINE_MEDIA_BYTES
+from .openai_provider import _openai_types
 
 
 class OpenRouterProvider(Provider):
@@ -52,7 +51,8 @@ class OpenRouterProvider(Provider):
         # supplement or override them.
         return {**self._DEFAULT_HEADERS, **self.custom_headers}
 
-    def _client(self, timeout: float = 30) -> AsyncOpenAI:
+    def _client(self, timeout: float = 30) -> Any:
+        AsyncOpenAI, _ = _openai_types()
         return AsyncOpenAI(
             base_url=self.base_url,
             api_key=self.api_key,
@@ -221,11 +221,12 @@ class OpenRouterProvider(Provider):
 
     async def check_connection(self, timeout: float = 30) -> tuple[bool, str]:
         """Check if OpenRouter provider is reachable."""
+        _, api_error = _openai_types()
         client = self._client()
         try:
             await client.models.list(timeout=timeout)
             return True, ""
-        except APIError as e:
+        except api_error as e:
             return False, str(e)
 
     async def fetch_models(
@@ -243,6 +244,7 @@ class OpenRouterProvider(Provider):
         Returns:
             List of ModelInfo (or ExtendedModelInfo if include_extended=True)
         """
+        _, api_error = _openai_types()
         try:
             client = self._client(timeout=timeout)
             payload = await client.models.list(timeout=timeout)
@@ -251,7 +253,7 @@ class OpenRouterProvider(Provider):
                 include_extended=include_extended,
             )
             return models
-        except APIError:
+        except api_error:
             return []
 
     async def fetch_extended_models(
@@ -360,6 +362,7 @@ class OpenRouterProvider(Provider):
         timeout: float = 30,
     ) -> tuple[bool, str]:
         """Check if a specific model is reachable/usable"""
+        _, api_error = _openai_types()
         try:
             client = self._client(timeout=timeout)
             res = await client.chat.completions.create(
@@ -373,10 +376,10 @@ class OpenRouterProvider(Provider):
             async for _ in res:
                 break
             return True, ""
-        except APIError as e:
+        except api_error as e:
             return False, str(e)
 
-    def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
+    def get_chat_model_instance(self, model_id: str) -> Any:
         from agentscope.credential._openai import OpenAICredential
 
         from .openai_chat_model_compat import OpenAIChatModelCompat

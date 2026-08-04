@@ -10,6 +10,7 @@ Each Workspace represents a standalone agent workspace with its own:
 
 Request processing is handled by ``Runtime`` (see ``stream_query``).
 """
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any, AsyncGenerator, Iterable, Optional
@@ -474,12 +475,20 @@ class Workspace:
 
         logger.info(f"Starting workspace: {self.agent_id}")
 
-        from ...agents.skill_system import (
-            ensure_skill_pool_initialized,
-        )
-
         try:
-            ensure_skill_pool_initialized()
+            # Skill-pool setup and the legacy migration are synchronous file
+            # and import work.  Yield before each phase so a background agent
+            # cannot monopolize the server's event loop.
+            await asyncio.sleep(0)
+
+            def _ensure_skill_pool() -> None:
+                from ...agents.skill_system import (
+                    ensure_skill_pool_initialized,
+                )
+
+                ensure_skill_pool_initialized()
+
+            await asyncio.to_thread(_ensure_skill_pool)
         except Exception as e:
             logger.warning(
                 f"Skill pool initialization failed (non-fatal): {e}",
@@ -487,12 +496,15 @@ class Workspace:
 
         try:
             # 1. Load agent configuration
-            self._config = load_agent_config(self.agent_id)
+            self._config = await asyncio.to_thread(
+                load_agent_config,
+                self.agent_id,
+            )
             logger.debug(f"Loaded config for agent: {self.agent_id}")
 
             # 2. Run legacy weixin -> wechat data migrations BEFORE services
             # start so ChatManager / Runner see the canonical layout.
-            self._migrate_legacy_weixin_data()
+            await asyncio.to_thread(self._migrate_legacy_weixin_data)
 
             # 3. Start all services via ServiceManager
             await self._service_manager.start_all()

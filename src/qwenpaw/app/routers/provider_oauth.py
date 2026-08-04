@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -15,7 +15,12 @@ from ...providers.oauth import (
     OpenRouterOAuthFlow,
 )
 from ...providers.oauth.base import OAuthFlow
-from ...providers.provider_manager import ProviderManager
+from ._runtime_dependencies import get_runtime_manager
+
+if TYPE_CHECKING:
+    from ...providers.provider_manager import ProviderManager
+else:
+    ProviderManager = Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +42,7 @@ async def _get_provider_manager(
     request: Request,
 ) -> ProviderManager:
     """Get provider manager from app state."""
-    return request.app.state.provider_manager
+    return await get_runtime_manager(request, "provider_manager")
 
 
 def _get_flow(provider_id: str) -> OAuthFlow:

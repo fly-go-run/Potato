@@ -3,15 +3,16 @@
 It provides a unified interface to manage providers, such as listing available
 providers, adding/removing custom providers, and fetching provider details."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import os
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
-from agentscope.model import ChatModelBase
 from pydantic import BaseModel
 
 from qwenpaw.exceptions import ModelNotFoundException
@@ -40,6 +41,9 @@ from .openai_provider import (
 from .openai_response_provider import OpenAIResponseProvider
 from .openrouter_provider import OpenRouterProvider
 from .provider import ModelInfo, Provider, ProviderInfo
+
+if TYPE_CHECKING:
+    from agentscope.model import ChatModelBase
 
 logger = logging.getLogger(__name__)
 

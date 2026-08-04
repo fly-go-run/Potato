@@ -10,8 +10,6 @@ import os
 import time
 from typing import TYPE_CHECKING, Any, List
 
-from agentscope.model import ChatModelBase
-from openai import APIError
 from pydantic import Field
 
 from qwenpaw.providers.provider import ModelInfo, Provider
@@ -22,6 +20,15 @@ if TYPE_CHECKING:
     from qwenpaw.providers.multimodal_prober import ProbeResult
 
 logger = logging.getLogger(__name__)
+
+
+class _LazyAPIError(Exception):
+    """Placeholder preserving the module monkeypatch seam without importing."""
+
+
+# Kept as a compatibility seam for callers/tests that replace the exception
+# class.  The real SDK class is resolved by _openai_types() on first use.
+APIError = _LazyAPIError
 
 DASHSCOPE_BASE_URLS = (
     "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -51,17 +58,27 @@ def _token_limit_kwargs(model_id: str, limit: int) -> dict[str, int]:
     return {"max_tokens": limit}
 
 
-if os.environ.get("LANGFUSE_SECRET_KEY") and importlib.util.find_spec(
-    "langfuse",
-):
-    from langfuse.openai import AsyncOpenAI  # type: ignore[import]
-else:
-    if os.environ.get("LANGFUSE_SECRET_KEY"):
-        logger.warning(
-            "LANGFUSE_SECRET_KEY is set but langfuse is not installed; "
-            "install with `pip install langfuse` to enable tracing",
-        )
-    from openai import AsyncOpenAI  # pylint: disable=ungrouped-imports
+def _openai_types():
+    """Return the OpenAI client and API error type on first provider use."""
+    from openai import APIError as openai_api_error
+
+    if os.environ.get("LANGFUSE_SECRET_KEY") and importlib.util.find_spec(
+        "langfuse",
+    ):
+        from langfuse.openai import AsyncOpenAI  # type: ignore[import]
+    else:
+        if os.environ.get("LANGFUSE_SECRET_KEY"):
+            logger.warning(
+                "LANGFUSE_SECRET_KEY is set but langfuse is not installed; "
+                "install with `pip install langfuse` to enable tracing",
+            )
+        from openai import AsyncOpenAI
+    api_error = (
+        APIError
+        if APIError is not _LazyAPIError
+        else openai_api_error
+    )
+    return AsyncOpenAI, api_error
 
 
 class OpenAIProvider(Provider):
@@ -101,7 +118,8 @@ class OpenAIProvider(Provider):
                 model_info.reasoning_effort,
             )
 
-    def _client(self, timeout: float = 5) -> AsyncOpenAI:
+    def _client(self, timeout: float = 5) -> Any:
+        AsyncOpenAI, _ = _openai_types()
         kwargs: dict = {
             "base_url": self.base_url,
             "api_key": self.api_key,
@@ -136,11 +154,12 @@ class OpenAIProvider(Provider):
 
     async def check_connection(self, timeout: float = 5) -> tuple[bool, str]:
         """Check if OpenAI provider is reachable with current configuration."""
+        _, api_error = _openai_types()
         client = self._client()
         try:
             await client.models.list(timeout=timeout)
             return True, ""
-        except APIError as exc:
+        except api_error as exc:
             detail = str(exc) or getattr(exc, "message", "")
             status = getattr(exc, "status_code", "unknown")
             return (
@@ -157,12 +176,13 @@ class OpenAIProvider(Provider):
 
     async def fetch_models(self, timeout: float = 5) -> List[ModelInfo]:
         """Fetch available models."""
+        _, api_error = _openai_types()
         try:
             client = self._client(timeout=timeout)
             payload = await client.models.list(timeout=timeout)
             models = self._normalize_models_payload(payload)
             return models
-        except APIError:
+        except api_error:
             return []
         except Exception:
             return []
@@ -173,6 +193,7 @@ class OpenAIProvider(Provider):
         timeout: float = 5,
     ) -> tuple[bool, str]:
         """Check if a specific model is reachable/usable"""
+        _, api_error = _openai_types()
         model_id = (model_id or "").strip()
         if not model_id:
             return False, "Empty model ID"
@@ -200,7 +221,7 @@ class OpenAIProvider(Provider):
             async for _ in res:
                 break
             return True, ""
-        except APIError:
+        except api_error:
             return False, f"API error when connecting to model '{model_id}'"
         except Exception:
             return (
@@ -208,7 +229,7 @@ class OpenAIProvider(Provider):
                 f"Unknown exception when connecting to model '{model_id}'",
             )
 
-    def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
+    def get_chat_model_instance(self, model_id: str) -> Any:
         from agentscope.credential._openai import OpenAICredential
         from agentscope.model import OpenAIChatModel
 
@@ -349,6 +370,7 @@ class OpenAIProvider(Provider):
             self.base_url,
         )
         start_time = time.monotonic()
+        _, api_error = _openai_types()
         client = self._client(timeout=timeout)
         try:
             res = await client.chat.completions.create(
@@ -387,7 +409,7 @@ class OpenAIProvider(Provider):
                 start_time,
                 reasoning,
             )
-        except APIError as e:
+        except api_error as e:
             elapsed = time.monotonic() - start_time
             logger.warning(
                 "Image probe error: model=%s type=%s msg=%s %.2fs",
@@ -467,6 +489,7 @@ class OpenAIProvider(Provider):
 
         is_http = video_url == _PROBE_VIDEO_URL
         req_timeout = timeout * 3 if is_http else timeout
+        _, api_error = _openai_types()
         client = self._client(timeout=req_timeout)
         try:
             res = await client.chat.completions.create(
@@ -500,7 +523,7 @@ class OpenAIProvider(Provider):
                 start_time,
                 is_http,
             )
-        except APIError as e:
+        except api_error as e:
             status = getattr(e, "status_code", None)
             # 400 means this specific video format was rejected, but the
             # model might accept a different format — return None to let
@@ -679,6 +702,7 @@ class GitHubModelsProvider(OpenAIProvider):
 
     async def check_connection(self, timeout: float = 5) -> tuple[bool, str]:
         """Check connectivity via a tiny chat completion request."""
+        _, api_error = _openai_types()
         # Prefer a built-in model; fall back to a well-known GitHub Models id.
         model_id = ""
         for candidate in ("openai/gpt-4o-mini", "gpt-4o-mini"):
@@ -715,7 +739,7 @@ class GitHubModelsProvider(OpenAIProvider):
             finally:
                 await res.response.aclose()
             return True, ""
-        except APIError as exc:
+        except api_error as exc:
             detail = str(exc) or getattr(exc, "message", "")
             status = getattr(exc, "status_code", "unknown")
             return (

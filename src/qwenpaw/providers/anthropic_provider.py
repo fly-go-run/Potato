@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import time
@@ -10,8 +11,6 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 import httpx
-from agentscope.model import ChatModelBase
-import anthropic
 from pydantic import Field
 
 from qwenpaw.providers.multimodal_prober import (
@@ -27,6 +26,27 @@ from .capping_formatter import _CappingAnthropicFormatter
 from .capping_formatter import MAX_INLINE_MEDIA_BYTES
 
 logger = logging.getLogger(__name__)
+
+
+class _LazyModuleProxy:
+    """Expose a patchable module seam while deferring the real import."""
+
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module = None
+
+    def __getattr__(self, name: str):
+        if self._module is None:
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+
+anthropic = _LazyModuleProxy("anthropic")
+
+
+def _anthropic_module():
+    """Load the Anthropic SDK only when an Anthropic operation is used."""
+    return anthropic
 
 DASHSCOPE_BASE_URLS = (
     "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -100,7 +120,8 @@ class AnthropicProvider(Provider):
             )
         return self._strip_http_client
 
-    def _client(self, timeout: float = 5) -> anthropic.AsyncAnthropic:
+    def _client(self, timeout: float = 5) -> Any:
+        anthropic = _anthropic_module()
         default_headers = self._build_default_headers()
         if self.auth_mode == "auth_token":
             return anthropic.AsyncAnthropic(
@@ -154,6 +175,7 @@ class AnthropicProvider(Provider):
         call so that custom proxies that only expose the messages API still
         pass the connection test.
         """
+        anthropic = _anthropic_module()
         client = self._client(timeout=timeout)
         try:
             await client.models.list()
@@ -175,9 +197,10 @@ class AnthropicProvider(Provider):
 
     async def _check_connection_via_messages(
         self,
-        client: anthropic.AsyncAnthropic,
+        client: Any,
     ) -> tuple[bool, str]:
         """Fallback: check reachability via messages.create."""
+        anthropic = _anthropic_module()
         model = self.models[0].id if self.models else "claude-opus-4-5"
         try:
             await client.messages.create(
@@ -231,6 +254,7 @@ class AnthropicProvider(Provider):
             ],
             "stream": True,
         }
+        anthropic = _anthropic_module()
         try:
             client = self._client(timeout=timeout)
             resp = await client.messages.create(**body)
@@ -246,7 +270,7 @@ class AnthropicProvider(Provider):
                 f"Unknown exception when connecting to model '{model_id}'",
             )
 
-    def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
+    def get_chat_model_instance(self, model_id: str) -> Any:
         from agentscope.credential import AnthropicCredential
         from agentscope.model import AnthropicChatModel
 
@@ -346,6 +370,7 @@ class AnthropicProvider(Provider):
             self.base_url,
         )
         start_time = time.monotonic()
+        anthropic = _anthropic_module()
         client = self._client(timeout=timeout)
         try:
             resp = await client.messages.create(
@@ -460,6 +485,7 @@ class _AnthropicChatModelCompat:
                         "api_key"
                     ] = self.credential.api_key.get_secret_value()
 
+                anthropic = _anthropic_module()
                 self._qp_cached_client = anthropic.AsyncAnthropic(
                     **client_kwargs,
                 )

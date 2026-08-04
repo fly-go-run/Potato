@@ -14,9 +14,6 @@ from qwenpaw.exceptions import (
     AppBaseException,
 )
 
-from ...agents.model_factory import create_model_and_formatter
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -27,6 +24,8 @@ def get_model():
         Chat model instance or None if not configured
     """
     try:
+        from ...agents.model_factory import create_model_and_formatter
+
         model, _ = create_model_and_formatter()
         return model
     except (ValueError, AppBaseException) as e:

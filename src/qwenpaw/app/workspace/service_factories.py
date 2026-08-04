@@ -6,8 +6,9 @@ and initialize service components. Extracted from local functions to
 improve testability and code organization.
 """
 
-from typing import TYPE_CHECKING
+import asyncio
 import logging
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .workspace import Workspace
@@ -23,27 +24,35 @@ async def create_driver_service(ws: "Workspace", _service):
     DriverCard storage and is not exposed through the old MCP runtime path.
     """
     # pylint: disable=protected-access
-    from ...drivers.adapters.mcp_legacy_config import (
-        migrate_legacy_mcp_if_needed,
-    )
-    from ...drivers.credentials.store import AsyncCredentialStore
-    from ...drivers.handlers import MCPDriverHandler
-    from ...drivers.handlers.mcp import validate_mcp_endpoint
-    from ...drivers.manager import DriverManager
-    from ..approvals.driver_gate import QwenPawDriverApprovalGate
+    await asyncio.sleep(0)
 
-    credential_store = AsyncCredentialStore(
-        ws.workspace_dir / "credentials.yaml",
-    )
-    driver_manager = DriverManager(
-        ws.workspace_dir / "drivers",
-        credential_store,
-        approval_gate=QwenPawDriverApprovalGate(),
-    )
-    driver_manager.register_handler_type(
-        "mcp",
-        MCPDriverHandler,
-        endpoint_validator=validate_mcp_endpoint,
+    def _build_driver_manager():
+        from ...drivers.adapters.mcp_legacy_config import (
+            migrate_legacy_mcp_if_needed,
+        )
+        from ...drivers.credentials.store import AsyncCredentialStore
+        from ...drivers.handlers import MCPDriverHandler
+        from ...drivers.handlers.mcp import validate_mcp_endpoint
+        from ...drivers.manager import DriverManager
+        from ..approvals.driver_gate import QwenPawDriverApprovalGate
+
+        credential_store = AsyncCredentialStore(
+            ws.workspace_dir / "credentials.yaml",
+        )
+        driver_manager = DriverManager(
+            ws.workspace_dir / "drivers",
+            credential_store,
+            approval_gate=QwenPawDriverApprovalGate(),
+        )
+        driver_manager.register_handler_type(
+            "mcp",
+            MCPDriverHandler,
+            endpoint_validator=validate_mcp_endpoint,
+        )
+        return driver_manager, migrate_legacy_mcp_if_needed
+
+    driver_manager, migrate_legacy_mcp_if_needed = await asyncio.to_thread(
+        _build_driver_manager,
     )
     # Future Driver protocols should be registered here together with their
     # endpoint validator and tests.  This PR intentionally keeps the concrete
@@ -67,15 +76,21 @@ async def create_driver_config_watcher(ws: "Workspace", _service):
     Driver protocols instead of only MCP.
     """
     # pylint: disable=protected-access
+    await asyncio.sleep(0)
     driver_manager = ws._service_manager.services.get("driver_manager")
     if driver_manager is None:
         return None
 
-    from ..driver_config_watcher import DriverConfigWatcher
+    def _build_watcher():
+        from ..driver_config_watcher import DriverConfigWatcher
 
-    watcher = DriverConfigWatcher(
-        driver_manager,
-        ws.workspace_dir / "drivers",
+        return DriverConfigWatcher(
+            driver_manager,
+            ws.workspace_dir / "drivers",
+        )
+
+    watcher = await asyncio.to_thread(
+        _build_watcher,
     )
     ws._service_manager.services["driver_config_watcher"] = watcher
     return watcher
@@ -90,16 +105,21 @@ async def create_chat_service(ws: "Workspace", service):
         service: Existing ChatManager if reused, None if creating new
     """
     # pylint: disable=protected-access
-    from ..chats.manager import ChatManager
-    from ..chats.repo.json_repo import JsonChatRepository
+    await asyncio.sleep(0)
 
     if service is not None:
         cm = service
         logger.info(f"Reusing ChatManager for {ws.agent_id}")
     else:
-        chats_path = str(ws.workspace_dir / "chats.json")
-        chat_repo = JsonChatRepository(chats_path)
-        cm = ChatManager(repo=chat_repo)
+        def _build_chat_manager():
+            from ..chats.manager import ChatManager
+            from ..chats.repo.json_repo import JsonChatRepository
+
+            chats_path = str(ws.workspace_dir / "chats.json")
+            chat_repo = JsonChatRepository(chats_path)
+            return ChatManager(repo=chat_repo), chats_path
+
+        cm, chats_path = await asyncio.to_thread(_build_chat_manager)
         ws._service_manager.services["chat_manager"] = cm
         logger.info(f"ChatManager created: {chats_path}")
     # pylint: enable=protected-access
@@ -116,34 +136,39 @@ async def create_channel_service(ws: "Workspace", _):
         ChannelManager instance or None if not configured
     """
     # pylint: disable=protected-access
+    await asyncio.sleep(0)
     if not ws._config.channels:
         return None
 
-    from ...config import Config, load_config, update_last_dispatch
-    from ..channels.manager import ChannelManager
-    from ..channels.access_control import init_access_control_store
+    def _build_channel_manager():
+        from ...config import Config, load_config, update_last_dispatch
+        from ..channels.access_control import init_access_control_store
+        from ..channels.manager import ChannelManager
 
-    init_access_control_store(ws.workspace_dir)
-
-    root_config = load_config()
-    temp_config = Config(
-        channels=ws._config.channels,
-        show_tool_details=root_config.show_tool_details,
-    )
-
-    def on_last_dispatch(channel, user_id, session_id):
-        update_last_dispatch(
-            channel=channel,
-            user_id=user_id,
-            session_id=session_id,
-            agent_id=ws.agent_id,
+        init_access_control_store(ws.workspace_dir)
+        root_config = load_config()
+        temp_config = Config(
+            channels=ws._config.channels,
+            show_tool_details=root_config.show_tool_details,
         )
 
-    cm = ChannelManager.from_config(
-        process=ws.stream_query,
-        config=temp_config,
-        on_last_dispatch=on_last_dispatch,
-        workspace_dir=ws.workspace_dir,
+        def on_last_dispatch(channel, user_id, session_id):
+            update_last_dispatch(
+                channel=channel,
+                user_id=user_id,
+                session_id=session_id,
+                agent_id=ws.agent_id,
+            )
+
+        return ChannelManager.from_config(
+            process=ws.stream_query,
+            config=temp_config,
+            on_last_dispatch=on_last_dispatch,
+            workspace_dir=ws.workspace_dir,
+        )
+
+    cm = await asyncio.to_thread(
+        _build_channel_manager,
     )
     ws._service_manager.services["channel_manager"] = cm
 
@@ -177,18 +202,24 @@ async def create_agent_config_watcher(ws: "Workspace", _):
         AgentConfigWatcher instance or None if not needed
     """
     # pylint: disable=protected-access
+    await asyncio.sleep(0)
     channel_mgr = ws._service_manager.services.get("channel_manager")
     cron_mgr = ws._service_manager.services.get("cron_manager")
 
     if not (channel_mgr or cron_mgr):
         return None
 
-    from ..agent_config_watcher import AgentConfigWatcher
+    def _build_watcher():
+        from ..agent_config_watcher import AgentConfigWatcher
 
-    watcher = AgentConfigWatcher(
-        agent_id=ws.agent_id,
-        workspace_dir=ws.workspace_dir,
-        workspace=ws,
+        return AgentConfigWatcher(
+            agent_id=ws.agent_id,
+            workspace_dir=ws.workspace_dir,
+            workspace=ws,
+        )
+
+    watcher = await asyncio.to_thread(
+        _build_watcher,
     )
     ws._service_manager.services["agent_config_watcher"] = watcher
     return watcher

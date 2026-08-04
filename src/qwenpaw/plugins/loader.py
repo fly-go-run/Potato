@@ -761,7 +761,10 @@ class PluginLoader:
         Returns:
             Dictionary of plugin_id -> PluginRecord
         """
-        discovered = self.discover_plugins()
+        # Manifest discovery is synchronous filesystem/JSON work.  Plugin
+        # loading itself remains on the event loop because registration may
+        # mutate FastAPI/asyncio state, but discovery should not delay healthz.
+        discovered = await asyncio.to_thread(self.discover_plugins)
 
         for manifest, plugin_dir in discovered:
             if types is not None and manifest.plugin_type not in types:

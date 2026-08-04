@@ -15,7 +15,6 @@ import json
 import logging
 from typing import Any, Dict
 
-from agentscope.model import ChatModelBase
 from pydantic import Field
 
 from .provider import ModelInfo
@@ -125,7 +124,7 @@ class DashScopeProvider(OpenAIProvider):
         if effort is not None:
             effective.setdefault("reasoning_effort", effort)
 
-    def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
+    def get_chat_model_instance(self, model_id: str) -> Any:
         from agentscope.credential import DashScopeCredential
         from agentscope.model import DashScopeChatModel
 

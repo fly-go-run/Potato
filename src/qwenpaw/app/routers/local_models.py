@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
@@ -12,26 +12,32 @@ from qwenpaw.exceptions import (
     AppBaseException,
 )
 
-from ...local_models import (
-    DownloadSource,
-    LocalModelConfig,
-    LocalModelInfo,
-    LocalModelManager,
-)
+from ...local_models.model_manager import DownloadSource, LocalModelInfo
+from ...local_models.schemas import LocalModelConfig
 from ...providers.provider import ModelInfo
-from ...providers.provider_manager import ProviderManager
+from ._runtime_dependencies import get_runtime_manager
+
+if TYPE_CHECKING:
+    from ...local_models.manager import LocalModelManager
+    from ...providers.provider_manager import ProviderManager
+else:
+    # These are dependency-injected runtime objects.  Keeping their concrete
+    # classes out of module import avoids loading llama.cpp/provider SDKs while
+    # FastAPI is assembling the route table.
+    LocalModelManager = Any
+    ProviderManager = Any
 
 router = APIRouter(prefix="/local-models", tags=["local-models"])
 
 
 async def get_local_model_manager(request: Request) -> LocalModelManager:
     """Helper to get the LocalModelManager instance from app state."""
-    return request.app.state.local_model_manager
+    return await get_runtime_manager(request, "local_model_manager")
 
 
 async def get_provider_manager(request: Request) -> ProviderManager:
     """Helper to get the ProviderManager instance from app state."""
-    return request.app.state.provider_manager
+    return await get_runtime_manager(request, "provider_manager")
 
 
 def _clear_local_runtime_provider_state(

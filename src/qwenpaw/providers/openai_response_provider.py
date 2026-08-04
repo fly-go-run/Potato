@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from agentscope.model import ChatModelBase, OpenAIResponseModel
+from agentscope.model import OpenAIResponseModel
 
 from .capping_formatter import _CappingOpenAIResponseFormatter
 from .openai_provider import OpenAIProvider
@@ -116,7 +116,7 @@ class OpenAIResponseProvider(OpenAIProvider):
                 f"Unknown exception when connecting to model '{model_id}'",
             )
 
-    def get_chat_model_instance(self, model_id: str) -> ChatModelBase:
+    def get_chat_model_instance(self, model_id: str) -> Any:
         from agentscope.credential import OpenAICredential
 
         credential = OpenAICredential(
