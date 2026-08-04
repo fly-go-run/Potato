@@ -88,12 +88,6 @@ export default defineConfig(({ mode }) => {
       exclude: [
         "**/node_modules/**",
         "**/dist/**",
-        // 旧测试用 node:test，与 vitest 不兼容，待迁移
-        "**/testConnectionMessage.test.ts",
-        // ChatPage test causes worker crash - pre-existing issue, needs more mock setup
-        "**/pages/Chat/ChatPage.test.tsx",
-        // Tauri modules require @tauri-apps/api which only exists in desktop builds
-        "**/src/tauri/**",
       ],
       coverage: {
         provider: "v8",
@@ -103,7 +97,6 @@ export default defineConfig(({ mode }) => {
           "src/test/**",
           "src/tauri/**",
           "src/**/*.d.ts",
-          "src/main.tsx",
           "src/vite-env.d.ts",
         ],
         thresholds: {
