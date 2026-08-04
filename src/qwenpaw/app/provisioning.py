@@ -88,6 +88,11 @@ async def _apply(
                 ModelInfo(
                     id=str(model["id"]),
                     name=str(model.get("name") or model["id"]),
+                    reasoning_effort=(
+                        str(model["reasoning_effort"])
+                        if model.get("reasoning_effort")
+                        else None
+                    ),
                 )
                 for model in entry.get("models") or []
                 if isinstance(model, dict) and model.get("id")

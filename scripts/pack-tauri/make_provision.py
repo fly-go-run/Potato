@@ -39,12 +39,28 @@ def main() -> None:
         default=None,
         help="默认激活的模型 id(缺省取第一个 --model)",
     )
+    parser.add_argument(
+        "--effort",
+        action="append",
+        default=[],
+        metavar="MODEL=LEVEL",
+        help="模型默认思考深度,如 gpt-5.6-terra=high,可重复",
+    )
     parser.add_argument("--output", default="dist/provision.json")
     args = parser.parse_args()
 
     active = args.active_model or args.model[0]
     if active not in args.model:
         parser.error(f"--active-model {active} 不在 --model 列表里")
+
+    efforts: dict[str, str] = {}
+    for pair in args.effort:
+        model_id, _, level = pair.partition("=")
+        if not level:
+            parser.error(f"--effort 需要 MODEL=LEVEL 形式,拿到 {pair!r}")
+        if model_id not in args.model:
+            parser.error(f"--effort 的 {model_id} 不在 --model 列表里")
+        efforts[model_id] = level
 
     provision = {
         "version": 1,
@@ -54,7 +70,18 @@ def main() -> None:
                 "name": args.provider_name or args.provider_id,
                 "base_url": args.base_url,
                 "api_key": args.api_key,
-                "models": [{"id": m, "name": m} for m in args.model],
+                "models": [
+                    {
+                        "id": m,
+                        "name": m,
+                        **(
+                            {"reasoning_effort": efforts[m]}
+                            if m in efforts
+                            else {}
+                        ),
+                    }
+                    for m in args.model
+                ],
             },
         ],
         "active": {"provider_id": args.provider_id, "model": active},
