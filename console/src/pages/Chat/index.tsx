@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
 import { useLocation, useNavigate } from "react-router-dom";
 import sessionApi from "./sessionApi";
+import { useIMEComposition } from "./useIMEComposition";
 import defaultConfig, { getDefaultConfig } from "./OptionsPanel/defaultConfig";
 import { chatApi } from "../../api/modules/chat";
 import { agentApi } from "../../api/modules/agent";
@@ -607,67 +608,6 @@ function sanitizeHeadlinePayload(
 // ---------------------------------------------------------------------------
 // Custom hooks
 // ---------------------------------------------------------------------------
-
-/** Handle IME composition events to prevent premature Enter key submission. */
-function useIMEComposition(isChatActive: () => boolean) {
-  const isComposingRef = useRef(false);
-
-  useEffect(() => {
-    const handleCompositionStart = () => {
-      if (!isChatActive()) return;
-      isComposingRef.current = true;
-    };
-
-    const handleCompositionEnd = () => {
-      if (!isChatActive()) return;
-      // Small delay for Safari on macOS, which fires keydown after
-      // compositionend within the same event loop tick.  Keep this as
-      // short as possible so fast typists who hit Space+Enter in quick
-      // succession are not blocked.
-      setTimeout(() => {
-        isComposingRef.current = false;
-      }, 50);
-    };
-
-    const suppressImeEnter = (e: KeyboardEvent) => {
-      if (!isChatActive()) return;
-      const target = e.target as HTMLElement;
-      if (target?.tagName === "TEXTAREA" && e.key === "Enter" && !e.shiftKey) {
-        // e.isComposing is the standard flag; isComposingRef covers the
-        // post-compositionend grace period needed by Safari.
-        if (isComposingRef.current || e.isComposing) {
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          e.preventDefault();
-          return false;
-        }
-      }
-    };
-
-    document.addEventListener("compositionstart", handleCompositionStart, true);
-    document.addEventListener("compositionend", handleCompositionEnd, true);
-    // Listen on both keydown (Safari) and keypress (legacy) in capture phase.
-    document.addEventListener("keydown", suppressImeEnter, true);
-    document.addEventListener("keypress", suppressImeEnter, true);
-
-    return () => {
-      document.removeEventListener(
-        "compositionstart",
-        handleCompositionStart,
-        true,
-      );
-      document.removeEventListener(
-        "compositionend",
-        handleCompositionEnd,
-        true,
-      );
-      document.removeEventListener("keydown", suppressImeEnter, true);
-      document.removeEventListener("keypress", suppressImeEnter, true);
-    };
-  }, [isChatActive]);
-
-  return isComposingRef;
-}
 
 function sortByOrder<T extends { item: { order?: number } }>(arr: T[]): T[] {
   return arr
@@ -1664,7 +1604,8 @@ export default function ChatPage() {
   );
 
   // Use custom hooks for better separation of concerns
-  const isComposingRef = useIMEComposition(isChatActive);
+  const { isComposingRef, isImeEnter, isImeRecentlyActive } =
+    useIMEComposition(isChatActive);
   const { multimodalCaps, fetchMultimodalCaps } = useMultimodalCapabilities(
     refreshKey,
     location.pathname,
@@ -1823,7 +1764,7 @@ export default function ChatPage() {
         useMessageQueueStore.getState().currentSendingId !== null;
       if (!hasCtrl && !chatLoadingRef.current && !queueBusy) return;
       if (!hasCtrl && e.altKey) return;
-      if (isComposingRef.current || e.isComposing) return;
+      if (isImeEnter(e)) return;
       const textarea = hasCtrl
         ? (document
             .querySelector('[class*="sender"]')
@@ -1869,7 +1810,7 @@ export default function ChatPage() {
     document.addEventListener("keydown", handleEnterEnqueue, true);
     return () =>
       document.removeEventListener("keydown", handleEnterEnqueue, true);
-  }, [isChatActive, isComposingRef, message, queueSessionId, t]);
+  }, [isChatActive, isImeEnter, message, queueSessionId, t]);
 
   const handleQueueRemove = useCallback(
     (id: string) => {
@@ -2468,7 +2409,7 @@ export default function ChatPage() {
         description: "",
       }));
     const handleBeforeSubmit = async () => {
-      if (isComposingRef.current) return false;
+      if (isImeRecentlyActive()) return false;
       // Single-tab ownership: non-owner tabs are queue-only. Re-route every
       // submit (Enter / send button / programmatic) to the shared queue and
       // abort the actual SDK send. The owner tab will pick the item up via
@@ -3049,7 +2990,7 @@ export default function ChatPage() {
         ],
       },
     } as unknown as IAgentScopeRuntimeWebUIOptions;
-  }, [t, loopAvailableModes, consoleSkills, i18n.language, extScalar, extLists, toolRenderConfig, isDark, effectiveIsFullMode, toggleHistoryPanel, historyPanelOpen, isWideMode, toggleWideMode, whisperChecked, whisperEnabled, showSenderBeforeUI, isQueueOnlyTab, hasQueueItems, queueSessionId, handleQueueRemove, handleQueueEdit, handleQueueReorder, handleQueueInterruptAndSend, handleQueueClear, handleQueuePauseResume, handleQueueRetry, handleQueueSkip, handleWhisperTranscription, handleCompactCommand, handleNewCommand, runningConfigApprovalLevel, handleFileUpload, customFetch, onFileCardClick, isComposingRef, selectedAgent, message, multimodalCaps.supportsMultimodal, multimodalCaps.supportsImage, multimodalCaps.supportsVideo, scheduleHistoryClear, copyResponse]);
+  }, [t, loopAvailableModes, consoleSkills, i18n.language, extScalar, extLists, toolRenderConfig, isDark, effectiveIsFullMode, toggleHistoryPanel, historyPanelOpen, isWideMode, toggleWideMode, whisperChecked, whisperEnabled, showSenderBeforeUI, isQueueOnlyTab, hasQueueItems, queueSessionId, handleQueueRemove, handleQueueEdit, handleQueueReorder, handleQueueInterruptAndSend, handleQueueClear, handleQueuePauseResume, handleQueueRetry, handleQueueSkip, handleWhisperTranscription, handleCompactCommand, handleNewCommand, runningConfigApprovalLevel, handleFileUpload, customFetch, onFileCardClick, isImeRecentlyActive, selectedAgent, message, multimodalCaps.supportsMultimodal, multimodalCaps.supportsImage, multimodalCaps.supportsVideo, scheduleHistoryClear, copyResponse]);
 
   return (
     <div className={styles.chatPageRoot}>
