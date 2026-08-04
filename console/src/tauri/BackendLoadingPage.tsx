@@ -2,15 +2,33 @@ import { useTranslation } from "react-i18next";
 import styles from "./BackendLoadingPage.module.less";
 
 interface BackendLoadingPageProps {
+  state?: "loading" | "error";
   errorMessage?: string;
   onRetry?: () => void;
 }
 
 export default function BackendLoadingPage({
+  state = "error",
   errorMessage,
   onRetry,
 }: BackendLoadingPageProps) {
   const { t } = useTranslation();
+
+  if (state === "loading") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.card}>
+          <img src="/qwenpaw.png" alt="Potato" className={styles.logo} />
+          <div className={styles.loadingRow}>
+            <span className={styles.spinner} aria-hidden="true" />
+            <span className={styles.loadingText}>
+              {t("startup.starting", "Starting backend...")}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>

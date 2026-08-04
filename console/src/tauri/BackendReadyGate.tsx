@@ -19,10 +19,12 @@ export default function BackendReadyGate({ children }: Props) {
     return <>{children}</>;
   }
 
-  // Rust owns the healthy startup path and keeps this WebView hidden until the
-  // real app is loaded. The bootstrap renders nothing during normal startup;
-  // it only exists as a recoverable diagnostic surface when startup fails.
-  if (status === "checking" || status === "ready") return null;
+  // The shell reveals this WebView as soon as the bootstrap page has painted,
+  // so the normal startup path must show a real splash — rendering null here
+  // would put a blank window on screen for the whole backend cold start.
+  if (status === "checking" || status === "ready") {
+    return <BackendLoadingPage state="loading" />;
+  }
 
   return <BackendLoadingPage errorMessage={errorMessage} onRetry={retry} />;
 }

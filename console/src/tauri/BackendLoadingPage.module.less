@@ -89,3 +89,42 @@
     color: #171717;
   }
 }
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.loadingText {
+  color: #737373;
+  font-size: 13px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(115, 115, 115, 0.25);
+  border-top-color: #737373;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .loadingText {
+    color: #8f8f8f;
+  }
+
+  .spinner {
+    border-color: rgba(143, 143, 143, 0.25);
+    border-top-color: #8f8f8f;
+  }
+}

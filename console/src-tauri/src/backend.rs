@@ -432,7 +432,13 @@ fn schedule_startup_reveal_watchdog(app: tauri::AppHandle, generation: u64) {
         );
         log::error!("[backend:{generation}] {message}");
         state.set_error_if_current(generation, message);
-        tray::show_main_window(&app);
+        // Only reveal if the launch splash never made it on screen; after
+        // the first reveal the window is (or was deliberately hidden by)
+        // the user's doing, and stealing focus this late is the exact bug
+        // the early reveal exists to prevent.
+        if !crate::INITIAL_REVEAL_DONE.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            tray::show_main_window(&app);
+        }
     });
 }
 

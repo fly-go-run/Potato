@@ -8,7 +8,16 @@ mod tray;
 #[cfg(target_os = "macos")]
 mod macos_icon;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use tauri::webview::PageLoadEvent;
 use tauri::{Manager, RunEvent, WebviewWindow, WindowEvent};
+
+/// Whether the launch reveal (bootstrap splash) has already happened.
+/// Once true, no later automatic path (frontend_ready after a backend
+/// restart, the startup watchdog) may show or focus the window again —
+/// the user has seen the app and may have deliberately hidden it.
+pub(crate) static INITIAL_REVEAL_DONE: AtomicBool = AtomicBool::new(false);
 
 /// Opens the WebView DevTools. Gated by the hidden 8-click logo gesture in the
 /// frontend so end users cannot open DevTools via the default context menu or
@@ -23,7 +32,9 @@ fn open_devtools(window: WebviewWindow) {
 /// it can still paint the temporary auth-checking state on a slow cold start.
 #[tauri::command]
 fn frontend_ready(window: WebviewWindow, state: tauri::State<'_, backend::BackendState>) {
-    if state.claim_frontend_reveal() {
+    if state.claim_frontend_reveal()
+        && !INITIAL_REVEAL_DONE.swap(true, Ordering::SeqCst)
+    {
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -87,6 +98,30 @@ pub fn run() {
                 macos_icon::set(theme);
             }
             Ok(())
+        })
+        .on_page_load(|webview, payload| {
+            // Reveal the window as soon as the bundled bootstrap splash has
+            // painted, instead of staying invisible for the whole backend
+            // cold start (~4s warm, 20s+ cold). Launch-time activation is
+            // user-initiated, so macOS grants focus here; a reveal delayed
+            // until `frontend_ready` arrives after the user has moved on and
+            // modern macOS refuses the focus steal, leaving the window
+            // buried. Claim the startup reveal so the later
+            // `frontend_ready` / watchdog paths never yank focus again.
+            if !matches!(payload.event(), PageLoadEvent::Finished) {
+                return;
+            }
+            if INITIAL_REVEAL_DONE.swap(true, Ordering::SeqCst) {
+                return;
+            }
+            let app = webview.app_handle();
+            let _ = app
+                .state::<backend::BackendState>()
+                .claim_frontend_reveal();
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
         })
         .on_window_event(|window, event| {
             #[cfg(target_os = "macos")]
