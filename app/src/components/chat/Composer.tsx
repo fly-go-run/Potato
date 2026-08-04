@@ -22,6 +22,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button, IconButton } from "../ui";
 import { useTranslation } from "../../lib/i18n";
 import { skillApi, type SkillInfo } from "../../lib/capabilities";
+import { isImeCommitEnter } from "../../lib/ime";
 import {
   applyTrigger,
   detectTrigger,
@@ -52,6 +53,8 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
+  const compositionEndAtRef = useRef(Number.NEGATIVE_INFINITY);
 
   // `/` 技能、`@` 文件引用:触发态 + 键盘选中项 + 懒加载的技能列表
   const [trigger, setTrigger] = useState<ComposerTrigger | null>(null);
@@ -322,7 +325,13 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (trigger && !event.nativeEvent.isComposing) {
+    const imeCommitEnter = isImeCommitEnter(
+      event.nativeEvent,
+      isComposingRef.current,
+      compositionEndAtRef.current,
+    );
+
+    if (trigger && !event.nativeEvent.isComposing && !imeCommitEnter) {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         if (!triggerItems.length) return;
@@ -351,7 +360,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     if (
       event.key === "Enter" &&
       !event.shiftKey &&
-      !event.nativeEvent.isComposing
+      !imeCommitEnter
     ) {
       event.preventDefault();
       submit();
@@ -458,6 +467,13 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 syncTrigger(event.currentTarget)
               }
               onBlur={() => setTrigger(null)}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={(event) => {
+                isComposingRef.current = false;
+                compositionEndAtRef.current = event.timeStamp;
+              }}
               onKeyDown={onKeyDown}
               onPaste={onPaste}
               disabled={busy}
