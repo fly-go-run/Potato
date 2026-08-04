@@ -4,6 +4,7 @@ import type { StreamMessage } from "../../lib/stream";
 import {
   collectConversationArtifacts,
   presentRunStatus,
+  resolveConversationFileLink,
 } from "../../lib/conversationArtifacts";
 import {
   buildToolPair,
@@ -180,6 +181,47 @@ describe("collectConversationArtifacts", () => {
     ]);
 
     expect(collectConversationArtifacts(messages)).toEqual([]);
+  });
+});
+
+describe("resolveConversationFileLink", () => {
+  const artifacts = [
+    {
+      id: "report",
+      path: "/Users/example/Downloads/下载目录文档清单.txt",
+      name: "下载目录文档清单.txt",
+      sourceMessageId: "call-1",
+    },
+  ];
+
+  it("maps friendly and absolute file links without capturing web links", () => {
+    expect(resolveConversationFileLink("下载目录文档清单.txt", artifacts)).toBe(
+      "/Users/example/Downloads/下载目录文档清单.txt",
+    );
+    expect(
+      resolveConversationFileLink(
+        "file:///Users/example/Downloads/下载目录文档清单.txt",
+        artifacts,
+      ),
+    ).toBe("/Users/example/Downloads/下载目录文档清单.txt");
+    expect(
+      resolveConversationFileLink("https://example.com/report.txt", artifacts),
+    ).toBeNull();
+  });
+
+  it("resolves sandbox: links even without matching artifacts", () => {
+    expect(
+      resolveConversationFileLink(
+        "sandbox:/Users/example/workspace/清单.txt",
+        [],
+      ),
+    ).toBe("/Users/example/workspace/清单.txt");
+    expect(
+      resolveConversationFileLink(
+        "sandbox:///Users/example/workspace/清单.txt",
+        [],
+      ),
+    ).toBe("/Users/example/workspace/清单.txt");
   });
 });
 

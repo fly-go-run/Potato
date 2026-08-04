@@ -41,6 +41,51 @@ export function collectConversationArtifacts(
   return Array.from(byPath.values()).reverse();
 }
 
+/**
+ * Resolve an assistant-authored Markdown link to a surfaced local file.
+ * Models often link a friendly basename even though the tool call contains
+ * the useful absolute path. Ambiguous basenames remain ordinary links.
+ */
+export function resolveConversationFileLink(
+  href: string,
+  artifacts: ConversationArtifact[],
+): string | null {
+  const raw = href.trim();
+  if (!raw || raw.startsWith("#") || raw.startsWith("//")) return null;
+  // OpenAI 系模型习惯用 sandbox: 协议链接沙箱产物,携带的就是本地绝对路径。
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^(?:file|sandbox):/i.test(raw)) {
+    return null;
+  }
+
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    // Keep the original value when a model emits a malformed percent escape.
+  }
+  // 剥掉协议;file:///x 的空 authority 双斜杠一并去掉,
+  // sandbox:/x 单斜杠属于路径本体,必须保留。
+  const path = decoded
+    .replace(/^(?:file|sandbox):/i, "")
+    .replace(/^\/\/(?=\/)/, "")
+    .split(/[?#]/, 1)[0]!
+    .replaceAll("\\", "/");
+  if (!path) return null;
+  if (path.startsWith("/") || /^[a-z]:\//i.test(path)) return path;
+
+  const relative = path.replace(/^\.\//, "");
+  const basename = relative.split("/").at(-1) ?? relative;
+  const matches = artifacts.filter((artifact) => {
+    const artifactPath = artifact.path.replaceAll("\\", "/");
+    return (
+      artifactPath === relative ||
+      artifactPath.endsWith(`/${relative}`) ||
+      artifact.name === basename
+    );
+  });
+  return matches.length === 1 ? matches[0]!.path : null;
+}
+
 export function presentRunStatus(status: RunStatus | "idle"): {
   label:
     | "chat.panel.running"

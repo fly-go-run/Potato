@@ -1,7 +1,9 @@
+import { FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ThemedToken } from "@shikijs/types";
+import { filePreviewUrl } from "../../lib/api";
 import { highlightCode, isSupportedLanguage } from "../../lib/highlight";
 
 interface MarkdownProps {
@@ -11,16 +13,30 @@ interface MarkdownProps {
    * 转成可加载的地址。绝对/协议地址原样返回。
    */
   transformUrl?: (url: string) => string;
+  /** Resolve assistant-authored Markdown links to previewable local files. */
+  resolveFilePath?: (url: string) => string | null;
+  onOpenFile?: (path: string) => void;
 }
 
-export function Markdown({ children, transformUrl }: MarkdownProps) {
+export function Markdown({
+  children,
+  transformUrl,
+  resolveFilePath,
+  onOpenFile,
+}: MarkdownProps) {
   return (
     <div className="min-w-0 text-[15px] leading-[1.75] text-ink">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         urlTransform={
-          transformUrl
-            ? (url) => transformUrl(defaultUrlTransform(url))
+          transformUrl || resolveFilePath
+            ? (url) => {
+                // Keep a recognized file reference intact until the custom
+                // renderer can replace it with the authenticated preview URL.
+                if (resolveFilePath?.(url)) return url;
+                const safeUrl = defaultUrlTransform(url);
+                return transformUrl ? transformUrl(safeUrl) : safeUrl;
+              }
             : defaultUrlTransform
         }
         components={{
@@ -51,16 +67,46 @@ export function Markdown({ children, transformUrl }: MarkdownProps) {
               {value}
             </blockquote>
           ),
-          a: ({ children: value, href }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
-            >
-              {value}
-            </a>
-          ),
+          a: ({ children: value, href }) => {
+            const filePath = href ? resolveFilePath?.(href) : null;
+            if (filePath && onOpenFile) {
+              return (
+                <a
+                  href={filePreviewUrl(filePath)}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={filePath}
+                  onClick={(event) => {
+                    if (
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    ) {
+                      return;
+                    }
+                    event.preventDefault();
+                    onOpenFile(filePath);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-[4px] text-accent underline decoration-accent/40 underline-offset-2 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:decoration-accent"
+                >
+                  <FileText size={13} className="shrink-0" aria-hidden />
+                  {value}
+                </a>
+              );
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+              >
+                {value}
+              </a>
+            );
+          },
           table: ({ children: value }) => (
             <div className="my-3 overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">

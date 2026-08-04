@@ -589,7 +589,7 @@ export function ChatView() {
         // WorkBuddy 的空态从视口上方约 15% 开始；固定上边距比靠
         // 大块 padding-bottom 挤压居中更稳定，矮窗口也不会顶到标题栏。
         // 能力胶囊 → composer;胶囊贴着 composer(其自带 pt-2)形成一组输入区
-        <div className="flex min-h-0 flex-1 flex-col justify-start pb-10 pt-[13vh]">
+        <div className="qp-fade-in flex min-h-0 flex-1 flex-col justify-start pb-10 pt-[13vh]">
           <div className="px-4 sm:px-6">
             <h1 className="font-display text-center text-[32px] font-semibold leading-[42px] tracking-[-0.025em] text-ink sm:text-[34px]">
               {t("chat.emptyTitle")}
@@ -610,7 +610,7 @@ export function ChatView() {
           <header
             data-tauri-drag-region
             onMouseDown={onTitlebarMouseDown}
-            className={`relative z-30 flex h-11 shrink-0 items-center border-b border-line bg-canvas pr-4 ${
+            className={`qp-fade-in relative z-30 flex h-11 shrink-0 items-center border-b border-line bg-canvas pr-4 ${
               isMacDesktopShell() && sidebarCollapsed ? "pl-40" : "pl-4"
             }`}
           >
@@ -744,7 +744,7 @@ export function ChatView() {
               </div>
             </div>
           )}
-          <div className="flex min-h-0 flex-1">
+          <div className="qp-fade-in flex min-h-0 flex-1">
             <section className="flex min-w-0 flex-1 flex-col">
               <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
                 {historyLoading ? (

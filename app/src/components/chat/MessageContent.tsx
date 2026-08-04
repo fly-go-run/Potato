@@ -11,9 +11,13 @@ const Markdown = lazy(() =>
 export function MessageContent({
   content,
   markdown,
+  onOpenFile,
+  resolveFilePath,
 }: {
   content: ContentBlock[];
   markdown: boolean;
+  onOpenFile?: (path: string) => void;
+  resolveFilePath?: (url: string) => string | null;
 }) {
   const { t } = useTranslation();
 
@@ -30,7 +34,12 @@ export function MessageContent({
                 </div>
               }
             >
-              <Markdown>{part.text}</Markdown>
+              <Markdown
+                onOpenFile={onOpenFile}
+                resolveFilePath={resolveFilePath}
+              >
+                {part.text}
+              </Markdown>
             </Suspense>
           ) : (
             <div
@@ -76,6 +85,20 @@ export function MessageContent({
               href={filePreviewUrl(part.file_url)}
               target="_blank"
               rel="noreferrer"
+              onClick={(event) => {
+                if (
+                  !onOpenFile ||
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                ) {
+                  return;
+                }
+                event.preventDefault();
+                onOpenFile(part.file_url!);
+              }}
               className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-bubble-tool px-3 py-2 text-xs text-ink-secondary transition-colors hover:border-line-strong hover:text-ink"
               title={t("attachment.preview", { name: filename })}
             >

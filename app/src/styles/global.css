@@ -141,6 +141,26 @@ select,
   animation: qp-msg-in var(--dur-panel) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* 区块渐入(空态↔会话切换、动作行出现) */
+.qp-fade-in {
+  animation: qp-fade-in var(--dur-panel) ease-out;
+}
+
+/* 执行轨道摘要文案切换:key 变化时交叉淡化 */
+.qp-swap-in {
+  animation: qp-fade-in var(--dur-fast) ease-out;
+}
+
+/* 执行轨道条目原位收口:grid 行高 1fr↔0fr 过渡,内容保持挂载 */
+.qp-collapse {
+  display: grid;
+  transition: grid-template-rows 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.qp-collapse > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Radix 弹层：套在 [data-radix-*] Content 上的通用类 */
 .qp-overlay {
   animation: qp-overlay-in var(--dur-panel) ease-out;
@@ -156,7 +176,12 @@ select,
   .qp-msg-in,
   .qp-overlay,
   .qp-pop,
-  .qp-drawer {
+  .qp-drawer,
+  .qp-fade-in,
+  .qp-swap-in {
     animation: none;
+  }
+  .qp-collapse {
+    transition: none;
   }
 }

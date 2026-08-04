@@ -293,7 +293,7 @@ export function richOutputText(output: string) {
   }
 }
 
-function humanToolName(
+export function humanToolName(
   name: string,
   translate: (key: TranslationKey) => string,
 ) {

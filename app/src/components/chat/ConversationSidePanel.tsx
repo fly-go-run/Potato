@@ -301,7 +301,7 @@ function FilePreviewPanel({
   const filename = fileBaseName(path) || path;
   return (
     <aside className="flex w-[min(42rem,48vw)] min-w-[20rem] shrink-0 flex-col border-l border-line bg-bg/70">
-      <div className="flex h-11 shrink-0 items-center gap-1 border-b border-line px-2">
+      <div className="flex min-h-12 shrink-0 items-center gap-1 border-b border-line px-2 py-1">
         {onBack && (
           <button
             type="button"
@@ -314,11 +314,13 @@ function FilePreviewPanel({
           </button>
         )}
         <FileText size={15} className="shrink-0 text-ink-secondary" />
-        <span
-          className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink"
-          title={path}
-        >
-          {filename}
+        <span className="min-w-0 flex-1 leading-tight" title={path}>
+          <span className="block truncate text-[13px] font-medium text-ink">
+            {filename}
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+            {directoryOf(path)}
+          </span>
         </span>
         <a
           href={filePreviewUrl(path)}

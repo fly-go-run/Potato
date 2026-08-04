@@ -1,4 +1,11 @@
-import { memo, useMemo, useState, type ReactNode } from "react";
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Check,
@@ -10,6 +17,10 @@ import {
 } from "lucide-react";
 import { APP_NAME } from "../../lib/appInfo";
 import {
+  collectConversationArtifacts,
+  resolveConversationFileLink,
+} from "../../lib/conversationArtifacts";
+import {
   collectFileChanges,
   directoryOf,
   shortenPath,
@@ -17,7 +28,8 @@ import {
   type FileChange,
 } from "../../lib/fileChanges";
 import { useTranslation } from "../../lib/i18n";
-import type { ContentBlock } from "../../lib/protocol/types";
+import { splitInlineThinking } from "../../lib/inlineThinking";
+import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
 import { PotatoMark } from "../brand/PotatoMark";
@@ -29,6 +41,7 @@ import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
 import {
   buildToolPair,
+  humanToolName,
   toolData,
   toolPairStatus,
   ToolCard,
@@ -58,6 +71,12 @@ export function MessageList({
   const pendingApprovals = useChatStore((state) => state.pendingApprovals);
   const isStreaming = useChatStore((state) => state.isStreaming);
   const lastIndex = turns.length - 1;
+  // 发送后助手首帧到达前,提前挂载头像行 + 等待轨道,消灭"死空气"。
+  // 审批卡在场时模型本来就暂停,不再叠加等待占位。
+  const showPendingTurn =
+    isStreaming &&
+    pendingApprovals.length === 0 &&
+    (turns.length === 0 || turns[lastIndex]!.role === "user");
   return (
     <div className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-8 sm:px-8">
       {turns.map((turn, index) =>
@@ -79,9 +98,20 @@ export function MessageList({
             regeneratePrompt={
               index === lastIndex ? previousUserText(turns, index) : ""
             }
+            streaming={
+              isStreaming &&
+              index === lastIndex &&
+              pendingApprovals.length === 0
+            }
             activeMessageId={activeMessageId}
           />
         ),
+      )}
+      {showPendingTurn && (
+        <div data-testid="turn-assistant" className="qp-msg-in mb-10">
+          <AssistantHeader />
+          <ExecutionTrack entries={[]} waiting pulsing />
+        </div>
       )}
       {pendingApprovals.map((approval) => (
         <ApprovalCard key={approval.request_id} approval={approval} />
@@ -132,15 +162,12 @@ type ProcessEntry =
   | { kind: "message"; key: string; message: StreamMessage }
   | { kind: "pair"; key: string; pair: ToolPair };
 
-/** 可并入整轮执行组:已结束的成功/失败步骤都收进去；运行中和产物仍需突出。 */
-function isGroupable(pair: ToolPair): boolean {
-  return !toolPairStatus(pair).running && !isArtifactTool(pair.name);
-}
-
 interface AssistantTurnProps {
   messages: StreamMessage[];
   showActions: boolean;
   regeneratePrompt: string;
+  /** 本轮是流式进行中的最后一轮（无审批卡挂起）。 */
+  streaming: boolean;
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
@@ -150,62 +177,70 @@ const AssistantTurn = memo(function AssistantTurn({
   messages,
   showActions,
   regeneratePrompt,
+  streaming,
   activeMessageId,
   onOpenFile,
   onOpenChange,
 }: AssistantTurnProps) {
+  // 流式中挂载的轮是从等待占位原位接管的,重播入场动画会闪一下;
+  // 该决定只在挂载时定一次,避免流结束时 class 变化重新触发动画。
+  const enterAnimation = useRef(!streaming).current;
+  // 内联 <thinking> 标签的模型:思考段拆成轨道条目,正文只留干净文本。
+  const presented = useMemo(
+    () => messages.flatMap(presentInlineThinking),
+    [messages],
+  );
   const pairedOutputs = new Set<string>();
   const outputsByCallId = new Map<string, StreamMessage>();
-  for (const message of messages) {
+  for (const message of presented) {
     if (!isToolOutput(message.type)) continue;
     const callId = stringValue(toolData(message).call_id);
     if (!outputsByCallId.has(callId)) outputsByCallId.set(callId, message);
   }
-  const copyText = plainText(messages);
+  const copyText = plainText(presented);
   const turnChanges = collectFileChanges(messages);
+  const turnArtifacts = collectConversationArtifacts(messages);
+  const resolveFilePath = (href: string) =>
+    resolveConversationFileLink(href, turnArtifacts);
 
   // WorkBuddy keeps the conversational narration that happens before/among
   // tool calls inside the execution disclosure. Only the final assistant
   // message remains in the collapsed view. A plain answer without any
   // execution steps is left untouched.
-  const hasProcess = messages.some(isProcessMessage);
-  const ordinaryMessages = messages.filter(isOrdinaryAssistantMessage);
+  const hasProcess = presented.some(isProcessMessage);
+  const ordinaryMessages = presented.filter(isOrdinaryAssistantMessage);
   const finalOrdinaryMessageId = ordinaryMessages.at(-1)?.id;
   const collapseIntermediateMessages =
     hasProcess && ordinaryMessages.length > 1 && finalOrdinaryMessageId;
 
   const items: RenderItem[] = [];
-  for (const message of messages) {
+  for (const message of presented) {
     if (message.type === "reasoning") {
-      const entry: ProcessEntry = {
-        kind: "reasoning",
+      // 运行中与完成态共用轨道条目,身份不变,完成时原位收口。
+      items.push({
+        kind: "process",
         key: message.id,
-        message,
-      };
-      if (isCompletedProcessMessage(message)) {
-        items.push({ kind: "process", key: message.id, entry });
-      } else {
-        items.push({
-          kind: "node",
-          key: message.id,
-          node: <ReasoningBlock key={message.id} message={message} />,
-        });
-      }
+        entry: { kind: "reasoning", key: message.id, message },
+      });
       continue;
     }
     if (message.type === "progress") {
-      const entry: ProcessEntry = {
-        kind: "progress",
-        key: message.id,
-        message,
-      };
-      if (isCompletedProcessMessage(message)) {
-        items.push({ kind: "process", key: message.id, entry });
-      } else {
+      // 失败恒可见(r10 决定);压缩进行中沿用独立卡,轨道摘要只认完成态。
+      const failed =
+        message.status === "failed" || message.status === "cancelled";
+      const activeCompaction =
+        isContextCompactionMessage(message) && message.status !== "completed";
+      if (failed || activeCompaction) {
         items.push({
           kind: "node",
           key: message.id,
           node: <ProgressCard key={message.id} message={message} />,
+        });
+      } else {
+        items.push({
+          kind: "process",
+          key: message.id,
+          entry: { kind: "progress", key: message.id, message },
         });
       }
       continue;
@@ -215,28 +250,28 @@ const AssistantTurn = memo(function AssistantTurn({
       const output = outputsByCallId.get(callId);
       if (output) pairedOutputs.add(output.id);
       const pair = buildToolPair(message, output ?? null);
-      if (isGroupable(pair)) {
+      if (isArtifactTool(pair.name)) {
+        items.push({ kind: "pair", key: message.id, pair });
+      } else {
         items.push({
           kind: "process",
           key: message.id,
           entry: { kind: "pair", key: message.id, pair },
         });
-      } else {
-        items.push({ kind: "pair", key: message.id, pair });
       }
       continue;
     }
     if (isToolOutput(message.type)) {
       if (pairedOutputs.has(message.id)) continue;
       const pair = buildToolPair(null, message);
-      if (isGroupable(pair)) {
+      if (isArtifactTool(pair.name)) {
+        items.push({ kind: "pair", key: message.id, pair });
+      } else {
         items.push({
           kind: "process",
           key: message.id,
           entry: { kind: "pair", key: message.id, pair },
         });
-      } else {
-        items.push({ kind: "pair", key: message.id, pair });
       }
       continue;
     }
@@ -267,28 +302,43 @@ const AssistantTurn = memo(function AssistantTurn({
               : ""
           }`}
         >
-          <MessageContent content={message.content} markdown />
+          <MessageContent
+            content={message.content}
+            markdown
+            onOpenFile={onOpenFile}
+            resolveFilePath={resolveFilePath}
+          />
         </div>
       ),
     });
   }
 
-  /* WorkBuddy 把整轮执行管线收成一行「已完成 … ›」，而不是只折叠
-   * 恰好连续的工具卡。先收集所有已完成的思考/进度/工具步骤，再把
-   * 正文和运行中、失败、产物等需要突出的内容按原顺序渲染。 */
+  /* WorkBuddy 把整轮执行管线收成一条稳定「执行轨道」：运行中步骤也在
+   * 轨道容器里原位演化，而不是独立卡完成后被摘要行替换。正文、失败
+   * 进度、产物等需要突出的内容按原顺序渲染在轨道之外。 */
   const rendered: ReactNode[] = [];
   const processEntries = items.flatMap((item) =>
     item.kind === "process" ? [item.entry] : [],
   );
+  // 正文流式输出时脉冲让位给文字本身;其余流式阶段(等待/思考/工具间隙)保持活动感。
+  const hasStreamingText = presented.some(
+    (message) =>
+      isOrdinaryAssistantMessage(message) && message.status === "in_progress",
+  );
+  const waiting = streaming && items.length === 0;
+  const pulsing = streaming && !hasStreamingText;
   let executionRendered = false;
   for (const item of items) {
     if (item.kind === "process") {
       if (!executionRendered) {
         rendered.push(
-          <ExecutionGroup
-            key={`execution-${processEntries[0]!.key}`}
+          <ExecutionTrack
+            key="execution-track"
             entries={processEntries}
+            waiting={false}
+            pulsing={pulsing}
             onOpenFile={onOpenFile}
+            resolveFilePath={resolveFilePath}
           />,
         );
         executionRendered = true;
@@ -307,14 +357,22 @@ const AssistantTurn = memo(function AssistantTurn({
   }
 
   return (
-    <div data-testid="turn-assistant" className="qp-msg-in mb-10">
-      <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-ink-secondary">
-        <span className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-btn-primary text-btn-primary-ink">
-          <PotatoMark size={16} />
-        </span>
-        <span>{APP_NAME}</span>
-      </div>
-      {rendered}
+    <div
+      data-testid="turn-assistant"
+      className={`${enterAnimation ? "qp-msg-in " : ""}mb-10`}
+    >
+      <AssistantHeader />
+      {waiting ? (
+        <ExecutionTrack
+          entries={[]}
+          waiting
+          pulsing
+          onOpenFile={onOpenFile}
+          resolveFilePath={resolveFilePath}
+        />
+      ) : (
+        rendered
+      )}
       {turnChanges.length > 0 && (
         <FileChangesCard changes={turnChanges} onOpenChange={onOpenChange} />
       )}
@@ -344,8 +402,20 @@ function areAssistantTurnPropsEqual(
     Object.is(previous.activeMessageId, next.activeMessageId) &&
     Object.is(previous.showActions, next.showActions) &&
     Object.is(previous.regeneratePrompt, next.regeneratePrompt) &&
+    Object.is(previous.streaming, next.streaming) &&
     Object.is(previous.onOpenFile, next.onOpenFile) &&
     Object.is(previous.onOpenChange, next.onOpenChange)
+  );
+}
+
+function AssistantHeader() {
+  return (
+    <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-ink-secondary">
+      <span className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-btn-primary text-btn-primary-ink">
+        <PotatoMark size={16} />
+      </span>
+      <span>{APP_NAME}</span>
+    </div>
   );
 }
 
@@ -436,13 +506,45 @@ function FileChangesCard({
   );
 }
 
-/** 折叠的执行组:一行摘要,点开才展开逐条过程行。 */
-function ExecutionGroup({
+/** 运行中(含尚未收到 output 的间隙)的条目在折叠态也保持可见。 */
+function isActiveEntry(entry: ProcessEntry): boolean {
+  if (entry.kind === "reasoning" || entry.kind === "progress") {
+    return (
+      entry.message.status === "created" ||
+      entry.message.status === "in_progress"
+    );
+  }
+  if (entry.kind === "pair") return toolPairStatus(entry.pair).running;
+  return false;
+}
+
+function PulseDots() {
+  return (
+    <span className="flex gap-1 motion-reduce:hidden" aria-hidden>
+      <span className="h-1 w-1 animate-pulse rounded-full bg-ink-tertiary" />
+      <span className="h-1 w-1 animate-pulse rounded-full bg-ink-tertiary [animation-delay:150ms]" />
+      <span className="h-1 w-1 animate-pulse rounded-full bg-ink-tertiary [animation-delay:300ms]" />
+    </span>
+  );
+}
+
+/**
+ * 稳定执行轨道:等待响应 → 思考中 → 正在使用工具 → 已完成 N 步,
+ * 全程共用同一容器。条目按消息 id 常驻,完成后原位收口(qp-collapse
+ * 行高过渡)而不是被摘要行替换;摘要文案按当前活动状态交叉淡化。
+ */
+function ExecutionTrack({
   entries,
+  waiting,
+  pulsing,
   onOpenFile,
+  resolveFilePath,
 }: {
   entries: ProcessEntry[];
+  waiting: boolean;
+  pulsing: boolean;
   onOpenFile?: (path: string) => void;
+  resolveFilePath?: (url: string) => string | null;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -453,13 +555,37 @@ function ExecutionGroup({
   const failedCount = entries.filter(
     (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
   ).length;
+  let runningPair: Extract<ProcessEntry, { kind: "pair" }> | null = null;
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index]!;
+    if (entry.kind === "pair" && toolPairStatus(entry.pair).running) {
+      runningPair = entry;
+      break;
+    }
+  }
+  const hasRunningProgress = entries.some(
+    (entry) => entry.kind === "progress" && isActiveEntry(entry),
+  );
+  const hasRunningReasoning = entries.some(
+    (entry) => entry.kind === "reasoning" && isActiveEntry(entry),
+  );
   const compactionEntry =
     entries.length === 1 &&
     entries[0]?.kind === "progress" &&
     isContextCompactionMessage(entries[0].message)
       ? entries[0]
       : null;
-  const summary = compactionEntry
+  const summary = waiting
+    ? t("chat.waitingModel")
+    : runningPair
+    ? t("chat.usingTool", {
+        name: humanToolName(runningPair.pair.name, t),
+      })
+    : hasRunningProgress
+    ? t("progress.working")
+    : hasRunningReasoning
+    ? t("reasoning.thinking")
+    : compactionEntry
     ? compactionEntry.message.metadata?.phase === "fallback"
       ? t("chat.contextCompaction.fallback")
       : t("chat.contextCompaction.completed")
@@ -469,64 +595,132 @@ function ExecutionGroup({
         failed: failedCount,
       })
     : t("chat.toolGroup", { count: stepCount });
-  return (
-    <div className="my-1.5">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
-      >
-        <span>{summary}</span>
+  const toggleable = entries.length > 0;
+  const summaryContent = (
+    <>
+      <span key={summary} className="qp-swap-in">
+        {summary}
+      </span>
+      {pulsing && <PulseDots />}
+      {toggleable && (
         <ChevronRight
           size={13}
           className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
             open ? "rotate-90" : ""
           }`}
         />
-      </button>
-      {open && (
-        <div className="mt-0.5 space-y-1 pl-1">
-          {entries.map((entry) => {
-            if (entry.kind === "reasoning") {
-              return (
-                <ReasoningBlock
-                  key={entry.key}
-                  message={entry.message}
-                  compact
-                />
-              );
-            }
-            if (entry.kind === "progress") {
-              return <ProgressCard key={entry.key} message={entry.message} />;
-            }
-            if (entry.kind === "message") {
-              return (
-                <div
-                  key={entry.key}
-                  id={`message-${entry.key}`}
-                  className="py-1 text-sm text-ink-secondary"
-                >
-                  <MessageContent content={entry.message.content} markdown />
-                </div>
-              );
-            }
-            return (
-              <ToolCard
-                key={entry.key}
-                pair={entry.pair}
+      )}
+    </>
+  );
+  return (
+    <div className="my-1.5">
+      {toggleable ? (
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+        >
+          {summaryContent}
+        </button>
+      ) : (
+        <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
+          {summaryContent}
+        </div>
+      )}
+      {toggleable && (
+        <div className="pl-1">
+          {entries.map((entry) => (
+            <TrackRow key={entry.key} visible={open || isActiveEntry(entry)}>
+              <TrackEntry
+                entry={entry}
                 onOpenFile={onOpenFile}
+                resolveFilePath={resolveFilePath}
               />
-            );
-          })}
+            </TrackRow>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function isCompletedProcessMessage(message: StreamMessage): boolean {
-  return message.status === "completed";
+/** 与 .qp-collapse 的 grid 行高过渡时长保持一致。 */
+const COLLAPSE_MS = 200;
+
+/**
+ * 轨道条目行:可见时挂载内容并以行高过渡展开;隐藏时播完收口动画再
+ * 卸载内容——保住原位收口动效的同时,折叠的历史详情不常驻 DOM(长会
+ * 话渲染成本),也不会被 Tab/读屏聚焦到不可见控件。
+ */
+function TrackRow({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: ReactNode;
+}) {
+  const [exiting, setExiting] = useState(false);
+  const wasVisible = useRef(visible);
+  useEffect(() => {
+    if (visible) {
+      wasVisible.current = true;
+      setExiting(false);
+      return;
+    }
+    if (!wasVisible.current) return;
+    wasVisible.current = false;
+    setExiting(true);
+    const timer = window.setTimeout(() => setExiting(false), COLLAPSE_MS + 60);
+    return () => window.clearTimeout(timer);
+  }, [visible]);
+  const mounted = visible || exiting;
+  return (
+    <div
+      className="qp-collapse"
+      style={{ gridTemplateRows: visible ? "1fr" : "0fr" }}
+    >
+      <div className="qp-msg-in">{mounted ? children : null}</div>
+    </div>
+  );
+}
+
+function TrackEntry({
+  entry,
+  onOpenFile,
+  resolveFilePath,
+}: {
+  entry: ProcessEntry;
+  onOpenFile?: (path: string) => void;
+  resolveFilePath?: (url: string) => string | null;
+}) {
+  if (entry.kind === "reasoning") {
+    return (
+      <ReasoningBlock
+        message={entry.message}
+        compact={entry.message.status === "completed"}
+      />
+    );
+  }
+  if (entry.kind === "progress") {
+    return <ProgressCard message={entry.message} />;
+  }
+  if (entry.kind === "message") {
+    return (
+      <div
+        id={`message-${entry.key}`}
+        className="py-1 text-sm text-ink-secondary"
+      >
+        <MessageContent
+          content={entry.message.content}
+          markdown
+          onOpenFile={onOpenFile}
+          resolveFilePath={resolveFilePath}
+        />
+      </div>
+    );
+  }
+  return <ToolCard pair={entry.pair} onOpenFile={onOpenFile} />;
 }
 
 function isProcessMessage(message: StreamMessage): boolean {
@@ -536,6 +730,52 @@ function isProcessMessage(message: StreamMessage): boolean {
     isToolCall(message.type) ||
     isToolOutput(message.type)
   );
+}
+
+/**
+ * 内联 `<thinking>` 标签的模型不走结构化 reasoning 通道。展示层把
+ * 思考段拆成合成 reasoning 消息(并入执行轨道),正文只留干净文本;
+ * 未闭合块按流式思考中处理。无标签消息原样返回,保持引用不变。
+ */
+function presentInlineThinking(message: StreamMessage): StreamMessage[] {
+  if (!isOrdinaryAssistantMessage(message)) return [message];
+  let thinking = "";
+  let open = false;
+  let changed = false;
+  let templatePart: TextContent | null = null;
+  const content: ContentBlock[] = [];
+  for (const part of message.content) {
+    if (part.type !== "text" || typeof part.text !== "string") {
+      content.push(part);
+      continue;
+    }
+    const split = splitInlineThinking(part.text);
+    if (!split.changed) {
+      content.push(part);
+      continue;
+    }
+    changed = true;
+    templatePart ??= part;
+    open = open || split.open;
+    if (split.thinking) {
+      thinking = thinking ? `${thinking}\n\n${split.thinking}` : split.thinking;
+    }
+    if (split.text) content.push({ ...part, text: split.text });
+  }
+  if (!changed) return [message];
+  const result: StreamMessage[] = [];
+  if (thinking || open) {
+    result.push({
+      ...message,
+      id: `${message.id}:thinking`,
+      type: "reasoning",
+      status:
+        open && message.status === "in_progress" ? "in_progress" : "completed",
+      content: [{ ...(templatePart as TextContent), type: "text", text: thinking }],
+    });
+  }
+  if (content.length > 0) result.push({ ...message, content });
+  return result;
 }
 
 function isOrdinaryAssistantMessage(message: StreamMessage): boolean {
@@ -576,7 +816,7 @@ function MessageActions({
   };
 
   return (
-    <div className="-ml-1.5 mt-1.5 flex items-center gap-0.5">
+    <div className="qp-fade-in -ml-1.5 mt-1.5 flex items-center gap-0.5">
       <ActionButton
         label={copied ? t("message.copied") : t("message.copy")}
         onClick={() => void copy()}
