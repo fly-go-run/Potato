@@ -39,7 +39,7 @@ class TestChannelClass:
     def test_unknown_key_returns_none(self):
         assert registry.get_channel_class("no-such-channel") is None
 
-    def test_import_failure_cached_as_none(self, monkeypatch):
+    def test_import_failure_cached_as_none(self):
         registry._BUILTIN_SPECS["broken"] = (".broken", "BrokenChannel")
         try:
             assert registry.get_channel_class("broken") is None

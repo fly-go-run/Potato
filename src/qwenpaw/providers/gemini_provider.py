@@ -202,9 +202,9 @@ class GeminiProvider(Provider):
         return dict(self.custom_headers) if self.custom_headers else {}
 
     def _client(self, timeout: float = 10) -> Any:
-        genai, _, genai_types = _google_genai_types()
+        genai_sdk, _, genai_types = _google_genai_types()
         headers = self._build_default_headers() or None
-        return genai.Client(
+        return genai_sdk.Client(
             api_key=self.api_key,
             http_options=genai_types.HttpOptions(
                 timeout=int(timeout * 1000),
@@ -582,7 +582,7 @@ class _GeminiChatModelCompat:
                 tool_choice=None,
                 **config_kwargs,
             ):
-                genai, _, genai_types = _google_genai_types()
+                genai_sdk, _, genai_types = _google_genai_types()
                 disable_thinking = bool(
                     config_kwargs.pop("disable_thinking", False),
                 )
@@ -602,14 +602,14 @@ class _GeminiChatModelCompat:
                 from datetime import datetime
 
                 if self._qp_default_headers:
-                    client = genai.Client(
+                    client = genai_sdk.Client(
                         api_key=self.credential.api_key.get_secret_value(),
                         http_options=genai_types.HttpOptions(
                             headers=self._qp_default_headers,
                         ),
                     )
                 else:
-                    client = genai.Client(
+                    client = genai_sdk.Client(
                         api_key=self.credential.api_key.get_secret_value(),
                         **self.client_kwargs,
                     )

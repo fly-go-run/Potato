@@ -283,17 +283,18 @@ class ServiceManager:
 
         logger.debug(f"Creating service '{descriptor.name}'...")
 
-        if not descriptor.service_class:
+        service_factory = descriptor.service_class
+        if service_factory is None:
             return None
 
         def _resolve_constructor() -> tuple[Any, dict]:
             """Resolve class and arguments without holding the event loop."""
             # service_class may be a callable that resolves to the actual
             # class.  Some resolvers import optional backends or read config.
-            if not isinstance(descriptor.service_class, type):
-                service_cls = descriptor.service_class(self.workspace)
+            if not isinstance(service_factory, type):
+                service_cls = service_factory(self.workspace)
             else:
-                service_cls = descriptor.service_class
+                service_cls = service_factory
 
             init_kwargs = {}
             if descriptor.init_args:

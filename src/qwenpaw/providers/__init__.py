@@ -8,10 +8,15 @@ module-level lazy attribute so importing a model schema does not eagerly load
 all provider SDKs.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from .provider import ModelInfo, Provider, ProviderInfo
 
+if TYPE_CHECKING:
+    from .provider_manager import ProviderManager
 
-def __getattr__(name: str):
+
+def __getattr__(name: str) -> Any:
     """Load the provider registry only when it is actually requested."""
     if name == "ProviderManager":
         from .provider_manager import ProviderManager

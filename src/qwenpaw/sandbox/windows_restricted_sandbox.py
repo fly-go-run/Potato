@@ -1819,8 +1819,10 @@ def _grant_object_access(  # pylint: disable=too-many-return-statements
         return
 
     # Extract DACL from the SD
+    # pylint: disable-next=no-value-for-parameter
     _dacl_present = ctypes.wintypes.BOOL()
     _p_dacl = ctypes.c_void_p()
+    # pylint: disable-next=no-value-for-parameter
     _dacl_defaulted = ctypes.wintypes.BOOL()
     ok = advapi32.GetSecurityDescriptorDacl(
         ctypes.cast(sd_buf, ctypes.c_void_p),
@@ -2241,6 +2243,7 @@ def _read_pipe(handle: ctypes.wintypes.HANDLE, kernel32: Any) -> bytes:
     chunks: List[bytes] = []
     buf_size = 8192
     buf = (ctypes.c_ubyte * buf_size)()
+    # pylint: disable-next=no-value-for-parameter
     bytes_read = ctypes.c_uint32()
 
     while True:
@@ -2313,6 +2316,7 @@ async def _wait_and_read_process(
     )
 
     # Process has exited and pipes are drained — get exit code and clean up.
+    # pylint: disable-next=no-value-for-parameter
     exit_code = ctypes.wintypes.DWORD()
     kernel32.GetExitCodeProcess(process_handle, ctypes.byref(exit_code))
 

@@ -122,17 +122,17 @@ class AnthropicProvider(Provider):
         return self._strip_http_client
 
     def _client(self, timeout: float = 5) -> Any:
-        anthropic = _anthropic_module()
+        anthropic_sdk = _anthropic_module()
         default_headers = self._build_default_headers()
         if self.auth_mode == "auth_token":
-            return anthropic.AsyncAnthropic(
+            return anthropic_sdk.AsyncAnthropic(
                 auth_token=self.api_key,
                 base_url=self.base_url,
                 default_headers=default_headers,
                 http_client=self._get_strip_http_client(),
                 timeout=timeout,
             )
-        return anthropic.AsyncAnthropic(
+        return anthropic_sdk.AsyncAnthropic(
             api_key=self.api_key,
             base_url=self.base_url,
             default_headers=default_headers,
@@ -176,18 +176,18 @@ class AnthropicProvider(Provider):
         call so that custom proxies that only expose the messages API still
         pass the connection test.
         """
-        anthropic = _anthropic_module()
+        anthropic_sdk = _anthropic_module()
         client = self._client(timeout=timeout)
         try:
             await client.models.list()
             return True, ""
-        except anthropic.APIStatusError as e:
+        except anthropic_sdk.APIStatusError as e:
             # Some proxies don't implement the models endpoint (404/405).
             # Fall back to a lightweight messages probe instead.
             if e.status_code in (404, 405):
                 return await self._check_connection_via_messages(client)
             return False, f"Anthropic API error: {e}"
-        except anthropic.APIError as e:
+        except anthropic_sdk.APIError as e:
             # Network / auth errors from models.list – report directly
             return False, f"Anthropic API error: {e}"
         except Exception:
@@ -201,7 +201,7 @@ class AnthropicProvider(Provider):
         client: Any,
     ) -> tuple[bool, str]:
         """Fallback: check reachability via messages.create."""
-        anthropic = _anthropic_module()
+        anthropic_sdk = _anthropic_module()
         model = self.models[0].id if self.models else "claude-opus-4-5"
         try:
             await client.messages.create(
@@ -210,14 +210,14 @@ class AnthropicProvider(Provider):
                 messages=[{"role": "user", "content": "ping"}],
             )
             return True, ""
-        except anthropic.APIStatusError as e:
+        except anthropic_sdk.APIStatusError as e:
             # 400/404/422: server is reachable and auth is accepted –
             # the model may simply not exist on this proxy, which is fine
             # for a connection check.
             if e.status_code in (400, 404, 422):
                 return True, ""
             return False, f"Anthropic API error: {e}"
-        except anthropic.APIError as e:
+        except anthropic_sdk.APIError as e:
             return False, f"Anthropic API error: {e}"
         except Exception as e:
             return False, f"Unknown exception: {e}"
@@ -255,7 +255,7 @@ class AnthropicProvider(Provider):
             ],
             "stream": True,
         }
-        anthropic = _anthropic_module()
+        anthropic_sdk = _anthropic_module()
         try:
             client = self._client(timeout=timeout)
             resp = await client.messages.create(**body)
@@ -263,7 +263,7 @@ class AnthropicProvider(Provider):
             async for _ in resp:
                 break
             return True, ""
-        except anthropic.APIError:
+        except anthropic_sdk.APIError:
             return False, f"Model '{model_id}' is not reachable or usable"
         except Exception:
             return (
@@ -371,7 +371,7 @@ class AnthropicProvider(Provider):
             self.base_url,
         )
         start_time = time.monotonic()
-        anthropic = _anthropic_module()
+        anthropic_sdk = _anthropic_module()
         client = self._client(timeout=timeout)
         try:
             resp = await client.messages.create(
@@ -406,7 +406,7 @@ class AnthropicProvider(Provider):
                 model_id,
                 start_time,
             )
-        except anthropic.APIError as e:
+        except anthropic_sdk.APIError as e:
             elapsed = time.monotonic() - start_time
             logger.warning(
                 "Image probe error: model=%s type=%s msg=%s %.2fs",
@@ -486,8 +486,8 @@ class _AnthropicChatModelCompat:
                         "api_key"
                     ] = self.credential.api_key.get_secret_value()
 
-                anthropic = _anthropic_module()
-                self._qp_cached_client = anthropic.AsyncAnthropic(
+                anthropic_sdk = _anthropic_module()
+                self._qp_cached_client = anthropic_sdk.AsyncAnthropic(
                     **client_kwargs,
                 )
                 self._qp_cached_client_key = key
