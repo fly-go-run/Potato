@@ -771,7 +771,9 @@ function presentInlineThinking(message: StreamMessage): StreamMessage[] {
       type: "reasoning",
       status:
         open && message.status === "in_progress" ? "in_progress" : "completed",
-      content: [{ ...(templatePart as TextContent), type: "text", text: thinking }],
+      content: [
+        { ...(templatePart as TextContent), type: "text", text: thinking },
+      ],
     });
   }
   if (content.length > 0) result.push({ ...message, content });

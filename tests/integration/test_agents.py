@@ -201,9 +201,9 @@ def test_api_agents_order_put_roundtrip(app_server) -> None:
             for item in agents_before
             if item["id"] != "default" and not item.get("pinned", False)
         ]
-        assert len(regular_ids) >= 2, (
-            f"expected the temp agents to be unpinned; got {agents_before}"
-        )
+        assert (
+            len(regular_ids) >= 2
+        ), f"expected the temp agents to be unpinned; got {agents_before}"
 
         first_regular = baseline_ids.index(regular_ids[0])
         reordered_ids = list(baseline_ids)

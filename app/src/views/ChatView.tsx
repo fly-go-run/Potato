@@ -264,9 +264,7 @@ export function ChatView() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const messages = useChatStore((state) => state.stream.messages);
-  const responseStatus = useChatStore(
-    (state) => state.stream.responseStatus,
-  );
+  const responseStatus = useChatStore((state) => state.stream.responseStatus);
   const rateLimited = useChatStore((state) => state.stream.rateLimited);
   const historyLoading = useChatStore((state) => state.historyLoading);
   const error = useChatStore((state) => state.error);
@@ -303,10 +301,7 @@ export function ChatView() {
     }
     return "";
   }, [messages]);
-  const fileChanges = useMemo(
-    () => collectFileChanges(messages),
-    [messages],
-  );
+  const fileChanges = useMemo(() => collectFileChanges(messages), [messages]);
   const searchMatches = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
     if (!query) return [];

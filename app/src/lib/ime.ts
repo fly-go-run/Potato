@@ -22,7 +22,6 @@ export function isImeCommitEnter(
     composing ||
     event.isComposing ||
     event.keyCode === 229 ||
-    (sinceCompositionEnd >= 0 &&
-      sinceCompositionEnd < IME_COMMIT_GRACE_MS)
+    (sinceCompositionEnd >= 0 && sinceCompositionEnd < IME_COMMIT_GRACE_MS)
   );
 }

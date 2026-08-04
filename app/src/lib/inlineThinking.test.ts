@@ -5,7 +5,12 @@ describe("splitInlineThinking", () => {
   it("无标签文本原样返回", () => {
     const raw = "正常回答,末尾带空行\n\n";
     const split = splitInlineThinking(raw);
-    expect(split).toEqual({ thinking: "", text: raw, open: false, changed: false });
+    expect(split).toEqual({
+      thinking: "",
+      text: raw,
+      open: false,
+      changed: false,
+    });
   });
 
   it("抽出完整思考块并拼接前后正文", () => {

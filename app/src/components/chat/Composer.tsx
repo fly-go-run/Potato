@@ -357,11 +357,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         return;
       }
     }
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey &&
-      !imeCommitEnter
-    ) {
+    if (event.key === "Enter" && !event.shiftKey && !imeCommitEnter) {
       event.preventDefault();
       submit();
     }

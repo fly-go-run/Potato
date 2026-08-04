@@ -1,6 +1,6 @@
 # Potato 后端启动/运行性能优化报告
 
-日期：2026-08-04  
+日期：2026-08-04
 环境：本机 Apple Silicon，`src` 工作树，Python 3.11，固定回环地址，临时
 `QWENPAW_WORKING_DIR`，每次使用全新临时目录。
 

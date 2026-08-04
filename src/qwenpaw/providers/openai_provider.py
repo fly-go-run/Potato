@@ -73,11 +73,7 @@ def _openai_types():
                 "install with `pip install langfuse` to enable tracing",
             )
         from openai import AsyncOpenAI
-    api_error = (
-        APIError
-        if APIError is not _LazyAPIError
-        else openai_api_error
-    )
+    api_error = APIError if APIError is not _LazyAPIError else openai_api_error
     return AsyncOpenAI, api_error
 
 

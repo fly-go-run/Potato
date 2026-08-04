@@ -111,6 +111,7 @@ async def create_chat_service(ws: "Workspace", service):
         cm = service
         logger.info(f"Reusing ChatManager for {ws.agent_id}")
     else:
+
         def _build_chat_manager():
             from ..chats.manager import ChatManager
             from ..chats.repo.json_repo import JsonChatRepository

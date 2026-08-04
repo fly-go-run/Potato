@@ -48,6 +48,7 @@ def _anthropic_module():
     """Load the Anthropic SDK only when an Anthropic operation is used."""
     return anthropic
 
+
 DASHSCOPE_BASE_URLS = (
     "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",

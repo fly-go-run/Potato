@@ -399,6 +399,7 @@ class GeminiProvider(Provider):
         Sends a solid-red 16x16 PNG and asks the model to name the colour.
         """
         import base64
+
         _, genai_errors, genai_types = _google_genai_types()
 
         logger.info(
