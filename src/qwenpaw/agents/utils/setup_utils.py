@@ -173,7 +173,7 @@ def _remove_bootstrap_from_workspace(workspace_dir: Path) -> None:
     try:
         bootstrap.unlink()
         logger.info(
-            "Removed BOOTSTRAP.md from builtin QA workspace %s",
+            "Removed BOOTSTRAP.md from workspace %s",
             workspace_dir,
         )
     except OSError as e:
@@ -255,18 +255,3 @@ def copy_workspace_md_files(
         ),
     )
     return copied_files
-
-
-def copy_builtin_qa_md_files(
-    language: str,
-    workspace_dir: Path | str,
-    *,
-    only_if_missing: bool = True,
-) -> list[str]:
-    """Backward-compatible wrapper for builtin QA workspace templates."""
-    return copy_workspace_md_files(
-        language,
-        workspace_dir,
-        md_template_id="qa",
-        only_if_missing=only_if_missing,
-    )

@@ -706,7 +706,7 @@ cp -r ~/.qwenpaw/workspaces ~/backups/workspaces-$(date +%Y%m%d)
 
 | 模式                         | 工作区                    | 历史上下文         | 适用场景                         |
 | ---------------------------- | ------------------------- | ------------------ | -------------------------------- |
-| `chat_with_agent`            | 目标 Agent 独立 workspace | 无（只传 text）    | 调用专长 Agent（QA、代码审查等） |
+| `chat_with_agent`            | 目标 Agent 独立 workspace | 无（只传 text）    | 调用专长 Agent（代码审查等）     |
 | `spawn_subagent(fork=False)` | 与当前 Agent 相同的项目   | 无（空白 session） | 干净独立子任务                   |
 | `spawn_subagent(fork=True)`  | 取决于环境（见下方）      | 继承完整对话历史   | 需要背景的侧任务，且可能改文件   |
 
@@ -753,7 +753,7 @@ cp -r ~/.qwenpaw/workspaces ~/backups/workspaces-$(date +%Y%m%d)
 
 **使用 `chat_with_agent`（跨 Agent）**：
 
-- 需要调用有特定专长的其他 Agent（QA Agent、代码审查 Agent 等）
+- 需要调用有特定专长的其他 Agent（如代码审查 Agent）
 
 ### 调用方式
 

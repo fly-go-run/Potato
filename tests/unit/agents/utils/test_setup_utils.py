@@ -9,7 +9,6 @@ Covers:
 - _remove_bootstrap_from_workspace
 - copy_template_md_files
 - copy_workspace_md_files
-- copy_builtin_qa_md_files
 """
 # pylint: disable=protected-access,unused-argument
 
@@ -20,7 +19,6 @@ from qwenpaw.agents.utils.setup_utils import (
     _remove_bootstrap_from_workspace,
     _resolve_md_lang_dir,
     _template_fallback_language_order,
-    copy_builtin_qa_md_files,
     copy_template_md_files,
     copy_workspace_md_files,
     normalize_agent_language,
@@ -190,7 +188,7 @@ class TestRemoveBootstrapFromWorkspace:
 
 
 # ---------------------------------------------------------------------------
-# copy_workspace_md_files / copy_builtin_qa_md_files (mocked)
+# copy_workspace_md_files (mocked)
 # ---------------------------------------------------------------------------
 
 
@@ -216,28 +214,10 @@ class TestCopyWorkspaceMdFiles:
             result = copy_workspace_md_files(
                 "en",
                 tmp_path,
-                md_template_id="qa",
+                md_template_id="local",
             )
             assert "AGENTS.md" in result
             assert "SOUL.md" in result
-
-
-class TestCopyBuiltinQaMdFiles:
-    """Tests for copy_builtin_qa_md_files."""
-
-    def test_delegates_to_copy_workspace_md_files(self, tmp_path):
-        with patch(
-            "qwenpaw.agents.utils.setup_utils.copy_workspace_md_files",
-            return_value=["AGENTS.md"],
-        ) as mock:
-            result = copy_builtin_qa_md_files("en", tmp_path)
-            mock.assert_called_once_with(
-                "en",
-                tmp_path,
-                md_template_id="qa",
-                only_if_missing=True,
-            )
-            assert result == ["AGENTS.md"]
 
 
 class TestCopyTemplateMdFiles:

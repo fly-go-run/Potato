@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import pytest
 
-from qwenpaw.constant import BUILTIN_QA_AGENT_ID
 from tests.integration.helpers import wait_for_agent_startup
 
 _AGENT_PROFILE_TOP_LEVEL_KEYS = (
@@ -29,7 +28,7 @@ def test_api_agents_list_create_get_delete(app_server) -> None:
     - Verify a newly created agent includes required top-level config groups.
 
     Test flow:
-    1. GET /api/agents; confirm list contains ``default`` and builtin QA.
+    1. GET /api/agents; confirm list contains ``default``.
     2. POST /api/agents to create a test agent.
     3. GET /api/agents/{agentId} and validate name plus key config groups.
     4. DELETE /api/agents/{agentId}.
@@ -50,9 +49,6 @@ def test_api_agents_list_create_get_delete(app_server) -> None:
     assert isinstance(agents_payload["agents"], list)
     listed_ids = {a["id"] for a in agents_payload["agents"]}
     assert "default" in listed_ids, f"missing default agent in {listed_ids}"
-    assert (
-        BUILTIN_QA_AGENT_ID in listed_ids
-    ), f"missing builtin QA agent in {listed_ids}"
 
     create_resp = app_server.api_request(
         "POST",
@@ -167,59 +163,80 @@ def test_api_agents_order_put_roundtrip(app_server) -> None:
     - Verify /api/agents/order persists a full agent order update.
 
     Test flow:
-    1. GET /api/agents to capture a stable baseline order.
-    2. PUT /api/agents/order with a reordered full agent ID list.
-    3. GET /api/agents and verify returned order matches the updated order.
-    4. PUT baseline order back for cleanup.
+    1. POST /api/agents twice so at least two unpinned agents exist.
+    2. GET /api/agents to capture a stable baseline order.
+    3. PUT /api/agents/order with a reordered full agent ID list.
+    4. GET /api/agents and verify returned order matches the updated order.
+    5. PUT baseline order back and DELETE the temp agents for cleanup.
 
     API endpoints:
+    - POST /api/agents
     - GET /api/agents
     - PUT /api/agents/order
+    - DELETE /api/agents/{agentId}
     """
-    list_before = app_server.api_request("GET", "/api/agents")
-    assert list_before.status_code == 200, app_server.logs_tail()
-    agents_before = list_before.json().get("agents", [])
-    assert isinstance(agents_before, list)
-    assert len(agents_before) >= 2, "need at least two agents for reorder test"
-
-    baseline_ids = [item["id"] for item in agents_before]
-    regular_ids = [
-        item["id"]
-        for item in agents_before
-        if item["id"] != "default" and not item.get("pinned", False)
-    ]
-    if len(regular_ids) < 2:
-        pytest.skip("need at least two unpinned agents for reorder test")
-
-    first_regular = baseline_ids.index(regular_ids[0])
-    reordered_ids = list(baseline_ids)
-    reordered_ids[first_regular : first_regular + 2] = reversed(
-        reordered_ids[first_regular : first_regular + 2],
-    )
-
+    temp_ids = ["integ_agents_ord_01", "integ_agents_ord_02"]
     try:
-        put_resp = app_server.api_request(
-            "PUT",
-            "/api/agents/order",
-            json={"agent_ids": reordered_ids},
-        )
-        assert put_resp.status_code == 200, app_server.logs_tail()
-        assert put_resp.json().get("success") is True
-        assert put_resp.json().get("agent_ids") == reordered_ids
+        for temp_id in temp_ids:
+            create_resp = app_server.api_request(
+                "POST",
+                "/api/agents",
+                json={
+                    "id": temp_id,
+                    "name": f"Integration order agent {temp_id[-2:]}",
+                    "description": "",
+                },
+            )
+            assert create_resp.status_code == 201, app_server.logs_tail()
+            assert wait_for_agent_startup(app_server, temp_id) == "running"
 
-        list_after = app_server.api_request("GET", "/api/agents")
-        assert list_after.status_code == 200, app_server.logs_tail()
-        after_ids = [
-            item["id"] for item in list_after.json().get("agents", [])
+        list_before = app_server.api_request("GET", "/api/agents")
+        assert list_before.status_code == 200, app_server.logs_tail()
+        agents_before = list_before.json().get("agents", [])
+        assert isinstance(agents_before, list)
+
+        baseline_ids = [item["id"] for item in agents_before]
+        regular_ids = [
+            item["id"]
+            for item in agents_before
+            if item["id"] != "default" and not item.get("pinned", False)
         ]
-        assert after_ids == reordered_ids
-    finally:
-        restore = app_server.api_request(
-            "PUT",
-            "/api/agents/order",
-            json={"agent_ids": baseline_ids},
+        assert len(regular_ids) >= 2, (
+            f"expected the temp agents to be unpinned; got {agents_before}"
         )
-        assert restore.status_code == 200, app_server.logs_tail()
+
+        first_regular = baseline_ids.index(regular_ids[0])
+        reordered_ids = list(baseline_ids)
+        reordered_ids[first_regular : first_regular + 2] = reversed(
+            reordered_ids[first_regular : first_regular + 2],
+        )
+
+        try:
+            put_resp = app_server.api_request(
+                "PUT",
+                "/api/agents/order",
+                json={"agent_ids": reordered_ids},
+            )
+            assert put_resp.status_code == 200, app_server.logs_tail()
+            assert put_resp.json().get("success") is True
+            assert put_resp.json().get("agent_ids") == reordered_ids
+
+            list_after = app_server.api_request("GET", "/api/agents")
+            assert list_after.status_code == 200, app_server.logs_tail()
+            after_ids = [
+                item["id"] for item in list_after.json().get("agents", [])
+            ]
+            assert after_ids == reordered_ids
+        finally:
+            restore = app_server.api_request(
+                "PUT",
+                "/api/agents/order",
+                json={"agent_ids": baseline_ids},
+            )
+            assert restore.status_code == 200, app_server.logs_tail()
+    finally:
+        for temp_id in temp_ids:
+            app_server.api_request("DELETE", f"/api/agents/{temp_id}")
 
 
 @pytest.mark.integration

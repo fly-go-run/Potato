@@ -4,7 +4,6 @@
  * 面向人的中文一句话。未收录的技能回落到原描述。
  */
 const SKILL_DESCRIPTIONS: Record<string, string> = {
-  qa_source_index: "把用户问题映射到官方文档条目，用于精准答疑。",
   browser_cdp: "连接你已打开的 Chrome 浏览器，执行网页自动化操作。",
   browser_visible: "让浏览器以可见窗口方式运行，便于观察操作过程。",
   channel_message: "主动向指定用户、会话或群发送一条消息。",

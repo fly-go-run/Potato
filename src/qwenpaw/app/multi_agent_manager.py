@@ -5,10 +5,12 @@ Provides centralized management for multiple Workspace objects,
 including lazy loading, lifecycle management, and hot reloading.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import time
-from typing import Callable, Dict, Set
+from typing import TYPE_CHECKING, Callable, Dict, Set
 
 from qwenpaw.exceptions import (
     ConfigurationException,
@@ -17,13 +19,14 @@ from qwenpaw.exceptions import (
 from .agent_startup import (
     AgentStartupStatus,
 )
-from .workspace import Workspace
 from ..constant import (
-    BUILTIN_QA_AGENT_ID,
     CUSTOM_AGENT_STARTUP_CONCURRENCY,
 )
 from ..config.utils import load_config
 from ..utils.startup_display import AgentStartupDisplay
+
+if TYPE_CHECKING:
+    from .workspace import Workspace
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,8 @@ class MultiAgentManager:
 
         Overridden by WorkspaceRegistry.
         """
+        from .workspace import Workspace
+
         return Workspace(agent_id=agent_id, workspace_dir=workspace_dir)
 
     async def get_agent(self, agent_id: str) -> Workspace:
@@ -139,7 +144,11 @@ class MultiAgentManager:
         t0 = time.perf_counter()
         try:
             logger.debug(f"Creating new workspace: {agent_id}")
-            instance = self._create_workspace(
+            # Workspace construction registers services and imports several
+            # optional runtimes.  It is synchronous, so keep it off the
+            # event loop while the HTTP server is already accepting probes.
+            instance = await asyncio.to_thread(
+                self._create_workspace,
                 agent_id=agent_id,
                 workspace_dir=agent_ref.workspace_dir,
             )
@@ -658,9 +667,10 @@ class MultiAgentManager:
         Only agents with enabled=True will be started.
         Disabled agents are skipped to save resources.
 
-        The default and built-in QA agents form the concurrent core phase.
-        Remaining custom agents start only after that phase and are bounded
-        by ``QWENPAW_CUSTOM_AGENT_STARTUP_CONCURRENCY``.
+        The default agent forms the core phase. Remaining custom agents start
+        only after the default agent has started and are bounded by
+        ``QWENPAW_CUSTOM_AGENT_STARTUP_CONCURRENCY``. When the default agent
+        succeeds, ``on_core_ready`` is called before custom-agent startup.
 
         Returns:
             dict[str, bool]: Mapping of agent_id to success status
@@ -713,9 +723,7 @@ class MultiAgentManager:
                 return (agent_id, False)
 
         core_agent_ids = [
-            agent_id
-            for agent_id in ("default", BUILTIN_QA_AGENT_ID)
-            if agent_id in enabled_agents
+            agent_id for agent_id in ("default",) if agent_id in enabled_agents
         ]
         custom_agent_ids = [
             agent_id
@@ -729,7 +737,10 @@ class MultiAgentManager:
         )
         core_result_map = dict(core_results)
 
-        if core_result_map.get("default") and on_core_ready is not None:
+        if (
+            on_core_ready is not None
+            and core_result_map.get("default") is True
+        ):
             try:
                 on_core_ready(core_result_map)
             except Exception:

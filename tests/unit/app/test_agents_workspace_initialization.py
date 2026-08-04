@@ -85,7 +85,7 @@ def test_initialize_agent_workspace_applies_md_template_with_language(
 
     agents_router._initialize_agent_workspace(
         tmp_path,
-        md_template_id="qa",
+        md_template_id="local",
     )
 
-    assert recorded_calls == [("ru", tmp_path, "qa")]
+    assert recorded_calls == [("ru", tmp_path, "local")]

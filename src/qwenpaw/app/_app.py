@@ -28,8 +28,6 @@ from ..constant import (
     WORKING_DIR,
 )
 from ..envs import load_envs_into_environ
-from ..local_models.manager import LocalModelManager
-from ..providers.provider_manager import ProviderManager
 from ..utils.logging import (
     LOG_FILE_PATH,
     add_project_file_handler,
@@ -45,9 +43,9 @@ from .auth import (
 )
 from .migration import (
     ensure_default_agent_exists,
-    ensure_qa_agent_exists,
     migrate_legacy_skills_to_skill_pool,
     migrate_legacy_workspace_to_default_agent,
+    remove_builtin_qa_agent_profiles,
 )
 from .routers import create_agent_scoped_router
 from .routers import router as api_router
@@ -86,6 +84,14 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
     app.state.startup_state = "starting"
     app.state.startup_error = None
     app.state.startup_time = startup_start_time
+    app.state.runtime_managers_ready = asyncio.Event()
+    app.state.runtime_manager_error = None
+
+    # These managers import optional provider/local-runtime modules.  Keep
+    # their references in the lifespan closure, but construct them in the
+    # background phase after the server has yielded to Uvicorn.
+    provider_manager = None
+    local_model_manager = None
 
     # ================================================================
     # Fast synchronous setup (target < 100ms)
@@ -128,7 +134,7 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
     migrate_legacy_workspace_to_default_agent()
     ensure_default_agent_exists()
     migrate_legacy_skills_to_skill_pool()
-    ensure_qa_agent_exists()
+    remove_builtin_qa_agent_profiles()
 
     # Migrate old conversations from sessions/*.json into each scroll agent's
     # history.db, so chats from before scroll existed stay recallable. This is
@@ -145,20 +151,6 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
         sync_all_scroll_agents()
     except Exception:  # noqa: BLE001 - session sync must never block startup
         logger.warning("session-sync: import/launch failed", exc_info=True)
-
-    # Create core managers (instant — no I/O)
-    provider_manager = ProviderManager.get_instance()
-    local_model_manager = LocalModelManager.get_instance()
-
-    # First-run provisioning(家人分发预配置):发现 provision.json 就
-    # 走设置页同款代码路径应用;任何失败只记日志,绝不阻塞启动。
-    try:
-        from .agent_context import get_active_agent_id
-        from .provisioning import apply_provision_file
-
-        await apply_provision_file(provider_manager, get_active_agent_id())
-    except Exception:  # noqa: BLE001 - provisioning must never block startup
-        logger.warning("provisioning failed", exc_info=True)
 
     # --- AppServiceManager + WorkspaceRegistry ---
     app_services = None
@@ -322,28 +314,67 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
     startup_display = AgentStartupDisplay(read_last_api()).start()
 
     async def _background_startup():  # pylint: disable=too-many-statements
+        nonlocal provider_manager, local_model_manager
         try:
+            # ProviderManager imports all concrete provider classes and the
+            # local model manager imports llama.cpp helpers.  Their
+            # constructors are synchronous, so do both in a worker thread to
+            # keep the event loop available for healthz and static requests.
+            def _create_runtime_managers():
+                from ..local_models.manager import LocalModelManager
+                from ..providers.provider_manager import ProviderManager
+
+                return (
+                    ProviderManager.get_instance(),
+                    LocalModelManager.get_instance(),
+                )
+
+            provider_manager, local_model_manager = await asyncio.to_thread(
+                _create_runtime_managers,
+            )
+            app.state.provider_manager = provider_manager
+            app.state.local_model_manager = local_model_manager
+            app.state.runtime_managers_ready.set()
+
+            # First-run provisioning(家人分发预配置):发现 provision.json 就
+            # 走设置页同款代码路径应用;任何失败只记日志,绝不阻塞启动。
+            try:
+                from .agent_context import get_active_agent_id
+                from .provisioning import apply_provision_file
+
+                await apply_provision_file(
+                    provider_manager,
+                    get_active_agent_id(),
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning("provisioning failed", exc_info=True)
+
             # ---- Plugin System (phase 1: channel plugins) ----
             # Load channel-type plugins *before* agents start so that
             # ChannelManager discovers them via get_channel_registry()
             # on first creation — no reload needed afterwards.
             logger.debug("Initializing plugin system...")
 
-            from ..config.utils import get_plugins_dir
-            from ..plugins.loader import PluginLoader
-            from ..plugins.runtime import RuntimeHelpers
-
             # PawApps install into the plugins dir alongside other plugins
             # and load through the same pipeline as 'app'-type plugins
             # (plugin.json carrying meta.pawapp); surfaced only in the App
             # Center, hidden from the sidebar.
-            plugin_dirs = [get_plugins_dir()]
+            def _create_plugin_loader():
+                from ..config.utils import get_plugins_dir
+                from ..plugins.loader import PluginLoader
 
-            plugin_loader = PluginLoader(plugin_dirs)
+                return PluginLoader([get_plugins_dir()])
+
+            # The loader module imports packaging and plugin metadata models;
+            # keep that optional stack off the event loop too.
+            plugin_loader = await asyncio.to_thread(_create_plugin_loader)
 
             plugin_loader.registry.set_plugin_http_app(app)
 
-            config = load_config(get_config_path())
+            config = await asyncio.to_thread(
+                load_config,
+                get_config_path(),
+            )
             plugin_configs = (
                 config.plugins if hasattr(config, "plugins") else {}
             )
@@ -391,6 +422,8 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
                 configs=plugin_configs,
             )
             logger.debug(f"Loaded {len(loaded_plugins)} plugin(s)")
+
+            from ..plugins.runtime import RuntimeHelpers
 
             runtime_helpers = RuntimeHelpers(
                 provider_manager=provider_manager,
@@ -515,6 +548,12 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
                 startup_display.complete(startup_elapsed)
 
         except Exception as exc:
+            if not app.state.runtime_managers_ready.is_set():
+                app.state.runtime_manager_error = (
+                    f"Runtime manager initialization failed: "
+                    f"{type(exc).__name__}"
+                )
+                app.state.runtime_managers_ready.set()
             if app.state.startup_ready.is_set():
                 app.state.startup_state = "degraded"
                 app.state.startup_error = (

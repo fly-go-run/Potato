@@ -10,7 +10,6 @@ from unittest.mock import Mock
 from click.testing import CliRunner
 
 from qwenpaw.cli.main import cli
-from qwenpaw.constant import BUILTIN_QA_AGENT_SKILL_NAMES
 from qwenpaw.config.config import ModelSlotConfig
 
 
@@ -195,93 +194,6 @@ def test_agents_create_requires_name_without_template(monkeypatch) -> None:
 
     assert result.exit_code != 0
     assert "Missing option '--name'." in result.output
-
-
-def test_agents_create_requires_name_with_template(monkeypatch) -> None:
-    config = SimpleNamespace(
-        agents=SimpleNamespace(
-            profiles={},
-            agent_order=[],
-            language="zh",
-        ),
-    )
-
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
-
-    result = CliRunner().invoke(
-        cli,
-        [
-            "agents",
-            "create",
-            "--template",
-            "qa",
-        ],
-    )
-
-    assert result.exit_code != 0
-    assert "Missing option '--name'." in result.output
-
-
-def test_agents_create_qa_template_uses_template_defaults(
-    monkeypatch,
-    tmp_path,
-) -> None:
-    config = SimpleNamespace(
-        agents=SimpleNamespace(
-            profiles={},
-            agent_order=[],
-            language="zh",
-        ),
-    )
-    saved = {}
-
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
-    monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_config",
-        lambda updated_config: saved.setdefault("config", updated_config),
-    )
-    monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_agent_config",
-        lambda agent_id, agent_config: saved.setdefault(
-            "agent_config",
-            (agent_id, agent_config),
-        ),
-    )
-    monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd._initialize_new_agent_workspace",
-        lambda workspace_dir, skill_names, md_template_id=None: saved.setdefault(  # noqa: E501
-            "workspace_init",
-            (workspace_dir, skill_names, md_template_id),
-        ),
-    )
-
-    result = CliRunner().invoke(
-        cli,
-        [
-            "agents",
-            "create",
-            "--name",
-            "QA Copy",
-            "--template",
-            "qa",
-            "--agent-id",
-            "qa-copy",
-            "--workspace-dir",
-            str(tmp_path / "qa-copy"),
-            "--skill",
-            "extra-skill",
-        ],
-    )
-
-    assert result.exit_code == 0
-    assert '"id": "qa-copy"' in result.output
-    assert saved["agent_config"][1].name == "QA Copy"
-    assert saved["agent_config"][1].language == "zh"
-    assert saved["workspace_init"][1] == [
-        *BUILTIN_QA_AGENT_SKILL_NAMES,
-        "extra-skill",
-    ]
-    assert saved["workspace_init"][2] == "qa"
 
 
 def test_agents_create_local_template_uses_local_md_template(

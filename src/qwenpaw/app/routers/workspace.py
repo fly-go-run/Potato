@@ -34,10 +34,7 @@ from ...config import (
     AgentsRunningConfig,
 )
 from ...config.config import load_agent_config, save_agent_config
-from ...agents.memory.agent_md_manager import AgentMdManager
-from ...agents.templates import get_workspace_md_template_id
-from ...agents.utils import copy_workspace_md_files
-from ...constant import BUILTIN_QA_AGENT_ID, SUPPORTED_AGENT_LANGUAGES
+from ...constant import SUPPORTED_AGENT_LANGUAGES
 from ...utils.zip_security import (
     WEB_UPLOAD_ZIP_LIMITS,
     ZipResourceLimitError,
@@ -113,6 +110,8 @@ async def list_working_files(
     """List working directory markdown files."""
     try:
         workspace = await get_agent_for_request(request)
+        from ...agents.memory.agent_md_manager import AgentMdManager
+
         workspace_manager = AgentMdManager(
             str(workspace.workspace_dir),
             agent_id=workspace.agent_id,
@@ -139,6 +138,8 @@ async def read_working_file(
     """Read a working directory markdown file."""
     try:
         workspace = await get_agent_for_request(request)
+        from ...agents.memory.agent_md_manager import AgentMdManager
+
         workspace_manager = AgentMdManager(
             str(workspace.workspace_dir),
             agent_id=workspace.agent_id,
@@ -165,6 +166,8 @@ async def write_working_file(
     """Write a working directory markdown file."""
     try:
         workspace = await get_agent_for_request(request)
+        from ...agents.memory.agent_md_manager import AgentMdManager
+
         workspace_manager = AgentMdManager(
             str(workspace.workspace_dir),
             agent_id=workspace.agent_id,
@@ -527,6 +530,8 @@ async def list_memory_files(
     """List memory directory markdown files."""
     try:
         workspace = await get_agent_for_request(request)
+        from ...agents.memory.agent_md_manager import AgentMdManager
+
         workspace_manager = AgentMdManager(
             str(workspace.workspace_dir),
             agent_id=workspace.agent_id,
@@ -551,6 +556,8 @@ async def read_memory_file(
     """Read a memory directory markdown file."""
     try:
         workspace = await get_agent_for_request(request)
+        from ...agents.memory.agent_md_manager import AgentMdManager
+
         workspace_manager = AgentMdManager(
             str(workspace.workspace_dir),
             agent_id=workspace.agent_id,
@@ -580,6 +587,8 @@ async def write_memory_file(
     """Write a memory directory markdown file."""
     try:
         workspace = await get_agent_for_request(request)
+        from ...agents.memory.agent_md_manager import AgentMdManager
+
         workspace_manager = AgentMdManager(
             str(workspace.workspace_dir),
             agent_id=workspace.agent_id,
@@ -649,12 +658,14 @@ async def put_agent_language(
 
     copied_files: list[str] = []
     if old_language != language:
+        from ...agents.templates import get_workspace_md_template_id
+        from ...agents.utils import copy_workspace_md_files
+
         copied_files = copy_workspace_md_files(
             language,
             workspace.workspace_dir,
             md_template_id=get_workspace_md_template_id(
-                agent_config.template_id
-                or ("qa" if agent_id == BUILTIN_QA_AGENT_ID else None),
+                agent_config.template_id,
             ),
             only_if_missing=False,
         )

@@ -707,7 +707,7 @@ QwenPaw also supports spawning ephemeral sub-tasks **within the current project*
 
 | Mode                         | Workspace                          | History              | Best for                                           |
 | ---------------------------- | ---------------------------------- | -------------------- | -------------------------------------------------- |
-| `chat_with_agent`            | Target agent's own workspace       | None (text only)     | Calling a specialist agent (QA, code review, etc.) |
+| `chat_with_agent`            | Target agent's own workspace       | None (text only)     | Calling a specialist agent (code review, etc.)     |
 | `spawn_subagent(fork=False)` | Same project as parent             | None (blank session) | Clean, independent sub-tasks                       |
 | `spawn_subagent(fork=True)`  | Depends on environment (see below) | Full parent history  | Context-aware side tasks that may modify files     |
 
