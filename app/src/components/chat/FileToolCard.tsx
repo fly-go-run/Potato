@@ -56,9 +56,12 @@ export function isSuccessfulArtifactPair(pair: ToolPair): boolean {
 export function FileToolCard({
   pair,
   onOpenFile,
+  prominentArtifact = false,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
+  /** 仅在文件被明确交付给用户时展示大号产物卡。 */
+  prominentArtifact?: boolean;
 }) {
   const { t } = useTranslation();
   const parameters = parseArguments(pair.arguments);
@@ -101,7 +104,12 @@ export function FileToolCard({
     </div>
   );
 
-  if (!running && isSuccessfulArtifactPair(pair) && path) {
+  if (
+    prominentArtifact &&
+    !running &&
+    isSuccessfulArtifactPair(pair) &&
+    path
+  ) {
     return (
       <ArtifactCard
         pair={pair}

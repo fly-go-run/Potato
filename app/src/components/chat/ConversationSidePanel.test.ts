@@ -5,6 +5,7 @@ import {
   collectConversationArtifacts,
   presentRunStatus,
   resolveConversationFileLink,
+  shouldPresentArtifactPair,
 } from "../../lib/conversationArtifacts";
 import {
   buildToolPair,
@@ -62,7 +63,7 @@ function assistantTextMessage(id: string, text: string): StreamMessage {
 }
 
 describe("collectConversationArtifacts", () => {
-  it("aggregates files written and delivered across turns", () => {
+  it("only collects files explicitly delivered across turns", () => {
     const messages = [
       toolMessage("call-1", "function_call", {
         call_id: "1",
@@ -94,12 +95,66 @@ describe("collectConversationArtifacts", () => {
         name: "data.xlsx",
         sourceMessageId: "call-2",
       }),
-      expect.objectContaining({
-        path: "/tmp/report.pdf",
-        name: "report.pdf",
-        sourceMessageId: "call-1",
-      }),
     ]);
+  });
+
+  it("does not surface temporary helper files written during execution", () => {
+    const messages = [
+      toolMessage("call-1", "function_call", {
+        call_id: "1",
+        name: "write_file",
+        arguments: JSON.stringify({ file_path: "/tmp/classify_pdfs.py" }),
+      }),
+      toolMessage("out-1", "function_call_output", {
+        call_id: "1",
+        name: "write_file",
+        output: "Wrote 1700 bytes",
+        state: "completed",
+      }),
+      assistantTextMessage("assistant-1", "检查完成，共找到 47 篇论文。"),
+    ];
+
+    expect(collectConversationArtifacts(messages)).toEqual([]);
+    expect(
+      shouldPresentArtifactPair(
+        buildToolPair(messages[0]!, messages[1]!),
+        collectConversationArtifacts(messages),
+      ),
+    ).toBe(false);
+  });
+
+  it("promotes a written file only when the assistant explicitly links it", () => {
+    const written = [
+      toolMessage("call-1", "function_call", {
+        call_id: "1",
+        name: "write_file",
+        arguments: JSON.stringify({ file_path: "/tmp/paper_filter.py" }),
+      }),
+      toolMessage("out-1", "function_call_output", {
+        call_id: "1",
+        name: "write_file",
+        output: "Wrote 1700 bytes",
+        state: "completed",
+      }),
+    ];
+    const messages = [
+      ...written,
+      assistantTextMessage(
+        "assistant-1",
+        "已生成 [论文过滤脚本](sandbox:/tmp/paper_filter.py)。",
+      ),
+    ];
+    const artifacts = collectConversationArtifacts(messages);
+
+    expect(artifacts).toEqual([
+      expect.objectContaining({ path: "/tmp/paper_filter.py" }),
+    ]);
+    expect(
+      shouldPresentArtifactPair(
+        buildToolPair(written[0]!, written[1]!),
+        artifacts,
+      ),
+    ).toBe(true);
   });
 
   it("keeps one task-level entry when the same path is delivered twice", () => {

@@ -12,6 +12,7 @@ import { APP_NAME } from "../../lib/appInfo";
 import {
   collectConversationArtifacts,
   resolveConversationFileLink,
+  shouldPresentArtifactPair,
 } from "../../lib/conversationArtifacts";
 import {
   collectFileChanges,
@@ -33,7 +34,6 @@ import { Spinner } from "../ui/Spinner";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ChangeStat";
 import { Collapse } from "./Collapse";
-import { isArtifactTool } from "./FileToolCard";
 import { MessageContent } from "./MessageContent";
 import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
@@ -266,7 +266,7 @@ const AssistantTurn = memo(function AssistantTurn({
       const output = outputsByCallId.get(callId);
       if (output) pairedOutputs.add(output.id);
       const pair = buildToolPair(message, output ?? null);
-      if (isArtifactTool(pair.name)) {
+      if (shouldPresentArtifactPair(pair, turnArtifacts)) {
         items.push({ kind: "pair", key: message.id, pair });
       } else {
         items.push({
@@ -280,7 +280,7 @@ const AssistantTurn = memo(function AssistantTurn({
     if (isToolOutput(message.type)) {
       if (pairedOutputs.has(message.id)) continue;
       const pair = buildToolPair(null, message);
-      if (isArtifactTool(pair.name)) {
+      if (shouldPresentArtifactPair(pair, turnArtifacts)) {
         items.push({ kind: "pair", key: message.id, pair });
       } else {
         items.push({
@@ -360,7 +360,11 @@ const AssistantTurn = memo(function AssistantTurn({
     if (item.kind === "pair") {
       rendered.push(
         <div id={`message-${item.key}`} key={item.key}>
-          <ToolCard pair={item.pair} onOpenFile={onOpenFile} />
+          <ToolCard
+            pair={item.pair}
+            onOpenFile={onOpenFile}
+            prominentArtifact
+          />
         </div>,
       );
     } else {
@@ -836,8 +840,9 @@ const TrackEntry = memo(function TrackEntry({
 /**
  * 该消息是否代表「助手转去继续执行」。文本之后一旦出现这类消息,说明
  * 它只是中间叙述,应折叠进执行轨道的时间线位置。progress 不算触发:
- * 压缩等进度可能出现在最终回复之后,不能因此把答案折叠掉;产物工具
- * 渲染在轨道外,同样不触发。工具名可能只出现在 output 上,与
+ * 压缩等进度可能出现在最终回复之后,不能因此把答案折叠掉;显式发送
+ * 文件渲染在轨道外,同样不触发。普通写文件属于执行步骤,会触发折叠。
+ * 工具名可能只出现在 output 上,与
  * buildToolPair 一致地按 call → output 顺序解析,保证分类不劈叉。
  */
 function startsTrackWork(
@@ -852,9 +857,9 @@ function startsTrackWork(
     stringValue(
       toolData(outputsByCallId.get(stringValue(data.call_id)) ?? null).name,
     );
-  // 名称未知(仍在流式)时不触发折叠,避免产物调用先折叠正文再弹回。
+  // 名称未知(仍在流式)时不触发折叠,避免交付调用先折叠正文再弹回。
   if (!name) return false;
-  return !isArtifactTool(name);
+  return name !== "send_file_to_user";
 }
 
 /**

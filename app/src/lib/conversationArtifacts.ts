@@ -20,7 +20,11 @@ export function collectConversationArtifacts(
     if (callId) outputsByCallId.set(callId, message);
   }
 
-  const byPath = new Map<string, ConversationArtifact>();
+  // 写文件只说明执行过程中产生了文件，不等于用户要收下这个文件。
+  // 先把成功写入记录成链接解析候选；只有显式发送或最终答复链接到它时，
+  // 才进入真正的产物集合。
+  const candidatesByPath = new Map<string, ConversationArtifact>();
+  const deliveredByPath = new Map<string, ConversationArtifact>();
   for (const message of messages) {
     if (!isToolCall(message.type)) continue;
     const callId = stringValue(toolData(message).call_id);
@@ -31,18 +35,20 @@ export function collectConversationArtifacts(
     if (!isSuccessfulArtifactPair(pair)) continue;
     const path = filePathFromArguments(pair.arguments);
     if (!path) continue;
-    byPath.set(path, {
+    const artifact = {
       id: `${message.id}:${path}`,
       path,
       name: fileBaseName(path) || path,
       sourceMessageId: message.id,
-    });
+    };
+    const key = artifactPathKey(path);
+    candidatesByPath.set(key, artifact);
+    if (pair.name === "send_file_to_user") {
+      deliveredByPath.set(key, artifact);
+    }
   }
 
-  // 工具调用是更可靠的产物来源;正文链接只补充 shell 等未结构化上报的文件。
-  const artifactPaths = new Set(
-    Array.from(byPath.keys(), (path) => artifactPathKey(path)),
-  );
+  const candidates = Array.from(candidatesByPath.values());
   for (const message of messages) {
     if (message.type !== "message" || message.role !== "assistant") continue;
     for (const content of message.content) {
@@ -52,21 +58,36 @@ export function collectConversationArtifacts(
       if (!/(?:sandbox|file):/i.test(content.text)) continue;
       for (const href of markdownLinkHrefs(content.text)) {
         if (!/^(?:sandbox|file):/i.test(href)) continue;
-        const path = resolveConversationFileLink(href, []);
+        const path = resolveConversationFileLink(href, candidates);
         if (!path) continue;
         const key = artifactPathKey(path);
-        if (artifactPaths.has(key)) continue;
-        artifactPaths.add(key);
-        byPath.set(path, {
-          id: `${message.id}:${path}`,
-          path,
-          name: fileBaseName(path) || path,
-          sourceMessageId: message.id,
-        });
+        if (deliveredByPath.has(key)) continue;
+        deliveredByPath.set(
+          key,
+          candidatesByPath.get(key) ?? {
+            id: `${message.id}:${path}`,
+            path,
+            name: fileBaseName(path) || path,
+            sourceMessageId: message.id,
+          },
+        );
       }
     }
   }
-  return Array.from(byPath.values()).reverse();
+  return Array.from(deliveredByPath.values()).reverse();
+}
+
+/** 是否应把文件工具从执行轨道提升成面向用户的产物卡。 */
+export function shouldPresentArtifactPair(
+  pair: ReturnType<typeof buildToolPair>,
+  artifacts: ConversationArtifact[],
+): boolean {
+  // 显式发送本身就是交付动作；运行中也保持在突出位置。
+  if (pair.name === "send_file_to_user") return true;
+  const path = filePathFromArguments(pair.arguments);
+  if (!path) return false;
+  const key = artifactPathKey(path);
+  return artifacts.some((artifact) => artifactPathKey(artifact.path) === key);
 }
 
 /** 去重 key:斜杠归一 + Windows 盘符大小写归一(路径本体保持原样)。 */

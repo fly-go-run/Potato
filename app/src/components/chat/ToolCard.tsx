@@ -57,15 +57,23 @@ export function toolPairStatus(pair: ToolPair) {
 export function ToolCard({
   pair,
   onOpenFile,
+  prominentArtifact = false,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
+  prominentArtifact?: boolean;
 }) {
   if (pair.name === "execute_shell_command") {
     return <ShellToolCard pair={pair} />;
   }
   if (isFileTool(pair.name)) {
-    return <FileToolCard pair={pair} onOpenFile={onOpenFile} />;
+    return (
+      <FileToolCard
+        pair={pair}
+        onOpenFile={onOpenFile}
+        prominentArtifact={prominentArtifact}
+      />
+    );
   }
   return <GenericToolCard pair={pair} />;
 }
