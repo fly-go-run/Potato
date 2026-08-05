@@ -1,9 +1,17 @@
-import { memo, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  memo,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Check,
   ChevronDown,
   ChevronRight,
+  CircleDashed,
   Copy,
   FileDiff,
   RefreshCw,
@@ -21,7 +29,15 @@ import {
   totalChangeStats,
   type FileChange,
 } from "../../lib/fileChanges";
-import { useTranslation } from "../../lib/i18n";
+import { useTranslation, type TranslationKey } from "../../lib/i18n";
+import { textFromContent } from "../../lib/content";
+import {
+  selectCollapsedWindow,
+  summarizeTrack,
+  type CollapsedRow,
+  type CollapsedRowRole,
+  type TrackEntrySnapshot,
+} from "../../lib/executionTrack";
 import { splitInlineThinking } from "../../lib/inlineThinking";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
 import { useNow } from "../../lib/useNow";
@@ -108,12 +124,7 @@ export function MessageList({
       {showPendingTurn && (
         <div data-testid="turn-assistant" className="qp-msg-in mb-10">
           <AssistantHeader />
-          <ExecutionTrack
-            entries={[]}
-            waiting
-            pulsing
-            narrationPinnable={false}
-          />
+          <ExecutionTrack entries={[]} waiting pulsing live />
         </div>
       )}
       {pendingApprovals.map((approval) => (
@@ -219,15 +230,6 @@ const AssistantTurn = memo(function AssistantTurn({
       if (startsTrackWork(presented[index]!, outputsByCallId)) movedOn = true;
     }
   }
-  // 最终回复(未被折入轨道的正文)一旦开始,中间叙述不再钉住展开;
-  // 该判定不受后续 progress/压缩消息影响,避免收口后又重新弹开。
-  const finalAnswerStarted = presented.some(
-    (message, index) =>
-      isOrdinaryAssistantMessage(message) &&
-      !foldIntoTrack[index] &&
-      message.content.length > 0,
-  );
-
   const items: RenderItem[] = [];
   for (let index = 0; index < presented.length; index += 1) {
     const message = presented[index]!;
@@ -348,7 +350,7 @@ const AssistantTurn = memo(function AssistantTurn({
             entries={processEntries}
             waiting={false}
             pulsing={pulsing}
-            narrationPinnable={!finalAnswerStarted}
+            live={streaming}
             onOpenFile={onOpenFile}
             resolveFilePath={resolveFilePath}
           />,
@@ -383,7 +385,7 @@ const AssistantTurn = memo(function AssistantTurn({
           entries={[]}
           waiting
           pulsing
-          narrationPinnable={false}
+          live
           onOpenFile={onOpenFile}
           resolveFilePath={resolveFilePath}
         />
@@ -573,15 +575,6 @@ function recentPairDetail(pair: ToolPair): string {
   return "";
 }
 
-/**
- * 运行中的工具/进度条目在折叠态也保持可见——它们带有摘要行没有的
- * 详情(命令、参数、进度文本)。reasoning 不在此列:摘要行已经在说
- * 「思考中」,再叠一行只有标题的思考条目就是复读(r11 截图问题)。
- */
-function isPinnedEntry(entry: ProcessEntry): boolean {
-  return entry.kind !== "reasoning" && isActiveEntry(entry);
-}
-
 /** 运行中(含尚未收到 output 的间隙)的条目。 */
 function isActiveEntry(entry: ProcessEntry): boolean {
   if (entry.kind === "reasoning" || entry.kind === "progress") {
@@ -596,22 +589,28 @@ function isActiveEntry(entry: ProcessEntry): boolean {
 
 /**
  * 稳定执行轨道:等待响应 → 思考中 → 正在使用工具 → 已完成 N 步,
- * 全程共用同一容器。条目按消息 id 常驻,完成后原位收口(qp-collapse
- * 行高过渡)而不是被摘要行替换;摘要文案按当前活动状态交叉淡化。
+ * 全程共用同一容器。折叠态是 append-only 的有界窗口(摘要行 + 至多
+ * COLLAPSED_WINDOW_CAPACITY 行):行按消息 id 常驻,同 key 原位从
+ * 运行态换到完成态,被淘汰的行播退出动画;整轮只在流式结束时收口
+ * 一次。选行与摘要状态机在 lib/executionTrack.ts(纯逻辑)。
  */
 function ExecutionTrack({
   entries,
   waiting,
   pulsing,
-  narrationPinnable,
+  live,
   onOpenFile,
   resolveFilePath,
 }: {
   entries: ProcessEntry[];
   waiting: boolean;
   pulsing: boolean;
-  /** 最终回复尚未开始,允许钉住最新一段中间叙述保持展开。 */
-  narrationPinnable: boolean;
+  /**
+   * 本轮仍在流式中。窗口只在此期间可见,isStreaming=false 才收口:
+   * 协议没有前瞻的 final 标记,「最终回复已开始」的回溯判定会在
+   * 叙述刚到、后续 tool 未到的间隙误收口再重开(review r2 决定)。
+   */
+  live: boolean;
   onOpenFile?: (path: string) => void;
   resolveFilePath?: (url: string) => string | null;
 }) {
@@ -619,82 +618,52 @@ function ExecutionTrack({
   const [open, setOpen] = useState(false);
   const detailedTools = useUiPrefs((state) => state.detailedTools);
   const setDetailedTools = useUiPrefs((state) => state.setDetailedTools);
-  const hasActiveEntry = entries.some(isActiveEntry);
-  // 轨道仍在推进(有活动条目或思考/工具间隙脉冲)且最终回复未开始时,
-  // 最新一段被折入轨道的中间叙述保持展开——它是当下最有信息量的状态
-  // 说明;最终回复一旦开始即收口,且不因后续 progress 重新弹开。
-  let pinnedNarrationKey: string | null = null;
-  if (narrationPinnable && (hasActiveEntry || pulsing)) {
-    for (let index = entries.length - 1; index >= 0; index -= 1) {
-      if (entries[index]!.kind === "message") {
-        pinnedNarrationKey = entries[index]!.key;
-        break;
-      }
-    }
-  }
-  // 折叠态 + 运行中:摘要行下保留最近两条已完成动作(ChatGPT 式近况),
-  // 消除长任务只有一行摘要的黑盒感;展开或收口后由完整条目/摘要接管。
-  const recentDone =
-    !open && hasActiveEntry
-      ? entries
-          .filter(
-            (entry): entry is Extract<ProcessEntry, { kind: "pair" }> =>
-              entry.kind === "pair" && toolPairStatus(entry.pair).completed,
-          )
-          .slice(-2)
-      : [];
-  // 运行中每秒心跳驱动「· 12s」跳动;全部收口后冻结,定格总耗时。
-  const now = useNow(hasActiveEntry);
-  const durationLabel = trackDurationLabel(
-    entries,
-    hasActiveEntry ? now : null,
-  );
-  const stepCount = Math.max(
-    1,
-    entries.filter((entry) => entry.kind !== "message").length,
-  );
-  const failedCount = entries.filter(
-    (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
-  ).length;
-  let runningPair: Extract<ProcessEntry, { kind: "pair" }> | null = null;
-  for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const entry = entries[index]!;
-    if (entry.kind === "pair" && toolPairStatus(entry.pair).running) {
-      runningPair = entry;
-      break;
-    }
-  }
-  const hasRunningProgress = entries.some(
-    (entry) => entry.kind === "progress" && isActiveEntry(entry),
-  );
-  const hasRunningReasoning = entries.some(
-    (entry) => entry.kind === "reasoning" && isActiveEntry(entry),
-  );
+  const snapshots = entries.map(entrySnapshot);
+  const state = summarizeTrack(snapshots, { streaming: live, waiting });
+  // 展开时窗口让位给完整条目列表,淘汰不播动画直接清空。
+  const rows = open
+    ? NO_ROWS
+    : selectCollapsedWindow(snapshots, { streaming: live });
+  const { evicted, settle } = useEvictedRows(rows, !open);
+  // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
+  const now = useNow(live);
+  const durationLabel = trackDurationLabel(entries, live ? now : null);
   const compactionEntry =
     entries.length === 1 &&
     entries[0]?.kind === "progress" &&
     isContextCompactionMessage(entries[0].message)
       ? entries[0]
       : null;
-  const summary = waiting
-    ? t("chat.waitingModel")
-    : runningPair
-    ? humanToolLabel(runningPair.pair.name, true, t)
-    : hasRunningProgress
-    ? t("progress.working")
-    : hasRunningReasoning
-    ? t("reasoning.thinking")
-    : compactionEntry
-    ? compactionEntry.message.metadata?.phase === "fallback"
-      ? t("chat.contextCompaction.fallback")
-      : t("chat.contextCompaction.completed")
-    : failedCount
-    ? t("chat.toolGroupWithFailures", {
-        count: stepCount,
-        failed: failedCount,
-      })
-    : t("chat.toolGroup", { count: stepCount });
+  let summary: string;
+  if (state.kind === "waiting") {
+    summary = t("chat.waitingModel");
+  } else if (state.kind === "runningTool") {
+    summary = humanToolLabel(state.toolName, true, t);
+  } else if (state.kind === "progress") {
+    summary = t("progress.working");
+  } else if (state.kind === "thinking") {
+    summary = t("reasoning.thinking");
+  } else if (compactionEntry) {
+    summary =
+      compactionEntry.message.metadata?.phase === "fallback"
+        ? t("chat.contextCompaction.fallback")
+        : t("chat.contextCompaction.completed");
+  } else {
+    summary = state.failed
+      ? t("chat.toolGroupWithFailures", {
+          count: state.steps,
+          failed: state.failed,
+        })
+      : t("chat.toolGroup", { count: state.steps });
+  }
   const toggleable = entries.length > 0;
+  const entryByKey = new Map(entries.map((entry) => [entry.key, entry]));
+  const orderOf = new Map(entries.map((entry, index) => [entry.key, index]));
+  // 在场行 + 退出中的行按 entries 原始时间序合并渲染。
+  const display = [
+    ...rows.map((row) => ({ ...row, exiting: false })),
+    ...evicted.map((row) => ({ ...row, exiting: true })),
+  ].sort((a, b) => (orderOf.get(a.key) ?? 0) - (orderOf.get(b.key) ?? 0));
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
@@ -760,21 +729,19 @@ function ExecutionTrack({
           </div>
         )}
       </div>
-      {recentDone.length > 0 && (
+      {display.length > 0 && (
         <div className="pl-1">
-          {recentDone.map((entry) => {
-            const detail = recentPairDetail(entry.pair);
+          {display.map((row) => {
+            const entry = entryByKey.get(row.key);
+            if (!entry) return null;
             return (
-              <div
-                key={`recent-${entry.key}`}
-                className="qp-msg-in flex min-h-6 items-center gap-1.5 px-1 text-[12px] text-ink-muted"
-              >
-                <Check size={12} className="shrink-0" />
-                <span className="min-w-0 truncate">
-                  {humanToolLabel(entry.pair.name, false, t)}
-                  {detail ? ` · ${detail}` : ""}
-                </span>
-              </div>
+              <WindowRow
+                key={row.key}
+                role={row.role}
+                entry={entry}
+                exiting={row.exiting}
+                onExited={settle}
+              />
             );
           })}
         </div>
@@ -782,14 +749,7 @@ function ExecutionTrack({
       {toggleable && (
         <div className="pl-1">
           {entries.map((entry) => (
-            <Collapse
-              key={entry.key}
-              open={
-                open || isPinnedEntry(entry) || entry.key === pinnedNarrationKey
-              }
-              keepMounted
-              className="qp-msg-in"
-            >
+            <Collapse key={entry.key} open={open} keepMounted>
               <TrackEntry
                 entry={entry}
                 onOpenFile={onOpenFile}
@@ -801,6 +761,166 @@ function ExecutionTrack({
       )}
     </div>
   );
+}
+
+const NO_ROWS: CollapsedRow[] = [];
+
+/** 折叠窗口选行的输入快照:ProcessEntry → 纯逻辑层的形状。 */
+function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
+  if (entry.kind === "pair") {
+    const status = toolPairStatus(entry.pair);
+    return {
+      key: entry.key,
+      kind: "tool",
+      active: status.running,
+      completed: status.completed,
+      failed: status.failed,
+      toolName: entry.pair.name,
+    };
+  }
+  if (entry.kind === "message") {
+    return { key: entry.key, kind: "message", active: false };
+  }
+  return { key: entry.key, kind: entry.kind, active: isActiveEntry(entry) };
+}
+
+/**
+ * 折叠窗口退出簿记:被淘汰的行保留在渲染树里播 qp-row-out,
+ * animationend 后移除。对比在 render 阶段同步进行(与 Collapse 的
+ * prevOpen 手法一致),避免行先卸载一帧再回插补动画造成闪跳;
+ * reduced-motion 或展开清窗时直接移除。
+ */
+function useEvictedRows(rows: CollapsedRow[], animate: boolean) {
+  const [evicted, setEvicted] = useState<CollapsedRow[]>([]);
+  const [prev, setPrev] = useState(rows);
+  const changed = rowsDiffer(prev, rows);
+  if (changed) setPrev(rows);
+  if (!animate) {
+    // 展开清窗对退出中的行同样生效:rows 可能早已为空(rowsDiffer
+    // 不触发),仅 animate 翻转也要立即清掉,不能等 animationend。
+    if (evicted.length > 0) setEvicted([]);
+  } else if (changed) {
+    if (prefersReducedMotion()) {
+      if (evicted.length > 0) setEvicted([]);
+    } else {
+      const keys = new Set(rows.map((row) => row.key));
+      const removed = prev.filter((row) => !keys.has(row.key));
+      const kept = evicted.filter(
+        (row) =>
+          !keys.has(row.key) && !removed.some((gone) => gone.key === row.key),
+      );
+      setEvicted([...kept, ...removed]);
+    }
+  }
+  const settle = useCallback((key: string) => {
+    setEvicted((old) => old.filter((row) => row.key !== key));
+  }, []);
+  return { evicted, settle };
+}
+
+function rowsDiffer(a: CollapsedRow[], b: CollapsedRow[]): boolean {
+  if (a.length !== b.length) return true;
+  return a.some(
+    (row, index) => row.key !== b[index]!.key || row.role !== b[index]!.role,
+  );
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
+  );
+}
+
+/**
+ * 折叠窗口单行。同一 key 的行在 current → done 时原位交叉淡化内容
+ * (qp-swap-in),不重放入场动画;新行入场 qp-msg-in,淘汰行 qp-row-out。
+ * 当前步只展示详情(命令/文件/查询词)——「正在…」已由摘要行表达,
+ * 无详情时整行省略,避免复读。
+ */
+function WindowRow({
+  role,
+  entry,
+  exiting,
+  onExited,
+}: {
+  role: CollapsedRowRole;
+  entry: ProcessEntry;
+  exiting: boolean;
+  onExited: (key: string) => void;
+}) {
+  const { t } = useTranslation();
+  const content = windowRowContent(role, entry, t);
+  if (!content) return null;
+  return (
+    <div
+      className={`qp-msg-in flex min-h-6 items-start gap-1.5 px-1 py-0.5 text-[12px] leading-5 text-ink-muted ${
+        exiting ? "qp-row-out" : ""
+      }`}
+      onAnimationEnd={(event) => {
+        if (event.animationName === "qp-row-out") onExited(entry.key);
+      }}
+    >
+      <span
+        key={role}
+        className="qp-swap-in flex min-w-0 items-start gap-1.5"
+      >
+        {content.icon}
+        <span
+          className={
+            content.clamp ? "line-clamp-2 min-w-0" : "min-w-0 truncate"
+          }
+        >
+          {content.text}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/** 各角色的行内容;返回 null 表示该行没有可展示的信息,整行省略。 */
+function windowRowContent(
+  role: CollapsedRowRole,
+  entry: ProcessEntry,
+  translate: (
+    key: TranslationKey,
+    params?: Record<string, string | number>,
+  ) => string,
+): { icon: ReactNode; text: string; clamp?: boolean } | null {
+  if (role === "narration") {
+    if (entry.kind !== "message") return null;
+    const text = textFromContent(entry.message.content).trim();
+    if (!text) return null;
+    // 与带图标的行左缘对齐:12px 图标位 + 6px 间距。
+    return {
+      icon: <span aria-hidden className="w-3 shrink-0" />,
+      text,
+      clamp: true,
+    };
+  }
+  if (entry.kind === "pair") {
+    const detail = recentPairDetail(entry.pair);
+    if (role === "current") {
+      if (!detail) return null;
+      return {
+        icon: <CircleDashed size={12} className="mt-1 shrink-0" />,
+        text: detail,
+      };
+    }
+    const label = humanToolLabel(entry.pair.name, false, translate);
+    return {
+      icon: <Check size={12} className="mt-1 shrink-0" />,
+      text: detail ? `${label} · ${detail}` : label,
+    };
+  }
+  if (entry.kind === "progress") {
+    const text = textFromContent(entry.message.content).trim();
+    if (!text) return null;
+    return {
+      icon: <CircleDashed size={12} className="mt-1 shrink-0" />,
+      text,
+    };
+  }
+  return null;
 }
 
 /** memo:useNow 每秒心跳只该刷新摘要行的计时文案,条目行引用不变直接跳过。 */
