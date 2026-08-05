@@ -53,7 +53,8 @@ export function resolveConversationFileLink(
   const raw = href.trim();
   if (!raw || raw.startsWith("#") || raw.startsWith("//")) return null;
   // OpenAI 系模型习惯用 sandbox: 协议链接沙箱产物,携带的就是本地绝对路径。
-  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^(?:file|sandbox):/i.test(raw)) {
+  // 协议名至少两位:单字母加冒号是 Windows 盘符(C:\)而非 URL scheme。
+  if (/^[a-z][a-z0-9+.-]+:/i.test(raw) && !/^(?:file|sandbox):/i.test(raw)) {
     return null;
   }
 
@@ -65,11 +66,13 @@ export function resolveConversationFileLink(
   }
   // 剥掉协议;file:///x 的空 authority 双斜杠一并去掉,
   // sandbox:/x 单斜杠属于路径本体,必须保留。
+  // Windows file URI(file:///C:/x、file://C:/x)盘符前的斜杠不属于路径。
   const path = decoded
     .replace(/^(?:file|sandbox):/i, "")
     .replace(/^\/\/(?=\/)/, "")
     .split(/[?#]/, 1)[0]!
-    .replaceAll("\\", "/");
+    .replaceAll("\\", "/")
+    .replace(/^\/+(?=[a-z]:\/)/i, "");
   if (!path) return null;
   if (path.startsWith("/") || /^[a-z]:\//i.test(path)) return path;
 

@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { filePreviewUrl } from "../../lib/api";
+import { handleSystemOpenClick } from "../../lib/desktop";
 import { lineDiff, type DiffLineKind } from "../../lib/lineDiff";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import type { ToolPair } from "./ToolCard";
@@ -239,6 +240,7 @@ function ArtifactCard({
           rel="noreferrer"
           title={t("tool.file.open")}
           aria-label={t("tool.file.open")}
+          onClick={(event) => handleSystemOpenClick(event, path)}
           className="shrink-0 rounded-[var(--radius-sm)] p-1.5 text-ink-muted transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
         >
           <ArrowUpRight size={15} />

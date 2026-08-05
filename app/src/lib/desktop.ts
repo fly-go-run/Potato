@@ -209,6 +209,73 @@ export async function notifyDesktopReady(): Promise<void> {
   return readyRequest;
 }
 
+/** 绝对本地路径(POSIX 或 Windows 盘符)才允许交给系统打开。 */
+export function isAbsoluteLocalPath(path: string): boolean {
+  return path.startsWith("/") || /^[a-z]:[\\/]/i.test(path);
+}
+
+/** 渲染期同步判断:该路径能否走「系统默认应用打开 / 文件管理器显示」。 */
+export function canOpenLocalPathWithSystem(path: string): boolean {
+  return isAbsoluteLocalPath(path) && hasDesktopHostBridge();
+}
+
+/**
+ * 桌面壳内用系统默认应用打开本地文件。返回 false(浏览器模式、相对
+ * 路径、文件已不存在等)时由调用方回落应用内预览。
+ */
+export async function openLocalPathWithSystem(path: string): Promise<boolean> {
+  return invokeLocalFileCommand("open_local_path", path);
+}
+
+/** 桌面壳内在系统文件管理器(Finder/资源管理器)中定位文件。 */
+export async function revealLocalPathInFileManager(
+  path: string,
+): Promise<boolean> {
+  return invokeLocalFileCommand("reveal_local_path", path);
+}
+
+/**
+ * `target="_blank"` 文件预览链接的桌面壳增强:普通左键且可系统打开时
+ * 拦截,改交系统默认应用;浏览器模式与修饰键点击保持原新窗口预览。
+ */
+export function handleSystemOpenClick(
+  event: {
+    button: number;
+    metaKey: boolean;
+    ctrlKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+    preventDefault: () => void;
+  },
+  path: string,
+): void {
+  if (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
+  }
+  if (!canOpenLocalPathWithSystem(path)) return;
+  event.preventDefault();
+  void openLocalPathWithSystem(path);
+}
+
+async function invokeLocalFileCommand(
+  command: "open_local_path" | "reveal_local_path",
+  path: string,
+): Promise<boolean> {
+  if (!canOpenLocalPathWithSystem(path)) return false;
+  try {
+    await invokeDesktop(command, { path });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 壳内原生对话框可用(dialog 插件已注册,capability 已授 dialog:allow-open) */
 export function hasNativeDialogs(): boolean {
   return isDesktopShell() && tauriInternals() !== null;

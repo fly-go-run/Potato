@@ -18,6 +18,7 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "frontend-ready",
+    "local-file",
     "open-external-link",
     "tray"
   ]

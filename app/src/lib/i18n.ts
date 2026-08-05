@@ -204,6 +204,8 @@ export const dictionaries = {
     "chat.diff.loading": "正在读取工作区改动…",
     "chat.diff.workingTree": "工作区改动",
     "chat.preview.loading": "正在读取文件…",
+    "chat.preview.openSystem": "用默认应用打开",
+    "chat.preview.reveal": "在文件夹中显示",
     "chat.diff.undo": "撤销此文件的工作区改动",
     "chat.diff.staged": "已暂存改动",
     "chat.diff.undone": "已撤销工作区改动，下方为会话记录中的历史改动。",
@@ -995,6 +997,8 @@ export const dictionaries = {
     "chat.diff.loading": "Loading working-tree changes…",
     "chat.diff.workingTree": "Working tree",
     "chat.preview.loading": "Loading file…",
+    "chat.preview.openSystem": "Open with default app",
+    "chat.preview.reveal": "Reveal in folder",
     "chat.diff.undo": "Discard working-tree changes for this file",
     "chat.diff.staged": "Staged changes",
     "chat.diff.undone":

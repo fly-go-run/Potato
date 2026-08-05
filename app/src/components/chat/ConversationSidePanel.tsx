@@ -6,6 +6,7 @@ import {
   FileDiff,
   FileImage,
   Files,
+  FolderOpen,
   FileSpreadsheet,
   FileText,
   GitBranch,
@@ -18,6 +19,12 @@ import {
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ThemedToken } from "@shikijs/types";
 import { fetchFileText, filePreviewUrl, workspaceGitApi } from "../../lib/api";
+import {
+  canOpenLocalPathWithSystem,
+  handleSystemOpenClick,
+  openLocalPathWithSystem,
+  revealLocalPathInFileManager,
+} from "../../lib/desktop";
 import {
   presentRunStatus,
   type ConversationArtifact,
@@ -266,6 +273,9 @@ export function ConversationSidePanel({
                         rel="noreferrer"
                         title={t("tool.file.open")}
                         aria-label={t("tool.file.open")}
+                        onClick={(event) =>
+                          handleSystemOpenClick(event, artifact.path)
+                        }
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
                       >
                         <ArrowUpRight size={14} />
@@ -322,16 +332,39 @@ function FilePreviewPanel({
             {directoryOf(path)}
           </span>
         </span>
-        <a
-          href={filePreviewUrl(path)}
-          target="_blank"
-          rel="noreferrer"
-          title={t("tool.file.open")}
-          aria-label={t("tool.file.open")}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
-        >
-          <ArrowUpRight size={14} />
-        </a>
+        {canOpenLocalPathWithSystem(path) ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void revealLocalPathInFileManager(path)}
+              title={t("chat.preview.reveal")}
+              aria-label={t("chat.preview.reveal")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+            >
+              <FolderOpen size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => void openLocalPathWithSystem(path)}
+              title={t("chat.preview.openSystem")}
+              aria-label={t("chat.preview.openSystem")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+            >
+              <ArrowUpRight size={14} />
+            </button>
+          </>
+        ) : (
+          <a
+            href={filePreviewUrl(path)}
+            target="_blank"
+            rel="noreferrer"
+            title={t("tool.file.open")}
+            aria-label={t("tool.file.open")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+          >
+            <ArrowUpRight size={14} />
+          </a>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden bg-surface">
         <FilePreviewBody path={path} filename={filename} />

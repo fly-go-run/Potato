@@ -1,6 +1,7 @@
 import { FileText } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { filePreviewUrl } from "../../lib/api";
+import { openLocalPathWithSystem } from "../../lib/desktop";
 import { useTranslation } from "../../lib/i18n";
 import type { ContentBlock } from "../../lib/protocol/types";
 
@@ -97,7 +98,10 @@ export function MessageContent({
                   return;
                 }
                 event.preventDefault();
-                onOpenFile(part.file_url!);
+                const fileUrl = part.file_url!;
+                void openLocalPathWithSystem(fileUrl).then((opened) => {
+                  if (!opened) onOpenFile(fileUrl);
+                });
               }}
               className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-bubble-tool px-3 py-2 text-xs text-ink-secondary transition-colors hover:border-line-strong hover:text-ink"
               title={t("attachment.preview", { name: filename })}

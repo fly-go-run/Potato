@@ -4,6 +4,7 @@ import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ThemedToken } from "@shikijs/types";
 import { filePreviewUrl } from "../../lib/api";
+import { openLocalPathWithSystem } from "../../lib/desktop";
 import { highlightCode, isSupportedLanguage } from "../../lib/highlight";
 
 interface MarkdownProps {
@@ -87,7 +88,11 @@ export function Markdown({
                       return;
                     }
                     event.preventDefault();
-                    onOpenFile(filePath);
+                    // 桌面壳优先交给系统默认应用(如 PDF 阅读器);
+                    // 浏览器模式或打开失败回落应用内预览面板。
+                    void openLocalPathWithSystem(filePath).then((opened) => {
+                      if (!opened) onOpenFile(filePath);
+                    });
                   }}
                   className="inline-flex items-center gap-1 rounded-[4px] text-accent underline decoration-accent/40 underline-offset-2 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:decoration-accent"
                 >

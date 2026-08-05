@@ -3,6 +3,7 @@
 mod backend;
 mod backend_download;
 mod external_link;
+mod local_file;
 mod updates;
 mod tray;
 #[cfg(target_os = "macos")]
@@ -75,6 +76,8 @@ pub fn run() {
             backend::backend_startup_error,
             backend::restart_backend,
             external_link::open_external_link,
+            local_file::open_local_path,
+            local_file::reveal_local_path,
             updates::check_desktop_update,
             updates::install_desktop_update,
             updates::download_desktop_update,

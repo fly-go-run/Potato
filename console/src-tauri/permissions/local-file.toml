@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "local-file"
+description = "Allows the frontend to open conversation-produced local files with the system default application or reveal them in the file manager."
+commands.allow = ["open_local_path", "reveal_local_path"]

@@ -209,6 +209,24 @@ describe("resolveConversationFileLink", () => {
     ).toBeNull();
   });
 
+  it("treats Windows drive-letter paths as local paths, not URL schemes", () => {
+    expect(resolveConversationFileLink("C:\\Users\\me\\报告.pdf", [])).toBe(
+      "C:/Users/me/报告.pdf",
+    );
+    expect(resolveConversationFileLink("c:/Users/me/report.pdf", [])).toBe(
+      "c:/Users/me/report.pdf",
+    );
+    expect(
+      resolveConversationFileLink("file:///C:/Users/me/report.pdf", []),
+    ).toBe("C:/Users/me/report.pdf");
+    expect(
+      resolveConversationFileLink("sandbox:/C:/Users/me/report.pdf", []),
+    ).toBe("C:/Users/me/report.pdf");
+    expect(
+      resolveConversationFileLink("mailto:someone@example.com", []),
+    ).toBeNull();
+  });
+
   it("resolves sandbox: links even without matching artifacts", () => {
     expect(
       resolveConversationFileLink(
