@@ -151,6 +151,21 @@ select,
   animation: qp-fade-in var(--dur-fast) ease-out;
 }
 
+/* 运行状态指示环:只有当前步骤旋转,历史步骤应换成静态图标 */
+@keyframes qp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.qp-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  border: 1.5px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: qp-spin 900ms linear infinite;
+}
+
 /* 执行轨道条目原位收口:grid 行高 1fr↔0fr 过渡,内容保持挂载 */
 .qp-collapse {
   display: grid;
@@ -183,5 +198,10 @@ select,
   }
   .qp-collapse {
     transition: none;
+  }
+  /* 静态整环仍可读作「进行中」,不旋转 */
+  .qp-spinner {
+    animation: none;
+    border-top-color: color-mix(in srgb, currentColor 22%, transparent);
   }
 }

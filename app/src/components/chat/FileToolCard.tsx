@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
-  ChevronRight,
   FileArchive,
   FileCode,
   FileImage,
@@ -14,13 +13,17 @@ import { filePreviewUrl } from "../../lib/api";
 import { handleSystemOpenClick } from "../../lib/desktop";
 import { lineDiff, type DiffLineKind } from "../../lib/lineDiff";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
+import { Collapse } from "./Collapse";
+import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
 import {
+  humanToolLabel,
+  pairDurationLabel,
   richOutputText,
-  showToolDebugStatus,
   toolPairStatus,
   ToolStatus,
 } from "./ToolCard";
+import { useToolDetail } from "../../stores/uiPrefs";
 
 const FILE_TOOL_TITLES: Record<string, TranslationKey> = {
   read_file: "tool.file.read",
@@ -62,8 +65,11 @@ export function FileToolCard({
   const path =
     typeof parameters.file_path === "string" ? parameters.file_path : "";
   const { running, failed } = toolPairStatus(pair);
-  const debugStatus = showToolDebugStatus();
+  const debugStatus = useToolDetail();
+  const durationLabel = running ? "" : pairDurationLabel(pair);
   const titleKey = FILE_TOOL_TITLES[pair.name] ?? "tool.genericName";
+  // 失败退回中性名词,成功/运行中用时态标签(正在读取 / 读取了)。
+  const title = failed ? t(titleKey) : humanToolLabel(pair.name, running, t);
 
   const detail = (
     <div className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
@@ -95,44 +101,7 @@ export function FileToolCard({
     </div>
   );
 
-  if (running) {
-    return (
-      <details className="group my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool">
-        <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
-          <ChevronRight
-            size={14}
-            className="shrink-0 text-ink-muted transition-transform group-open:rotate-90"
-          />
-          <FileText size={14} className="shrink-0 text-ink-secondary" />
-          <span className="shrink-0 font-medium text-ink">{t(titleKey)}</span>
-          {path && onOpenFile ? (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onOpenFile(path);
-              }}
-              className="min-w-0 flex-1 truncate text-left font-mono text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-              title={t("tool.file.open")}
-            >
-              {path}
-            </button>
-          ) : (
-            <span className="min-w-0 flex-1 truncate font-mono text-ink-muted">
-              {path || t("tool.file.path")}
-            </span>
-          )}
-          <ToolStatus running={running} failed={failed} />
-        </summary>
-        <div className="max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain border-t border-line">
-          {detail}
-        </div>
-      </details>
-    );
-  }
-
-  if (isSuccessfulArtifactPair(pair) && path) {
+  if (!running && isSuccessfulArtifactPair(pair) && path) {
     return (
       <ArtifactCard
         pair={pair}
@@ -143,48 +112,78 @@ export function FileToolCard({
     );
   }
 
-  return (
-    <details className="group my-0.5">
-      <summary className="flex min-h-7 cursor-pointer list-none items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5 py-1 text-xs transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
-        <ChevronRight
-          size={12}
-          className="shrink-0 text-ink-muted transition-transform group-open:rotate-90"
-        />
-        <FileText
-          size={12}
-          className={`shrink-0 ${
-            debugStatus && failed ? "text-danger" : "text-ink-muted"
-          }`}
-        />
-        <span
-          className={`shrink-0 font-medium ${
-            debugStatus && failed ? "text-danger" : "text-ink-tertiary"
-          }`}
-        >
-          {t(titleKey)}
+  const pathNode = (mono: string) =>
+    path && onOpenFile ? (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenFile(path);
+        }}
+        className={`min-w-0 flex-1 truncate text-left font-mono ${mono} text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary`}
+        title={t("tool.file.open")}
+      >
+        {path}
+      </button>
+    ) : (
+      <span className={`min-w-0 flex-1 truncate font-mono ${mono} text-ink-muted`}>
+        {path || t("tool.file.path")}
+      </span>
+    );
+
+  const toggle = running ? (
+    <>
+      <FileText size={14} className="shrink-0 text-ink-secondary" />
+      <span className="shrink-0 font-medium text-ink">{title}</span>
+    </>
+  ) : (
+    <>
+      <FileText
+        size={12}
+        className={`shrink-0 ${
+          debugStatus && failed ? "text-danger" : "text-ink-muted"
+        }`}
+      />
+      <span
+        className={`shrink-0 font-medium ${
+          debugStatus && failed ? "text-danger" : "text-ink-tertiary"
+        }`}
+      >
+        {title}
+      </span>
+    </>
+  );
+  const after = running ? (
+    <>
+      {pathNode("")}
+      <ToolStatus running={running} failed={failed} />
+    </>
+  ) : (
+    <>
+      {pathNode("text-[12px]")}
+      {durationLabel && (
+        <span className="ml-auto shrink-0 pl-2 text-[11px] tabular-nums text-ink-muted">
+          {durationLabel}
         </span>
-        {path && onOpenFile ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onOpenFile(path);
-            }}
-            className="min-w-0 flex-1 truncate text-left font-mono text-[12px] text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
-            title={t("tool.file.open")}
-          >
-            {path}
-          </button>
-        ) : (
-          <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-muted">
-            {path || t("tool.file.path")}
-          </span>
-        )}
-        <ToolStatus running={running} failed={failed} quiet />
-      </summary>
-      <div className="mb-2 mt-1">{detail}</div>
-    </details>
+      )}
+      <ToolStatus running={running} failed={failed} quiet />
+    </>
+  );
+
+  return (
+    <ToolDisclosure
+      card={running}
+      toggle={toggle}
+      after={after}
+      toggleGrow={false}
+      detailClassName={
+        running
+          ? "max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
+          : "mb-2 mt-1"
+      }
+    >
+      {detail}
+    </ToolDisclosure>
   );
 }
 
@@ -246,7 +245,9 @@ function ArtifactCard({
           <ArrowUpRight size={15} />
         </a>
       </div>
-      {expanded && <div className="px-3 pb-3">{detail}</div>}
+      <Collapse open={expanded}>
+        <div className="px-3 pb-3">{detail}</div>
+      </Collapse>
     </div>
   );
 }

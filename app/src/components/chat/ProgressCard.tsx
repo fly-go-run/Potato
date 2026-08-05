@@ -1,11 +1,14 @@
 import { Check, CircleEllipsis, X } from "lucide-react";
+import { Spinner } from "../ui/Spinner";
 import type { DataContent, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useTranslation } from "../../lib/i18n";
-import { showToolDebugStatus } from "./ToolCard";
+import { useToolDetail } from "../../stores/uiPrefs";
 
 export function ProgressCard({ message }: { message: StreamMessage }) {
   const { t } = useTranslation();
+  // hook 必须在压缩卡的提前 return 之前调用。
+  const debugStatus = useToolDetail();
   if (isContextCompactionMessage(message)) {
     const phase = String(message.metadata?.phase ?? "in_progress");
     const label =
@@ -16,9 +19,7 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
         : t("chat.contextCompaction.running");
     return (
       <div className="my-2 flex items-center gap-2 text-xs text-ink-muted">
-        {phase === "in_progress" && (
-          <CircleEllipsis size={14} className="shrink-0 animate-pulse" />
-        )}
+        {phase === "in_progress" && <Spinner size={13} />}
         <span className="min-w-0 truncate font-medium text-ink-secondary">
           {label}
         </span>
@@ -32,7 +33,6 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
   const status = progressStatus(message);
   const completed = message.status === "completed";
   const failed = message.status === "failed" || message.status === "cancelled";
-  const debugStatus = showToolDebugStatus();
   const Icon = failed ? X : completed ? Check : CircleEllipsis;
 
   // 失败终态不分环境,必须始终可见:静默吞掉失败比暴露内部字段更伤。
@@ -69,10 +69,7 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
   return (
     <div className="my-2 rounded-md bg-bubble-tool px-3 py-2 text-xs">
       <div className="flex items-center gap-2">
-        <CircleEllipsis
-          size={14}
-          className="shrink-0 animate-pulse text-ink-tertiary"
-        />
+        <Spinner size={13} className="text-ink-tertiary" />
         <span className="min-w-0 truncate font-medium text-ink">{title}</span>
       </div>
       <div className="mt-1 pl-[22px] text-ink-muted">

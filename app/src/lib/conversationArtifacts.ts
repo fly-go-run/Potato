@@ -38,7 +38,53 @@ export function collectConversationArtifacts(
       sourceMessageId: message.id,
     });
   }
+
+  // 工具调用是更可靠的产物来源;正文链接只补充 shell 等未结构化上报的文件。
+  const artifactPaths = new Set(
+    Array.from(byPath.keys(), (path) => artifactPathKey(path)),
+  );
+  for (const message of messages) {
+    if (message.type !== "message" || message.role !== "assistant") continue;
+    for (const content of message.content) {
+      if (content.type !== "text") continue;
+      // 预筛:绝大多数消息没有协议链接,直接跳过,
+      // 也避免病态文本(大量未闭合 `[`)进入链接正则的重复扫描。
+      if (!/(?:sandbox|file):/i.test(content.text)) continue;
+      for (const href of markdownLinkHrefs(content.text)) {
+        if (!/^(?:sandbox|file):/i.test(href)) continue;
+        const path = resolveConversationFileLink(href, []);
+        if (!path) continue;
+        const key = artifactPathKey(path);
+        if (artifactPaths.has(key)) continue;
+        artifactPaths.add(key);
+        byPath.set(path, {
+          id: `${message.id}:${path}`,
+          path,
+          name: fileBaseName(path) || path,
+          sourceMessageId: message.id,
+        });
+      }
+    }
+  }
   return Array.from(byPath.values()).reverse();
+}
+
+/** 去重 key:斜杠归一 + Windows 盘符大小写归一(路径本体保持原样)。 */
+function artifactPathKey(path: string): string {
+  return path
+    .replaceAll("\\", "/")
+    .replace(/^[a-z]:(?=\/)/i, (drive) => drive.toUpperCase());
+}
+
+function* markdownLinkHrefs(text: string): Iterable<string> {
+  // 仅识别普通 Markdown 链接；图片语法(![])不是面向用户交付的文件。
+  // 标签支持转义方括号且不跨行；裸 href 支持一层平衡括号
+  // (下载文件常见 report(1).pdf),带空格/嵌套括号的走 <...> 包裹分支。
+  const links =
+    /(?<!!)\[(?:\\.|[^\]\\\n])*\]\(\s*(?:<([^>\n]+)>|((?:\([^\s()]*\)|[^\s()])+))\s*\)/g;
+  for (const match of text.matchAll(links)) {
+    yield match[1] ?? match[2] ?? "";
+  }
 }
 
 /**

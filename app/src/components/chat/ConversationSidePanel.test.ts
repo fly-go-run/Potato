@@ -40,6 +40,27 @@ function toolMessage(
   };
 }
 
+function assistantTextMessage(id: string, text: string): StreamMessage {
+  return {
+    id,
+    type: "message",
+    role: "assistant",
+    status: "completed",
+    metadata: null,
+    content: [
+      {
+        object: "content",
+        type: "text",
+        delta: false,
+        index: 0,
+        status: "completed",
+        msg_id: id,
+        text,
+      },
+    ],
+  };
+}
+
 describe("collectConversationArtifacts", () => {
   it("aggregates files written and delivered across turns", () => {
     const messages = [
@@ -181,6 +202,131 @@ describe("collectConversationArtifacts", () => {
     ]);
 
     expect(collectConversationArtifacts(messages)).toEqual([]);
+  });
+
+  it("collects files explicitly delivered in assistant sandbox links", () => {
+    const artifacts = collectConversationArtifacts([
+      assistantTextMessage(
+        "assistant-1",
+        "已生成 [下载目录文档清单.txt](<sandbox:/Users/me/下载目录文档清单.txt>)。",
+      ),
+    ]);
+
+    expect(artifacts).toEqual([
+      {
+        id: "assistant-1:/Users/me/下载目录文档清单.txt",
+        path: "/Users/me/下载目录文档清单.txt",
+        name: "下载目录文档清单.txt",
+        sourceMessageId: "assistant-1",
+      },
+    ]);
+  });
+
+  it("keeps the tool artifact when an assistant links the same file", () => {
+    const artifacts = collectConversationArtifacts([
+      toolMessage("call-1", "function_call", {
+        call_id: "1",
+        name: "write_file",
+        arguments: JSON.stringify({ file_path: "/tmp/report.txt" }),
+      }),
+      toolMessage("out-1", "function_call_output", {
+        call_id: "1",
+        name: "write_file",
+        output: "Wrote 24 bytes",
+        state: "completed",
+      }),
+      assistantTextMessage("assistant-1", "[下载](sandbox:/tmp/report.txt)"),
+    ]);
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]?.id).toBe("call-1:/tmp/report.txt");
+  });
+
+  it("dedupes a linked file against its backslash tool path", () => {
+    const artifacts = collectConversationArtifacts([
+      toolMessage("call-1", "function_call", {
+        call_id: "1",
+        name: "write_file",
+        arguments: JSON.stringify({ file_path: "C:\\tmp\\报告.txt" }),
+      }),
+      toolMessage("out-1", "function_call_output", {
+        call_id: "1",
+        name: "write_file",
+        output: "Wrote 24 bytes",
+        state: "completed",
+      }),
+      assistantTextMessage("assistant-1", "[报告](file:///C:/tmp/报告.txt)"),
+    ]);
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]?.id).toBe("call-1:C:\\tmp\\报告.txt");
+  });
+
+  it("dedupes across drive-letter case differences", () => {
+    const artifacts = collectConversationArtifacts([
+      toolMessage("call-1", "function_call", {
+        call_id: "1",
+        name: "write_file",
+        arguments: JSON.stringify({ file_path: "C:\\tmp\\报告.txt" }),
+      }),
+      toolMessage("out-1", "function_call_output", {
+        call_id: "1",
+        name: "write_file",
+        output: "Wrote 24 bytes",
+        state: "completed",
+      }),
+      assistantTextMessage("assistant-1", "[报告](file:///c:/tmp/报告.txt)"),
+    ]);
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]?.id).toBe("call-1:C:\\tmp\\报告.txt");
+  });
+
+  it("extracts links with balanced parens and escaped label brackets", () => {
+    const artifacts = collectConversationArtifacts([
+      assistantTextMessage(
+        "assistant-1",
+        "[报告 \\[最终\\]](sandbox:/tmp/report(final).pdf)",
+      ),
+    ]);
+
+    expect(artifacts).toEqual([
+      expect.objectContaining({
+        path: "/tmp/report(final).pdf",
+        name: "report(final).pdf",
+      }),
+    ]);
+  });
+
+  it("only collects assistant sandbox and file protocol links", () => {
+    const userMessage = assistantTextMessage("user-1", "[用户文件](sandbox:/tmp/user.txt)");
+    userMessage.role = "user";
+    const artifacts = collectConversationArtifacts([
+      assistantTextMessage(
+        "assistant-1",
+        "[网页](https://example.com/a.txt) [绝对路径](/Users/a/b.txt) [相对](b.txt) ![图片](sandbox:/a/b.png)",
+      ),
+      userMessage,
+    ]);
+
+    expect(artifacts).toEqual([]);
+  });
+
+  it("collects Windows paths from file protocol links", () => {
+    expect(
+      collectConversationArtifacts([
+        assistantTextMessage(
+          "assistant-1",
+          "[报告](file:///C:/Users/me/报告.pdf)",
+        ),
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        path: "C:/Users/me/报告.pdf",
+        name: "报告.pdf",
+        sourceMessageId: "assistant-1",
+      }),
+    ]);
   });
 });
 

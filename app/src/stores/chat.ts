@@ -18,6 +18,10 @@ import {
 import { t } from "../lib/i18n";
 import { sortChats } from "../lib/chats";
 import {
+  resetMessageTimings,
+  trackMessageTimings,
+} from "../lib/messageTiming";
+import {
   hasSessionProjectRecord,
   loadLastProject,
   loadSessionProject,
@@ -209,6 +213,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     get().requestController?.abort();
     sessionStorage.removeItem(PENDING_SESSION_KEY);
     revokePreviews(get().pendingImages);
+    resetMessageTimings();
     const sessionId = createSessionId();
     const project = loadLastProject();
     saveSessionProject(sessionId, project);
@@ -238,6 +243,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return;
     }
     get().requestController?.abort();
+    resetMessageTimings();
     const controller = new AbortController();
     let chat = get().chats.find((item) => item.id === chatId);
     set({
@@ -800,6 +806,7 @@ async function consumeResponse(
       for (const frame of parsed.frames) {
         const previous = pending;
         pending = reduceStreamFrame(pending, frame);
+        trackMessageTimings(previous, pending);
         hasPending = hasPending || pending !== previous;
         const flushImmediately =
           pending.responseStatus !== previous.responseStatus ||

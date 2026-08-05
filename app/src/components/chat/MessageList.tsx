@@ -1,11 +1,4 @@
-import {
-  memo,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { memo, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Check,
@@ -29,19 +22,24 @@ import {
 } from "../../lib/fileChanges";
 import { useTranslation } from "../../lib/i18n";
 import { splitInlineThinking } from "../../lib/inlineThinking";
+import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
+import { useNow } from "../../lib/useNow";
+import { useUiPrefs } from "../../stores/uiPrefs";
 import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
 import { PotatoMark } from "../brand/PotatoMark";
+import { Spinner } from "../ui/Spinner";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ChangeStat";
+import { Collapse } from "./Collapse";
 import { isArtifactTool } from "./FileToolCard";
 import { MessageContent } from "./MessageContent";
 import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
 import {
   buildToolPair,
-  humanToolName,
+  humanToolLabel,
   toolData,
   toolPairStatus,
   ToolCard,
@@ -110,7 +108,12 @@ export function MessageList({
       {showPendingTurn && (
         <div data-testid="turn-assistant" className="qp-msg-in mb-10">
           <AssistantHeader />
-          <ExecutionTrack entries={[]} waiting pulsing />
+          <ExecutionTrack
+            entries={[]}
+            waiting
+            pulsing
+            narrationPinnable={false}
+          />
         </div>
       )}
       {pendingApprovals.map((approval) => (
@@ -204,17 +207,30 @@ const AssistantTurn = memo(function AssistantTurn({
     resolveConversationFileLink(href, turnArtifacts);
 
   // WorkBuddy keeps the conversational narration that happens before/among
-  // tool calls inside the execution disclosure. Only the final assistant
-  // message remains in the collapsed view. A plain answer without any
-  // execution steps is left untouched.
-  const hasProcess = presented.some(isProcessMessage);
-  const ordinaryMessages = presented.filter(isOrdinaryAssistantMessage);
-  const finalOrdinaryMessageId = ordinaryMessages.at(-1)?.id;
-  const collapseIntermediateMessages =
-    hasProcess && ordinaryMessages.length > 1 && finalOrdinaryMessageId;
+  // tool calls inside the execution disclosure. A text message folds into
+  // the track as soon as any later reasoning/tool call follows it — even
+  // mid-stream — so hoisted tool entries never render above newer text.
+  // Text with no execution after it (the final answer) stays outside.
+  const foldIntoTrack: boolean[] = new Array(presented.length).fill(false);
+  {
+    let movedOn = false;
+    for (let index = presented.length - 1; index >= 0; index -= 1) {
+      foldIntoTrack[index] = movedOn;
+      if (startsTrackWork(presented[index]!, outputsByCallId)) movedOn = true;
+    }
+  }
+  // 最终回复(未被折入轨道的正文)一旦开始,中间叙述不再钉住展开;
+  // 该判定不受后续 progress/压缩消息影响,避免收口后又重新弹开。
+  const finalAnswerStarted = presented.some(
+    (message, index) =>
+      isOrdinaryAssistantMessage(message) &&
+      !foldIntoTrack[index] &&
+      message.content.length > 0,
+  );
 
   const items: RenderItem[] = [];
-  for (const message of presented) {
+  for (let index = 0; index < presented.length; index += 1) {
+    const message = presented[index]!;
     if (message.type === "reasoning") {
       // 运行中与完成态共用轨道条目,身份不变,完成时原位收口。
       items.push({
@@ -276,12 +292,7 @@ const AssistantTurn = memo(function AssistantTurn({
       continue;
     }
     if (message.content.length === 0) continue;
-    if (
-      collapseIntermediateMessages &&
-      message.status === "completed" &&
-      isOrdinaryAssistantMessage(message) &&
-      message.id !== finalOrdinaryMessageId
-    ) {
+    if (isOrdinaryAssistantMessage(message) && foldIntoTrack[index]) {
       items.push({
         kind: "process",
         key: message.id,
@@ -337,6 +348,7 @@ const AssistantTurn = memo(function AssistantTurn({
             entries={processEntries}
             waiting={false}
             pulsing={pulsing}
+            narrationPinnable={!finalAnswerStarted}
             onOpenFile={onOpenFile}
             resolveFilePath={resolveFilePath}
           />,
@@ -367,6 +379,7 @@ const AssistantTurn = memo(function AssistantTurn({
           entries={[]}
           waiting
           pulsing
+          narrationPinnable={false}
           onOpenFile={onOpenFile}
           resolveFilePath={resolveFilePath}
         />
@@ -506,7 +519,66 @@ function FileChangesCard({
   );
 }
 
-/** 运行中(含尚未收到 output 的间隙)的条目在折叠态也保持可见。 */
+/**
+ * 轨道总耗时:首个有计时的条目开始 → 最后一个收口;now 非空(仍有
+ * 条目运行)时用它实时计。历史加载的会话没有计时,返回空串即隐藏。
+ */
+function trackDurationLabel(
+  entries: ProcessEntry[],
+  now: number | null,
+): string {
+  let start = Number.POSITIVE_INFINITY;
+  let end: number | null = null;
+  for (const entry of entries) {
+    const ids =
+      entry.kind === "pair"
+        ? [entry.pair.call?.id, entry.pair.output?.id]
+        : [entry.message.id];
+    for (const id of ids) {
+      if (!id) continue;
+      // 内联 <thinking> 拆出的合成条目(`:thinking` 后缀)沿用原消息计时。
+      const timing = getMessageTiming(id.replace(/:thinking$/, ""));
+      if (!timing) continue;
+      start = Math.min(start, timing.startedAt);
+      if (timing.endedAt !== null) end = Math.max(end ?? 0, timing.endedAt);
+    }
+  }
+  if (!Number.isFinite(start)) return "";
+  const stop = now ?? end;
+  if (stop === null) return "";
+  return formatDuration(stop - start);
+}
+
+/** 近况列表的简短详情:文件名 / 截断命令 / 查询词,拿不到就不显示。 */
+function recentPairDetail(pair: ToolPair): string {
+  try {
+    const args = JSON.parse(pair.arguments) as Record<string, unknown>;
+    const path = typeof args.file_path === "string" ? args.file_path : "";
+    if (path) return path.split(/[/\\]/).at(-1) ?? "";
+    const command = typeof args.command === "string" ? args.command : "";
+    if (command) {
+      return command.length > 40 ? `${command.slice(0, 40)}…` : command;
+    }
+    for (const key of ["query", "search_term", "url", "skill"]) {
+      const value = args[key];
+      if (typeof value === "string" && value) return value;
+    }
+  } catch {
+    // 参数不是 JSON 时不展示详情。
+  }
+  return "";
+}
+
+/**
+ * 运行中的工具/进度条目在折叠态也保持可见——它们带有摘要行没有的
+ * 详情(命令、参数、进度文本)。reasoning 不在此列:摘要行已经在说
+ * 「思考中」,再叠一行只有标题的思考条目就是复读(r11 截图问题)。
+ */
+function isPinnedEntry(entry: ProcessEntry): boolean {
+  return entry.kind !== "reasoning" && isActiveEntry(entry);
+}
+
+/** 运行中(含尚未收到 output 的间隙)的条目。 */
 function isActiveEntry(entry: ProcessEntry): boolean {
   if (entry.kind === "reasoning" || entry.kind === "progress") {
     return (
@@ -518,16 +590,6 @@ function isActiveEntry(entry: ProcessEntry): boolean {
   return false;
 }
 
-function PulseDots() {
-  return (
-    <span className="flex gap-1 motion-reduce:hidden" aria-hidden>
-      <span className="h-1 w-1 animate-pulse rounded-full bg-ink-tertiary" />
-      <span className="h-1 w-1 animate-pulse rounded-full bg-ink-tertiary [animation-delay:150ms]" />
-      <span className="h-1 w-1 animate-pulse rounded-full bg-ink-tertiary [animation-delay:300ms]" />
-    </span>
-  );
-}
-
 /**
  * 稳定执行轨道:等待响应 → 思考中 → 正在使用工具 → 已完成 N 步,
  * 全程共用同一容器。条目按消息 id 常驻,完成后原位收口(qp-collapse
@@ -537,17 +599,52 @@ function ExecutionTrack({
   entries,
   waiting,
   pulsing,
+  narrationPinnable,
   onOpenFile,
   resolveFilePath,
 }: {
   entries: ProcessEntry[];
   waiting: boolean;
   pulsing: boolean;
+  /** 最终回复尚未开始,允许钉住最新一段中间叙述保持展开。 */
+  narrationPinnable: boolean;
   onOpenFile?: (path: string) => void;
   resolveFilePath?: (url: string) => string | null;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const detailedTools = useUiPrefs((state) => state.detailedTools);
+  const setDetailedTools = useUiPrefs((state) => state.setDetailedTools);
+  const hasActiveEntry = entries.some(isActiveEntry);
+  // 轨道仍在推进(有活动条目或思考/工具间隙脉冲)且最终回复未开始时,
+  // 最新一段被折入轨道的中间叙述保持展开——它是当下最有信息量的状态
+  // 说明;最终回复一旦开始即收口,且不因后续 progress 重新弹开。
+  let pinnedNarrationKey: string | null = null;
+  if (narrationPinnable && (hasActiveEntry || pulsing)) {
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      if (entries[index]!.kind === "message") {
+        pinnedNarrationKey = entries[index]!.key;
+        break;
+      }
+    }
+  }
+  // 折叠态 + 运行中:摘要行下保留最近两条已完成动作(ChatGPT 式近况),
+  // 消除长任务只有一行摘要的黑盒感;展开或收口后由完整条目/摘要接管。
+  const recentDone =
+    !open && hasActiveEntry
+      ? entries
+          .filter(
+            (entry): entry is Extract<ProcessEntry, { kind: "pair" }> =>
+              entry.kind === "pair" && toolPairStatus(entry.pair).completed,
+          )
+          .slice(-2)
+      : [];
+  // 运行中每秒心跳驱动「· 12s」跳动;全部收口后冻结,定格总耗时。
+  const now = useNow(hasActiveEntry);
+  const durationLabel = trackDurationLabel(
+    entries,
+    hasActiveEntry ? now : null,
+  );
   const stepCount = Math.max(
     1,
     entries.filter((entry) => entry.kind !== "message").length,
@@ -578,9 +675,7 @@ function ExecutionTrack({
   const summary = waiting
     ? t("chat.waitingModel")
     : runningPair
-    ? t("chat.usingTool", {
-        name: humanToolName(runningPair.pair.name, t),
-      })
+    ? humanToolLabel(runningPair.pair.name, true, t)
     : hasRunningProgress
     ? t("progress.working")
     : hasRunningReasoning
@@ -598,10 +693,13 @@ function ExecutionTrack({
   const toggleable = entries.length > 0;
   const summaryContent = (
     <>
+      {pulsing && <Spinner size={13} />}
       <span key={summary} className="qp-swap-in">
         {summary}
       </span>
-      {pulsing && <PulseDots />}
+      {durationLabel && (
+        <span className="shrink-0 tabular-nums">· {durationLabel}</span>
+      )}
       {toggleable && (
         <ChevronRight
           size={13}
@@ -614,30 +712,86 @@ function ExecutionTrack({
   );
   return (
     <div className="my-1.5">
-      {toggleable ? (
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          aria-expanded={open}
-          className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
-        >
-          {summaryContent}
-        </button>
-      ) : (
-        <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
-          {summaryContent}
+      <div className="flex items-center gap-2">
+        {toggleable ? (
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+          >
+            {summaryContent}
+          </button>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
+            {summaryContent}
+          </div>
+        )}
+        {toggleable && open && (
+          <div className="qp-fade-in inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px]">
+            <button
+              type="button"
+              onClick={() => setDetailedTools(false)}
+              aria-pressed={!detailedTools}
+              className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
+                detailedTools
+                  ? "text-ink-muted hover:text-ink-secondary"
+                  : "bg-fill-hover text-ink-secondary"
+              }`}
+            >
+              {t("chat.density.summary")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDetailedTools(true)}
+              aria-pressed={detailedTools}
+              className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
+                detailedTools
+                  ? "bg-fill-hover text-ink-secondary"
+                  : "text-ink-muted hover:text-ink-secondary"
+              }`}
+            >
+              {t("chat.density.detailed")}
+            </button>
+          </div>
+        )}
+      </div>
+      {recentDone.length > 0 && (
+        <div className="pl-1">
+          {recentDone.map((entry) => {
+            const detail = recentPairDetail(entry.pair);
+            return (
+              <div
+                key={`recent-${entry.key}`}
+                className="qp-msg-in flex min-h-6 items-center gap-1.5 px-1 text-[12px] text-ink-muted"
+              >
+                <Check size={12} className="shrink-0" />
+                <span className="min-w-0 truncate">
+                  {humanToolLabel(entry.pair.name, false, t)}
+                  {detail ? ` · ${detail}` : ""}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
       {toggleable && (
         <div className="pl-1">
           {entries.map((entry) => (
-            <TrackRow key={entry.key} visible={open || isActiveEntry(entry)}>
+            <Collapse
+              key={entry.key}
+              open={
+                open || isPinnedEntry(entry) || entry.key === pinnedNarrationKey
+              }
+              keepMounted
+              className="qp-msg-in"
+            >
               <TrackEntry
                 entry={entry}
                 onOpenFile={onOpenFile}
                 resolveFilePath={resolveFilePath}
               />
-            </TrackRow>
+            </Collapse>
           ))}
         </div>
       )}
@@ -645,47 +799,8 @@ function ExecutionTrack({
   );
 }
 
-/** 与 .qp-collapse 的 grid 行高过渡时长保持一致。 */
-const COLLAPSE_MS = 200;
-
-/**
- * 轨道条目行:可见时挂载内容并以行高过渡展开;隐藏时播完收口动画再
- * 卸载内容——保住原位收口动效的同时,折叠的历史详情不常驻 DOM(长会
- * 话渲染成本),也不会被 Tab/读屏聚焦到不可见控件。
- */
-function TrackRow({
-  visible,
-  children,
-}: {
-  visible: boolean;
-  children: ReactNode;
-}) {
-  const [exiting, setExiting] = useState(false);
-  const wasVisible = useRef(visible);
-  useEffect(() => {
-    if (visible) {
-      wasVisible.current = true;
-      setExiting(false);
-      return;
-    }
-    if (!wasVisible.current) return;
-    wasVisible.current = false;
-    setExiting(true);
-    const timer = window.setTimeout(() => setExiting(false), COLLAPSE_MS + 60);
-    return () => window.clearTimeout(timer);
-  }, [visible]);
-  const mounted = visible || exiting;
-  return (
-    <div
-      className="qp-collapse"
-      style={{ gridTemplateRows: visible ? "1fr" : "0fr" }}
-    >
-      <div className="qp-msg-in">{mounted ? children : null}</div>
-    </div>
-  );
-}
-
-function TrackEntry({
+/** memo:useNow 每秒心跳只该刷新摘要行的计时文案,条目行引用不变直接跳过。 */
+const TrackEntry = memo(function TrackEntry({
   entry,
   onOpenFile,
   resolveFilePath,
@@ -695,12 +810,7 @@ function TrackEntry({
   resolveFilePath?: (url: string) => string | null;
 }) {
   if (entry.kind === "reasoning") {
-    return (
-      <ReasoningBlock
-        message={entry.message}
-        compact={entry.message.status === "completed"}
-      />
-    );
+    return <ReasoningBlock message={entry.message} />;
   }
   if (entry.kind === "progress") {
     return <ProgressCard message={entry.message} />;
@@ -721,15 +831,30 @@ function TrackEntry({
     );
   }
   return <ToolCard pair={entry.pair} onOpenFile={onOpenFile} />;
-}
+});
 
-function isProcessMessage(message: StreamMessage): boolean {
-  return (
-    message.type === "reasoning" ||
-    message.type === "progress" ||
-    isToolCall(message.type) ||
-    isToolOutput(message.type)
-  );
+/**
+ * 该消息是否代表「助手转去继续执行」。文本之后一旦出现这类消息,说明
+ * 它只是中间叙述,应折叠进执行轨道的时间线位置。progress 不算触发:
+ * 压缩等进度可能出现在最终回复之后,不能因此把答案折叠掉;产物工具
+ * 渲染在轨道外,同样不触发。工具名可能只出现在 output 上,与
+ * buildToolPair 一致地按 call → output 顺序解析,保证分类不劈叉。
+ */
+function startsTrackWork(
+  message: StreamMessage,
+  outputsByCallId: Map<string, StreamMessage>,
+): boolean {
+  if (message.type === "reasoning") return true;
+  if (!isToolCall(message.type)) return false;
+  const data = toolData(message);
+  const name =
+    stringValue(data.name) ||
+    stringValue(
+      toolData(outputsByCallId.get(stringValue(data.call_id)) ?? null).name,
+    );
+  // 名称未知(仍在流式)时不触发折叠,避免产物调用先折叠正文再弹回。
+  if (!name) return false;
+  return !isArtifactTool(name);
 }
 
 /**
