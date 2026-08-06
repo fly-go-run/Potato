@@ -46,6 +46,23 @@ def main() -> None:
         metavar="MODEL=LEVEL",
         help="模型默认思考深度,如 gpt-5.6-terra=high,可重复",
     )
+    parser.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help=(
+            "写入加密 envs store 的环境变量,可重复。语音密钥只能走这里"
+            "(打包版没有用户够得着的 .env,设置页也没有环境变量入口),"
+            "如 --env apikey=... --env keyid=..."
+        ),
+    )
+    parser.add_argument(
+        "--transcription",
+        default=None,
+        choices=["doubao_asr", "whisper_api", "local_whisper", "disabled"],
+        help="启用语音转写后端;缺省不动该设置(默认是 disabled)",
+    )
     parser.add_argument("--output", default="dist/provision.json")
     args = parser.parse_args()
 
@@ -61,6 +78,13 @@ def main() -> None:
         if model_id not in args.model:
             parser.error(f"--effort 的 {model_id} 不在 --model 列表里")
         efforts[model_id] = level
+
+    envs: dict[str, str] = {}
+    for pair in args.env:
+        name, sep, value = pair.partition("=")
+        if not sep or not name.strip():
+            parser.error(f"--env 需要 KEY=VALUE 形式,拿到 {pair!r}")
+        envs[name.strip()] = value
 
     provision = {
         "version": 1,
@@ -85,6 +109,12 @@ def main() -> None:
             },
         ],
         "active": {"provider_id": args.provider_id, "model": active},
+        **({"envs": envs} if envs else {}),
+        **(
+            {"transcription_provider_type": args.transcription}
+            if args.transcription
+            else {}
+        ),
     }
 
     output = Path(args.output)

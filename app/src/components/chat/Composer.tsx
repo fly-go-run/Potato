@@ -69,6 +69,12 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const voiceResultHandledRef = useRef(false);
   /** Bumped to invalidate in-flight getUserMedia / start() work. */
   const voiceSessionRef = useRef(0);
+  /**
+   * 后端说语音可用之前不挂麦克风按钮。预配置的安装包(家人那台)如果没
+   * 带语音密钥,给一个必定失败的按钮比没有按钮更糟——失败提示还只对
+   * 开发者有意义。
+   */
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
 
   // `/` 技能、`@` 文件引用:触发态 + 键盘选中项 + 懒加载的技能列表
   const [trigger, setTrigger] = useState<ComposerTrigger | null>(null);
@@ -510,6 +516,23 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    void sttApi
+      .speechStatus()
+      .then((status) => {
+        if (active) setVoiceAvailable(Boolean(status.ready));
+      })
+      .catch(() => {
+        // 老后端没有 speech-status:保持隐藏,不去赌它能用。
+      });
+    return () => {
+      active = false;
+    };
+    // 设置页是覆盖路由,关掉它时 pathname 会变——顺带把「刚在设置里
+    // 打开了语音」这件事反映到按钮上,不用重开应用。
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (voiceState !== "recording") return;
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -728,43 +751,46 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               <ModelPicker />
 
-              <IconButton
-                size="sm"
-                data-testid="composer-voice"
-                disabled={
-                  busy ||
-                  voiceState === "transcribing" ||
-                  voiceState === "starting"
-                }
-                title={
-                  voiceState === "recording"
-                    ? t("composer.voice.stop")
-                    : voiceState === "starting"
-                    ? t("composer.voice.starting")
-                    : voiceState === "transcribing"
-                    ? t("composer.voice.transcribing")
-                    : t("composer.voice.start")
-                }
-                aria-pressed={voiceState === "recording"}
-                onClick={toggleVoice}
-                className={
-                  voiceState === "recording"
-                    ? "text-danger hover:text-danger"
-                    : undefined
-                }
-              >
-                {voiceState === "transcribing" || voiceState === "starting" ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Mic
-                    size={18}
-                    strokeWidth={1.9}
-                    className={
-                      voiceState === "recording" ? "animate-pulse" : undefined
-                    }
-                  />
-                )}
-              </IconButton>
+              {voiceAvailable && (
+                <IconButton
+                  size="sm"
+                  data-testid="composer-voice"
+                  disabled={
+                    busy ||
+                    voiceState === "transcribing" ||
+                    voiceState === "starting"
+                  }
+                  title={
+                    voiceState === "recording"
+                      ? t("composer.voice.stop")
+                      : voiceState === "starting"
+                      ? t("composer.voice.starting")
+                      : voiceState === "transcribing"
+                      ? t("composer.voice.transcribing")
+                      : t("composer.voice.start")
+                  }
+                  aria-pressed={voiceState === "recording"}
+                  onClick={toggleVoice}
+                  className={
+                    voiceState === "recording"
+                      ? "text-danger hover:text-danger"
+                      : undefined
+                  }
+                >
+                  {voiceState === "transcribing" ||
+                  voiceState === "starting" ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Mic
+                      size={18}
+                      strokeWidth={1.9}
+                      className={
+                        voiceState === "recording" ? "animate-pulse" : undefined
+                      }
+                    />
+                  )}
+                </IconButton>
+              )}
 
               {isStreaming ? (
                 <button

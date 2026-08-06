@@ -18,8 +18,14 @@ post-install hook 会把它复制到 WORKING_DIR)。后端启动时发现该文�
   "provider_configs": [
     {"id": "deepseek", "api_key": "...", "base_url": "..."}
   ],
-  "active": {"provider_id": "...", "model": "..."}
+  "active": {"provider_id": "...", "model": "..."},
+  "envs": {"apikey": "...", "keyid": "..."},
+  "transcription_provider_type": "doubao_asr"
 }
+
+``envs`` 走加密的 envs store(``SECRET_DIR/envs.json``),因此语音密钥这
+类只认环境变量的配置也能随安装包交付。它落在用户目录、不在 app 包内,
+应用自动更新不会覆盖——只需首次安装时带一次。
 """
 
 from __future__ import annotations
@@ -74,6 +80,41 @@ async def apply_provision_file(
         logger.exception("[provision] applied but failed to archive file")
 
 
+def _apply_envs(envs: object) -> None:
+    """Seed env vars into the encrypted envs store.
+
+    Speech credentials are only ever read from the environment
+    (``resolve_speech_credentials``), and a packaged build has no ``.env``
+    the user can reach nor an env editor in settings — so a bundled
+    installer can only deliver them here. ``envs.json`` lives in the user
+    data dir, so an app update leaves it alone.
+    """
+    if not isinstance(envs, dict):
+        return
+    from ..envs import set_env_var
+
+    for key, value in envs.items():
+        name = str(key).strip()
+        if not name or value is None:
+            continue
+        set_env_var(name, str(value))
+        # 只记键名,值是密钥。
+        logger.info("[provision] set env var %s", name)
+
+
+def _apply_transcription(provider_type: object) -> None:
+    """Enable a transcription backend (voice input is off by default)."""
+    value = str(provider_type or "").strip()
+    if not value:
+        return
+    from ..config import load_config, save_config
+
+    config = load_config()
+    config.agents.transcription_provider_type = value
+    save_config(config)
+    logger.info("[provision] transcription provider set to %s", value)
+
+
 async def _apply(
     manager: ProviderManager,
     agent_id: str,
@@ -122,6 +163,9 @@ async def _apply(
         if config:
             manager.update_provider(provider_id, config)
             logger.info("[provision] configured provider %s", provider_id)
+
+    _apply_envs(data.get("envs"))
+    _apply_transcription(data.get("transcription_provider_type"))
 
     active = data.get("active")
     if (
