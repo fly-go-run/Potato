@@ -19,6 +19,11 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /**
+     * 后端 ``detail.code`` 机器可读错误码。以前只取 message,调用方想按
+     * 码分支就只能拿文案做正则,后端一改措辞就失效。
+     */
+    readonly code = "",
   ) {
     super(message);
     this.name = "ApiError";
@@ -57,7 +62,8 @@ export async function apiFetch(
     }
   }
   if (!response.ok) {
-    throw new ApiError(await responseErrorMessage(response), response.status);
+    const { message, code } = await responseError(response);
+    throw new ApiError(message, response.status, code);
   }
   return response;
 }
@@ -74,27 +80,37 @@ export async function apiJson<T>(
   return (await response.json()) as T;
 }
 
-async function responseErrorMessage(response: Response) {
+/** 从错误响应里同时取出人读文案与机器可读错误码。 */
+async function responseError(
+  response: Response,
+): Promise<{ message: string; code: string }> {
   try {
     const body = (await response.json()) as {
       detail?: string | { code?: string; message?: string };
       message?: string;
       error?: string;
     };
+    const structured =
+      typeof body.detail === "string" ? undefined : body.detail;
     const detail =
       typeof body.detail === "string"
         ? body.detail
-        : body.detail?.message || body.detail?.code;
-    return (
-      detail ||
-      body.message ||
-      body.error ||
-      t("api.requestFailed", { status: response.status })
-    );
+        : structured?.message || structured?.code;
+    return {
+      message:
+        detail ||
+        body.message ||
+        body.error ||
+        t("api.requestFailed", { status: response.status }),
+      code: structured?.code ?? "",
+    };
   } catch {
-    return (
-      response.statusText || t("api.requestFailed", { status: response.status })
-    );
+    return {
+      message:
+        response.statusText ||
+        t("api.requestFailed", { status: response.status }),
+      code: "",
+    };
   }
 }
 
@@ -145,6 +161,20 @@ export interface ModelInfo {
   thinking_param_style?: "effort" | "budget" | null;
   reasoning_effort_options?: string[] | null;
 }
+
+/** 后端 `ChatModelName` 的镜像:决定供应商说哪种线上协议。 */
+export type ChatModelName =
+  | "OpenAIChatModel"
+  | "OpenAIResponseModel"
+  | "AnthropicChatModel"
+  | "GeminiChatModel"
+  | "DashScopeChatModel";
+
+/** 自定义供应商可切换的协议(其余协议只出现在内置供应商上)。 */
+export const CUSTOM_PROVIDER_PROTOCOLS = [
+  "OpenAIChatModel",
+  "OpenAIResponseModel",
+] as const satisfies readonly ChatModelName[];
 
 export interface ProviderInfo {
   id: string;
@@ -387,6 +417,8 @@ export const sttApi = {
     apiJson<{
       transcription_provider_type: TranscriptionProviderType;
       doubao_credentials_configured: boolean;
+      /** 老后端没有这个字段,判断时要区分 false 与 undefined。 */
+      ffmpeg_available?: boolean;
       ready: boolean;
     }>("/api/workspace/speech-status"),
   getProviderType: () =>

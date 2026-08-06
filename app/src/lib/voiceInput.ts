@@ -1,4 +1,12 @@
-/** Browser microphone capture via MediaRecorder for composer STT. */
+/**
+ * 麦克风采集。直接产出 16k 单声道 WAV。
+ *
+ * 早先走 MediaRecorder,浏览器只会给 webm(Chromium)或 mp4(WKWebView),
+ * 而 ASR 端点只收 wav/mp3/ogg,于是后端必须用 ffmpeg 转码——打包后的桌面
+ * App 既没有随包的 ffmpeg,也拿不到登录 shell 的 PATH,语音就整个不可用。
+ * 这里改成用 Web Audio 采 PCM 自己封 WAV:输出就是 ffmpeg 原本要转成的
+ * 那个格式,不再依赖任何外部二进制,Windows / macOS 表现一致。
+ */
 
 export type VoiceInputErrorCode =
   | "unsupported"
@@ -19,89 +27,214 @@ export class VoiceInputError extends Error {
 
 const MIN_DURATION_MS = 400;
 const MAX_DURATION_MS = 120_000;
+/** ASR 只需要 16k 单声道,和原先 ffmpeg 的转码参数一致。 */
+export const TARGET_SAMPLE_RATE = 16_000;
+/** ScriptProcessor 缓冲区:2048 帧 = 128ms @16k / 43ms @48k。 */
+const BUFFER_SIZE = 2048;
+/** 收尾时等最后一块缓冲的上限,略大于一个缓冲周期。 */
+const FLUSH_TIMEOUT_MS = 300;
 
-function pickMimeType(): string | undefined {
-  if (typeof MediaRecorder === "undefined") return undefined;
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/ogg;codecs=opus",
-    "audio/mp4",
-  ];
-  for (const type of candidates) {
-    if (MediaRecorder.isTypeSupported(type)) return type;
+/**
+ * 重采样到 *toRate*。
+ *
+ * 降采样走窗口平均而不是点采样:48k→16k 直接抽点会把 8kHz 以上的成分
+ * 折叠进语音频段,而 WAV 头已经写成 16k,后端无从补救。窗口平均是个粗
+ * 糙的低通,对 ASR 足够,也不必为此引入 DSP 库。升采样(少见)用线性插值。
+ */
+export function resampleTo(
+  input: Float32Array,
+  fromRate: number,
+  toRate: number,
+): Float32Array {
+  if (fromRate === toRate || input.length === 0) return input;
+  const ratio = fromRate / toRate;
+  const length = Math.floor(input.length / ratio);
+  const output = new Float32Array(length);
+  if (ratio > 1) {
+    for (let index = 0; index < length; index += 1) {
+      const start = Math.floor(index * ratio);
+      const end = Math.min(Math.floor((index + 1) * ratio), input.length);
+      let sum = 0;
+      for (let cursor = start; cursor < end; cursor += 1) {
+        sum += input[cursor]!;
+      }
+      output[index] = end > start ? sum / (end - start) : input[start]!;
+    }
+    return output;
   }
-  return undefined;
+  for (let index = 0; index < length; index += 1) {
+    const position = index * ratio;
+    const left = Math.floor(position);
+    const right = Math.min(left + 1, input.length - 1);
+    const weight = position - left;
+    output[index] = input[left]! * (1 - weight) + input[right]! * weight;
+  }
+  return output;
 }
 
-function extensionForMime(mime: string): string {
-  if (mime.includes("ogg")) return "ogg";
-  if (mime.includes("mp4") || mime.includes("m4a")) return "m4a";
-  if (mime.includes("wav")) return "wav";
-  return "webm";
+/** 把 [-1,1] 的浮点采样封成 16-bit PCM 的 WAV。 */
+export function encodeWav(
+  samples: Float32Array,
+  sampleRate: number,
+): ArrayBuffer {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeAscii = (offset: number, text: string) => {
+    for (let index = 0; index < text.length; index += 1) {
+      view.setUint8(offset + index, text.charCodeAt(index));
+    }
+  };
+
+  writeAscii(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeAscii(8, "WAVE");
+  writeAscii(12, "fmt ");
+  view.setUint32(16, 16, true); // PCM 头长度
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // 单声道
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // 字节率
+  view.setUint16(32, 2, true); // 块对齐
+  view.setUint16(34, 16, true); // 位深
+  writeAscii(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (const sample of samples) {
+    const clamped = Math.max(-1, Math.min(1, sample));
+    view.setInt16(offset, clamped * 0x7fff, true);
+    offset += 2;
+  }
+  return buffer;
+}
+
+function mergeChunks(chunks: Float32Array[]): Float32Array {
+  let total = 0;
+  for (const chunk of chunks) total += chunk.length;
+  const merged = new Float32Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return merged;
+}
+
+type AudioContextCtor = typeof AudioContext;
+
+function audioContextCtor(): AudioContextCtor | undefined {
+  if (typeof window === "undefined") return undefined;
+  const scoped = window as typeof window & {
+    webkitAudioContext?: AudioContextCtor;
+  };
+  return window.AudioContext ?? scoped.webkitAudioContext;
 }
 
 export class VoiceRecorder {
-  private mediaRecorder: MediaRecorder | null = null;
+  private context: AudioContext | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
+  private processor: ScriptProcessorNode | null = null;
+  private silence: GainNode | null = null;
   private stream: MediaStream | null = null;
-  private chunks: BlobPart[] = [];
+  private chunks: Float32Array[] = [];
   private startedAt = 0;
   private maxTimer: ReturnType<typeof setTimeout> | null = null;
-  private mimeType = "";
-  private onAutoStop: ((file: File) => void) | null = null;
+  private active = false;
+  /** stop() 在等下一次 onaudioprocess 交出尾块。 */
+  private pendingFlush: (() => void) | null = null;
+  /** 去重:手动停止与两分钟自动停止可能同时到。 */
   private stopPromise: Promise<File> | null = null;
+  /** 代次令牌:start() 的每个 await 之后都要确认这次启动还算数。 */
+  private generation = 0;
 
   get recording(): boolean {
-    return this.mediaRecorder?.state === "recording";
+    return this.active;
   }
 
   async start(onAutoStop?: (file: File) => void): Promise<void> {
+    const Ctor = audioContextCtor();
     if (
       typeof navigator === "undefined" ||
       !navigator.mediaDevices?.getUserMedia ||
-      typeof MediaRecorder === "undefined"
+      !Ctor
     ) {
       throw new VoiceInputError(
         "unsupported",
-        "MediaRecorder is not available in this environment",
+        "Web Audio capture is not available in this environment",
       );
     }
 
-    this.onAutoStop = onAutoStop ?? null;
+    const generation = ++this.generation;
     this.chunks = [];
-    const mimeType = pickMimeType();
-    this.mimeType = mimeType ?? "";
-
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true },
+      });
     } catch {
       throw new VoiceInputError(
         "permission",
         "Microphone permission denied or unavailable",
       );
     }
-
-    try {
-      this.mediaRecorder = mimeType
-        ? new MediaRecorder(this.stream, { mimeType })
-        : new MediaRecorder(this.stream);
-      this.mimeType = this.mediaRecorder.mimeType || mimeType || "audio/webm";
-    } catch {
-      this.cleanupStream();
-      throw new VoiceInputError("start_failed", "Failed to start MediaRecorder");
+    // 授权对话框可能开着好一会儿,期间用户已经取消了。此时再建图就会
+    // 留下一个「界面显示没在录、麦克风却被占着」的实例。
+    if (generation !== this.generation) {
+      await this.teardown();
+      return;
     }
 
-    this.mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) this.chunks.push(event.data);
-    };
+    try {
+      // 直接要 16k;浏览器不一定采纳,采纳不了就按实际速率采、停止时重采样。
+      try {
+        this.context = new Ctor({ sampleRate: TARGET_SAMPLE_RATE });
+      } catch {
+        this.context = new Ctor();
+      }
+      this.source = this.context.createMediaStreamSource(this.stream);
+      // AudioWorklet 需要额外的模块 URL,在 Tauri 的 CSP 下容易踩坑;
+      // 一段两分钟的语音用 ScriptProcessor 足够,且各端都支持。
+      this.processor = this.context.createScriptProcessor(BUFFER_SIZE, 1, 1);
+      this.processor.onaudioprocess = (event) => {
+        if (!this.active) return;
+        // 缓冲区会被复用,必须拷贝一份留存。
+        this.chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+        // 收尾时在等这一块:停止那一刻还有小半块音频卡在管线里。
+        const flush = this.pendingFlush;
+        if (flush) {
+          this.pendingFlush = null;
+          flush();
+        }
+      };
+      // ScriptProcessor 不接到目的地就不会回调;经 gain=0 静音,
+      // 否则麦克风会从扬声器原样放出来形成回授。
+      this.silence = this.context.createGain();
+      this.silence.gain.value = 0;
+      this.source.connect(this.processor);
+      this.processor.connect(this.silence);
+      this.silence.connect(this.context.destination);
+      // WebKit 新建的 AudioContext 可能是 suspended,而我们是在
+      // await getUserMedia 之后建的,已经脱离了点击那一拍的同步上下文,
+      // 不显式 resume 就一个回调都收不到,录出来是空的。
+      if (this.context.state === "suspended") {
+        await this.context.resume();
+      }
+    } catch {
+      await this.teardown();
+      throw new VoiceInputError("start_failed", "Failed to start capture");
+    }
 
+    // resume() 也是个 await,同样可能在这期间被取消。
+    if (generation !== this.generation) {
+      await this.teardown();
+      return;
+    }
+
+    this.active = true;
     this.startedAt = Date.now();
-    this.mediaRecorder.start(250);
     this.maxTimer = setTimeout(() => {
-      if (!this.recording) return;
-      void this
-        .stop()
-        .then((file) => this.onAutoStop?.(file))
+      if (!this.active) return;
+      void this.stop()
+        .then((file) => onAutoStop?.(file))
         .catch(() => {
           /* auto-stop failures are non-fatal */
         });
@@ -109,54 +242,18 @@ export class VoiceRecorder {
   }
 
   async stop(): Promise<File> {
+    // 手动停止与两分钟自动停止可能同时发生;没有去重的话两边会各自等
+    // 尾块、各自清空 chunks,一个拿到音频、另一个拿到「空录音」。
     if (this.stopPromise) return this.stopPromise;
-
-    const recorder = this.mediaRecorder;
-    if (!recorder || recorder.state === "inactive") {
-      this.cleanupStream();
+    if (!this.active) {
+      await this.teardown();
       throw new VoiceInputError("empty", "Not recording");
     }
-
     if (this.maxTimer) {
       clearTimeout(this.maxTimer);
       this.maxTimer = null;
     }
-
-    const durationMs = Date.now() - this.startedAt;
-    this.stopPromise = (async () => {
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        recorder.onstop = () => {
-          resolve(
-            new Blob(this.chunks, { type: this.mimeType || "audio/webm" }),
-          );
-        };
-        recorder.onerror = () => {
-          reject(new VoiceInputError("start_failed", "Recording failed"));
-        };
-        try {
-          recorder.stop();
-        } catch (error) {
-          reject(error);
-        }
-      });
-
-      this.cleanupStream();
-      this.mediaRecorder = null;
-      this.chunks = [];
-
-      if (durationMs < MIN_DURATION_MS) {
-        throw new VoiceInputError("too_short", "Recording too short");
-      }
-      if (!blob.size) {
-        throw new VoiceInputError("empty", "Empty recording");
-      }
-
-      const ext = extensionForMime(this.mimeType || blob.type);
-      return new File([blob], `voice-${Date.now()}.${ext}`, {
-        type: blob.type || this.mimeType || "audio/webm",
-      });
-    })();
-
+    this.stopPromise = this.finish();
     try {
       return await this.stopPromise;
     } finally {
@@ -164,29 +261,84 @@ export class VoiceRecorder {
     }
   }
 
+  private async finish(): Promise<File> {
+    // 停止那一刻还有小半块音频卡在管线里,ScriptProcessor 只在缓冲区
+    // 填满时才回调。这里多等一个回调周期(上限 FLUSH_TIMEOUT_MS)把话尾
+    // 收进来——代价是可能多录进最多一个缓冲区的环境音,对识别无害。
+    await this.awaitFinalChunk();
+    this.active = false;
+
+    const durationMs = Date.now() - this.startedAt;
+    const sampleRate = this.context?.sampleRate ?? TARGET_SAMPLE_RATE;
+    const captured = mergeChunks(this.chunks);
+    this.chunks = [];
+    // 无论后面因为太短/为空抛错,麦克风都必须先放开。
+    await this.teardown();
+
+    if (durationMs < MIN_DURATION_MS) {
+      throw new VoiceInputError("too_short", "Recording too short");
+    }
+    if (!captured.length) {
+      throw new VoiceInputError("empty", "Empty recording");
+    }
+
+    const samples = resampleTo(captured, sampleRate, TARGET_SAMPLE_RATE);
+    const wav = encodeWav(samples, TARGET_SAMPLE_RATE);
+    return new File([wav], `voice-${Date.now()}.wav`, { type: "audio/wav" });
+  }
+
+  /** 等一次 onaudioprocess 把尾块交出来;超时就不等了,宁可少几十毫秒。 */
+  private awaitFinalChunk(): Promise<void> {
+    if (!this.processor) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingFlush = null;
+        resolve();
+      }, FLUSH_TIMEOUT_MS);
+      this.pendingFlush = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
+  }
+
   cancel(): void {
+    // 让仍在 await 中的 start() 认出自己已经作废。
+    this.generation += 1;
+    this.active = false;
+    // 取消时若 stop() 正等着尾块,先把它放行,免得挂住。
+    const flush = this.pendingFlush;
+    this.pendingFlush = null;
+    flush?.();
     if (this.maxTimer) {
       clearTimeout(this.maxTimer);
       this.maxTimer = null;
     }
-    this.stopPromise = null;
-    try {
-      if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
-        this.mediaRecorder.onstop = null;
-        this.mediaRecorder.stop();
-      }
-    } catch {
-      /* ignore */
-    }
-    this.mediaRecorder = null;
     this.chunks = [];
-    this.cleanupStream();
+    void this.teardown();
   }
 
-  private cleanupStream(): void {
+  /** 断开音频图并放开麦克风。可重复调用。 */
+  private async teardown(): Promise<void> {
+    this.processor?.disconnect();
+    if (this.processor) this.processor.onaudioprocess = null;
+    this.source?.disconnect();
+    this.silence?.disconnect();
+    this.processor = null;
+    this.source = null;
+    this.silence = null;
     if (this.stream) {
       for (const track of this.stream.getTracks()) track.stop();
       this.stream = null;
+    }
+    const context = this.context;
+    this.context = null;
+    if (context && context.state !== "closed") {
+      try {
+        await context.close();
+      } catch {
+        /* already closing */
+      }
     }
   }
 }

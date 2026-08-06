@@ -6,8 +6,10 @@ Uses the big-model flash recognition endpoint:
   POST https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash
 
 Auth (either works):
-  - New console: ``X-Api-Key`` from env ``apikey`` / ``VOLCENGINE_SPEECH_API_KEY``
-  - Legacy: ``X-Api-App-Key`` + ``X-Api-Access-Key`` from ``keyid`` + ``apikey``
+  - New console: ``X-Api-Key`` from env ``apikey`` /
+    ``VOLCENGINE_SPEECH_API_KEY``
+  - Legacy: ``X-Api-App-Key`` + ``X-Api-Access-Key`` from ``keyid`` +
+    ``apikey``
 """
 from __future__ import annotations
 
@@ -25,16 +27,17 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-FLASH_URL = (
-    "https://openspeech.bytedance.com"
-    "/api/v3/auc/bigmodel/recognize/flash"
-)
+_OPENSPEECH_HOST = "https://openspeech.bytedance.com"
+FLASH_URL = f"{_OPENSPEECH_HOST}/api/v3/auc/bigmodel/recognize/flash"
 DEFAULT_RESOURCE_ID = "volc.bigasr.auc_turbo"
 SUCCESS_STATUS = "20000000"
 
 # Formats the flash API documents as supported without conversion.
 _NATIVE_EXTS = {".wav", ".mp3", ".ogg"}
-_CONVERT_EXTS = {".webm", ".mp4", ".m4a", ".flac", ".opus", ".aac"}
+
+# Base64 inflates by ~4/3 and the whole body is held in memory, so cap the
+# input well below the endpoint's own limit. ~15 minutes of opus audio.
+MAX_AUDIO_BYTES = 32 * 1024 * 1024
 
 
 def resolve_speech_credentials() -> Optional[Tuple[str, str]]:
@@ -45,6 +48,7 @@ def resolve_speech_credentials() -> Optional[Tuple[str, str]]:
     """
     # Ensure project-root .env is loaded (keyid / apikey).
     try:
+        # pylint: disable=unused-import,import-outside-toplevel
         import qwenpaw.constant  # noqa: F401
     except Exception:  # noqa: BLE001
         pass
@@ -115,11 +119,35 @@ def build_auth_headers(
     return headers
 
 
+def ffmpeg_available() -> bool:
+    """Whether an ``ffmpeg`` binary is reachable on PATH."""
+    return shutil.which("ffmpeg") is not None
+
+
+def needs_conversion(file_path: str) -> bool:
+    """Whether *file_path* must be transcoded before flash upload.
+
+    Browsers record webm (Chromium) or mp4 (WKWebView), neither of which the
+    flash endpoint accepts, so the desktop bundle needs ffmpeg on PATH for
+    voice input to work at all. Callers use this to say so up front instead
+    of failing with a generic "transcription failed".
+
+    Accepts a bare ``".webm"`` too — the upload route only has the suffix,
+    and ``Path(".webm").suffix`` is empty (it reads as a dotfile name).
+    """
+    ext = Path(file_path).suffix.lower()
+    if not ext and file_path.startswith("."):
+        ext = file_path.lower()
+    return (ext or ".wav") not in _NATIVE_EXTS
+
+
 def _convert_to_wav(src_path: str) -> Optional[str]:
     """Convert non-native formats to 16k mono wav via ffmpeg."""
-    if not shutil.which("ffmpeg"):
+    if not ffmpeg_available():
         logger.warning(
-            "ffmpeg not found; cannot convert %s for Doubao ASR",
+            "ffmpeg not found on PATH; cannot convert %s for Doubao ASR. "
+            "A packaged desktop app does not inherit a login shell PATH, "
+            "so a Homebrew-only ffmpeg is invisible here.",
             src_path,
         )
         return None
@@ -168,15 +196,12 @@ def prepare_audio_for_flash(file_path: str) -> Optional[Tuple[str, bool]]:
 
     Native wav/mp3/ogg are used as-is. Other formats are converted to wav.
     """
-    ext = Path(file_path).suffix.lower() or ".wav"
-    if ext in _NATIVE_EXTS:
+    if not needs_conversion(file_path):
         return file_path, False
-    if ext in _CONVERT_EXTS or ext:
-        converted = _convert_to_wav(file_path)
-        if converted:
-            return converted, True
-        return None
-    return file_path, False
+    converted = _convert_to_wav(file_path)
+    if converted:
+        return converted, True
+    return None
 
 
 def audio_format_for_path(file_path: str) -> str:
@@ -188,6 +213,24 @@ def audio_format_for_path(file_path: str) -> str:
             return "mp4"
         return ext
     return "wav"
+
+
+def _read_capped(audio_path: str) -> Optional[bytes]:
+    """Read *audio_path*, refusing empty files and oversized ones."""
+    size = os.path.getsize(audio_path)
+    if size > MAX_AUDIO_BYTES:
+        logger.warning(
+            "Doubao ASR: audio too large (%s bytes > %s); refusing to "
+            "base64 it into memory",
+            size,
+            MAX_AUDIO_BYTES,
+        )
+        return None
+    raw = Path(audio_path).read_bytes()
+    if not raw:
+        logger.warning("Doubao ASR: empty audio file %s", audio_path)
+        return None
+    return raw
 
 
 def _extract_text(payload: dict) -> str:
@@ -236,9 +279,8 @@ async def transcribe_doubao_flash(file_path: str) -> Optional[str]:
     )
 
     try:
-        raw = Path(audio_path).read_bytes()
-        if not raw:
-            logger.warning("Doubao ASR: empty audio file %s", audio_path)
+        raw = _read_capped(audio_path)
+        if raw is None:
             return None
         audio_b64 = base64.b64encode(raw).decode("ascii")
         # OpenSpeech flash requires audio.format; must match the bytes we send

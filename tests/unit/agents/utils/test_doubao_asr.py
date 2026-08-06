@@ -63,9 +63,7 @@ class TestBuildAuthHeaders:
 
 class TestExtractText:
     def test_nested_result(self):
-        assert (
-            mod._extract_text({"result": {"text": "  你好  "}}) == "你好"
-        )
+        assert mod._extract_text({"result": {"text": "  你好  "}}) == "你好"
 
     def test_top_level(self):
         assert mod._extract_text({"text": "hi"}) == "hi"
@@ -155,3 +153,50 @@ class TestAudioFormatForPath:
         with patch.object(mod.httpx, "AsyncClient", return_value=mock_client):
             text = await mod.transcribe_doubao_flash(str(audio))
         assert text is None
+
+
+class TestNeedsConversion:
+    """Browser recordings always need ffmpeg; the packaged app may lack it."""
+
+    def test_native_formats_pass_through(self):
+        assert mod.needs_conversion("/tmp/a.wav") is False
+        assert mod.needs_conversion("/tmp/a.mp3") is False
+        assert mod.needs_conversion("/tmp/a.ogg") is False
+
+    def test_browser_recordings_need_ffmpeg(self):
+        assert mod.needs_conversion("/tmp/a.webm") is True
+        assert mod.needs_conversion("/tmp/a.mp4") is True
+        assert mod.needs_conversion("/tmp/a.m4a") is True
+
+    def test_accepts_a_bare_suffix(self):
+        # 上传路由手里只有后缀,而 Path(".webm").suffix 是空串。
+        assert mod.needs_conversion(".webm") is True
+        assert mod.needs_conversion(".wav") is False
+
+
+class TestPrepareAudio:
+    def test_missing_ffmpeg_reports_failure(self, monkeypatch, tmp_path):
+        audio = tmp_path / "a.webm"
+        audio.write_bytes(b"\x00" * 16)
+        monkeypatch.setattr(mod.shutil, "which", lambda _name: None)
+        assert mod.ffmpeg_available() is False
+        assert mod.prepare_audio_for_flash(str(audio)) is None
+
+    def test_native_audio_is_not_copied(self, tmp_path):
+        audio = tmp_path / "a.wav"
+        audio.write_bytes(b"\x00" * 16)
+        assert mod.prepare_audio_for_flash(str(audio)) == (str(audio), False)
+
+
+class TestSizeGuard:
+    @pytest.mark.asyncio
+    async def test_oversized_audio_is_refused(self, monkeypatch, tmp_path):
+        # 整个文件会被读进内存再 base64(×1.33),必须先卡住。
+        monkeypatch.setenv("apikey", "sk-test")
+        monkeypatch.setattr(mod, "MAX_AUDIO_BYTES", 8)
+        audio = tmp_path / "a.wav"
+        audio.write_bytes(b"\x00" * 64)
+
+        with patch.object(mod.httpx, "AsyncClient") as client:
+            assert await mod.transcribe_doubao_flash(str(audio)) is None
+            client.assert_not_called()

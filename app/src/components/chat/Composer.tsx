@@ -24,7 +24,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button, IconButton } from "../ui";
 import { ApiError, sttApi } from "../../lib/api";
-import { useTranslation } from "../../lib/i18n";
+import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { skillApi, type SkillInfo } from "../../lib/capabilities";
 import { isImeCommitEnter } from "../../lib/ime";
 import {
@@ -366,21 +366,16 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         return t("composer.voice.startFailed");
       }
       if (reason instanceof ApiError) {
-        const msg = reason.message || "";
-        if (
-          msg.includes("TRANSCRIPTION_DISABLED") ||
-          /disabled/i.test(msg) ||
-          /转录已禁用|transcription is disabled/i.test(msg)
-        ) {
-          return t("composer.voice.transcriptionDisabled");
-        }
-        if (
-          msg.includes("SPEECH_API_KEY_MISSING") ||
-          /credentials missing|api key/i.test(msg)
-        ) {
-          return t("composer.voice.keyMissing");
-        }
-        return msg || t("composer.voice.transcriptionFailed");
+        // 按后端 detail.code 分支。以前是拿文案做正则,而 ApiError 当时
+        // 根本不带 code,那几条 includes 从来没命中过。
+        const byCode: Record<string, TranslationKey> = {
+          TRANSCRIPTION_DISABLED: "composer.voice.enableInSettings",
+          SPEECH_API_KEY_MISSING: "composer.voice.keyMissing",
+          AUDIO_CONVERSION_UNAVAILABLE: "composer.voice.ffmpegMissing",
+        };
+        const key = byCode[reason.code];
+        if (key) return t(key);
+        return reason.message || t("composer.voice.transcriptionFailed");
       }
       if (reason instanceof Error && reason.message) return reason.message;
       return t("composer.voice.transcriptionFailed");
@@ -388,15 +383,16 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     [t],
   );
 
-  const ensureDoubaoEnabled = useCallback(async () => {
+  /**
+   * 转写前的前置检查。只读不写:转写会把音频送到第三方,启用与否是用户
+   * 在设置里的明示选择,不能因为点了一下麦克风就替他把全局配置打开
+   * (这个配置同时管各渠道的语音附件转写)。
+   */
+  const ensureVoiceReady = useCallback(async () => {
     try {
       const status = await sttApi.speechStatus();
       if (status.transcription_provider_type === "disabled") {
-        if (status.doubao_credentials_configured) {
-          await sttApi.setProviderType("doubao_asr");
-          return;
-        }
-        throw new ApiError(t("composer.voice.transcriptionDisabled"), 400);
+        throw new ApiError(t("composer.voice.enableInSettings"), 400);
       }
       if (
         status.transcription_provider_type === "doubao_asr" &&
@@ -404,6 +400,8 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       ) {
         throw new ApiError(t("composer.voice.keyMissing"), 400);
       }
+      // 这里不看 ffmpeg:录音器直接产 16k wav,后端原样收。真需要转码的
+      // 只有别处传来的 webm/mp4,那由 /transcribe 按实际后缀判定。
     } catch (reason) {
       if (reason instanceof ApiError) throw reason;
       // speech-status may be unavailable on older backends; proceed and let
@@ -416,7 +414,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       setVoiceState("transcribing");
       setVoiceError(null);
       try {
-        await ensureDoubaoEnabled();
+        await ensureVoiceReady();
         const result = await sttApi.transcribe(file);
         appendTranscript(result.text ?? "");
       } catch (reason) {
@@ -425,7 +423,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         setVoiceState("idle");
       }
     },
-    [appendTranscript, ensureDoubaoEnabled, mapVoiceError],
+    [appendTranscript, ensureVoiceReady, mapVoiceError],
   );
 
   const handleVoiceFile = useCallback(
@@ -676,14 +674,14 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 voiceState === "starting"
                   ? t("composer.voice.starting")
                   : voiceState === "recording"
-                    ? t("composer.voice.listening")
-                    : voiceState === "transcribing"
-                      ? t("composer.voice.transcribing")
-                      : isSubmitting
-                        ? t("composer.uploading")
-                        : isStreaming
-                          ? t("composer.generating")
-                          : t("composer.placeholder")
+                  ? t("composer.voice.listening")
+                  : voiceState === "transcribing"
+                  ? t("composer.voice.transcribing")
+                  : isSubmitting
+                  ? t("composer.uploading")
+                  : isStreaming
+                  ? t("composer.generating")
+                  : t("composer.placeholder")
               }
               className="block min-h-[86px] max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55"
             />
@@ -742,10 +740,10 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   voiceState === "recording"
                     ? t("composer.voice.stop")
                     : voiceState === "starting"
-                      ? t("composer.voice.starting")
-                      : voiceState === "transcribing"
-                        ? t("composer.voice.transcribing")
-                        : t("composer.voice.start")
+                    ? t("composer.voice.starting")
+                    : voiceState === "transcribing"
+                    ? t("composer.voice.transcribing")
+                    : t("composer.voice.start")
                 }
                 aria-pressed={voiceState === "recording"}
                 onClick={toggleVoice}

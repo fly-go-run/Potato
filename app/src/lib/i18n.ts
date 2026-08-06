@@ -469,6 +469,10 @@ export const dictionaries = {
       "语音转写未启用。请在设置中选择豆包语音，或配置 .env 中的 apikey/keyid",
     "composer.voice.keyMissing":
       "未配置豆包语音密钥。请在项目 .env 中设置 apikey（及 keyid）",
+    "composer.voice.enableInSettings":
+      "语音转写未启用。请到 设置 → 通用 里打开语音输入",
+    "composer.voice.ffmpegMissing":
+      "缺少 ffmpeg，无法转换录音格式。请安装 ffmpeg 后重启应用",
 
     "reasoning.thinking": "思考中",
     "reasoning.process": "思考过程",
@@ -1324,6 +1328,11 @@ export const dictionaries = {
       "Transcription is disabled. Enable Doubao ASR in settings, or set apikey/keyid in .env",
     "composer.voice.keyMissing":
       "Doubao speech credentials missing. Set apikey (and keyid) in .env",
+    "composer.voice.enableInSettings":
+      "Transcription is off. Turn on voice input in Settings → General",
+    "composer.voice.ffmpegMissing":
+      "ffmpeg is missing, so the recording cannot be converted. " +
+      "Install ffmpeg and restart the app",
 
     "reasoning.thinking": "Thinking",
     "reasoning.process": "Reasoning",

@@ -853,14 +853,22 @@ async def put_transcription_provider(
 )
 async def get_speech_status() -> dict:
     """Return speech credential + provider readiness (no secret values)."""
-    from ...agents.utils.doubao_asr import has_doubao_credentials
+    from ...agents.utils.doubao_asr import (
+        ffmpeg_available,
+        has_doubao_credentials,
+    )
 
     config = load_config()
     provider_type = config.agents.transcription_provider_type
     has_key = has_doubao_credentials()
+    # Composer recordings are 16k wav, which the flash endpoint takes as-is,
+    # so ffmpeg is *not* a precondition for voice input. It only matters for
+    # audio that arrives in another container (channel attachments), so this
+    # is reported for diagnosis but deliberately kept out of ``ready``.
     return {
         "transcription_provider_type": provider_type,
         "doubao_credentials_configured": has_key,
+        "ffmpeg_available": ffmpeg_available(),
         "ready": provider_type != "disabled"
         and (provider_type != "doubao_asr" or has_key),
     }
@@ -881,7 +889,11 @@ async def post_transcribe_audio(
 ) -> dict:
     """Transcribe uploaded audio file using configured provider."""
     from ...agents.utils.audio_transcription import transcribe_audio
-    from ...agents.utils.doubao_asr import has_doubao_credentials
+    from ...agents.utils.doubao_asr import (
+        ffmpeg_available,
+        has_doubao_credentials,
+        needs_conversion,
+    )
 
     # Check transcription is enabled
     config = load_config()
@@ -931,6 +943,25 @@ async def post_transcribe_audio(
                 "message": (
                     f"Unsupported file type: {suffix}. "
                     f"Allowed: {', '.join(sorted(allowed_extensions))}"
+                ),
+            },
+        )
+
+    # Recordings arrive as webm/mp4, which the flash endpoint rejects; they
+    # are transcoded with ffmpeg first. Say so explicitly instead of letting
+    # it surface as a generic "transcription failed" nobody can diagnose.
+    if (
+        provider_type == "doubao_asr"
+        and needs_conversion(suffix)
+        and not ffmpeg_available()
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "AUDIO_CONVERSION_UNAVAILABLE",
+                "message": (
+                    f"ffmpeg is required to convert {suffix} audio for "
+                    "Doubao ASR, but it was not found on PATH."
                 ),
             },
         )
