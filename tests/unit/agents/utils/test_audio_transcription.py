@@ -345,6 +345,21 @@ class TestTranscribeAudio:
             assert result == "transcribed text"
 
     @pytest.mark.asyncio
+    async def test_doubao_asr_dispatch(self):
+        mock_config = MagicMock()
+        mock_config.agents.transcription_provider_type = "doubao_asr"
+        with patch(
+            "qwenpaw.config.load_config",
+            return_value=mock_config,
+        ), patch(
+            f"{_MOD}._transcribe_doubao",
+            new_callable=AsyncMock,
+            return_value="豆包识别结果",
+        ):
+            result = await transcribe_audio("/tmp/audio.wav")
+            assert result == "豆包识别结果"
+
+    @pytest.mark.asyncio
     async def test_unknown_type_returns_none(self):
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_type = "unknown"

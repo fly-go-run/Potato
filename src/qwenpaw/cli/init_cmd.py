@@ -341,11 +341,17 @@ def init_cmd(
             provider_type = prompt_choice(
                 "Select transcription provider:\n"
                 "  disabled       - no transcription\n"
+                "  doubao_asr     - Doubao / Volcengine OpenSpeech flash ASR\n"
                 "  whisper_api    - remote Whisper API endpoint\n"
                 "  local_whisper  - locally installed openai-whisper\n"
                 "                   (requires ffmpeg + openai-whisper)\n"
                 "Provider:",
-                options=["disabled", "whisper_api", "local_whisper"],
+                options=[
+                    "disabled",
+                    "doubao_asr",
+                    "whisper_api",
+                    "local_whisper",
+                ],
                 default=existing.agents.transcription_provider_type,
             )
             existing.agents.transcription_provider_type = provider_type

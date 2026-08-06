@@ -2,8 +2,9 @@
 """Audio transcription utility.
 
 Transcribes audio files to text using either:
-- An OpenAI-compatible ``/v1/audio/transcriptions`` endpoint (Whisper API), or
-- The locally installed ``openai-whisper`` Python library (Local Whisper).
+- An OpenAI-compatible ``/v1/audio/transcriptions`` endpoint (Whisper API),
+- The locally installed ``openai-whisper`` Python library (Local Whisper), or
+- Doubao / Volcengine OpenSpeech flash ASR (``doubao_asr``).
 
 Transcription is only attempted when explicitly enabled via the
 ``transcription_provider_type`` config setting.  The default is ``"disabled"``.
@@ -292,12 +293,21 @@ async def _transcribe_whisper_api(file_path: str) -> Optional[str]:
 # ------------------------------------------------------------------
 
 
+async def _transcribe_doubao(file_path: str) -> Optional[str]:
+    """Transcribe using Doubao / Volcengine OpenSpeech flash ASR."""
+    from .doubao_asr import transcribe_doubao_flash
+
+    return await transcribe_doubao_flash(file_path)
+
+
 async def transcribe_audio(file_path: str) -> Optional[str]:
     """Transcribe an audio file to text.
 
-    Dispatches to either the Whisper API or local Whisper based on the
-    ``transcription_provider_type`` config setting.  When the setting is
-    ``"disabled"`` (the default), returns ``None`` immediately.
+    Dispatches based on ``transcription_provider_type``:
+    - ``disabled``: return ``None`` immediately
+    - ``whisper_api``: OpenAI-compatible transcriptions endpoint
+    - ``local_whisper``: local openai-whisper
+    - ``doubao_asr``: Doubao OpenSpeech flash HTTP
 
     Returns the transcribed text, or ``None`` on failure.
     """
@@ -312,6 +322,8 @@ async def transcribe_audio(file_path: str) -> Optional[str]:
         return await _transcribe_local_whisper(file_path)
     if provider_type == "whisper_api":
         return await _transcribe_whisper_api(file_path)
+    if provider_type == "doubao_asr":
+        return await _transcribe_doubao(file_path)
 
     logger.warning("Unknown transcription_provider_type: %s", provider_type)
     return None

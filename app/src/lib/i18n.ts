@@ -454,6 +454,21 @@ export const dictionaries = {
     "composer.approval.off": "审批：关闭",
     "composer.fileCount": "{count} 个文件",
     "composer.uploading": "正在上传附件…",
+    "composer.voice.start": "语音输入",
+    "composer.voice.stop": "停止录音",
+    "composer.voice.listening": "正在聆听… 再次点击麦克风结束",
+    "composer.voice.starting": "正在请求麦克风…",
+    "composer.voice.transcribing": "正在识别语音…",
+    "composer.voice.micError": "无法访问麦克风，请检查系统权限",
+    "composer.voice.unsupported": "当前环境不支持语音输入",
+    "composer.voice.tooShort": "录音太短，请再说长一点",
+    "composer.voice.empty": "没有录到有效音频",
+    "composer.voice.startFailed": "无法开始录音",
+    "composer.voice.transcriptionFailed": "语音识别失败，请重试",
+    "composer.voice.transcriptionDisabled":
+      "语音转写未启用。请在设置中选择豆包语音，或配置 .env 中的 apikey/keyid",
+    "composer.voice.keyMissing":
+      "未配置豆包语音密钥。请在项目 .env 中设置 apikey（及 keyid）",
 
     "reasoning.thinking": "思考中",
     "reasoning.process": "思考过程",
@@ -697,6 +712,13 @@ export const dictionaries = {
     "settings.language.description": "选择界面显示语言。",
     "settings.language.zh": "中文",
     "settings.language.en": "English",
+    "settings.voice.title": "语音输入（豆包）",
+    "settings.voice.descriptionReady":
+      "使用 .env 中的火山语音密钥，经后端调用豆包极速版 ASR。开启后可在输入框麦克风转写。",
+    "settings.voice.descriptionMissingKey":
+      "未检测到豆包语音密钥。请在项目 .env 中配置 apikey（及 keyid）后重启后端。",
+    "settings.voice.enabledNotice": "已启用豆包语音转写",
+    "settings.voice.disabledNotice": "已关闭语音转写",
     "settings.loading": "正在读取设置…",
     "settings.loadFailed": "读取设置失败：{message}",
     "settings.capabilities.title": "技能与插件",
@@ -1281,6 +1303,22 @@ export const dictionaries = {
     "composer.approval.off": "Approval: Off",
     "composer.fileCount": "{count} files",
     "composer.uploading": "Uploading attachments…",
+    "composer.voice.start": "Voice input",
+    "composer.voice.stop": "Stop recording",
+    "composer.voice.listening": "Listening… click the mic again to finish",
+    "composer.voice.starting": "Requesting microphone…",
+    "composer.voice.transcribing": "Transcribing…",
+    "composer.voice.micError":
+      "Microphone access denied. Check system permissions.",
+    "composer.voice.unsupported": "Voice input is not supported here",
+    "composer.voice.tooShort": "Recording too short — try again",
+    "composer.voice.empty": "No audio captured",
+    "composer.voice.startFailed": "Could not start recording",
+    "composer.voice.transcriptionFailed": "Speech recognition failed",
+    "composer.voice.transcriptionDisabled":
+      "Transcription is disabled. Enable Doubao ASR in settings, or set apikey/keyid in .env",
+    "composer.voice.keyMissing":
+      "Doubao speech credentials missing. Set apikey (and keyid) in .env",
 
     "reasoning.thinking": "Thinking",
     "reasoning.process": "Reasoning",
@@ -1543,6 +1581,13 @@ export const dictionaries = {
     "settings.language.description": "Choose the interface language.",
     "settings.language.zh": "中文",
     "settings.language.en": "English",
+    "settings.voice.title": "Voice input (Doubao)",
+    "settings.voice.descriptionReady":
+      "Uses Volcengine speech keys from .env via backend Doubao flash ASR. Enable to transcribe from the composer mic.",
+    "settings.voice.descriptionMissingKey":
+      "No Doubao speech credentials found. Set apikey (and keyid) in .env and restart the backend.",
+    "settings.voice.enabledNotice": "Doubao transcription enabled",
+    "settings.voice.disabledNotice": "Transcription disabled",
     "settings.loading": "Loading settings…",
     "settings.loadFailed": "Could not load settings: {message}",
     "settings.capabilities.title": "Skills and plugins",

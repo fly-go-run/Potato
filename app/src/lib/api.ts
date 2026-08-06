@@ -77,12 +77,16 @@ export async function apiJson<T>(
 async function responseErrorMessage(response: Response) {
   try {
     const body = (await response.json()) as {
-      detail?: string;
+      detail?: string | { code?: string; message?: string };
       message?: string;
       error?: string;
     };
+    const detail =
+      typeof body.detail === "string"
+        ? body.detail
+        : body.detail?.message || body.detail?.code;
     return (
-      body.detail ||
+      detail ||
       body.message ||
       body.error ||
       t("api.requestFailed", { status: response.status })
@@ -357,6 +361,42 @@ export const approvalApi = {
 export const workspaceApi = {
   runningConfig: () =>
     apiJson<{ approval_level?: string }>("/api/workspace/running-config"),
+};
+
+
+export type TranscriptionProviderType =
+  | "disabled"
+  | "whisper_api"
+  | "local_whisper"
+  | "doubao_asr";
+
+export const sttApi = {
+  transcribe: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return apiJson<{ text: string }>("/api/workspace/transcribe", {
+      method: "POST",
+      body,
+    });
+  },
+  speechStatus: () =>
+    apiJson<{
+      transcription_provider_type: TranscriptionProviderType;
+      doubao_credentials_configured: boolean;
+      ready: boolean;
+    }>("/api/workspace/speech-status"),
+  getProviderType: () =>
+    apiJson<{ transcription_provider_type: TranscriptionProviderType }>(
+      "/api/workspace/transcription-provider-type",
+    ),
+  setProviderType: (transcription_provider_type: TranscriptionProviderType) =>
+    apiJson<{ transcription_provider_type: TranscriptionProviderType }>(
+      "/api/workspace/transcription-provider-type",
+      {
+        method: "PUT",
+        body: JSON.stringify({ transcription_provider_type }),
+      },
+    ),
 };
 
 export const projectApi = {

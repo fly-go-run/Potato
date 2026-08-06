@@ -4,12 +4,15 @@ import {
   Check,
   ChevronDown,
   FileText,
+  Loader2,
+  Mic,
   Plus,
   ShieldCheck,
   Square,
   X,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -20,6 +23,7 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button, IconButton } from "../ui";
+import { ApiError, sttApi } from "../../lib/api";
 import { useTranslation } from "../../lib/i18n";
 import { skillApi, type SkillInfo } from "../../lib/capabilities";
 import { isImeCommitEnter } from "../../lib/ime";
@@ -29,9 +33,12 @@ import {
   type ComposerTrigger,
 } from "../../lib/composerTrigger";
 import { useChatStore, type ApprovalLevel } from "../../stores/chat";
+import { VoiceInputError, VoiceRecorder } from "../../lib/voiceInput";
 import { ModelPicker } from "./ModelPicker";
 import { ProjectPicker } from "./ProjectPicker";
 import { TriggerPopover, type TriggerItem } from "./TriggerPopover";
+
+type VoiceUiState = "idle" | "starting" | "recording" | "transcribing";
 
 /* 发送/停止是签名控件(对标 WB 的圆钮):36px 实心圆 + 粗箭头;
  * 禁用态保持实心近黑只降透明(r2 审查:灰底灰箭头读作"控件坏了",
@@ -51,10 +58,17 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const location = useLocation();
   const { t } = useTranslation();
   const [text, setText] = useState("");
+  const [voiceState, setVoiceState] = useState<VoiceUiState>("idle");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isComposingRef = useRef(false);
   const compositionEndAtRef = useRef(Number.NEGATIVE_INFINITY);
+  const voiceRecorderRef = useRef<VoiceRecorder | null>(null);
+  /** Guards against max-duration auto-stop racing with a manual stop. */
+  const voiceResultHandledRef = useRef(false);
+  /** Bumped to invalidate in-flight getUserMedia / start() work. */
+  const voiceSessionRef = useRef(0);
 
   // `/` 技能、`@` 文件引用:触发态 + 键盘选中项 + 懒加载的技能列表
   const [trigger, setTrigger] = useState<ComposerTrigger | null>(null);
@@ -324,6 +338,191 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     });
   };
 
+  const appendTranscript = useCallback((transcript: string) => {
+    const piece = transcript.trim();
+    if (!piece) return;
+    setText((current) => {
+      if (!current.trim()) return piece;
+      const needsSpace = !/\s$/.test(current);
+      return `${current}${needsSpace ? " " : ""}${piece}`;
+    });
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
+  }, []);
+
+  const mapVoiceError = useCallback(
+    (reason: unknown): string => {
+      if (reason instanceof VoiceInputError) {
+        if (reason.code === "permission") return t("composer.voice.micError");
+        if (reason.code === "unsupported")
+          return t("composer.voice.unsupported");
+        if (reason.code === "too_short") return t("composer.voice.tooShort");
+        if (reason.code === "empty") return t("composer.voice.empty");
+        return t("composer.voice.startFailed");
+      }
+      if (reason instanceof ApiError) {
+        const msg = reason.message || "";
+        if (
+          msg.includes("TRANSCRIPTION_DISABLED") ||
+          /disabled/i.test(msg) ||
+          /转录已禁用|transcription is disabled/i.test(msg)
+        ) {
+          return t("composer.voice.transcriptionDisabled");
+        }
+        if (
+          msg.includes("SPEECH_API_KEY_MISSING") ||
+          /credentials missing|api key/i.test(msg)
+        ) {
+          return t("composer.voice.keyMissing");
+        }
+        return msg || t("composer.voice.transcriptionFailed");
+      }
+      if (reason instanceof Error && reason.message) return reason.message;
+      return t("composer.voice.transcriptionFailed");
+    },
+    [t],
+  );
+
+  const ensureDoubaoEnabled = useCallback(async () => {
+    try {
+      const status = await sttApi.speechStatus();
+      if (status.transcription_provider_type === "disabled") {
+        if (status.doubao_credentials_configured) {
+          await sttApi.setProviderType("doubao_asr");
+          return;
+        }
+        throw new ApiError(t("composer.voice.transcriptionDisabled"), 400);
+      }
+      if (
+        status.transcription_provider_type === "doubao_asr" &&
+        !status.doubao_credentials_configured
+      ) {
+        throw new ApiError(t("composer.voice.keyMissing"), 400);
+      }
+    } catch (reason) {
+      if (reason instanceof ApiError) throw reason;
+      // speech-status may be unavailable on older backends; proceed and let
+      // /transcribe report the real error.
+    }
+  }, [t]);
+
+  const transcribeFile = useCallback(
+    async (file: File) => {
+      setVoiceState("transcribing");
+      setVoiceError(null);
+      try {
+        await ensureDoubaoEnabled();
+        const result = await sttApi.transcribe(file);
+        appendTranscript(result.text ?? "");
+      } catch (reason) {
+        setVoiceError(mapVoiceError(reason));
+      } finally {
+        setVoiceState("idle");
+      }
+    },
+    [appendTranscript, ensureDoubaoEnabled, mapVoiceError],
+  );
+
+  const handleVoiceFile = useCallback(
+    async (file: File) => {
+      if (voiceResultHandledRef.current) return;
+      voiceResultHandledRef.current = true;
+      voiceRecorderRef.current = null;
+      await transcribeFile(file);
+    },
+    [transcribeFile],
+  );
+
+  const startVoice = useCallback(async () => {
+    setVoiceError(null);
+    voiceResultHandledRef.current = false;
+    const session = ++voiceSessionRef.current;
+    const recorder = new VoiceRecorder();
+    voiceRecorderRef.current = recorder;
+    setVoiceState("starting");
+    try {
+      await recorder.start((file) => {
+        void handleVoiceFile(file);
+      });
+      // Permission dialog / async start may outlive cancel or a newer start.
+      if (session !== voiceSessionRef.current) {
+        recorder.cancel();
+        if (voiceRecorderRef.current === recorder) {
+          voiceRecorderRef.current = null;
+        }
+        return;
+      }
+      setVoiceState("recording");
+    } catch (reason) {
+      if (session !== voiceSessionRef.current) return;
+      voiceRecorderRef.current = null;
+      setVoiceState("idle");
+      setVoiceError(mapVoiceError(reason));
+    }
+  }, [handleVoiceFile, mapVoiceError]);
+
+  const stopVoice = useCallback(async () => {
+    const recorder = voiceRecorderRef.current;
+    if (!recorder) {
+      setVoiceState("idle");
+      return;
+    }
+    try {
+      const file = await recorder.stop();
+      await handleVoiceFile(file);
+    } catch (reason) {
+      if (voiceResultHandledRef.current) return;
+      voiceRecorderRef.current = null;
+      setVoiceState("idle");
+      setVoiceError(mapVoiceError(reason));
+    }
+  }, [handleVoiceFile, mapVoiceError]);
+
+  const cancelVoice = useCallback(() => {
+    voiceSessionRef.current += 1;
+    voiceResultHandledRef.current = true;
+    voiceRecorderRef.current?.cancel();
+    voiceRecorderRef.current = null;
+    setVoiceState("idle");
+  }, []);
+
+  const toggleVoice = useCallback(() => {
+    if (busy || voiceState === "transcribing" || voiceState === "starting") {
+      return;
+    }
+    if (voiceState === "recording") {
+      void stopVoice();
+      return;
+    }
+    void startVoice();
+  }, [busy, startVoice, stopVoice, voiceState]);
+
+  useEffect(() => {
+    return () => {
+      voiceSessionRef.current += 1;
+      voiceResultHandledRef.current = true;
+      voiceRecorderRef.current?.cancel();
+      voiceRecorderRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (voiceState !== "recording") return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancelVoice();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cancelVoice, voiceState]);
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const imeCommitEnter = isImeCommitEnter(
       event.nativeEvent,
@@ -472,13 +671,19 @@ export function Composer({ wide = false }: { wide?: boolean }) {
               }}
               onKeyDown={onKeyDown}
               onPaste={onPaste}
-              disabled={busy}
+              disabled={busy || voiceState === "transcribing"}
               placeholder={
-                isSubmitting
-                  ? t("composer.uploading")
-                  : isStreaming
-                  ? t("composer.generating")
-                  : t("composer.placeholder")
+                voiceState === "starting"
+                  ? t("composer.voice.starting")
+                  : voiceState === "recording"
+                    ? t("composer.voice.listening")
+                    : voiceState === "transcribing"
+                      ? t("composer.voice.transcribing")
+                      : isSubmitting
+                        ? t("composer.uploading")
+                        : isStreaming
+                          ? t("composer.generating")
+                          : t("composer.placeholder")
               }
               className="block min-h-[86px] max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55"
             />
@@ -525,6 +730,44 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               <ModelPicker />
 
+              <IconButton
+                size="sm"
+                data-testid="composer-voice"
+                disabled={
+                  busy ||
+                  voiceState === "transcribing" ||
+                  voiceState === "starting"
+                }
+                title={
+                  voiceState === "recording"
+                    ? t("composer.voice.stop")
+                    : voiceState === "starting"
+                      ? t("composer.voice.starting")
+                      : voiceState === "transcribing"
+                        ? t("composer.voice.transcribing")
+                        : t("composer.voice.start")
+                }
+                aria-pressed={voiceState === "recording"}
+                onClick={toggleVoice}
+                className={
+                  voiceState === "recording"
+                    ? "text-danger hover:text-danger"
+                    : undefined
+                }
+              >
+                {voiceState === "transcribing" || voiceState === "starting" ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Mic
+                    size={18}
+                    strokeWidth={1.9}
+                    className={
+                      voiceState === "recording" ? "animate-pulse" : undefined
+                    }
+                  />
+                )}
+              </IconButton>
+
               {isStreaming ? (
                 <button
                   type="button"
@@ -540,7 +783,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   type="button"
                   data-testid="composer-send"
                   title={t("composer.send")}
-                  disabled={!canSend}
+                  disabled={!canSend || voiceState !== "idle"}
                   onClick={submit}
                   className={sendButtonClass}
                 >
@@ -549,6 +792,16 @@ export function Composer({ wide = false }: { wide?: boolean }) {
               )}
             </div>
           </div>
+
+          {voiceError && (
+            <p
+              data-testid="composer-voice-error"
+              className="mt-2 px-1 text-center text-xs text-danger"
+              role="alert"
+            >
+              {voiceError}
+            </p>
+          )}
 
           {wide && (
             /* 首页专属工作环境托盘；session 把默认权限留在白卡内，

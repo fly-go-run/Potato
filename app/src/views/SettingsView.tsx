@@ -39,9 +39,11 @@ import {
   providerConfigured,
   providerReady,
   settingsApi,
+  sttApi,
   type ModelInfo,
   type ProviderInfo,
   type SandboxStatus,
+  type TranscriptionProviderType,
 } from "../lib/api";
 import {
   pluginApi,
@@ -155,6 +157,11 @@ export function SettingsView() {
   const [uploadLimitMb, setUploadLimitMb] = useState<
     number | "unlimited" | "unknown"
   >("unknown");
+  const [transcriptionType, setTranscriptionType] = useState<
+    "disabled" | "whisper_api" | "local_whisper" | "doubao_asr" | "unknown"
+  >("unknown");
+  const [doubaoKeyReady, setDoubaoKeyReady] = useState(false);
+  const [savingTranscription, setSavingTranscription] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [backendHealth, setBackendHealth] = useState<
     { uptimeSeconds: number; agents: number } | "offline" | null
@@ -201,6 +208,45 @@ export function SettingsView() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void sttApi
+      .speechStatus()
+      .then((status) => {
+        if (!active) return;
+        setTranscriptionType(status.transcription_provider_type);
+        setDoubaoKeyReady(status.doubao_credentials_configured);
+      })
+      .catch(() => {
+        // Older backends may not expose speech-status yet.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const setVoiceTranscription = async (enabled: boolean) => {
+    setSavingTranscription(true);
+    setError(null);
+    try {
+      const next: TranscriptionProviderType = enabled
+        ? "doubao_asr"
+        : "disabled";
+      const result = await sttApi.setProviderType(next);
+      setTranscriptionType(result.transcription_provider_type);
+      setNotice(
+        enabled
+          ? t("settings.voice.enabledNotice")
+          : t("settings.voice.disabledNotice"),
+      );
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setSavingTranscription(false);
+    }
+  };
+
 
   /** 常用的技能启停就地完成,不把用户甩出设置;安装等高级操作走「管理」。 */
   const toggleSkill = async (name: string, enabled: boolean) => {
@@ -964,6 +1010,31 @@ export function SettingsView() {
                         onChange={setLanguage}
                       />
                     </SettingRow>
+                    <SettingRow
+                      title={t("settings.voice.title")}
+                      description={
+                        doubaoKeyReady
+                          ? t("settings.voice.descriptionReady")
+                          : t("settings.voice.descriptionMissingKey")
+                      }
+                    >
+                      <Switch
+                        checked={transcriptionType === "doubao_asr"}
+                        disabled={
+                          savingTranscription ||
+                          transcriptionType === "unknown" ||
+                          (!doubaoKeyReady &&
+                            transcriptionType !== "doubao_asr")
+                        }
+                        onChange={() => {
+                          void setVoiceTranscription(
+                            transcriptionType !== "doubao_asr",
+                          );
+                        }}
+                        aria-label={t("settings.voice.title")}
+                      />
+                    </SettingRow>
+
                   </SettingsGroup>
 
                   <SettingsGroup>

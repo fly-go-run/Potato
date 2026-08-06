@@ -729,7 +729,7 @@ async def put_audio_mode(
     summary="Get transcription provider type",
     description=(
         "Get the transcription provider type. "
-        'Values: "disabled", "whisper_api", "local_whisper".'
+        'Values: "disabled", "whisper_api", "local_whisper", "doubao_asr".'
     ),
 )
 async def get_transcription_provider_type() -> dict:
@@ -749,7 +749,8 @@ async def get_transcription_provider_type() -> dict:
         "Set the transcription provider type. "
         '"disabled": no transcription; '
         '"whisper_api": remote Whisper endpoint; '
-        '"local_whisper": locally installed openai-whisper.'
+        '"local_whisper": locally installed openai-whisper; '
+        '"doubao_asr": Doubao / Volcengine OpenSpeech flash ASR.'
     ),
 )
 async def put_transcription_provider_type(
@@ -764,7 +765,7 @@ async def put_transcription_provider_type(
     """Set the transcription provider type."""
     raw = body.get("transcription_provider_type")
     provider_type = (str(raw) if raw is not None else "").strip().lower()
-    valid = {"disabled", "whisper_api", "local_whisper"}
+    valid = {"disabled", "whisper_api", "local_whisper", "doubao_asr"}
     if provider_type not in valid:
         raise HTTPException(
             status_code=400,
@@ -842,20 +843,45 @@ async def put_transcription_provider(
     return {"provider_id": provider_id}
 
 
+@router.get(
+    "/speech-status",
+    summary="Speech / transcription readiness",
+    description=(
+        "Report whether speech credentials and transcription backend "
+        "are ready for composer voice input."
+    ),
+)
+async def get_speech_status() -> dict:
+    """Return speech credential + provider readiness (no secret values)."""
+    from ...agents.utils.doubao_asr import has_doubao_credentials
+
+    config = load_config()
+    provider_type = config.agents.transcription_provider_type
+    has_key = has_doubao_credentials()
+    return {
+        "transcription_provider_type": provider_type,
+        "doubao_credentials_configured": has_key,
+        "ready": provider_type != "disabled"
+        and (provider_type != "doubao_asr" or has_key),
+    }
+
+
 @router.post(
     "/transcribe",
     summary="Transcribe audio to text",
     description=(
         "Transcribe an uploaded audio file "
-        "using the configured Whisper provider. "
+        "using the configured transcription provider "
+        "(Whisper API, local Whisper, or Doubao ASR). "
         "Returns the transcribed text."
     ),
 )
 async def post_transcribe_audio(
     file: UploadFile = File(..., description="Audio file to transcribe"),
 ) -> dict:
-    """Transcribe uploaded audio file using configured Whisper provider."""
+    """Transcribe uploaded audio file using configured provider."""
     from ...agents.utils.audio_transcription import transcribe_audio
+    from ...agents.utils.doubao_asr import has_doubao_credentials
 
     # Check transcription is enabled
     config = load_config()
@@ -868,6 +894,18 @@ async def post_transcribe_audio(
                 "message": (
                     "Transcription is disabled. "
                     "Configure a transcription provider in Settings."
+                ),
+            },
+        )
+
+    if provider_type == "doubao_asr" and not has_doubao_credentials():
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "SPEECH_API_KEY_MISSING",
+                "message": (
+                    "Doubao speech credentials missing. "
+                    "Set apikey/keyid in .env or VOLCENGINE_SPEECH_API_KEY."
                 ),
             },
         )
@@ -909,7 +947,13 @@ async def post_transcribe_audio(
         if text is None:
             raise HTTPException(
                 status_code=500,
-                detail="Transcription failed. Check provider configuration.",
+                detail={
+                    "code": "TRANSCRIPTION_FAILED",
+                    "message": (
+                        "Transcription failed. "
+                        "Check provider configuration and logs."
+                    ),
+                },
             )
         return {"text": text}
     finally:

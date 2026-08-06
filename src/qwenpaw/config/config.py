@@ -1831,13 +1831,15 @@ class AgentsConfig(BaseModel):
         "disabled",
         "whisper_api",
         "local_whisper",
+        "doubao_asr",
     ] = Field(
         default="disabled",
         description=(
             "Transcription backend. "
             '"disabled": no transcription; '
             '"whisper_api": remote OpenAI-compatible endpoint; '
-            '"local_whisper": locally installed openai-whisper.'
+            '"local_whisper": locally installed openai-whisper; '
+            '"doubao_asr": Doubao / Volcengine OpenSpeech flash ASR.'
         ),
     )
     transcription_provider_id: str = Field(
@@ -1853,6 +1855,14 @@ class AgentsConfig(BaseModel):
         description=(
             "Model name for Whisper API transcription. "
             'e.g. "whisper-1", "whisper-large-v3".'
+        ),
+    )
+    transcription_doubao_resource_id: str = Field(
+        default="volc.bigasr.auc_turbo",
+        description=(
+            "OpenSpeech resource id for Doubao flash ASR. "
+            'Default "volc.bigasr.auc_turbo" (录音文件极速版). '
+            'Only used when transcription_provider_type is "doubao_asr".'
         ),
     )
 
