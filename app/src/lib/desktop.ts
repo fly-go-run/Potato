@@ -145,6 +145,39 @@ export async function setDesktopTrayLabels(
   await invokeDesktop("set_tray_labels", { showWindow, quit });
 }
 
+export interface DesktopWindowStatePreference {
+  remember: boolean;
+  width?: number | null;
+  height?: number | null;
+  maximized: boolean;
+}
+
+export async function getDesktopWindowStatePreference(): Promise<DesktopWindowStatePreference | null> {
+  return invokeDesktop<DesktopWindowStatePreference>(
+    "get_window_state_preference",
+  );
+}
+
+export async function setDesktopWindowStatePreference(
+  remember: boolean,
+): Promise<boolean> {
+  try {
+    await invokeDesktop("set_window_state_preference", { remember });
+    return hasDesktopHostBridge();
+  } catch {
+    return false;
+  }
+}
+
+export async function resetDesktopWindowState(): Promise<boolean> {
+  try {
+    await invokeDesktop("reset_window_state");
+    return hasDesktopHostBridge();
+  } catch {
+    return false;
+  }
+}
+
 export async function checkDesktopUpdate(): Promise<DesktopUpdateInfo | null> {
   return invokeDesktop<DesktopUpdateInfo>("check_desktop_update");
 }

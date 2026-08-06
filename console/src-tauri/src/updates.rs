@@ -11,6 +11,7 @@ use serde::Serialize;
 use tauri::AppHandle;
 
 use crate::backend;
+use crate::window_state;
 
 use cache::{
     cached_artifact_path, cached_update_dir, ensure_current_platform, has_cached_update_meta,
@@ -70,10 +71,15 @@ async fn run_install(app: AppHandle) {
         return emit_error(&app, "install", &err);
     }
 
+    // Flush before install: on Windows the plugin may exit the process from
+    // inside `install` (after on_before_exit). Keep a post-install flush for
+    // platforms that return and then restart.
+    window_state::flush_sync(&app);
     if let Err(err) = update.install(bytes) {
         return emit_updater_error(&app, "install", &err);
     }
 
+    window_state::flush_sync(&app);
     app.restart();
 }
 
@@ -207,6 +213,7 @@ fn install_cached_windows(app: &AppHandle, exe_path: &std::path::Path) {
     }
     // Mirrors tauri-plugin-updater's Windows path: after NSIS is launched the
     // current process must exit so the installer can replace locked files.
+    window_state::flush_sync(app);
     app.cleanup_before_exit();
     std::process::exit(0);
 }
@@ -246,9 +253,11 @@ async fn install_cached_macos(
         return emit_error(app, "install", &err);
     }
 
+    window_state::flush_sync(app);
     if let Err(err) = update.install(bytes) {
         return emit_updater_error(app, "install", &err);
     }
+    window_state::flush_sync(app);
     app.restart();
 }
 

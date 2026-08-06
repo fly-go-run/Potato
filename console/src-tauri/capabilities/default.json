@@ -20,6 +20,7 @@
     "frontend-ready",
     "local-file",
     "open-external-link",
-    "tray"
+    "tray",
+    "window-state"
   ]
 }

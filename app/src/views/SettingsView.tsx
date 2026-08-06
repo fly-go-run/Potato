@@ -53,6 +53,12 @@ import {
   skillApi,
   type SkillInfo,
 } from "../lib/capabilities";
+import {
+  getDesktopWindowStatePreference,
+  hasDesktopHostBridge,
+  resetDesktopWindowState,
+  setDesktopWindowStatePreference,
+} from "../lib/desktop";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 import {
   buildThemeTemplate,
@@ -168,6 +174,10 @@ export function SettingsView() {
   >("unknown");
   const [doubaoKeyReady, setDoubaoKeyReady] = useState(false);
   const [savingTranscription, setSavingTranscription] = useState(false);
+  const [desktopWindowReady] = useState(() => hasDesktopHostBridge());
+  const [rememberWindow, setRememberWindow] = useState(true);
+  const [savingWindowPref, setSavingWindowPref] = useState(false);
+  const [resettingWindow, setResettingWindow] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [backendHealth, setBackendHealth] = useState<
     { uptimeSeconds: number; agents: number } | "offline" | null
@@ -231,6 +241,56 @@ export function SettingsView() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!desktopWindowReady) return;
+    let active = true;
+    void getDesktopWindowStatePreference()
+      .then((pref) => {
+        if (!active || !pref) return;
+        setRememberWindow(pref.remember);
+      })
+      .catch(() => {
+        // Older desktop shells may not expose window-state commands yet.
+      });
+    return () => {
+      active = false;
+    };
+  }, [desktopWindowReady]);
+
+  const toggleRememberWindow = async (next: boolean) => {
+    setSavingWindowPref(true);
+    setError(null);
+    try {
+      const ok = await setDesktopWindowStatePreference(next);
+      if (!ok) {
+        setError(t("settings.window.resetFailed"));
+        return;
+      }
+      setRememberWindow(next);
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setSavingWindowPref(false);
+    }
+  };
+
+  const resetWindow = async () => {
+    setResettingWindow(true);
+    setError(null);
+    try {
+      const ok = await resetDesktopWindowState();
+      if (!ok) {
+        setError(t("settings.window.resetFailed"));
+        return;
+      }
+      setNotice(t("settings.window.resetDone"));
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setResettingWindow(false);
+    }
+  };
 
   const setVoiceTranscription = async (enabled: boolean) => {
     setSavingTranscription(true);
@@ -1034,6 +1094,44 @@ export function SettingsView() {
                         onChange={setLanguage}
                       />
                     </SettingRow>
+                    {desktopWindowReady && (
+                      <>
+                        <SettingRow
+                          title={t("settings.window.remember")}
+                          description={t("settings.window.rememberHint")}
+                        >
+                          <Switch
+                            checked={rememberWindow}
+                            disabled={savingWindowPref}
+                            onChange={() => {
+                              void toggleRememberWindow(!rememberWindow);
+                            }}
+                            aria-label={t("settings.window.remember")}
+                          />
+                        </SettingRow>
+                        <SettingRow
+                          title={t("settings.window.reset")}
+                          description={t("settings.window.resetHint")}
+                        >
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={resettingWindow}
+                            onClick={() => {
+                              void resetWindow();
+                            }}
+                          >
+                            {resettingWindow ? (
+                              <LoaderCircle
+                                size={13}
+                                className="animate-spin"
+                              />
+                            ) : null}
+                            {t("settings.window.reset")}
+                          </Button>
+                        </SettingRow>
+                      </>
+                    )}
                     <SettingRow
                       title={t("settings.voice.title")}
                       description={

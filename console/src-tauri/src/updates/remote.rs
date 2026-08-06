@@ -45,7 +45,12 @@ pub(super) async fn check_installable_update(
         .updater_builder()
         .on_before_exit({
             let app = app.clone();
-            move || app.cleanup_before_exit()
+            move || {
+                // Windows install exits from inside `update.install` after this
+                // hook; flush geometry here so it is not skipped by process::exit.
+                crate::window_state::flush_sync(&app);
+                app.cleanup_before_exit();
+            }
         })
         .build()?;
 

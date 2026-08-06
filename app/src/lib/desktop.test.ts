@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  getDesktopWindowStatePreference,
   hasDesktopHostBridge,
   listenDesktopEvent,
+  resetDesktopWindowState,
   runDesktopCloseAction,
+  setDesktopWindowStatePreference,
 } from "./desktop";
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -81,5 +84,41 @@ describe("desktop host bridge", () => {
 
     expect(invoke).toHaveBeenNthCalledWith(1, "minimize_to_tray", undefined);
     expect(invoke).toHaveBeenNthCalledWith(2, "quit_app", undefined);
+  });
+
+  it("bridges window geometry preferences through native commands", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "get_window_state_preference") {
+        return { remember: true, width: 1440, height: 900, maximized: false };
+      }
+      return undefined;
+    });
+    installDesktopHost(invoke, () => 1);
+
+    await expect(getDesktopWindowStatePreference()).resolves.toEqual({
+      remember: true,
+      width: 1440,
+      height: 900,
+      maximized: false,
+    });
+    await expect(setDesktopWindowStatePreference(false)).resolves.toBe(true);
+    await expect(resetDesktopWindowState()).resolves.toBe(true);
+
+    expect(invoke).toHaveBeenCalledWith("get_window_state_preference", undefined);
+    expect(invoke).toHaveBeenCalledWith("set_window_state_preference", {
+      remember: false,
+    });
+    expect(invoke).toHaveBeenCalledWith("reset_window_state", undefined);
+  });
+
+  it("no-ops window geometry helpers without a desktop bridge", async () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { location: { search: "?desktop=1" } },
+    });
+
+    await expect(getDesktopWindowStatePreference()).resolves.toBeNull();
+    await expect(setDesktopWindowStatePreference(true)).resolves.toBe(false);
+    await expect(resetDesktopWindowState()).resolves.toBe(false);
   });
 });

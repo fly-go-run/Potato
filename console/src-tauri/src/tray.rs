@@ -204,6 +204,7 @@ pub(crate) fn show_main_window(app: &tauri::AppHandle) {
 }
 
 pub(crate) fn hide_main_window(app: &tauri::AppHandle) {
+    crate::window_state::flush_sync(app);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
     }
@@ -212,6 +213,7 @@ pub(crate) fn hide_main_window(app: &tauri::AppHandle) {
 fn exit_app(app: &tauri::AppHandle) {
     // Keep a visible, non-interactive status while the sidecar finishes its
     // bounded shutdown. This also gives tray-only exits an explicit status.
+    crate::window_state::flush_sync(app);
     show_main_window(app);
     let _ = app.emit(SHUTDOWN_STARTED_EVENT, ());
 

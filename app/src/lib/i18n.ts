@@ -721,6 +721,13 @@ export const dictionaries = {
     "settings.language.description": "选择界面显示语言。",
     "settings.language.zh": "中文",
     "settings.language.en": "English",
+    "settings.window.remember": "记住窗口大小与位置",
+    "settings.window.rememberHint":
+      "下次打开 Potato 时恢复你上次使用的窗口尺寸和位置。",
+    "settings.window.reset": "恢复默认窗口",
+    "settings.window.resetHint": "立即设为 1280×800 并在当前屏幕居中。",
+    "settings.window.resetDone": "已恢复为默认窗口大小与位置。",
+    "settings.window.resetFailed": "无法调整窗口，请重试。",
     "settings.voice.title": "语音输入（豆包）",
     "settings.voice.descriptionReady":
       "使用 .env 中的火山语音密钥，经后端调用豆包极速版 ASR。开启后可在输入框麦克风转写。",
@@ -1601,6 +1608,14 @@ export const dictionaries = {
     "settings.language.description": "Choose the interface language.",
     "settings.language.zh": "中文",
     "settings.language.en": "English",
+    "settings.window.remember": "Remember window size and position",
+    "settings.window.rememberHint":
+      "Restore the last size and position when Potato opens.",
+    "settings.window.reset": "Reset window to default",
+    "settings.window.resetHint":
+      "Immediately set 1280×800 and center on the current display.",
+    "settings.window.resetDone": "Window restored to the default size and position.",
+    "settings.window.resetFailed": "Could not adjust the window. Please try again.",
     "settings.voice.title": "Voice input (Doubao)",
     "settings.voice.descriptionReady":
       "Uses Volcengine speech keys from .env via backend Doubao flash ASR. Enable to transcribe from the composer mic.",

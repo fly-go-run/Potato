@@ -6,6 +6,7 @@ mod external_link;
 mod local_file;
 mod updates;
 mod tray;
+mod window_state;
 #[cfg(target_os = "macos")]
 mod macos_icon;
 
@@ -87,10 +88,17 @@ pub fn run() {
             tray::quit_app,
             tray::set_tray_labels,
             tray::ack_close,
+            window_state::get_window_state_preference,
+            window_state::set_window_state_preference,
+            window_state::reset_window_state,
         ])
         .manage(backend::BackendState::default())
         .manage(tray::TrayState::default())
         .setup(|app| {
+            // Restore geometry before backend::setup: a sidecar failure path
+            // calls show_main_window synchronously and would otherwise flash
+            // the conf defaults.
+            window_state::init_and_restore(&app.handle());
             backend::setup(app)?;
             tray::setup(app)?;
             #[cfg(target_os = "macos")]
@@ -131,9 +139,15 @@ pub fn run() {
             if let WindowEvent::ThemeChanged(theme) = event {
                 macos_icon::set(*theme);
             }
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                tray::request_close(window.app_handle());
+            match event {
+                WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    tray::request_close(window.app_handle());
+                }
+                WindowEvent::Resized(_) | WindowEvent::Moved(_) => {
+                    window_state::schedule_save(window.app_handle());
+                }
+                _ => {}
             }
         })
         .build(tauri::generate_context!());
@@ -159,6 +173,7 @@ pub fn run() {
                     }
                     #[cfg(not(target_os = "macos"))]
                     let _ = (&api, &code);
+                    window_state::flush_sync(app_handle);
                     if let Err(err) = tauri::async_runtime::block_on(backend::stop_and_wait(app_handle)) {
                         log::warn!("[backend] graceful shutdown did not complete: {err}");
                     }

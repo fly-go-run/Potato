@@ -1,0 +1,8 @@
+[[permission]]
+identifier = "window-state"
+description = "Allows the frontend to read window geometry preferences and reset the desktop window."
+commands.allow = [
+  "get_window_state_preference",
+  "set_window_state_preference",
+  "reset_window_state",
+]
