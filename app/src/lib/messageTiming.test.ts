@@ -11,10 +11,7 @@ import {
   type StreamMessage,
 } from "./stream";
 
-function message(
-  id: string,
-  status: StreamMessage["status"],
-): StreamMessage {
+function message(id: string, status: StreamMessage["status"]): StreamMessage {
   return {
     id,
     type: "message",
@@ -35,7 +32,11 @@ describe("message timings", () => {
   it.each(["created", "in_progress"] as const)(
     "starts timing when a message first appears as %s",
     (status) => {
-      trackMessageTimings(state([]), state([message("message-1", status)]), 100);
+      trackMessageTimings(
+        state([]),
+        state([message("message-1", status)]),
+        100,
+      );
 
       expect(getMessageTiming("message-1")).toEqual({
         startedAt: 100,

@@ -104,12 +104,7 @@ export function FileToolCard({
     </div>
   );
 
-  if (
-    prominentArtifact &&
-    !running &&
-    isSuccessfulArtifactPair(pair) &&
-    path
-  ) {
+  if (prominentArtifact && !running && isSuccessfulArtifactPair(pair) && path) {
     return (
       <ArtifactCard
         pair={pair}
@@ -134,7 +129,9 @@ export function FileToolCard({
         {path}
       </button>
     ) : (
-      <span className={`min-w-0 flex-1 truncate font-mono ${mono} text-ink-muted`}>
+      <span
+        className={`min-w-0 flex-1 truncate font-mono ${mono} text-ink-muted`}
+      >
         {path || t("tool.file.path")}
       </span>
     );

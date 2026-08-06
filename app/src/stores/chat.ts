@@ -17,10 +17,7 @@ import {
 } from "../lib/approvals";
 import { t } from "../lib/i18n";
 import { sortChats } from "../lib/chats";
-import {
-  resetMessageTimings,
-  trackMessageTimings,
-} from "../lib/messageTiming";
+import { resetMessageTimings, trackMessageTimings } from "../lib/messageTiming";
 import {
   hasSessionProjectRecord,
   loadLastProject,

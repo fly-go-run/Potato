@@ -354,7 +354,10 @@ describe("collectConversationArtifacts", () => {
   });
 
   it("only collects assistant sandbox and file protocol links", () => {
-    const userMessage = assistantTextMessage("user-1", "[用户文件](sandbox:/tmp/user.txt)");
+    const userMessage = assistantTextMessage(
+      "user-1",
+      "[用户文件](sandbox:/tmp/user.txt)",
+    );
     userMessage.role = "user";
     const artifacts = collectConversationArtifacts([
       assistantTextMessage(

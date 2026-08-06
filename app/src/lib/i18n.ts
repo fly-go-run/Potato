@@ -1614,8 +1614,10 @@ export const dictionaries = {
     "settings.window.reset": "Reset window to default",
     "settings.window.resetHint":
       "Immediately set 1280×800 and center on the current display.",
-    "settings.window.resetDone": "Window restored to the default size and position.",
-    "settings.window.resetFailed": "Could not adjust the window. Please try again.",
+    "settings.window.resetDone":
+      "Window restored to the default size and position.",
+    "settings.window.resetFailed":
+      "Could not adjust the window. Please try again.",
     "settings.voice.title": "Voice input (Doubao)",
     "settings.voice.descriptionReady":
       "Uses Volcengine speech keys from .env via backend Doubao flash ASR. Enable to transcribe from the composer mic.",

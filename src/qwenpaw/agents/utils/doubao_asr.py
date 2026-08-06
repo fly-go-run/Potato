@@ -248,6 +248,43 @@ def _extract_text(payload: dict) -> str:
     return ""
 
 
+def _transcript_from_response(
+    response: "httpx.Response",
+    status_code: str,
+    status_message: str,
+    log_id: str,
+) -> Optional[str]:
+    """Turn a 2xx flash response into transcript text, or ``None``.
+
+    OpenSpeech reports business failures in headers with a 200 body, so the
+    status code has to be checked separately from the HTTP status.
+    """
+    if status_code and status_code != SUCCESS_STATUS:
+        logger.warning(
+            "Doubao ASR business failure: code=%s message=%s log_id=%s",
+            status_code,
+            status_message,
+            log_id,
+        )
+        return None
+
+    try:
+        body = response.json()
+    except Exception:  # noqa: BLE001
+        logger.warning("Doubao ASR: non-JSON response (log_id=%s)", log_id)
+        return None
+
+    text = _extract_text(body)
+    if not text:
+        logger.warning(
+            "Doubao ASR returned empty text (status=%s log_id=%s)",
+            status_code or "ok",
+            log_id,
+        )
+        return None
+    return text
+
+
 async def transcribe_doubao_flash(file_path: str) -> Optional[str]:
     """Transcribe *file_path* with Doubao flash ASR.
 
@@ -320,44 +357,25 @@ async def transcribe_doubao_flash(file_path: str) -> Optional[str]:
             )
             return None
 
-        if status_code and status_code != SUCCESS_STATUS:
-            logger.warning(
-                "Doubao ASR business failure: code=%s message=%s log_id=%s",
-                status_code,
-                status_message,
-                log_id,
-            )
-            return None
-
-        try:
-            body = response.json()
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "Doubao ASR: non-JSON response (log_id=%s)",
-                log_id,
-            )
-            return None
-
-        text = _extract_text(body)
-        if not text:
-            logger.warning(
-                "Doubao ASR returned empty text (status=%s log_id=%s)",
-                status_code or "ok",
-                log_id,
-            )
-            return None
-
-        logger.debug("Doubao ASR transcribed %s: %s", file_path, text[:80])
-        return text
-    except httpx.TimeoutException:
-        logger.warning("Doubao ASR request timed out for %s", file_path)
-        return None
-    except Exception:  # noqa: BLE001
-        logger.warning(
-            "Doubao ASR failed for %s",
-            file_path,
-            exc_info=True,
+        text = _transcript_from_response(
+            response,
+            status_code,
+            status_message,
+            log_id,
         )
+        if text:
+            logger.debug("Doubao ASR transcribed %s: %s", file_path, text[:80])
+        return text
+    except Exception as exc:  # noqa: BLE001
+        if isinstance(exc, httpx.TimeoutException):
+            # 超时是常态,不值得为它打整条堆栈。
+            logger.warning("Doubao ASR request timed out for %s", file_path)
+        else:
+            logger.warning(
+                "Doubao ASR failed for %s",
+                file_path,
+                exc_info=True,
+            )
         return None
     finally:
         if is_temp:

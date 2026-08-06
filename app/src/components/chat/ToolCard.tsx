@@ -126,7 +126,9 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
         {label}
       </span>
       {summary && (
-        <span className="min-w-0 flex-1 truncate text-ink-muted">{summary}</span>
+        <span className="min-w-0 flex-1 truncate text-ink-muted">
+          {summary}
+        </span>
       )}
     </>
   );

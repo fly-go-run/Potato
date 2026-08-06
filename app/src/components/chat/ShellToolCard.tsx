@@ -2,11 +2,7 @@ import { Check, Terminal, X } from "lucide-react";
 import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
-import {
-  pairDurationLabel,
-  richOutputText,
-  toolPairStatus,
-} from "./ToolCard";
+import { pairDurationLabel, richOutputText, toolPairStatus } from "./ToolCard";
 import { useToolDetail } from "../../stores/uiPrefs";
 import { useTranslation } from "../../lib/i18n";
 

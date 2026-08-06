@@ -104,7 +104,10 @@ describe("desktop host bridge", () => {
     await expect(setDesktopWindowStatePreference(false)).resolves.toBe(true);
     await expect(resetDesktopWindowState()).resolves.toBe(true);
 
-    expect(invoke).toHaveBeenCalledWith("get_window_state_preference", undefined);
+    expect(invoke).toHaveBeenCalledWith(
+      "get_window_state_preference",
+      undefined,
+    );
     expect(invoke).toHaveBeenCalledWith("set_window_state_preference", {
       remember: false,
     });
