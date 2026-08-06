@@ -1,6 +1,6 @@
 import {
   memo,
-  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -620,13 +620,26 @@ function ExecutionTrack({
   const setDetailedTools = useUiPrefs((state) => state.setDetailedTools);
   const snapshots = entries.map(entrySnapshot);
   const state = summarizeTrack(snapshots, { streaming: live, waiting });
-  // 展开时窗口让位给完整条目列表,淘汰不播动画直接清空。
+  // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
+  // 它同时让「驻留到期、被推迟的行可以进窗」这件事有机会重算。
+  const now = useNow(live);
+  // 上一帧的窗口:选行要靠它判断谁已经站够时间。只在提交后回写——
+  // 渲染期写入会让被 React 丢弃的并发渲染污染驻留账本,把没真正露过
+  // 面的行记成已入窗,提前耗掉它的 900ms。
+  const windowRef = useRef<CollapsedRow[]>(NO_ROWS);
+  // 展开时窗口让位给完整条目列表,直接清空并忘掉驻留簿记。
   const rows = open
     ? NO_ROWS
-    : selectCollapsedWindow(snapshots, { streaming: live });
-  const { evicted, settle } = useEvictedRows(rows, !open);
-  // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
-  const now = useNow(live);
+    : selectCollapsedWindow(snapshots, {
+        streaming: live,
+        // 心跳只有秒级精度,拿它当 since 会让刚进窗的行在下一跳就到期;
+        // 驻留判定用真实时钟,心跳只负责触发重算。
+        now: Date.now(),
+        prev: windowRef.current,
+      });
+  useEffect(() => {
+    windowRef.current = rows;
+  });
   const durationLabel = trackDurationLabel(entries, live ? now : null);
   const compactionEntry =
     entries.length === 1 &&
@@ -658,12 +671,10 @@ function ExecutionTrack({
   }
   const toggleable = entries.length > 0;
   const entryByKey = new Map(entries.map((entry) => [entry.key, entry]));
-  const orderOf = new Map(entries.map((entry, index) => [entry.key, index]));
-  // 在场行 + 退出中的行按 entries 原始时间序合并渲染。
-  const display = [
-    ...rows.map((row) => ({ ...row, exiting: false })),
-    ...evicted.map((row) => ({ ...row, exiting: true })),
-  ].sort((a, b) => (orderOf.get(a.key) ?? 0) - (orderOf.get(b.key) ?? 0));
+  // 窗口满员后每次换代都是「淘汰一行 + 新进一行」。淘汰行若留在文档流里
+  // 播收高动画,新行却是瞬时占位,窗口会先涨一行再缩回去——底部吸附把这
+  // 个高度回摆投射成上方已定稿内容的上下抖动。直接原位替换,行数恒定。
+  const display = rows;
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
@@ -734,15 +745,7 @@ function ExecutionTrack({
           {display.map((row) => {
             const entry = entryByKey.get(row.key);
             if (!entry) return null;
-            return (
-              <WindowRow
-                key={row.key}
-                role={row.role}
-                entry={entry}
-                exiting={row.exiting}
-                onExited={settle}
-              />
-            );
+            return <WindowRow key={row.key} role={row.role} entry={entry} />;
           })}
         </div>
       )}
@@ -765,7 +768,11 @@ function ExecutionTrack({
 
 const NO_ROWS: CollapsedRow[] = [];
 
-/** 折叠窗口选行的输入快照:ProcessEntry → 纯逻辑层的形状。 */
+/**
+ * 折叠窗口选行的输入快照:ProcessEntry → 纯逻辑层的形状。
+ * ``displayable`` 与 ``windowRowContent`` 的判空口径保持一致——占了槽位
+ * 却渲染成空,就是「行凭空消失、下一行慢半拍才出现」的来源。
+ */
 function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
   if (entry.kind === "pair") {
     const status = toolPairStatus(entry.pair);
@@ -776,94 +783,59 @@ function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
       completed: status.completed,
       failed: status.failed,
       toolName: entry.pair.name,
+      // 运行中的那条以 current 身份入窗,只展示详情;参数还在流式拼装、
+      // 详情解析不出来时先别占位。收口后走 done,有工具名兜底。
+      displayable: status.running
+        ? Boolean(recentPairDetail(entry.pair))
+        : true,
     };
   }
   if (entry.kind === "message") {
-    return { key: entry.key, kind: "message", active: false };
+    return {
+      key: entry.key,
+      kind: "message",
+      active: false,
+      displayable: hasVisibleText(entry.message),
+    };
   }
-  return { key: entry.key, kind: entry.kind, active: isActiveEntry(entry) };
+  return {
+    key: entry.key,
+    kind: entry.kind,
+    active: isActiveEntry(entry),
+    displayable:
+      entry.kind === "progress" ? hasVisibleText(entry.message) : true,
+  };
 }
 
-/**
- * 折叠窗口退出簿记:被淘汰的行保留在渲染树里播 qp-row-out,
- * animationend 后移除。对比在 render 阶段同步进行(与 Collapse 的
- * prevOpen 手法一致),避免行先卸载一帧再回插补动画造成闪跳;
- * reduced-motion 或展开清窗时直接移除。
- */
-function useEvictedRows(rows: CollapsedRow[], animate: boolean) {
-  const [evicted, setEvicted] = useState<CollapsedRow[]>([]);
-  const [prev, setPrev] = useState(rows);
-  const changed = rowsDiffer(prev, rows);
-  if (changed) setPrev(rows);
-  if (!animate) {
-    // 展开清窗对退出中的行同样生效:rows 可能早已为空(rowsDiffer
-    // 不触发),仅 animate 翻转也要立即清掉,不能等 animationend。
-    if (evicted.length > 0) setEvicted([]);
-  } else if (changed) {
-    if (prefersReducedMotion()) {
-      if (evicted.length > 0) setEvicted([]);
-    } else {
-      const keys = new Set(rows.map((row) => row.key));
-      const removed = prev.filter((row) => !keys.has(row.key));
-      const kept = evicted.filter(
-        (row) =>
-          !keys.has(row.key) && !removed.some((gone) => gone.key === row.key),
-      );
-      setEvicted([...kept, ...removed]);
-    }
-  }
-  const settle = useCallback((key: string) => {
-    setEvicted((old) => old.filter((row) => row.key !== key));
-  }, []);
-  return { evicted, settle };
-}
-
-function rowsDiffer(a: CollapsedRow[], b: CollapsedRow[]): boolean {
-  if (a.length !== b.length) return true;
-  return a.some(
-    (row, index) => row.key !== b[index]!.key || row.role !== b[index]!.role,
-  );
-}
-
-function prefersReducedMotion(): boolean {
-  return (
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
-  );
+function hasVisibleText(message: StreamMessage): boolean {
+  return textFromContent(message.content).trim().length > 0;
 }
 
 /**
  * 折叠窗口单行。同一 key 的行在 current → done 时原位交叉淡化内容
- * (qp-swap-in),不重放入场动画;新行入场 qp-msg-in,淘汰行 qp-row-out。
- * 当前步只展示详情(命令/文件/查询词)——「正在…」已由摘要行表达,
- * 无详情时整行省略,避免复读。
+ * (qp-swap-in),不重放入场动画;新行入场 qp-msg-in——只做透明度与位移,
+ * 不改高度,窗口换代时行数恒定。当前步只展示详情(命令/文件/查询词)
+ * ——「正在…」已由摘要行表达,无详情时整行省略,避免复读。
  */
 function WindowRow({
   role,
   entry,
-  exiting,
-  onExited,
 }: {
   role: CollapsedRowRole;
   entry: ProcessEntry;
-  exiting: boolean;
-  onExited: (key: string) => void;
 }) {
   const { t } = useTranslation();
   const content = windowRowContent(role, entry, t);
   if (!content) return null;
   return (
     <div
-      className={`qp-msg-in flex min-h-6 items-start gap-1.5 px-1 py-0.5 text-[12px] leading-5 text-ink-muted ${
-        exiting ? "qp-row-out" : ""
+      className={`qp-msg-in flex items-start gap-1.5 px-1 py-0.5 text-[12px] leading-5 text-ink-muted ${
+        // 叙述行可折两行,恒定预留两行高度:否则文本流式变长/换代时会在
+        // 一行与两行之间跳,同样把上方内容顶得上下移动。
+        content.clamp ? "min-h-11" : "min-h-6"
       }`}
-      onAnimationEnd={(event) => {
-        if (event.animationName === "qp-row-out") onExited(entry.key);
-      }}
     >
-      <span
-        key={role}
-        className="qp-swap-in flex min-w-0 items-start gap-1.5"
-      >
+      <span key={role} className="qp-swap-in flex min-w-0 items-start gap-1.5">
         {content.icon}
         <span
           className={
@@ -964,12 +936,18 @@ const TrackEntry = memo(function TrackEntry({
  * 文件渲染在轨道外,同样不触发。普通写文件属于执行步骤,会触发折叠。
  * 工具名可能只出现在 output 上,与
  * buildToolPair 一致地按 call → output 顺序解析,保证分类不劈叉。
+ *
+ * 空 reasoning 不触发:走 OpenAI Responses 协议的供应商每轮收口时都会
+ * 补一个没有思考文本的 reasoning 占位(只为回传 reasoning_item_id),
+ * 它落在最终正文之后,否则会把整段答案折进轨道里再随收口一起藏掉。
  */
-function startsTrackWork(
+export function startsTrackWork(
   message: StreamMessage,
   outputsByCallId: Map<string, StreamMessage>,
 ): boolean {
-  if (message.type === "reasoning") return true;
+  if (message.type === "reasoning") {
+    return textFromContent(message.content).trim().length > 0;
+  }
   if (!isToolCall(message.type)) return false;
   const data = toolData(message);
   const name =

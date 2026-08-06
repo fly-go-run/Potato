@@ -151,27 +151,6 @@ select,
   animation: qp-fade-in var(--dur-fast) ease-out;
 }
 
-/* 折叠执行窗口:被淘汰行的退出(透明度 + 行高 + 轻微上移)。
-   JS 在 animationend 后移除节点;reduced-motion 下 JS 直接移除、
-   不套本类,故不需要(也不能)在 reduced-motion 里关掉本动画——
-   关掉会令 animationend 不触发,行残留。max-height 上限对齐
-   line-clamp-2 叙述行的两行高度。 */
-@keyframes qp-row-out {
-  from {
-    opacity: 1;
-    max-height: 3rem;
-  }
-  to {
-    opacity: 0;
-    max-height: 0;
-    transform: translateY(-2px);
-  }
-}
-.qp-row-out {
-  overflow: hidden;
-  animation: qp-row-out 150ms ease-out forwards;
-}
-
 /* 运行状态指示环:只有当前步骤旋转,历史步骤应换成静态图标 */
 @keyframes qp-spin {
   to {
