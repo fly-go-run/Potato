@@ -58,6 +58,13 @@ _CONTEXT_WINDOWS_BY_PROVIDER: dict[str, tuple[tuple[str, int], ...]] = {
         # V3.2 remains a 128K model.
         ("deepseek-v3.2", 131_072),
     ),
+    # Same catalog, served over the Responses API.
+    "deepseek-response": (
+        ("deepseek-v4", 1_000_000),
+        ("deepseek-chat", 1_000_000),
+        ("deepseek-reasoner", 1_000_000),
+        ("deepseek-v3.2", 131_072),
+    ),
     # DashScope and the Aliyun plans expose a curated set of official models.
     # These are intentionally separate from user-configured OpenAI-compatible
     # providers, whose model aliases and limits cannot be inferred safely.

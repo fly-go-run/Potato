@@ -22,6 +22,7 @@ from qwenpaw.providers.openai_provider import (
     GitHubModelsProvider,
     OpenAIProvider,
 )
+from qwenpaw.providers.openai_response_provider import OpenAIResponseProvider
 from qwenpaw.providers.provider import ModelInfo, ProviderInfo
 from qwenpaw.providers.provider_manager import ProviderManager
 
@@ -170,6 +171,66 @@ async def test_add_custom_provider_and_reload_from_storage(
     assert isinstance(loaded_builtin_conflict, OpenAIProvider)
     assert loaded_duplicate is not None
     assert isinstance(loaded_duplicate, OpenAIProvider)
+
+
+async def test_switching_protocol_swaps_the_live_provider_class(
+    isolated_secret_dir,
+) -> None:
+    """``chat_model`` picks the wire protocol, which is a different class."""
+    manager = ProviderManager()
+    await manager.add_custom_provider(
+        OpenAIProvider(
+            id="custom-gateway",
+            name="Custom Gateway",
+            base_url="http://127.0.0.1:8788/v1",
+            models=[ModelInfo(id="gpt-5.2", name="GPT-5.2")],
+        ),
+    )
+    assert type(manager.get_provider("custom-gateway")) is OpenAIProvider
+
+    assert manager.update_provider(
+        "custom-gateway",
+        {"chat_model": "OpenAIResponseModel"},
+    )
+
+    # Effective immediately — not only after the next restart.
+    live = manager.get_provider("custom-gateway")
+    assert type(live) is OpenAIResponseProvider
+    assert live.base_url == "http://127.0.0.1:8788/v1"
+    assert [m.id for m in live.models] == ["gpt-5.2"]
+    assert type(ProviderManager().get_provider("custom-gateway")) is (
+        OpenAIResponseProvider
+    )
+
+
+async def test_switching_protocol_is_refused_for_builtin_providers(
+    isolated_secret_dir,
+) -> None:
+    manager = ProviderManager()
+
+    assert manager.update_provider(
+        "deepseek",
+        {"chat_model": "OpenAIResponseModel"},
+    )
+
+    provider = manager.get_provider("deepseek")
+    assert type(provider) is OpenAIProvider
+    assert provider.chat_model == "OpenAIChatModel"
+
+
+def test_builtin_deepseek_response_provider_registered(
+    isolated_secret_dir,
+) -> None:
+    manager = ProviderManager()
+
+    provider = manager.get_provider("deepseek-response")
+
+    assert provider is not None
+    assert isinstance(provider, OpenAIResponseProvider)
+    assert provider.base_url == "https://api.deepseek.com"
+    assert provider.chat_model == "OpenAIResponseModel"
+    assert [m.id for m in provider.models] == ["deepseek-v4-flash"]
+    assert provider.provider_group == "deepseek"
 
 
 @pytest.mark.parametrize(

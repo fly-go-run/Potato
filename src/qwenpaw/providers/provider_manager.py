@@ -725,6 +725,19 @@ DEEPSEEK_MODELS: List[ModelInfo] = [
     ),
 ]
 
+# DeepSeek's Responses API endpoint currently serves deepseek-v4-flash only;
+# per its docs the other models remain Chat-Completions-only for now.
+# https://api-docs.deepseek.com/guides/responses_api/
+DEEPSEEK_RESPONSE_MODELS: List[ModelInfo] = [
+    ModelInfo(
+        id="deepseek-v4-flash",
+        name="DeepSeek V4 Flash",
+        supports_image=False,
+        supports_video=False,
+        probe_source="documentation",
+    ),
+]
+
 VOLCENGINE_MODELS: List[ModelInfo] = [
     ModelInfo(
         id="doubao-seed-2-0-code-preview-260215",
@@ -1089,6 +1102,9 @@ PROVIDER_OPENAI_RESPONSE = OpenAIResponseProvider(
     chat_model="OpenAIResponseModel",
     models=OPENAI_MODELS,
     freeze_url=True,
+    # The Responses API takes reasoning depth as ``reasoning.effort``;
+    # OpenAI documents the full ladder for its reasoning models.
+    thinking_param_style="effort",
 )
 
 PROVIDER_OPENCODE = OpenCodeProvider(
@@ -1206,6 +1222,25 @@ PROVIDER_DEEPSEEK = OpenAIProvider(
     api_key_prefix="sk-",
     models=DEEPSEEK_MODELS,
     freeze_url=True,
+    provider_group="deepseek",
+    provider_group_name="DeepSeek",
+    provider_variant="chat_completions",
+)
+
+# DeepSeek exposes the Codex-style Responses API on the same host as its
+# Chat Completions endpoint ("our API now supports the Responses API
+# format, with the base_url https://api.deepseek.com").
+PROVIDER_DEEPSEEK_RESPONSE = OpenAIResponseProvider(
+    id="deepseek-response",
+    name="DeepSeek (Response API)",
+    base_url="https://api.deepseek.com",
+    api_key_prefix="sk-",
+    chat_model="OpenAIResponseModel",
+    models=DEEPSEEK_RESPONSE_MODELS,
+    freeze_url=True,
+    provider_group="deepseek",
+    provider_group_name="DeepSeek",
+    provider_variant="response_api",
 )
 
 PROVIDER_ANTHROPIC = AnthropicProvider(
@@ -1426,6 +1461,7 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
         self._add_builtin(PROVIDER_ANTHROPIC)
         self._add_builtin(PROVIDER_GEMINI)
         self._add_builtin(PROVIDER_DEEPSEEK)
+        self._add_builtin(PROVIDER_DEEPSEEK_RESPONSE)
         self._add_builtin(PROVIDER_KIMI_CN)
         self._add_builtin(PROVIDER_KIMI_INTL)
         self._add_builtin(PROVIDER_KIMI_CODINGPLAN)
@@ -1519,6 +1555,22 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
         # Determine save location
         is_builtin = provider_id in self.builtin_providers
         is_plugin = provider_id in self.plugin_providers
+
+        # ``chat_model`` selects the wire protocol, which is implemented by
+        # the concrete provider *class* — updating the field alone would
+        # leave the live instance speaking the old protocol until the next
+        # restart.  Custom providers only: built-ins pin their own class and
+        # plugin providers supply theirs.
+        if (
+            config.get("chat_model")
+            and not is_builtin
+            and not is_plugin
+            and provider_id in self.custom_providers
+        ):
+            rebuilt = self._provider_from_data(provider.model_dump())
+            if type(rebuilt) is not type(provider):
+                self.custom_providers[provider_id] = rebuilt
+                provider = rebuilt
 
         if is_plugin:
             # Update plugin provider info in memory (convert Provider to
@@ -2044,6 +2096,15 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
             if isinstance(value, str) and value and not is_encrypted(value):
                 return True
         return False
+
+    def build_provider_from_data(self, data: Dict) -> Provider:
+        """Instantiate the provider class implied by *data* without saving.
+
+        Lets callers probe an unsaved configuration — in particular a
+        different ``chat_model`` (wire protocol), which changes the class
+        and therefore cannot be expressed with ``model_copy``.
+        """
+        return self._provider_from_data(data)
 
     # pylint: disable=too-many-return-statements
     def _provider_from_data(self, data: Dict) -> Provider:

@@ -575,14 +575,31 @@ def set_llm_cmd() -> None:
 @click.option("--name", "-n", required=True, help="Human-readable name")
 @click.option("--base-url", "-u", default="", help="Default API base URL")
 @click.option("--api-key-prefix", default="", help="Expected API key prefix")
+@click.option(
+    "--protocol",
+    "-p",
+    type=click.Choice(["chat", "responses"], case_sensitive=False),
+    default="chat",
+    show_default=True,
+    help=(
+        "API protocol of the endpoint: 'chat' for /chat/completions, "
+        "'responses' for /responses (Codex-style)"
+    ),
+)
 def add_provider_cmd(
     provider_id: str,
     name: str,
     base_url: str,
     api_key_prefix: str,
+    protocol: str,
 ) -> None:
     """Add a new custom provider."""
     manager = _manager()
+    chat_model = (
+        "OpenAIResponseModel"
+        if protocol.lower() == "responses"
+        else "OpenAIChatModel"
+    )
     try:
         provider_info = asyncio.run(
             manager.add_custom_provider(
@@ -592,7 +609,7 @@ def add_provider_cmd(
                     base_url=base_url,
                     api_key_prefix=api_key_prefix,
                     is_custom=True,
-                    chat_model="OpenAIChatModel",
+                    chat_model=chat_model,
                 ),
             ),
         )
@@ -607,6 +624,7 @@ def add_provider_cmd(
         click.echo(f"  requested id: {provider_id}")
     if base_url:
         click.echo(f"  base_url: {base_url}")
+    click.echo(f"  protocol: {protocol.lower()} ({chat_model})")
     click.echo(
         "  Run 'qwenpaw models add-model' to add models, "
         "then 'qwenpaw models config-key' to set the API key.",

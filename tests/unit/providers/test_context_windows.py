@@ -58,6 +58,8 @@ def test_model_family_matching_requires_a_right_boundary():
         ("openai", "gpt-5", 272_000),
         ("openai", "gpt-4.1-mini", 1_047_576),
         ("openai-response", "o3", 200_000),
+        ("deepseek", "deepseek-v4-flash", 1_000_000),
+        ("deepseek-response", "deepseek-v4-flash", 1_000_000),
         ("azure-openai", "gpt-5-chat", 272_000),
         ("kimi-cn", "kimi-k2-thinking", 262_144),
         ("anthropic", "claude-sonnet-4-5", 200_000),

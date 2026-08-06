@@ -304,7 +304,7 @@ export const modelApi = {
     ),
   configure: async (
     providerId: string,
-    config: { api_key?: string; base_url?: string },
+    config: { api_key?: string; base_url?: string; chat_model?: ChatModelName },
   ) => {
     const path = `/api/models/${encodeURIComponent(providerId)}/config`;
     return apiJson<ProviderInfo>(path, {
@@ -317,10 +317,14 @@ export const modelApi = {
       `/api/models/custom-providers/${encodeURIComponent(providerId)}`,
       { method: "DELETE" },
     ),
-  /** 探活:可携带未保存的 key/url 试连,后端不落盘。 */
+  /** 探活:可携带未保存的 key/url/协议试连,后端不落盘。 */
   testProvider: (
     providerId: string,
-    overrides?: { api_key?: string; base_url?: string },
+    overrides?: {
+      api_key?: string;
+      base_url?: string;
+      chat_model?: ChatModelName;
+    },
   ) =>
     apiJson<{ success: boolean; message: string }>(
       `/api/models/${encodeURIComponent(providerId)}/test`,
@@ -330,6 +334,7 @@ export const modelApi = {
     id: string;
     name: string;
     default_base_url: string;
+    chat_model?: ChatModelName;
   }) =>
     apiJson<ProviderInfo>("/api/models/custom-providers", {
       method: "POST",
@@ -362,7 +367,6 @@ export const workspaceApi = {
   runningConfig: () =>
     apiJson<{ approval_level?: string }>("/api/workspace/running-config"),
 };
-
 
 export type TranscriptionProviderType =
   | "disabled"

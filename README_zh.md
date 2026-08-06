@@ -369,6 +369,8 @@ qwenpaw .                   # 在当前代码仓库中启动（Coding 模式）
 
 > **仅用本地模型？** 若使用 [本地模型](#本地模型)（QwenPaw Local / Ollama / LM Studio），则**无需**任何 API Key。
 
+**接口协议（Chat Completions / Responses）：** 除传统的 `/v1/chat/completions` 外，QwenPaw 也支持 Codex 所用的 Responses 协议（`POST /v1/responses`）。内置 **OpenAI (Response API)** 与 **DeepSeek (Response API)** 两个开箱即用的入口；要接任意 Responses 端点（自建网关、Azure，或 codex 的 `responses-api-proxy`），在 **设置 → 模型 → 添加自定义供应商** 里把 **接口协议** 切到 **Responses**、填上 Base URL 即可，命令行则用 `qwenpaw models add-provider <id> -n <名称> -u <base-url> --protocol responses`。
+
 ## 本地模型
 
 QwenPaw 可在本机完全本地运行大模型，无需 API Key 或云端服务。详情请见 [官方文档](https://qwenpaw.agentscope.io/docs/models)。

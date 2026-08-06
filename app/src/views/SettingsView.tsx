@@ -40,6 +40,8 @@ import {
   providerReady,
   settingsApi,
   sttApi,
+  CUSTOM_PROVIDER_PROTOCOLS,
+  type ChatModelName,
   type ModelInfo,
   type ProviderInfo,
   type SandboxStatus,
@@ -123,6 +125,8 @@ export function SettingsView() {
   });
   const [keyDraft, setKeyDraft] = useState("");
   const [urlDraft, setUrlDraft] = useState("");
+  const [protocolDraft, setProtocolDraft] =
+    useState<ChatModelName>("OpenAIChatModel");
   const [testState, setTestState] = useState<TestState>({ phase: "idle" });
   const [savingProvider, setSavingProvider] = useState(false);
   const [clearingKey, setClearingKey] = useState(false);
@@ -140,6 +144,8 @@ export function SettingsView() {
   const [createName, setCreateName] = useState("");
   const [createUrl, setCreateUrl] = useState("");
   const [createKey, setCreateKey] = useState("");
+  const [createProtocol, setCreateProtocol] =
+    useState<ChatModelName>("OpenAIChatModel");
 
   const [theme, setTheme] = useState<ThemePreference>(getThemePreference());
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>(() =>
@@ -246,7 +252,6 @@ export function SettingsView() {
       setSavingTranscription(false);
     }
   };
-
 
   /** 常用的技能启停就地完成,不把用户甩出设置;安装等高级操作走「管理」。 */
   const toggleSkill = async (name: string, enabled: boolean) => {
@@ -386,6 +391,7 @@ export function SettingsView() {
     setProviderView({ kind: "detail", providerId: provider.id });
     setKeyDraft("");
     setUrlDraft(provider.base_url);
+    setProtocolDraft(provider.chat_model as ChatModelName);
     setTestState({ phase: "idle" });
     setNewModelId("");
     setNewModelName("");
@@ -417,17 +423,22 @@ export function SettingsView() {
       !detailProvider.freeze_url &&
       nextBaseUrl !== "" &&
       nextBaseUrl !== detailProvider.base_url;
-    if (!trimmedKey && !baseUrlChanged) return;
+    // 协议只对自定义供应商可改,内置的由后端固定。
+    const protocolChanged =
+      detailProvider.is_custom && protocolDraft !== detailProvider.chat_model;
+    if (!trimmedKey && !baseUrlChanged && !protocolChanged) return;
     setSavingProvider(true);
     clearBanners();
     try {
       const updated = await modelApi.configure(detailProvider.id, {
         ...(trimmedKey ? { api_key: trimmedKey } : {}),
         ...(baseUrlChanged ? { base_url: nextBaseUrl } : {}),
+        ...(protocolChanged ? { chat_model: protocolDraft } : {}),
       });
       applyUpdatedProvider(updated);
       setKeyDraft("");
       setUrlDraft(updated.base_url);
+      setProtocolDraft(updated.chat_model as ChatModelName);
       setNotice(t("settings.provider.saved"));
     } catch (reason) {
       setError(readableError(reason));
@@ -465,6 +476,10 @@ export function SettingsView() {
         ...(trimmedKey ? { api_key: trimmedKey } : {}),
         ...(trimmedUrl && trimmedUrl !== detailProvider.base_url
           ? { base_url: trimmedUrl }
+          : {}),
+        ...(detailProvider.is_custom &&
+        protocolDraft !== detailProvider.chat_model
+          ? { chat_model: protocolDraft }
           : {}),
       });
       setTestState(
@@ -562,6 +577,7 @@ export function SettingsView() {
         id,
         name,
         default_base_url: createUrl.trim(),
+        chat_model: createProtocol,
       });
       const trimmedKey = createKey.trim();
       if (trimmedKey) {
@@ -572,6 +588,7 @@ export function SettingsView() {
       setCreateName("");
       setCreateUrl("");
       setCreateKey("");
+      setCreateProtocol("OpenAIChatModel");
       if (created) openDetail(created);
       else setProviderView({ kind: "list" });
       setNotice(t("settings.create.created", { name }));
@@ -796,6 +813,7 @@ export function SettingsView() {
                     }
                     keyDraft={keyDraft}
                     urlDraft={urlDraft}
+                    protocolDraft={protocolDraft}
                     testState={testState}
                     saving={savingProvider}
                     clearingKey={clearingKey}
@@ -823,6 +841,10 @@ export function SettingsView() {
                       setUrlDraft(value);
                       setTestState({ phase: "idle" });
                     }}
+                    onProtocolDraft={(value) => {
+                      setProtocolDraft(value);
+                      setTestState({ phase: "idle" });
+                    }}
                     onSave={() => void saveDetail()}
                     onClearKey={() => void clearKey()}
                     onTest={() => void testConnection()}
@@ -838,10 +860,12 @@ export function SettingsView() {
                     name={createName}
                     baseUrl={createUrl}
                     apiKey={createKey}
+                    protocol={createProtocol}
                     creating={creating}
                     onName={setCreateName}
                     onBaseUrl={setCreateUrl}
                     onApiKey={setCreateKey}
+                    onProtocol={setCreateProtocol}
                     onBack={backToList}
                     onSubmit={() => void createProvider()}
                   />
@@ -1034,7 +1058,6 @@ export function SettingsView() {
                         aria-label={t("settings.voice.title")}
                       />
                     </SettingRow>
-
                   </SettingsGroup>
 
                   <SettingsGroup>
@@ -1276,12 +1299,46 @@ function ProviderListRow({
   );
 }
 
+/** 端点说哪种协议:/chat/completions 还是 Codex 用的 /responses。 */
+function ProtocolPicker({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: ChatModelName;
+  disabled?: boolean;
+  onChange: (value: ChatModelName) => void;
+}) {
+  const { t } = useTranslation();
+  const labels: Record<(typeof CUSTOM_PROVIDER_PROTOCOLS)[number], string> = {
+    OpenAIChatModel: t("settings.create.protocolChat"),
+    OpenAIResponseModel: t("settings.create.protocolResponses"),
+  };
+  return (
+    <div
+      aria-disabled={disabled || undefined}
+      className={cn(disabled && "pointer-events-none opacity-40")}
+    >
+      <SegmentedControl
+        variant="track"
+        value={value}
+        options={CUSTOM_PROVIDER_PROTOCOLS.map((item) => ({
+          value: item,
+          label: labels[item],
+        }))}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
 /** 供应商详情:连接(key/URL/测试/保存/清除)+ 模型管理 inline。 */
 function ProviderDetail({
   provider,
   activeModelId,
   keyDraft,
   urlDraft,
+  protocolDraft,
   testState,
   saving,
   clearingKey,
@@ -1294,6 +1351,7 @@ function ProviderDetail({
   onBack,
   onKeyDraft,
   onUrlDraft,
+  onProtocolDraft,
   onSave,
   onClearKey,
   onTest,
@@ -1308,6 +1366,7 @@ function ProviderDetail({
   activeModelId: string | null;
   keyDraft: string;
   urlDraft: string;
+  protocolDraft: ChatModelName;
   testState: TestState;
   saving: boolean;
   clearingKey: boolean;
@@ -1320,6 +1379,7 @@ function ProviderDetail({
   onBack: () => void;
   onKeyDraft: (value: string) => void;
   onUrlDraft: (value: string) => void;
+  onProtocolDraft: (value: ChatModelName) => void;
   onSave: () => void;
   onClearKey: () => void;
   onTest: () => void;
@@ -1333,8 +1393,18 @@ function ProviderDetail({
   const { t } = useTranslation();
   const models = providerModels(provider);
   const hasKey = Boolean(provider.api_key);
+  // 协议只在自定义供应商上可切,且只在它当前就是 OpenAI 家族协议时展示——
+  // 免得把一个 Anthropic/Gemini 自定义供应商误改成两选一里的某个。
+  const canPickProtocol =
+    provider.is_custom &&
+    (CUSTOM_PROVIDER_PROTOCOLS as readonly string[]).includes(
+      provider.chat_model,
+    );
+  const protocolChanged =
+    canPickProtocol && protocolDraft !== provider.chat_model;
   const dirty =
     Boolean(keyDraft.trim()) ||
+    protocolChanged ||
     (!provider.freeze_url &&
       urlDraft.trim() !== "" &&
       urlDraft.trim() !== provider.base_url);
@@ -1450,6 +1520,18 @@ function ProviderDetail({
                 className="w-64 max-w-full"
               />
             </SettingRow>
+            {canPickProtocol && (
+              <SettingRow
+                title={t("settings.create.protocol")}
+                description={t("settings.create.protocolDescription")}
+              >
+                <ProtocolPicker
+                  value={protocolDraft}
+                  disabled={busy}
+                  onChange={onProtocolDraft}
+                />
+              </SettingRow>
+            )}
             <SettingRow
               title={t("settings.provider.test")}
               description={
@@ -1624,20 +1706,24 @@ function ProviderCreate({
   name,
   baseUrl,
   apiKey,
+  protocol,
   creating,
   onName,
   onBaseUrl,
   onApiKey,
+  onProtocol,
   onBack,
   onSubmit,
 }: {
   name: string;
   baseUrl: string;
   apiKey: string;
+  protocol: ChatModelName;
   creating: boolean;
   onName: (value: string) => void;
   onBaseUrl: (value: string) => void;
   onApiKey: (value: string) => void;
+  onProtocol: (value: ChatModelName) => void;
   onBack: () => void;
   onSubmit: () => void;
 }) {
@@ -1680,6 +1766,16 @@ function ProviderCreate({
               aria-label={t("settings.provider.baseUrl")}
               onChange={(event) => onBaseUrl(event.target.value)}
               className="w-64 max-w-full"
+            />
+          </SettingRow>
+          <SettingRow
+            title={t("settings.create.protocol")}
+            description={t("settings.create.protocolDescription")}
+          >
+            <ProtocolPicker
+              value={protocol}
+              disabled={creating}
+              onChange={onProtocol}
             />
           </SettingRow>
           <SettingRow title={t("settings.create.apiKeyOptional")}>

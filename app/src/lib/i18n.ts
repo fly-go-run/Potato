@@ -614,6 +614,11 @@ export const dictionaries = {
     "settings.create.nameDescription": "用于生成标识符，需以字母或数字开头。",
     "settings.create.namePlaceholder": "如 my-gateway",
     "settings.create.baseUrlPlaceholder": "https://api.example.com/v1",
+    "settings.create.protocol": "接口协议",
+    "settings.create.protocolDescription":
+      "端点用哪套接口。Responses 是 Codex 用的协议，DeepSeek 等也已支持。",
+    "settings.create.protocolChat": "Chat Completions",
+    "settings.create.protocolResponses": "Responses",
     "settings.create.apiKeyOptional": "API key（可选）",
     "settings.create.submit": "创建",
     "settings.create.created": "已创建 {name}。",
@@ -1472,6 +1477,12 @@ export const dictionaries = {
       "Used to derive the identifier. Must start with a letter or digit.",
     "settings.create.namePlaceholder": "e.g. my-gateway",
     "settings.create.baseUrlPlaceholder": "https://api.example.com/v1",
+    "settings.create.protocol": "API protocol",
+    "settings.create.protocolDescription":
+      "Which API the endpoint speaks. Responses is the protocol Codex uses; " +
+      "DeepSeek and others support it too.",
+    "settings.create.protocolChat": "Chat Completions",
+    "settings.create.protocolResponses": "Responses",
     "settings.create.apiKeyOptional": "API key (optional)",
     "settings.create.submit": "Create",
     "settings.create.created": "Created {name}.",

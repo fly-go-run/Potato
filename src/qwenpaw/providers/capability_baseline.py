@@ -614,6 +614,19 @@ class ExpectedCapabilityRegistry:
                 note="DeepSeek-V4 Pro reasoning model: no multimodal",
             ),
         )
+        self._register(
+            ExpectedCapability(
+                provider_id="deepseek-response",
+                model_id="deepseek-v4-flash",
+                expected_image=False,
+                expected_video=False,
+                doc_url="https://api-docs.deepseek.com/guides/responses_api/",
+                note=(
+                    "DeepSeek's Responses API explicitly rejects image and "
+                    "file inputs"
+                ),
+            ),
+        )
 
         # ---------------------------------------------------------------
         # 9. Anthropic

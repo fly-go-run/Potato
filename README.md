@@ -369,6 +369,8 @@ Tools that need extra keys (e.g. `TAVILY_API_KEY` for web search) can be set in 
 
 > **Using local models only?** If you use [Local Models](#local-models) (QwenPaw Local / Ollama / LM Studio), you do **not** need any API key.
 
+**API protocol (Chat Completions / Responses):** besides the classic `/v1/chat/completions`, QwenPaw also speaks the Responses protocol that Codex uses (`POST /v1/responses`). **OpenAI (Response API)** and **DeepSeek (Response API)** are built in; to point at any other Responses endpoint (a self-hosted gateway, Azure, or codex's `responses-api-proxy`), add a custom provider under **Settings → Models → Add custom provider**, switch **API protocol** to **Responses** and fill in the base URL — or from the shell, `qwenpaw models add-provider <id> -n <name> -u <base-url> --protocol responses`.
+
 ## Local Models
 
 QwenPaw can run LLMs entirely on your machine — no API keys or cloud services required. See the [official docs](https://qwenpaw.agentscope.io/docs/models) for details.

@@ -84,6 +84,43 @@ describe("modelApi.configure", () => {
   });
 });
 
+describe("modelApi.createCustomProvider", () => {
+  it("carries the selected wire protocol to the backend", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: "my-gateway" }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await modelApi.createCustomProvider({
+      id: "my-gateway",
+      name: "My Gateway",
+      default_base_url: "http://127.0.0.1:8788/v1",
+      chat_model: "OpenAIResponseModel",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/models/custom-providers",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          id: "my-gateway",
+          name: "My Gateway",
+          default_base_url: "http://127.0.0.1:8788/v1",
+          chat_model: "OpenAIResponseModel",
+        }),
+      }),
+    );
+  });
+});
+
 describe("modelApi.removeProvider", () => {
   it("deletes a custom provider and returns the refreshed provider list", async () => {
     vi.stubGlobal("localStorage", {

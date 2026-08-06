@@ -415,7 +415,15 @@ async def test_provider(
             overrides["custom_headers"] = body.custom_headers
         if body and body.auth_mode in ("api_key", "auth_token"):
             overrides["auth_mode"] = body.auth_mode
-        tmp_provider = provider.model_copy(update=overrides)
+        if body and body.chat_model and body.chat_model != provider.chat_model:
+            # The wire protocol is implemented by the provider class, so a
+            # protocol override needs a rebuilt instance rather than a copy.
+            overrides["chat_model"] = body.chat_model
+            tmp_provider = manager.build_provider_from_data(
+                {**provider.model_dump(), **overrides},
+            )
+        else:
+            tmp_provider = provider.model_copy(update=overrides)
         ok, msg = await tmp_provider.check_connection()
         return TestConnectionResponse(
             success=ok,
@@ -458,6 +466,10 @@ async def discover_models(
             {
                 "api_key": body.api_key if body else None,
                 "base_url": body.base_url if body else None,
+                # Discovery talks to the provider through its concrete
+                # class, so a protocol override has to be applied before
+                # the models are fetched.
+                "chat_model": body.chat_model if body else None,
             },
         )
         if not ok:
