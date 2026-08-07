@@ -151,9 +151,7 @@ function isWorkSlot(
 ): boolean {
   if (slot.kind === "reasoning") {
     const message = byId.get(slot.messageId);
-    return (
-      !!message && textFromContent(message.content).trim().length > 0
-    );
+    return !!message && textFromContent(message.content).trim().length > 0;
   }
   if (slot.kind !== "tool") return false;
   const name =

@@ -281,11 +281,7 @@ const AssistantTurn = memo(function AssistantTurn({
         visible(
           slot.key,
           <div id={`message-${slot.key}`} key={slot.key}>
-            <ToolCard
-              pair={pair}
-              onOpenFile={onOpenFile}
-              prominentArtifact
-            />
+            <ToolCard pair={pair} onOpenFile={onOpenFile} prominentArtifact />
           </div>,
         );
       } else {
@@ -933,4 +929,3 @@ function isToolOutput(type: StreamMessage["type"]) {
     type === "mcp_tool_call_output"
   );
 }
-

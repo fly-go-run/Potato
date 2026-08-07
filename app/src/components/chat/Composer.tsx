@@ -796,7 +796,11 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                     // 录音中按钮的动作是「停止」,就得画成停止:红色脉冲的
                     // 麦克风只说明正在录,没告诉用户点下去会怎样。方块与
                     // 发送键的停流按钮同一套语义。
-                    <Square size={15} fill="currentColor" className="animate-pulse" />
+                    <Square
+                      size={15}
+                      fill="currentColor"
+                      className="animate-pulse"
+                    />
                   ) : (
                     <Mic size={18} strokeWidth={1.9} />
                   )}
@@ -849,14 +853,14 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               {showContextUsage &&
                 turnUsage?.context_usage?.context_usage_ratio !== undefined && (
-                <span className="hidden pr-1 text-[11px] text-ink-muted sm:inline">
-                  {t("chat.contextUsed", {
-                    // 后端 ratio 已是百分数(context_stats.py 乘过 100)
-                    ratio:
-                      turnUsage.context_usage.context_usage_ratio.toFixed(1),
-                  })}
-                </span>
-              )}
+                  <span className="hidden pr-1 text-[11px] text-ink-muted sm:inline">
+                    {t("chat.contextUsed", {
+                      // 后端 ratio 已是百分数(context_stats.py 乘过 100)
+                      ratio:
+                        turnUsage.context_usage.context_usage_ratio.toFixed(1),
+                    })}
+                  </span>
+                )}
             </div>
           )}
         </div>

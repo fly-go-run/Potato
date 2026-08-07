@@ -33,13 +33,7 @@ import { shortcutLabel } from "../../lib/shortcuts";
 import { setThemePreference } from "../../lib/theme";
 import { useChatStore } from "../../stores/chat";
 import { useUiStore } from "../../stores/ui";
-import {
-  Button,
-  ConfirmDialog,
-  IconButton,
-  Input,
-  SkeletonRows,
-} from "../ui";
+import { Button, ConfirmDialog, IconButton, Input, SkeletonRows } from "../ui";
 
 export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const { t } = useTranslation();

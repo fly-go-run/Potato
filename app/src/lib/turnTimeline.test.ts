@@ -8,7 +8,10 @@ import type { StreamMessage } from "./stream";
      手法一致。 ─────────────────────────────────────────────────────── */
 
 const text = (value: string) => ({ type: "text", text: value });
-const data = (value: Record<string, unknown>) => ({ type: "data", data: value });
+const data = (value: Record<string, unknown>) => ({
+  type: "data",
+  data: value,
+});
 
 function make(
   id: string,
@@ -124,9 +127,9 @@ describe("buildTimeline 空 reasoning", () => {
     expect(shape(slots)).toEqual([
       { key: "r1", kind: "reasoning", role: "fold" },
     ]);
-    expect(
-      shape(buildTimeline([reasoning("r2", "", "created")])),
-    ).toEqual([{ key: "r2", kind: "reasoning", role: "fold" }]);
+    expect(shape(buildTimeline([reasoning("r2", "", "created")]))).toEqual([
+      { key: "r2", kind: "reasoning", role: "fold" },
+    ]);
   });
 });
 

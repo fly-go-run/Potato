@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  summarizeTrack,
-  type TrackEntrySnapshot,
-} from "./executionTrack";
+import { summarizeTrack, type TrackEntrySnapshot } from "./executionTrack";
 
 const entry = (
   key: string,
@@ -18,10 +15,13 @@ describe("summarizeTrack", () => {
       kind: "waiting",
     });
     expect(
-      summarizeTrack([entry("t1", "tool", { active: true, toolName: "shell" })], {
-        streaming: true,
-        waiting: true,
-      }),
+      summarizeTrack(
+        [entry("t1", "tool", { active: true, toolName: "shell" })],
+        {
+          streaming: true,
+          waiting: true,
+        },
+      ),
     ).toEqual({ kind: "waiting" });
   });
 
