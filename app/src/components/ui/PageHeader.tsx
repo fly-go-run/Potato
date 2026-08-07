@@ -45,7 +45,7 @@ export function PageHeader({
 export type PageWidth = "reading" | "wide";
 
 /**
- * 统一页面容器宽度：阅读型（Chat/Settings/Memory/Inbox）用 reading，
+ * 统一页面容器宽度：阅读型（Chat/Settings/Memory）用 reading，
  * 宽表型（Crons/Skills）用 wide。杜绝此前 3xl/4xl/5xl/6xl 四种混用。
  */
 export function PageContainer({

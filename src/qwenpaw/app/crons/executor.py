@@ -6,12 +6,6 @@ import logging
 import uuid
 from typing import Any, Dict
 
-from ..inbox_trace_store import (
-    append_trace_from_session_delta,
-    create_trace,
-    finalize_trace,
-    read_session_messages,
-)
 from .models import CronJobSpec
 from ...security.tool_guard.execution_level import ToolExecutionLevel
 from ...schemas import RunStatus
@@ -34,7 +28,7 @@ class CronExecutor:
         - final delivery: consume the stream, then send only the last
             completed message
         - silent agent task: consume the full agent stream without channel
-            delivery, while preserving session and trace state
+            delivery, while preserving session state
         """
         target_user_id = job.dispatch.target.user_id
         target_session_id = job.dispatch.target.session_id
@@ -42,7 +36,7 @@ class CronExecutor:
         dispatch_meta: Dict[str, Any] = dict(job.dispatch.meta or {})
         if job.task_type == "agent":
             # Agent cron replies still print to the console channel, but
-            # should not raise frontend push bubbles (Inbox remains opt-in).
+            # should not raise frontend push bubbles.
             dispatch_meta["suppress_console_push"] = True
         logger.info(
             "cron execute: job_id=%s channel=%s task_type=%s "
@@ -145,27 +139,7 @@ class CronExecutor:
                 )
 
         delivery_error: str | None = None
-        baseline_messages = await read_session_messages(
-            runner=self._workspace,
-            session_id=req["session_id"],
-            user_id=req["user_id"],
-            channel=target_channel,
-        )
-        baseline_count = len(baseline_messages)
-
         run_id = str(uuid.uuid4())
-        await create_trace(
-            run_id,
-            meta={
-                "job_id": job.id,
-                "job_name": job.name,
-                "task_type": "agent",
-                "dispatch_channel": job.dispatch.channel,
-                "target_user_id": target_user_id,
-                "target_session_id": target_session_id,
-                "silent": job.dispatch.silent,
-            },
-        )
 
         async def _run() -> None:
             nonlocal delivery_error
@@ -213,15 +187,6 @@ class CronExecutor:
                 _run(),
                 timeout=job.runtime.timeout_seconds,
             )
-            await append_trace_from_session_delta(
-                run_id=run_id,
-                runner=self._workspace,
-                session_id=req["session_id"],
-                user_id=req["user_id"],
-                channel=target_channel,
-                baseline_count=baseline_count,
-            )
-            await finalize_trace(run_id, status="success")
             if job.dispatch.silent:
                 delivery_status = "suppressed"
             elif delivery_error:
@@ -240,50 +205,9 @@ class CronExecutor:
                 job.id,
                 job.runtime.timeout_seconds,
             )
-            await append_trace_from_session_delta(
-                run_id=run_id,
-                runner=self._workspace,
-                session_id=req["session_id"],
-                user_id=req["user_id"],
-                channel=target_channel,
-                baseline_count=baseline_count,
-            )
-            await finalize_trace(
-                run_id,
-                status="timeout",
-                error=f"timed out after {job.runtime.timeout_seconds}s",
-            )
             raise
         except asyncio.CancelledError:
             logger.info("cron execute: job_id=%s cancelled", job.id)
-            await append_trace_from_session_delta(
-                run_id=run_id,
-                runner=self._workspace,
-                session_id=req["session_id"],
-                user_id=req["user_id"],
-                channel=target_channel,
-                baseline_count=baseline_count,
-            )
-            await finalize_trace(
-                run_id,
-                status="cancelled",
-                error="execution cancelled",
-            )
-            raise
-        except Exception as e:  # pylint: disable=broad-except
-            await append_trace_from_session_delta(
-                run_id=run_id,
-                runner=self._workspace,
-                session_id=req["session_id"],
-                user_id=req["user_id"],
-                channel=target_channel,
-                baseline_count=baseline_count,
-            )
-            await finalize_trace(
-                run_id,
-                status="error",
-                error=repr(e),
-            )
             raise
         finally:
             if _chat_spec is not None and chat_manager is not None:

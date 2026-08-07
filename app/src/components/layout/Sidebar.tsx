@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Clock3,
   FolderClosed,
-  Inbox,
   MessageCirclePlus,
   Moon,
   MoreHorizontal,
@@ -33,12 +32,10 @@ import { loadSessionProject } from "../../lib/projects";
 import { shortcutLabel } from "../../lib/shortcuts";
 import { setThemePreference } from "../../lib/theme";
 import { useChatStore } from "../../stores/chat";
-import { useInboxStore } from "../../stores/inbox";
 import { useUiStore } from "../../stores/ui";
 import {
   Button,
   ConfirmDialog,
-  CountBadge,
   IconButton,
   Input,
   SkeletonRows,
@@ -52,7 +49,6 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const chatsLoading = useChatStore((state) => state.chatsLoading);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const newChat = useChatStore((state) => state.newChat);
-  const unreadCount = useInboxStore((state) => state.unreadCount);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   // 分组展开态只活在内存里：刷新后回到默认展开，不值得占一个持久化键。
   const [chatsExpanded, setChatsExpanded] = useState(true);
@@ -168,27 +164,6 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 className={isActive ? "text-ink-secondary" : "text-ink-muted"}
               />
               <span className="flex-1">{t("sidebar.crons")}</span>
-            </>
-          )}
-        </NavLink>
-        <NavLink
-          to="/inbox"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <Inbox
-                size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
-              />
-              <span className="flex-1">{t("sidebar.inbox")}</span>
-              <CountBadge count={unreadCount} />
             </>
           )}
         </NavLink>

@@ -6,7 +6,6 @@ import type {
   CronJobState,
 } from "./crons";
 import { t } from "./i18n";
-import type { InboxEvent, InboxTrace } from "./inbox";
 import type {
   CodingProject,
   CodingProjectInfo,
@@ -485,34 +484,6 @@ export const cronApi = {
   dispatchTargets: () =>
     apiJson<{ channels: string[]; items: CronDispatchTarget[] }>(
       "/api/cron/dispatch-targets",
-    ),
-};
-
-export const inboxApi = {
-  events: (options?: { unreadOnly?: boolean; limit?: number }) => {
-    const query = new URLSearchParams();
-    query.set("unread_only", String(options?.unreadOnly ?? false));
-    query.set("limit", String(options?.limit ?? 100));
-    return apiJson<{ events: InboxEvent[] }>(
-      `/api/console/inbox/events?${query.toString()}`,
-    );
-  },
-  markRead: (payload: { all?: boolean; event_ids?: string[] }) =>
-    apiJson<{ updated: number }>("/api/console/inbox/read", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-  delete: (eventId: string) =>
-    apiJson<{
-      deleted: boolean;
-      trace_deleted: boolean;
-      run_id: string | null;
-    }>(`/api/console/inbox/events/${encodeURIComponent(eventId)}`, {
-      method: "DELETE",
-    }),
-  trace: (runId: string) =>
-    apiJson<InboxTrace>(
-      `/api/console/inbox/traces/${encodeURIComponent(runId)}`,
     ),
 };
 

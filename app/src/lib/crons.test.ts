@@ -71,7 +71,6 @@ describe("cron form spec assembly", () => {
       },
       runtime: { timeout_seconds: 600 },
       meta: { owner: "qa" },
-      save_result_to_inbox: true,
     };
 
     const spec = buildCronSpec(

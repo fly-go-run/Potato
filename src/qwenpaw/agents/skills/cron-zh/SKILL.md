@@ -31,7 +31,7 @@ metadata:
 3. **创建前必须确认执行时间/周期、目标 channel、target-user、target-session**
 4. **所有 cron 命令都必须显式传 `--agent-id`**
 5. **不要依赖默认 agent，否则任务可能落到 default workspace**
-6. **如果 agent 任务只需后台执行、不向渠道输出，添加 `--silent`；执行、会话历史、追踪和可选收件箱记录仍会继续**
+6. **如果 agent 任务只需后台执行、不向渠道输出，添加 `--silent`；执行和会话历史仍会继续**
 
 ---
 
@@ -176,8 +176,7 @@ qwenpaw cron create \
   --channel dingtalk \
   --target-user "CHANGEME" \
   --target-session "CHANGEME" \
-  --text "9 点开组会" \
-  --save-result-to-inbox
+  --text "9 点开组会"
 ```
 
 ```bash
@@ -194,8 +193,7 @@ qwenpaw cron create \
   --channel dingtalk \
   --target-user "CHANGEME" \
   --target-session "CHANGEME" \
-  --text "9 点开组会" \
-  --save-result-to-inbox
+  --text "9 点开组会"
 ```
 
 ### 从 JSON 创建
@@ -263,7 +261,6 @@ qwenpaw cron list --agent-id <agent_id>
 - 修改/暂停/删除前，先 `qwenpaw cron list --agent-id <agent_id>`
 - 排查问题时，用 `qwenpaw cron state <job_id> --agent-id <agent_id>`
 - 给用户展示命令时，提供完整、可直接复制的版本
-- 用户提到“结果进收件箱/不进收件箱”时，显式加 `--save-result-to-inbox` 或 `--no-save-result-to-inbox`，否则不要添加该项。
 - 用户要求后台或静默执行且不向渠道回复时，对 `agent` 任务添加 `--silent`。
 
 ---

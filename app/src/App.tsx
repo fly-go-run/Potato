@@ -25,11 +25,6 @@ const CronsView = lazy(() =>
     default: module.CronsView,
   })),
 );
-const InboxView = lazy(() =>
-  import("./views/InboxView").then((module) => ({
-    default: module.InboxView,
-  })),
-);
 const SkillsView = lazy(() =>
   import("./views/SkillsView").then((module) => ({
     default: module.SkillsView,
@@ -87,14 +82,6 @@ function AppRoutes() {
             }
           />
           <Route
-            path="/inbox"
-            element={
-              <Suspense fallback={<PageLoading label="inbox.loading" />}>
-                <InboxView />
-              </Suspense>
-            }
-          />
-          <Route
             path="/skills"
             element={
               <Suspense fallback={<PageLoading label="skills.loading" />}>
@@ -125,11 +112,7 @@ function AppRoutes() {
 function PageLoading({
   label,
 }: {
-  label:
-    | "crons.loading"
-    | "inbox.loading"
-    | "skills.loading"
-    | "memory.loading";
+  label: "crons.loading" | "skills.loading" | "memory.loading";
 }) {
   const { t } = useTranslation();
   return (

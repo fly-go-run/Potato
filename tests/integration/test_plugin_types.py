@@ -534,7 +534,6 @@ def test_provider_plugin_actually_serves_llm_call(app_server) -> None:
                 },
                 "mode": "stream",
             },
-            "save_result_to_inbox": False,
         }
         job_resp = app_server.api_request(
             "POST",

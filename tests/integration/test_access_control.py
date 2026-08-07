@@ -9,8 +9,7 @@ Coverage strategy (happy path first):
   - whitelist / blacklist add + remove roundtrips (GET reflects writes)
   - pending approve / deny / dismiss lifecycle: since only the channel
     gate can create a pending entry via HTTP, we seed the store file
-    directly (like helpers.seed_inbox_events) and then drive the HTTP
-    approval endpoints.
+    directly and then drive the HTTP approval endpoints.
   - remark / username updates
   - 404 / 422 contract branches
 

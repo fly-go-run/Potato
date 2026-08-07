@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from qwenpaw.app.crons.heartbeat import (
-    _extract_message_preview,
     is_cron_expression,
     parse_heartbeat_every,
 )
@@ -78,32 +77,3 @@ def test_parse_heartbeat_every_empty_defaults_to_30m():
 
 def test_parse_heartbeat_every_invalid_defaults_to_30m():
     assert parse_heartbeat_every("bogus") == 1800
-
-
-# ---------------------------------------------------------------------------
-# _extract_message_preview
-# ---------------------------------------------------------------------------
-
-
-def test_extract_message_preview_text_block():
-    msg = {
-        "content": [
-            {"type": "text", "text": "Hello world"},
-        ],
-    }
-    assert _extract_message_preview(msg) == "Hello world"
-
-
-def test_extract_message_preview_empty_content_returns_none():
-    assert _extract_message_preview({"content": []}) is None
-
-
-def test_extract_message_preview_non_list_content_returns_none():
-    assert _extract_message_preview({"content": "not a list"}) is None
-
-
-def test_extract_message_preview_truncates_long_text():
-    long_text = "x" * 5000
-    msg = {"content": [{"type": "text", "text": long_text}]}
-    result = _extract_message_preview(msg)
-    assert result == long_text

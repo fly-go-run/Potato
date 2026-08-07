@@ -22,7 +22,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from qwenpaw.exceptions import ConfigurationException
 
 from ...config import get_heartbeat_config, get_dream_cron
-from ..inbox_store import append_event as append_inbox_event
 
 from ..console_push_store import append as push_store_append
 from .executor import CronExecutor
@@ -717,13 +716,8 @@ class CronManager(ManagerBase):
             st = self._states.get(job.id, CronJobState())
             st.last_status = "running"
             self._states[job.id] = st
-            execution_result: dict[str, Any] = {}
-            execution_succeeded = False
-            delivery_failed = False
-
             try:
                 execution_result = await self._executor.execute(job)
-                execution_succeeded = True
                 delivery_failed = (
                     execution_result.get("delivery_status") == "failed"
                 )
@@ -773,63 +767,3 @@ class CronManager(ManagerBase):
                     limit=CRON_HISTORY_LIMIT,
                 )
                 self._history[job.id] = records
-                if execution_succeeded:
-                    if delivery_failed:
-                        try:
-                            await append_inbox_event(
-                                agent_id=self._agent_id,
-                                source_type="cron",
-                                source_id=job.id,
-                                event_type="cron_delivery_failed_fallback",
-                                status="error",
-                                severity="error",
-                                title=f"Cron result not delivered: {job.name}",
-                                body=(
-                                    "Task executed successfully, "
-                                    "but channel delivery failed."
-                                ),
-                                payload={
-                                    "job_id": job.id,
-                                    "job_name": job.name,
-                                    "task_type": job.task_type,
-                                    "trigger": trigger,
-                                    "run_id": execution_result.get("run_id"),
-                                    "delivery_error": execution_result.get(
-                                        "delivery_error",
-                                    ),
-                                },
-                            )
-                        except Exception:  # pylint: disable=broad-except
-                            logger.exception(
-                                "failed to append cron fallback event",
-                            )
-                    elif job.save_result_to_inbox:
-                        if job.task_type == "text":
-                            body = (job.text or "").strip()
-                        else:
-                            body = "Agent cron task finished successfully."
-                        try:
-                            await append_inbox_event(
-                                agent_id=self._agent_id,
-                                source_type="cron",
-                                source_id=job.id,
-                                event_type="cron_result",
-                                status="success",
-                                severity="info",
-                                title=f"Cron result: {job.name}",
-                                body=body,
-                                payload={
-                                    "job_id": job.id,
-                                    "job_name": job.name,
-                                    "task_type": job.task_type,
-                                    "trigger": trigger,
-                                    "run_id": execution_result.get("run_id"),
-                                    "save_result_to_inbox": (
-                                        job.save_result_to_inbox
-                                    ),
-                                },
-                            )
-                        except Exception:  # pylint: disable=broad-except
-                            logger.exception(
-                                "failed to append cron result inbox event",
-                            )

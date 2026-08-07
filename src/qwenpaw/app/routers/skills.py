@@ -64,7 +64,6 @@ from ...agents.skill_system.store import (
     suggest_conflict_name,
 )
 from ...security.skill_scanner import SkillScanError
-from ..inbox_store import append_event as append_inbox_event
 from ..utils import read_upload_with_limit, schedule_agent_reload
 
 logger = logging.getLogger(__name__)
@@ -73,60 +72,6 @@ router = APIRouter(prefix="/skills", tags=["skills"])
 
 MAX_TAGS = 8
 MAX_TAG_LENGTH = 16
-
-# Source type for skill auto-update inbox events.
-AUTO_UPDATE_INBOX_SOURCE = "skill_autoupdate"
-
-
-async def post_auto_update_inbox(
-    result: dict[str, Any] | None,
-) -> None:
-    """Post one inbox notification summarising an auto-update run.
-
-    A single sync run (startup / refresh / enable) becomes one event listing
-    the synced skills plus any failures. Severity is ``error`` when any skill
-    failed, otherwise ``info``. Nothing is posted when no skill propagated.
-    """
-    if not result:
-        return
-    synced = [
-        item for item in (result.get("synced") or []) if item.get("agents")
-    ]
-    failed = result.get("failed") or []
-    if not synced and not failed:
-        return
-
-    synced_names = [str(item["skill"]) for item in synced]
-    failed_names = [str(item["skill"]) for item in failed]
-    has_failure = bool(failed_names)
-
-    lines: list[str] = []
-    for item in synced:
-        agents = ", ".join(item.get("agents") or [])
-        lines.append(f"{item['skill']} → {agents}")
-    for item in failed:
-        agents = ", ".join(item.get("agents") or []) or "unknown"
-        lines.append(f"{item['skill']} (failed) → {agents}")
-
-    if has_failure:
-        title = (
-            f"Auto-update: {len(synced_names)} updated, "
-            f"{len(failed_names)} failed"
-        )
-    else:
-        title = f"Auto-update: {len(synced_names)} skill(s) updated"
-
-    await append_inbox_event(
-        agent_id="default",
-        source_type=AUTO_UPDATE_INBOX_SOURCE,
-        source_id="",
-        event_type="auto_update",
-        status="error" if has_failure else "success",
-        severity="error" if has_failure else "info",
-        title=title,
-        body="; ".join(lines),
-        payload={"synced": synced, "failed": failed},
-    )
 
 
 async def _follow_auto_update(skill_name: str | None = None) -> None:
@@ -138,11 +83,10 @@ async def _follow_auto_update(skill_name: str | None = None) -> None:
     only skills that actually changed are propagated.
     """
     try:
-        result = await asyncio.to_thread(
+        await asyncio.to_thread(
             run_pool_auto_update_sync,
             skill_name=skill_name,
         )
-        await post_auto_update_inbox(result)
     except Exception:
         logger.warning("auto-update follow-up failed", exc_info=True)
 
@@ -1425,7 +1369,6 @@ async def update_pool_skill_auto_update(
             status_code=404,
             detail="Pool skill not found",
         )
-    await post_auto_update_inbox(result)
     return {
         "updated": True,
         "enabled": body.enabled,

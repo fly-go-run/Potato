@@ -9,7 +9,6 @@ import {
 } from "../../lib/desktop";
 import { isPrimaryShortcut, shortcutLabel } from "../../lib/shortcuts";
 import { useChatStore } from "../../stores/chat";
-import { useInboxStore } from "../../stores/inbox";
 import { useUiStore } from "../../stores/ui";
 import { IconButton } from "../ui";
 import { Sidebar } from "./Sidebar";
@@ -34,13 +33,12 @@ export function AppShell() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const initialize = useChatStore((state) => state.initialize);
   const newChat = useChatStore((state) => state.newChat);
-  const refreshUnread = useInboxStore((state) => state.refreshUnread);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
   useEffect(() => {
     let active = true;
-    const startup = Promise.allSettled([initialize(), refreshUnread()]);
+    const startup = Promise.allSettled([initialize()]);
     // 首屏数据通常会在这段时间内就绪；但任何接口悬挂都不能让原生窗口
     // 永久隐藏。超时后先展示可交互壳层，数据仍在后台继续加载。
     const revealTimer = window.setTimeout(() => {
@@ -57,7 +55,7 @@ export function AppShell() {
       active = false;
       window.clearTimeout(revealTimer);
     };
-  }, [initialize, refreshUnread]);
+  }, [initialize]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

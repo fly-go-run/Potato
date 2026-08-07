@@ -8,7 +8,7 @@ Drive the full chain:
         → agent runtime executes the tool
         → ACPService spawns the stdio mock runner
         → mock runner replies via JSON-RPC
-        → result flows back through history / inbox
+        → result flows back through history
 
 Mock ACP runner: ``tests/integration/fixtures/acp_mock_runner.py``
 Mock LLM: ``helpers.MockLLMHandler`` with ``force_tool_call=True``
@@ -28,7 +28,6 @@ import pytest
 from helpers import (
     MOCK_LLM_PROVIDER_ID,
     MockLLMHandler,
-    clean_inbox,
     default_http_timeout,
     poll_history as _poll_history,
     register_mock_provider,
@@ -144,7 +143,7 @@ def _agent_input(text):
     ]
 
 
-def _agent_spec(name, *, save_inbox=True):
+def _agent_spec(name):
     return {
         "name": name,
         "enabled": True,
@@ -164,7 +163,6 @@ def _agent_spec(name, *, save_inbox=True):
             },
             "mode": "stream",
         },
-        "save_result_to_inbox": save_inbox,
     }
 
 
@@ -239,7 +237,6 @@ def test_acp_list_runners_includes_mock_runner(
     srv.tool_call_arguments = json.dumps(
         {"action": "list", "runner": ""},
     )
-    clean_inbox(app_server.working_dir)
 
     spec = _agent_spec("acp_list_smoke")
     job_id = _create_job(app_server, spec)
@@ -297,7 +294,6 @@ def test_acp_status_returns_runner_state(app_server, mock_llm) -> None:
     srv.tool_call_arguments = json.dumps(
         {"action": "status", "runner": _MOCK_RUNNER_NAME},
     )
-    clean_inbox(app_server.working_dir)
 
     spec = _agent_spec("acp_status_smoke")
     job_id = _create_job(app_server, spec)
@@ -361,7 +357,6 @@ def test_acp_start_spawns_mock_runner(app_server, mock_llm) -> None:
             "message": "hello mock",
         },
     )
-    clean_inbox(app_server.working_dir)
 
     spec = _agent_spec("acp_start_real")
     job_id = _create_job(app_server, spec)
@@ -421,7 +416,6 @@ def test_acp_close_after_start(app_server, mock_llm) -> None:
     _configure_mock_runner(app_server)
     _enable_delegate_tool(app_server)
 
-    clean_inbox(app_server.working_dir)
     srv.force_tool_call = True
     srv.tool_call_name = "delegate_external_agent"
 
@@ -560,7 +554,6 @@ def test_acp_initialize_failure_records_error(
             "message": "x",
         },
     )
-    clean_inbox(app_server.working_dir)
 
     spec = _agent_spec("acp_init_fail")
     job_id = _create_job(app_server, spec)

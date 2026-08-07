@@ -529,10 +529,8 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             # ---- Skill pool auto-update sync ----
             try:
                 from ..agents.skill_system import run_pool_auto_update_sync
-                from .routers.skills import post_auto_update_inbox
 
-                au_result = await asyncio.to_thread(run_pool_auto_update_sync)
-                await post_auto_update_inbox(au_result)
+                await asyncio.to_thread(run_pool_auto_update_sync)
             except Exception:
                 logger.warning(
                     "Skill pool auto-update sync skipped on startup",

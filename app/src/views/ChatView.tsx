@@ -10,7 +10,6 @@ import {
   FileText,
   Gauge,
   Image,
-  Inbox,
   LayoutTemplate,
   MousePointer2,
   NotebookPen,
@@ -71,11 +70,6 @@ function CapabilityChips({ wide = false }: { wide?: boolean }) {
   // key 是胶囊上的短标签,prompt 是点击后填入的完整任务指令(部分留白等用户补充)
   const groups = {
     office: [
-      {
-        key: "chat.suggest.inbox",
-        prompt: "chat.suggest.inbox.prompt",
-        icon: Inbox,
-      },
       {
         key: "chat.suggest.report",
         prompt: "chat.suggest.report.prompt",

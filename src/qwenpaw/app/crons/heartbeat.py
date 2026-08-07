@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-import uuid
 from datetime import datetime, time, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -23,17 +22,9 @@ from ...config import (
 )
 from ...constant import (
     HEARTBEAT_FILE,
-    HEARTBEAT_TARGET_INBOX,
     HEARTBEAT_TARGET_LAST,
 )
 from ..channels.schema import DEFAULT_CHANNEL
-from ..inbox_store import append_event as append_inbox_event
-from ..inbox_trace_store import (
-    append_trace_from_session_delta,
-    create_trace,
-    finalize_trace,
-    read_session_messages,
-)
 from ..crons.models import _crontab_dow_to_name
 
 logger = logging.getLogger(__name__)
@@ -56,7 +47,6 @@ _DOW_FIELD_PATTERN = re.compile(
     r"^(?:[\d\*\-/,]+|" + _DOW_NAMED + r"(?:-" + _DOW_NAMED + r")?(/[\d]+)?$)",
     re.IGNORECASE,
 )
-_HEARTBEAT_SOURCE_ID = "_heartbeat"
 
 
 def is_cron_expression(every: str) -> bool:
@@ -148,41 +138,6 @@ def _in_active_hours(active_hours: Any) -> bool:
     return now >= start_t or now <= end_t
 
 
-def _extract_message_preview(msg: dict[str, Any]) -> str | None:
-    content = msg.get("content")
-    if not isinstance(content, list):
-        return None
-    parts: list[str] = []
-    for block in content:
-        if not isinstance(block, dict):
-            continue
-        btype = block.get("type")
-        if btype == "text" and isinstance(block.get("text"), str):
-            parts.append(block["text"])
-        elif btype == "thinking" and isinstance(block.get("thinking"), str):
-            parts.append(block["thinking"])
-        elif btype == "tool_result":
-            output = block.get("output")
-            if isinstance(output, list):
-                for out_block in output:
-                    if (
-                        isinstance(out_block, dict)
-                        and out_block.get("type") == "text"
-                        and isinstance(out_block.get("text"), str)
-                    ):
-                        parts.append(out_block["text"])
-    text = "\n".join([p.strip() for p in parts if p and p.strip()]).strip()
-    return text or None
-
-
-def _last_preview_from_delta(delta: list[dict[str, Any]]) -> str | None:
-    for msg in reversed(delta):
-        preview = _extract_message_preview(msg)
-        if preview:
-            return preview
-    return None
-
-
 # pylint: disable=too-many-branches,too-many-statements
 async def run_heartbeat_once(
     *,
@@ -270,124 +225,6 @@ async def run_heartbeat_once(
                     timeout_seconds,
                 )
             return
-
-    if target == HEARTBEAT_TARGET_INBOX:
-        run_id = str(uuid.uuid4())
-        baseline_messages = await read_session_messages(
-            runner=workspace,
-            session_id=req["session_id"],
-            user_id=req["user_id"],
-            channel=req["channel"],
-        )
-        baseline_count = len(baseline_messages)
-        await create_trace(
-            run_id,
-            meta={
-                "source": "heartbeat",
-                "task_type": "agent",
-                "target": target,
-                "query_file": str(path),
-                "agent_id": agent_id,
-                "session_id": req["session_id"],
-                "user_id": req["user_id"],
-                "channel": req["channel"],
-            },
-        )
-
-        async def _run_only() -> None:
-            async for _ in workspace.stream_query(req):
-                pass
-
-        try:
-            await asyncio.wait_for(_run_only(), timeout=timeout_seconds)
-            delta = await append_trace_from_session_delta(
-                run_id=run_id,
-                runner=workspace,
-                session_id=req["session_id"],
-                user_id=req["user_id"],
-                channel=req["channel"],
-                baseline_count=baseline_count,
-            )
-            await finalize_trace(run_id, status="success")
-            body = _last_preview_from_delta(delta) or (
-                "Heartbeat task finished successfully."
-            )
-            await append_inbox_event(
-                agent_id=agent_id,
-                source_type="heartbeat",
-                source_id=_HEARTBEAT_SOURCE_ID,
-                event_type="heartbeat_result",
-                status="success",
-                severity="info",
-                title="Heartbeat result",
-                body=body,
-                payload={
-                    "run_id": run_id,
-                    "target": target,
-                    "query_file": str(path),
-                },
-            )
-        except asyncio.TimeoutError:
-            logger.warning(
-                "heartbeat run timed out after %ss",
-                timeout_seconds,
-            )
-            await append_trace_from_session_delta(
-                run_id=run_id,
-                runner=workspace,
-                session_id=req["session_id"],
-                user_id=req["user_id"],
-                channel=req["channel"],
-                baseline_count=baseline_count,
-            )
-            await finalize_trace(
-                run_id,
-                status="timeout",
-                error=f"timed out after {timeout_seconds}s",
-            )
-            await append_inbox_event(
-                agent_id=agent_id,
-                source_type="heartbeat",
-                source_id=_HEARTBEAT_SOURCE_ID,
-                event_type="heartbeat_timeout",
-                status="error",
-                severity="error",
-                title="Heartbeat timed out",
-                body=f"Heartbeat run timed out after {timeout_seconds}s.",
-                payload={
-                    "run_id": run_id,
-                    "target": target,
-                    "query_file": str(path),
-                },
-            )
-        except Exception as e:  # pylint: disable=broad-except
-            logger.exception("heartbeat run failed (inbox target)")
-            await append_trace_from_session_delta(
-                run_id=run_id,
-                runner=workspace,
-                session_id=req["session_id"],
-                user_id=req["user_id"],
-                channel=req["channel"],
-                baseline_count=baseline_count,
-            )
-            await finalize_trace(run_id, status="error", error=repr(e))
-            await append_inbox_event(
-                agent_id=agent_id,
-                source_type="heartbeat",
-                source_id=_HEARTBEAT_SOURCE_ID,
-                event_type="heartbeat_error",
-                status="error",
-                severity="error",
-                title="Heartbeat execution failed",
-                body=repr(e),
-                payload={
-                    "run_id": run_id,
-                    "target": target,
-                    "query_file": str(path),
-                },
-            )
-            raise
-        return
 
     # target main or no last_dispatch: run agent only, no dispatch
     async def _run_without_dispatch() -> None:

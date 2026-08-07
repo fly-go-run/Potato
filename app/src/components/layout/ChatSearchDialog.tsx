@@ -2,7 +2,6 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   Blocks,
   Clock3,
-  Inbox,
   MessageSquare,
   NotebookPen,
   PenSquare,
@@ -81,12 +80,6 @@ export function ChatSearchDialog({
         label: t("sidebar.crons"),
         icon: Clock3,
         execute: () => closeAndNavigate("/crons"),
-      },
-      {
-        id: "page-inbox",
-        label: t("sidebar.inbox"),
-        icon: Inbox,
-        execute: () => closeAndNavigate("/inbox"),
       },
       {
         id: "page-skills",

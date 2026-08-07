@@ -14,12 +14,6 @@ def test_adbpg_auto_memory_search_defaults():
     assert cfg.auto_memory_search_config.max_results == 3
 
 
-def test_reme_light_inbox_push_defaults_to_enabled():
-    cfg = ReMeLightMemoryConfig()
-
-    assert cfg.inbox_push_enabled is True
-
-
 def test_legacy_rebuild_on_start_setting_is_ignored():
     cfg = ReMeLightMemoryConfig(rebuild_memory_index_on_start=True)
 

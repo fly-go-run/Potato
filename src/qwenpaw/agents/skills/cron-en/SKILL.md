@@ -31,7 +31,7 @@ Use this skill only when you need to **automatically execute something at a futu
 3. **Before creating, confirm execution time/schedule, target channel, target-user, and target-session**
 4. **All cron commands must explicitly include `--agent-id`**
 5. **Do not rely on the default agent, or the task may end up in the default workspace**
-6. **For an agent task that should run without channel output, add `--silent`; execution, session history, trace, and optional Inbox recording still continue**
+6. **For an agent task that should run without channel output, add `--silent`; execution and session history still continue**
 
 ---
 
@@ -177,8 +177,7 @@ qwenpaw cron create \
   --channel dingtalk \
   --target-user "CHANGEME" \
   --target-session "CHANGEME" \
-  --text "Standup starts at 9:00." \
-  --save-result-to-inbox
+  --text "Standup starts at 9:00."
 ```
 
 ```bash
@@ -195,8 +194,7 @@ qwenpaw cron create \
   --channel dingtalk \
   --target-user "CHANGEME" \
   --target-session "CHANGEME" \
-  --text "Standup starts at 9:00." \
-  --save-result-to-inbox
+  --text "Standup starts at 9:00."
 ```
 
 ### Create from JSON
@@ -264,7 +262,6 @@ to find the correct `job_id`.
 - Before modifying/pausing/deleting, run `qwenpaw cron list --agent-id <agent_id>` first
 - To troubleshoot issues, use `qwenpaw cron state <job_id> --agent-id <agent_id>`
 - When showing commands to the user, provide complete, copy-pasteable versions
-- If the user mentions "save to inbox" (or not), explicitly include `--save-result-to-inbox` or `--no-save-result-to-inbox`
 - If the user asks for background or silent execution with no channel reply, use `--silent` on an `agent` task
 - Before creating, you can run `qwenpaw chats list --agent-id <agent_id>` to get valid `target-user` and `target-session`
 
