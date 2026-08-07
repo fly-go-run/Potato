@@ -83,6 +83,7 @@
   /* -- 过渡时长 -- */
   --dur-fast: 120ms;   /* 交互态（hover/active/color） */
   --dur-panel: 160ms;  /* 弹层开合 */
+  --dur-struct: 280ms; /* 结构变化(整段折叠/版面重排):比弹层慢一档,读得出"发生了什么" */
 
   /* -- 字体 -- */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",

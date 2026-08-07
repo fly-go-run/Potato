@@ -73,6 +73,7 @@ import {
   type ThemePreference,
 } from "../lib/theme";
 import { useChatStore } from "../stores/chat";
+import { useUiPrefs } from "../stores/uiPrefs";
 
 /**
  * 设置信息架构(r9 重做):两个分区。
@@ -118,6 +119,8 @@ type TestState =
 export function SettingsView() {
   const { language, setLanguage, t } = useTranslation();
   const navigate = useNavigate();
+  const showContextUsage = useUiPrefs((state) => state.showContextUsage);
+  const setShowContextUsage = useUiPrefs((state) => state.setShowContextUsage);
   const activeModel = useChatStore((state) => state.activeModel);
   const loadActiveModel = useChatStore((state) => state.loadActiveModel);
   const [section, setSection] = useState<SectionId>("models");
@@ -1010,6 +1013,16 @@ export function SettingsView() {
                           },
                         ]}
                         onChange={chooseTheme}
+                      />
+                    </SettingRow>
+                    <SettingRow
+                      title={t("settings.contextUsage.title")}
+                      description={t("settings.contextUsage.description")}
+                    >
+                      <Switch
+                        checked={showContextUsage}
+                        onChange={() => setShowContextUsage(!showContextUsage)}
+                        aria-label={t("settings.contextUsage.title")}
                       />
                     </SettingRow>
                     <SettingRow

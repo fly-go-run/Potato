@@ -205,7 +205,10 @@ export function ModelPicker() {
                 }`
               : t("composer.selectModel")
           }
-          className="flex h-8 max-w-56 items-center gap-1.5 truncate rounded-full bg-fill-hover px-3.5 text-[13px] text-ink transition-colors duration-[var(--dur-fast)] hover:bg-fill-active data-[state=open]:bg-fill-active"
+          // 静止态不铺底色:输入框那一行里它是「当前状态」而不是主操作,
+          // 常驻的灰色药丸会和右边的发送键抢视觉重量。悬停和展开时才上底,
+          // 此时底色是在回应用户的动作,而不是一直在喊自己。
+          className="flex h-8 max-w-56 items-center gap-1.5 truncate rounded-full px-3.5 text-[13px] text-ink transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover data-[state=open]:bg-fill-hover"
         >
           <span className="truncate">
             {modelLoading

@@ -115,7 +115,7 @@ export function FileToolCard({
     );
   }
 
-  const pathNode = (mono: string) =>
+  const pathNode =
     path && onOpenFile ? (
       <button
         type="button"
@@ -123,49 +123,46 @@ export function FileToolCard({
           event.stopPropagation();
           onOpenFile(path);
         }}
-        className={`min-w-0 flex-1 truncate text-left font-mono ${mono} text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary`}
+        className="min-w-0 flex-1 truncate text-left font-mono text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
         title={t("tool.file.open")}
       >
         {path}
       </button>
     ) : (
-      <span
-        className={`min-w-0 flex-1 truncate font-mono ${mono} text-ink-muted`}
-      >
+      <span className="min-w-0 flex-1 truncate font-mono text-ink-muted">
         {path || t("tool.file.path")}
       </span>
     );
 
-  const toggle = running ? (
-    <>
-      <FileText size={14} className="shrink-0 text-ink-secondary" />
-      <span className="shrink-0 font-medium text-ink">{title}</span>
-    </>
-  ) : (
+  // 图标与字号在两态完全一致(12px / 继承行的 text-xs),只换颜色。
+  const toggle = (
     <>
       <FileText
         size={12}
         className={`shrink-0 ${
-          debugStatus && failed ? "text-danger" : "text-ink-muted"
+          running
+            ? "text-ink-secondary"
+            : debugStatus && failed
+            ? "text-danger"
+            : "text-ink-muted"
         }`}
       />
       <span
         className={`shrink-0 font-medium ${
-          debugStatus && failed ? "text-danger" : "text-ink-tertiary"
+          running
+            ? "text-ink"
+            : debugStatus && failed
+            ? "text-danger"
+            : "text-ink-tertiary"
         }`}
       >
         {title}
       </span>
     </>
   );
-  const after = running ? (
+  const after = (
     <>
-      {pathNode("")}
-      <ToolStatus running={running} failed={failed} />
-    </>
-  ) : (
-    <>
-      {pathNode("text-[12px]")}
+      {pathNode}
       {durationLabel && (
         <span className="ml-auto shrink-0 pl-2 text-[11px] tabular-nums text-ink-muted">
           {durationLabel}
@@ -177,15 +174,13 @@ export function FileToolCard({
 
   return (
     <ToolDisclosure
-      card={running}
       toggle={toggle}
       after={after}
       toggleGrow={false}
-      detailClassName={
-        running
-          ? "max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
-          : "mb-2 mt-1"
-      }
+      // 详情本身已是一张描边卡(见上面的 detail),外层只给上下留白,
+      // 避免嵌套双描边。限高滚动两态恒定——完成那一刻取消限高会让展开
+      // 着的面板从 20rem 弹到全高,正是要消灭的那类几何突变。
+      detailClassName="mb-2 mt-1 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
     >
       {detail}
     </ToolDisclosure>

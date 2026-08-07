@@ -33,6 +33,7 @@ import {
   type ComposerTrigger,
 } from "../../lib/composerTrigger";
 import { useChatStore, type ApprovalLevel } from "../../stores/chat";
+import { useUiPrefs } from "../../stores/uiPrefs";
 import { VoiceInputError, VoiceRecorder } from "../../lib/voiceInput";
 import { ModelPicker } from "./ModelPicker";
 import { ProjectPicker } from "./ProjectPicker";
@@ -60,6 +61,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const [text, setText] = useState("");
   const [voiceState, setVoiceState] = useState<VoiceUiState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const showContextUsage = useUiPrefs((state) => state.showContextUsage);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isComposingRef = useRef(false);
@@ -732,8 +734,10 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               <div className="flex-1" />
 
-              {/* 上下文用量在会话里最需要被看到:接近压缩/上限前给用户预警 */}
-              {!wide &&
+              {/* 上下文用量默认不显示(设置 → 通用 里可打开):它在绝大多数
+                  会话里停在个位数,没有可操作性,却一直占着输入框旁的注意力 */}
+              {showContextUsage &&
+                !wide &&
                 turnUsage?.context_usage?.context_usage_ratio !== undefined && (
                   <span
                     className={`hidden pr-1 text-[11px] sm:inline ${
@@ -843,7 +847,8 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               <div className="flex-1" />
 
-              {turnUsage?.context_usage?.context_usage_ratio !== undefined && (
+              {showContextUsage &&
+                turnUsage?.context_usage?.context_usage_ratio !== undefined && (
                 <span className="hidden pr-1 text-[11px] text-ink-muted sm:inline">
                   {t("chat.contextUsed", {
                     // 后端 ratio 已是百分数(context_stats.py 乘过 100)

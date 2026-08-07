@@ -1,4 +1,5 @@
 import {
+  Fragment,
   memo,
   useEffect,
   useMemo,
@@ -11,7 +12,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  CircleDashed,
   Copy,
   FileDiff,
   RefreshCw,
@@ -29,15 +29,12 @@ import {
   totalChangeStats,
   type FileChange,
 } from "../../lib/fileChanges";
-import { useTranslation, type TranslationKey } from "../../lib/i18n";
-import { textFromContent } from "../../lib/content";
+import { useTranslation } from "../../lib/i18n";
 import {
-  selectCollapsedWindow,
   summarizeTrack,
-  type CollapsedRow,
-  type CollapsedRowRole,
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
+import { buildTimeline } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
 import { useNow } from "../../lib/useNow";
@@ -56,7 +53,6 @@ import { ReasoningBlock } from "./ReasoningBlock";
 import {
   buildToolPair,
   humanToolLabel,
-  toolData,
   toolPairStatus,
   ToolCard,
   type ToolPair,
@@ -68,6 +64,14 @@ interface MessageListProps {
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
 }
+
+/**
+ * 流式尾轮的最小高度:问题锚顶模型需要问题下方有足够的可滚动空间,
+ * 否则短回答时 scrollTop 到不了「问题在视口顶部」的位置。只挂在
+ * 「本会话流式出生的最后一轮」上——历史轮/被接替的轮立即释放,
+ * 释放的时机恰好是下一个问题重新锚定的那一帧,不可见。
+ */
+const TAIL_MIN_HEIGHT = "min-h-[calc(100dvh-16rem)]";
 
 interface Turn {
   id: string;
@@ -92,7 +96,10 @@ export function MessageList({
     pendingApprovals.length === 0 &&
     (turns.length === 0 || turns[lastIndex]!.role === "user");
   return (
-    <div className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-8 sm:px-8">
+    <div
+      data-chat-content
+      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-8 sm:px-8"
+    >
       {turns.map((turn, index) =>
         turn.role === "user" ? (
           <UserTurn
@@ -117,14 +124,18 @@ export function MessageList({
               index === lastIndex &&
               pendingApprovals.length === 0
             }
+            tail={index === lastIndex}
             activeMessageId={activeMessageId}
           />
         ),
       )}
       {showPendingTurn && (
-        <div data-testid="turn-assistant" className="qp-msg-in mb-10">
+        <div
+          data-testid="turn-assistant"
+          className={`qp-msg-in mb-10 ${TAIL_MIN_HEIGHT}`}
+        >
           <AssistantHeader />
-          <ExecutionTrack entries={[]} waiting pulsing live />
+          <TurnFlow pieces={[]} foldEntries={[]} waiting pulsing live />
         </div>
       )}
       {pendingApprovals.map((approval) => (
@@ -165,16 +176,20 @@ const UserTurn = memo(function UserTurn({
   );
 }, areUserTurnPropsEqual);
 
-type RenderItem =
-  | { kind: "node"; key: string; node: ReactNode }
-  | { kind: "pair"; key: string; pair: ToolPair }
-  | { kind: "process"; key: string; entry: ProcessEntry };
-
 type ProcessEntry =
   | { kind: "reasoning"; key: string; message: StreamMessage }
   | { kind: "progress"; key: string; message: StreamMessage }
-  | { kind: "message"; key: string; message: StreamMessage }
   | { kind: "pair"; key: string; pair: ToolPair };
+
+/**
+ * 一轮回复按时间序渲染的片段:连续的工具/思考槽位合成一个可折叠工作
+ * 段(run);叙述、答案与突出卡是恒可见节点(visible),同时天然充当
+ * run 的分隔符。时间线严格 append-only,每个 run 在被后续内容接替时
+ * 各自收拢一次(渐进收口),此后不再变。
+ */
+type FlowPiece =
+  | { type: "run"; key: string; entries: ProcessEntry[] }
+  | { type: "visible"; key: string; node: ReactNode };
 
 interface AssistantTurnProps {
   messages: StreamMessage[];
@@ -182,6 +197,8 @@ interface AssistantTurnProps {
   regeneratePrompt: string;
   /** 本轮是流式进行中的最后一轮（无审批卡挂起）。 */
   streaming: boolean;
+  /** 本轮是列表里最后一轮(配合流式出生保持锚定空间)。 */
+  tail: boolean;
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
@@ -192,6 +209,7 @@ const AssistantTurn = memo(function AssistantTurn({
   showActions,
   regeneratePrompt,
   streaming,
+  tail,
   activeMessageId,
   onOpenFile,
   onOpenChange,
@@ -199,199 +217,132 @@ const AssistantTurn = memo(function AssistantTurn({
   // 流式中挂载的轮是从等待占位原位接管的,重播入场动画会闪一下;
   // 该决定只在挂载时定一次,避免流结束时 class 变化重新触发动画。
   const enterAnimation = useRef(!streaming).current;
+  // 流式出生的轮在它还是尾轮期间保持锚定空间(见 TAIL_MIN_HEIGHT)。
+  const bornStreaming = !enterAnimation;
   // 内联 <thinking> 标签的模型:思考段拆成轨道条目,正文只留干净文本。
   const presented = useMemo(
     () => messages.flatMap(presentInlineThinking),
     [messages],
   );
-  const pairedOutputs = new Set<string>();
-  const outputsByCallId = new Map<string, StreamMessage>();
-  for (const message of presented) {
-    if (!isToolOutput(message.type)) continue;
-    const callId = stringValue(toolData(message).call_id);
-    if (!outputsByCallId.has(callId)) outputsByCallId.set(callId, message);
-  }
   const copyText = plainText(presented);
   const turnChanges = collectFileChanges(messages);
   const turnArtifacts = collectConversationArtifacts(messages);
   const resolveFilePath = (href: string) =>
     resolveConversationFileLink(href, turnArtifacts);
 
-  // WorkBuddy keeps the conversational narration that happens before/among
-  // tool calls inside the execution disclosure. A text message folds into
-  // the track as soon as any later reasoning/tool call follows it — even
-  // mid-stream — so hoisted tool entries never render above newer text.
-  // Text with no execution after it (the final answer) stays outside.
-  const foldIntoTrack: boolean[] = new Array(presented.length).fill(false);
-  {
-    let movedOn = false;
-    for (let index = presented.length - 1; index >= 0; index -= 1) {
-      foldIntoTrack[index] = movedOn;
-      if (startsTrackWork(presented[index]!, outputsByCallId)) movedOn = true;
+  /* 呈现承诺层(lib/turnTimeline)产出 append-only 的槽位序列;这里只
+   * 负责把槽位物化成节点:fold 槽合并成可折叠段落,交付产物/失败进度
+   * 就地升级为恒可见的突出卡,答案恒可见。流式期间没有任何已落地内容
+   * 会换容器或换形态——「文字先当正文渲染、下个工具一到又被抽进轨道」
+   * 的旧行为从模型上消灭了(叙述与答案同构,边界只在收口时被消费)。 */
+  const byId = new Map(presented.map((message) => [message.id, message]));
+  const slots = buildTimeline(presented);
+  const foldEntries: ProcessEntry[] = [];
+  const pieces: FlowPiece[] = [];
+  let run: ProcessEntry[] = [];
+  const flushRun = () => {
+    if (run.length > 0) {
+      pieces.push({ type: "run", key: `run-${run[0]!.key}`, entries: run });
     }
-  }
-  const items: RenderItem[] = [];
-  for (let index = 0; index < presented.length; index += 1) {
-    const message = presented[index]!;
-    if (message.type === "reasoning") {
-      // 运行中与完成态共用轨道条目,身份不变,完成时原位收口。
-      items.push({
-        kind: "process",
-        key: message.id,
-        entry: { kind: "reasoning", key: message.id, message },
-      });
+    run = [];
+  };
+  const fold = (entry: ProcessEntry) => {
+    foldEntries.push(entry);
+    run.push(entry);
+  };
+  const visible = (key: string, node: ReactNode) => {
+    flushRun();
+    pieces.push({ type: "visible", key, node });
+  };
+  for (const slot of slots) {
+    const message = byId.get(slot.messageId)!;
+    if (slot.kind === "reasoning") {
+      fold({ kind: "reasoning", key: slot.key, message });
       continue;
     }
-    if (message.type === "progress") {
-      // 失败恒可见(r10 决定);压缩进行中沿用独立卡,轨道摘要只认完成态。
+    if (slot.kind === "progress") {
+      // 失败恒可见(r10 决定);压缩进行中沿用独立卡,完成后归入轨道。
       const failed =
         message.status === "failed" || message.status === "cancelled";
       const activeCompaction =
         isContextCompactionMessage(message) && message.status !== "completed";
       if (failed || activeCompaction) {
-        items.push({
-          kind: "node",
-          key: message.id,
-          node: <ProgressCard key={message.id} message={message} />,
-        });
+        visible(slot.key, <ProgressCard key={slot.key} message={message} />);
       } else {
-        items.push({
-          kind: "process",
-          key: message.id,
-          entry: { kind: "progress", key: message.id, message },
-        });
+        fold({ kind: "progress", key: slot.key, message });
       }
       continue;
     }
-    if (isToolCall(message.type)) {
-      const callId = stringValue(toolData(message).call_id);
-      const output = outputsByCallId.get(callId);
-      if (output) pairedOutputs.add(output.id);
-      const pair = buildToolPair(message, output ?? null);
+    if (slot.kind === "tool") {
+      const orphan = slot.outputId === slot.messageId;
+      const output = slot.outputId ? byId.get(slot.outputId) ?? null : null;
+      const pair = buildToolPair(orphan ? null : message, output);
       if (shouldPresentArtifactPair(pair, turnArtifacts)) {
-        items.push({ kind: "pair", key: message.id, pair });
+        visible(
+          slot.key,
+          <div id={`message-${slot.key}`} key={slot.key}>
+            <ToolCard
+              pair={pair}
+              onOpenFile={onOpenFile}
+              prominentArtifact
+            />
+          </div>,
+        );
       } else {
-        items.push({
-          kind: "process",
-          key: message.id,
-          entry: { kind: "pair", key: message.id, pair },
-        });
+        fold({ kind: "pair", key: slot.key, pair });
       }
       continue;
     }
-    if (isToolOutput(message.type)) {
-      if (pairedOutputs.has(message.id)) continue;
-      const pair = buildToolPair(null, message);
-      if (shouldPresentArtifactPair(pair, turnArtifacts)) {
-        items.push({ kind: "pair", key: message.id, pair });
-      } else {
-        items.push({
-          kind: "process",
-          key: message.id,
-          entry: { kind: "pair", key: message.id, pair },
-        });
-      }
-      continue;
-    }
-    if (message.content.length === 0) continue;
-    if (isOrdinaryAssistantMessage(message) && foldIntoTrack[index]) {
-      items.push({
-        kind: "process",
-        key: message.id,
-        entry: { kind: "message", key: message.id, message },
-      });
-      continue;
-    }
-    items.push({
-      kind: "node",
-      key: message.id,
-      node: (
-        <div
-          id={`message-${message.id}`}
-          key={message.id}
-          className={`rounded-[6px] py-1 ${
-            activeMessageId === message.id
-              ? "ring-2 ring-accent/35 ring-offset-2 ring-offset-canvas"
-              : ""
-          }`}
-        >
-          <MessageContent
-            content={message.content}
-            markdown
-            onOpenFile={onOpenFile}
-            resolveFilePath={resolveFilePath}
-          />
-        </div>
-      ),
-    });
+    // narration:无论 fold 还是 answer 角色都以同一节点恒可见——模型的
+    // 讲述是回复的一部分,永远留在正文流里(Codex 式)。这也让收口零
+    // 结构变动:工具/思考段各自渐进收起,文字从不动。叙述同时天然充当
+    // run 的分隔符——每当模型开口说话,它前面的工作段就被接替而收拢。
+    visible(
+      slot.key,
+      <div
+        id={`message-${slot.key}`}
+        key={slot.key}
+        className={`rounded-[6px] py-1 ${
+          activeMessageId === slot.key
+            ? "ring-2 ring-accent/35 ring-offset-2 ring-offset-canvas"
+            : ""
+        }`}
+      >
+        <MessageContent
+          content={message.content}
+          markdown
+          onOpenFile={onOpenFile}
+          resolveFilePath={resolveFilePath}
+        />
+      </div>,
+    );
   }
+  flushRun();
 
-  /* WorkBuddy 把整轮执行管线收成一条稳定「执行轨道」：运行中步骤也在
-   * 轨道容器里原位演化，而不是独立卡完成后被摘要行替换。正文、失败
-   * 进度、产物等需要突出的内容按原顺序渲染在轨道之外。 */
-  const rendered: ReactNode[] = [];
-  const processEntries = items.flatMap((item) =>
-    item.kind === "process" ? [item.entry] : [],
-  );
   // 正文流式输出时脉冲让位给文字本身;其余流式阶段(等待/思考/工具间隙)保持活动感。
   const hasStreamingText = presented.some(
     (message) =>
       isOrdinaryAssistantMessage(message) && message.status === "in_progress",
   );
-  const waiting = streaming && items.length === 0;
+  const waiting = streaming && slots.length === 0;
   const pulsing = streaming && !hasStreamingText;
-  let executionRendered = false;
-  for (const item of items) {
-    if (item.kind === "process") {
-      if (!executionRendered) {
-        rendered.push(
-          <ExecutionTrack
-            key="execution-track"
-            entries={processEntries}
-            waiting={false}
-            pulsing={pulsing}
-            live={streaming}
-            onOpenFile={onOpenFile}
-            resolveFilePath={resolveFilePath}
-          />,
-        );
-        executionRendered = true;
-      }
-      continue;
-    }
-    if (item.kind === "pair") {
-      rendered.push(
-        <div id={`message-${item.key}`} key={item.key}>
-          <ToolCard
-            pair={item.pair}
-            onOpenFile={onOpenFile}
-            prominentArtifact
-          />
-        </div>,
-      );
-    } else {
-      rendered.push(item.node);
-    }
-  }
 
   return (
     <div
       data-testid="turn-assistant"
-      className={`${enterAnimation ? "qp-msg-in " : ""}mb-10`}
+      className={`${enterAnimation ? "qp-msg-in " : ""}mb-10${
+        tail && bornStreaming ? ` ${TAIL_MIN_HEIGHT}` : ""
+      }`}
     >
       <AssistantHeader />
-      {waiting ? (
-        <ExecutionTrack
-          entries={[]}
-          waiting
-          pulsing
-          live
-          onOpenFile={onOpenFile}
-          resolveFilePath={resolveFilePath}
-        />
-      ) : (
-        rendered
-      )}
+      <TurnFlow
+        pieces={waiting ? [] : pieces}
+        foldEntries={foldEntries}
+        waiting={waiting}
+        pulsing={pulsing}
+        live={streaming}
+        onOpenFile={onOpenFile}
+      />
       {turnChanges.length > 0 && (
         <FileChangesCard changes={turnChanges} onOpenChange={onOpenChange} />
       )}
@@ -422,6 +373,7 @@ function areAssistantTurnPropsEqual(
     Object.is(previous.showActions, next.showActions) &&
     Object.is(previous.regeneratePrompt, next.regeneratePrompt) &&
     Object.is(previous.streaming, next.streaming) &&
+    Object.is(previous.tail, next.tail) &&
     Object.is(previous.onOpenFile, next.onOpenFile) &&
     Object.is(previous.onOpenChange, next.onOpenChange)
   );
@@ -555,26 +507,6 @@ function trackDurationLabel(
   return formatDuration(stop - start);
 }
 
-/** 近况列表的简短详情:文件名 / 截断命令 / 查询词,拿不到就不显示。 */
-function recentPairDetail(pair: ToolPair): string {
-  try {
-    const args = JSON.parse(pair.arguments) as Record<string, unknown>;
-    const path = typeof args.file_path === "string" ? args.file_path : "";
-    if (path) return path.split(/[/\\]/).at(-1) ?? "";
-    const command = typeof args.command === "string" ? args.command : "";
-    if (command) {
-      return command.length > 40 ? `${command.slice(0, 40)}…` : command;
-    }
-    for (const key of ["query", "search_term", "url", "skill"]) {
-      const value = args[key];
-      if (typeof value === "string" && value) return value;
-    }
-  } catch {
-    // 参数不是 JSON 时不展示详情。
-  }
-  return "";
-}
-
 /** 运行中(含尚未收到 output 的间隙)的条目。 */
 function isActiveEntry(entry: ProcessEntry): boolean {
   if (entry.kind === "reasoning" || entry.kind === "progress") {
@@ -588,64 +520,67 @@ function isActiveEntry(entry: ProcessEntry): boolean {
 }
 
 /**
- * 稳定执行轨道:等待响应 → 思考中 → 正在使用工具 → 已完成 N 步,
- * 全程共用同一容器。折叠态是 append-only 的有界窗口(摘要行 + 至多
- * COLLAPSED_WINDOW_CAPACITY 行):行按消息 id 常驻,同 key 原位从
- * 运行态换到完成态,被淘汰的行播退出动画;整轮只在流式结束时收口
- * 一次。选行与摘要状态机在 lib/executionTrack.ts(纯逻辑)。
+ * 一轮回复的执行流:摘要头 + append-only 时间线,收口是**渐进式**的。
+ *
+ * 每个工作段(连续的工具/思考)只在它还是「活跃的最后一段」时展开;
+ * 一旦被接替——模型开口说话、交付产物、或开始下一段工作前的叙述——
+ * 它就地收拢(一次 280ms 结构过渡)。于是答案开始流式时,它上方的
+ * 过程已经让位;流结束的时刻**没有任何结构变动**,用户正读到的答案
+ * 纹丝不动。这是问题锚顶滚动模型的前提:结尾若再来一次大折叠,会把
+ * 正在读的答案往上拽。
+ *
+ * 尾段没有后继(纯行动收尾)时,流结束后静置 600ms 再收——读作
+ * 「整理」而不是「抽走」。用户手动点过开合,以他的选择为准,自动
+ * 行为不再覆盖(展开 = 全部段落展开)。
+ * 摘要状态机在 lib/executionTrack.ts,槽位与折叠边界在 lib/turnTimeline.ts。
  */
-function ExecutionTrack({
-  entries,
+function TurnFlow({
+  pieces,
+  foldEntries,
   waiting,
   pulsing,
   live,
   onOpenFile,
-  resolveFilePath,
 }: {
-  entries: ProcessEntry[];
+  pieces: FlowPiece[];
+  /** 全部过程条目(时间序),驱动摘要行的状态与计数。 */
+  foldEntries: ProcessEntry[];
   waiting: boolean;
   pulsing: boolean;
-  /**
-   * 本轮仍在流式中。窗口只在此期间可见,isStreaming=false 才收口:
-   * 协议没有前瞻的 final 标记,「最终回复已开始」的回溯判定会在
-   * 叙述刚到、后续 tool 未到的间隙误收口再重开(review r2 决定)。
-   */
+  /** 本轮仍在流式中。 */
   live: boolean;
   onOpenFile?: (path: string) => void;
-  resolveFilePath?: (url: string) => string | null;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  // 用户手动点过开合就以他的选择为准,自动行为不再覆盖。
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  // 尾段收口延迟:live 结束后静置 600ms 再收拢仍展开的最后一段。
+  const [settling, setSettling] = useState(live);
+  useEffect(() => {
+    if (live) {
+      setSettling(true);
+      return;
+    }
+    if (!settling) return;
+    const timer = window.setTimeout(() => setSettling(false), 600);
+    return () => window.clearTimeout(timer);
+  }, [live, settling]);
+  const lastPiece = pieces.length > 0 ? pieces[pieces.length - 1] : undefined;
+  // 自动展开只给「活跃的最后一段」;被接替的段落已各自收拢。
+  const autoOpenLast = (live || settling) && lastPiece?.type === "run";
+  const headerOpen = manualOpen ?? autoOpenLast;
   const detailedTools = useUiPrefs((state) => state.detailedTools);
   const setDetailedTools = useUiPrefs((state) => state.setDetailedTools);
-  const snapshots = entries.map(entrySnapshot);
+  const snapshots = foldEntries.map(entrySnapshot);
   const state = summarizeTrack(snapshots, { streaming: live, waiting });
   // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
-  // 它同时让「驻留到期、被推迟的行可以进窗」这件事有机会重算。
   const now = useNow(live);
-  // 上一帧的窗口:选行要靠它判断谁已经站够时间。只在提交后回写——
-  // 渲染期写入会让被 React 丢弃的并发渲染污染驻留账本,把没真正露过
-  // 面的行记成已入窗,提前耗掉它的 900ms。
-  const windowRef = useRef<CollapsedRow[]>(NO_ROWS);
-  // 展开时窗口让位给完整条目列表,直接清空并忘掉驻留簿记。
-  const rows = open
-    ? NO_ROWS
-    : selectCollapsedWindow(snapshots, {
-        streaming: live,
-        // 心跳只有秒级精度,拿它当 since 会让刚进窗的行在下一跳就到期;
-        // 驻留判定用真实时钟,心跳只负责触发重算。
-        now: Date.now(),
-        prev: windowRef.current,
-      });
-  useEffect(() => {
-    windowRef.current = rows;
-  });
-  const durationLabel = trackDurationLabel(entries, live ? now : null);
+  const durationLabel = trackDurationLabel(foldEntries, live ? now : null);
   const compactionEntry =
-    entries.length === 1 &&
-    entries[0]?.kind === "progress" &&
-    isContextCompactionMessage(entries[0].message)
-      ? entries[0]
+    foldEntries.length === 1 &&
+    foldEntries[0]?.kind === "progress" &&
+    isContextCompactionMessage(foldEntries[0].message)
+      ? foldEntries[0]
       : null;
   let summary: string;
   if (state.kind === "waiting") {
@@ -669,12 +604,10 @@ function ExecutionTrack({
         })
       : t("chat.toolGroup", { count: state.steps });
   }
-  const toggleable = entries.length > 0;
-  const entryByKey = new Map(entries.map((entry) => [entry.key, entry]));
-  // 窗口满员后每次换代都是「淘汰一行 + 新进一行」。淘汰行若留在文档流里
-  // 播收高动画,新行却是瞬时占位,窗口会先涨一行再缩回去——底部吸附把这
-  // 个高度回摆投射成上方已定稿内容的上下抖动。直接原位替换,行数恒定。
-  const display = rows;
+  const toggleable = foldEntries.length > 0;
+  // 摘要头只在有过程可折(或等待首帧)时出现:纯文本回答不需要一行
+  // 「已完成 1 个步骤」的噪音。
+  const showHeader = waiting || toggleable;
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
@@ -688,7 +621,7 @@ function ExecutionTrack({
         <ChevronRight
           size={13}
           className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
-            open ? "rotate-90" : ""
+            headerOpen ? "rotate-90" : ""
           }`}
         />
       )}
@@ -696,83 +629,81 @@ function ExecutionTrack({
   );
   return (
     <div className="my-1.5">
-      <div className="flex items-center gap-2">
-        {toggleable ? (
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            aria-expanded={open}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
-          >
-            {summaryContent}
-          </button>
-        ) : (
-          <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
-            {summaryContent}
-          </div>
-        )}
-        {toggleable && open && (
-          <div className="qp-fade-in inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px]">
+      {showHeader && (
+        <div className="flex items-center gap-2">
+          {toggleable ? (
             <button
               type="button"
-              onClick={() => setDetailedTools(false)}
-              aria-pressed={!detailedTools}
-              className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                detailedTools
-                  ? "text-ink-muted hover:text-ink-secondary"
-                  : "bg-fill-hover text-ink-secondary"
-              }`}
+              onClick={() => setManualOpen(!headerOpen)}
+              aria-expanded={headerOpen}
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
             >
-              {t("chat.density.summary")}
+              {summaryContent}
             </button>
-            <button
-              type="button"
-              onClick={() => setDetailedTools(true)}
-              aria-pressed={detailedTools}
-              className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                detailedTools
-                  ? "bg-fill-hover text-ink-secondary"
-                  : "text-ink-muted hover:text-ink-secondary"
-              }`}
-            >
-              {t("chat.density.detailed")}
-            </button>
-          </div>
-        )}
-      </div>
-      {display.length > 0 && (
-        <div className="pl-1">
-          {display.map((row) => {
-            const entry = entryByKey.get(row.key);
-            if (!entry) return null;
-            return <WindowRow key={row.key} role={row.role} entry={entry} />;
-          })}
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
+              {summaryContent}
+            </div>
+          )}
+          {toggleable && headerOpen && (
+            <div className="qp-fade-in inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px]">
+              <button
+                type="button"
+                onClick={() => setDetailedTools(false)}
+                aria-pressed={!detailedTools}
+                className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
+                  detailedTools
+                    ? "text-ink-muted hover:text-ink-secondary"
+                    : "bg-fill-hover text-ink-secondary"
+                }`}
+              >
+                {t("chat.density.summary")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailedTools(true)}
+                aria-pressed={detailedTools}
+                className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
+                  detailedTools
+                    ? "bg-fill-hover text-ink-secondary"
+                    : "text-ink-muted hover:text-ink-secondary"
+                }`}
+              >
+                {t("chat.density.detailed")}
+              </button>
+            </div>
+          )}
         </div>
       )}
-      {toggleable && (
-        <div className="pl-1">
-          {entries.map((entry) => (
-            <Collapse key={entry.key} open={open} keepMounted>
+      {pieces.map((piece) =>
+        piece.type === "run" ? (
+          // 每段 run 一个 Collapse:自动态只有「活跃的最后一段」展开,
+          // 被接替的段落各自收拢过一次,不再重开。keepMounted 保住条目
+          // 内部展开状态;struct 档 = 280ms 高度过渡 + 内容淡出。
+          <Collapse
+            key={piece.key}
+            open={manualOpen ?? (autoOpenLast && piece === lastPiece)}
+            keepMounted
+            struct
+            className="pl-1"
+          >
+            {piece.entries.map((entry) => (
               <TrackEntry
+                key={entry.key}
                 entry={entry}
                 onOpenFile={onOpenFile}
-                resolveFilePath={resolveFilePath}
               />
-            </Collapse>
-          ))}
-        </div>
+            ))}
+          </Collapse>
+        ) : (
+          <Fragment key={piece.key}>{piece.node}</Fragment>
+        ),
       )}
     </div>
   );
 }
 
-const NO_ROWS: CollapsedRow[] = [];
-
-/**
- * 折叠窗口选行的输入快照:ProcessEntry → 纯逻辑层的形状。
- * ``displayable`` 与 ``windowRowContent`` 的判空口径保持一致——占了槽位
- * 却渲染成空,就是「行凭空消失、下一行慢半拍才出现」的来源。
- */
+/** 摘要状态机的输入快照:ProcessEntry → 纯逻辑层的形状。 */
 function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
   if (entry.kind === "pair") {
     const status = toolPairStatus(entry.pair);
@@ -783,127 +714,22 @@ function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
       completed: status.completed,
       failed: status.failed,
       toolName: entry.pair.name,
-      // 运行中的那条以 current 身份入窗,只展示详情;参数还在流式拼装、
-      // 详情解析不出来时先别占位。收口后走 done,有工具名兜底。
-      displayable: status.running
-        ? Boolean(recentPairDetail(entry.pair))
-        : true,
-    };
-  }
-  if (entry.kind === "message") {
-    return {
-      key: entry.key,
-      kind: "message",
-      active: false,
-      displayable: hasVisibleText(entry.message),
     };
   }
   return {
     key: entry.key,
     kind: entry.kind,
     active: isActiveEntry(entry),
-    displayable:
-      entry.kind === "progress" ? hasVisibleText(entry.message) : true,
   };
-}
-
-function hasVisibleText(message: StreamMessage): boolean {
-  return textFromContent(message.content).trim().length > 0;
-}
-
-/**
- * 折叠窗口单行。同一 key 的行在 current → done 时原位交叉淡化内容
- * (qp-swap-in),不重放入场动画;新行入场 qp-msg-in——只做透明度与位移,
- * 不改高度,窗口换代时行数恒定。当前步只展示详情(命令/文件/查询词)
- * ——「正在…」已由摘要行表达,无详情时整行省略,避免复读。
- */
-function WindowRow({
-  role,
-  entry,
-}: {
-  role: CollapsedRowRole;
-  entry: ProcessEntry;
-}) {
-  const { t } = useTranslation();
-  const content = windowRowContent(role, entry, t);
-  if (!content) return null;
-  return (
-    <div
-      className={`qp-msg-in flex items-start gap-1.5 px-1 py-0.5 text-[12px] leading-5 text-ink-muted ${
-        // 叙述行可折两行,恒定预留两行高度:否则文本流式变长/换代时会在
-        // 一行与两行之间跳,同样把上方内容顶得上下移动。
-        content.clamp ? "min-h-11" : "min-h-6"
-      }`}
-    >
-      <span key={role} className="qp-swap-in flex min-w-0 items-start gap-1.5">
-        {content.icon}
-        <span
-          className={
-            content.clamp ? "line-clamp-2 min-w-0" : "min-w-0 truncate"
-          }
-        >
-          {content.text}
-        </span>
-      </span>
-    </div>
-  );
-}
-
-/** 各角色的行内容;返回 null 表示该行没有可展示的信息,整行省略。 */
-function windowRowContent(
-  role: CollapsedRowRole,
-  entry: ProcessEntry,
-  translate: (
-    key: TranslationKey,
-    params?: Record<string, string | number>,
-  ) => string,
-): { icon: ReactNode; text: string; clamp?: boolean } | null {
-  if (role === "narration") {
-    if (entry.kind !== "message") return null;
-    const text = textFromContent(entry.message.content).trim();
-    if (!text) return null;
-    // 与带图标的行左缘对齐:12px 图标位 + 6px 间距。
-    return {
-      icon: <span aria-hidden className="w-3 shrink-0" />,
-      text,
-      clamp: true,
-    };
-  }
-  if (entry.kind === "pair") {
-    const detail = recentPairDetail(entry.pair);
-    if (role === "current") {
-      if (!detail) return null;
-      return {
-        icon: <CircleDashed size={12} className="mt-1 shrink-0" />,
-        text: detail,
-      };
-    }
-    const label = humanToolLabel(entry.pair.name, false, translate);
-    return {
-      icon: <Check size={12} className="mt-1 shrink-0" />,
-      text: detail ? `${label} · ${detail}` : label,
-    };
-  }
-  if (entry.kind === "progress") {
-    const text = textFromContent(entry.message.content).trim();
-    if (!text) return null;
-    return {
-      icon: <CircleDashed size={12} className="mt-1 shrink-0" />,
-      text,
-    };
-  }
-  return null;
 }
 
 /** memo:useNow 每秒心跳只该刷新摘要行的计时文案,条目行引用不变直接跳过。 */
 const TrackEntry = memo(function TrackEntry({
   entry,
   onOpenFile,
-  resolveFilePath,
 }: {
   entry: ProcessEntry;
   onOpenFile?: (path: string) => void;
-  resolveFilePath?: (url: string) => string | null;
 }) {
   if (entry.kind === "reasoning") {
     return <ReasoningBlock message={entry.message} />;
@@ -911,54 +737,8 @@ const TrackEntry = memo(function TrackEntry({
   if (entry.kind === "progress") {
     return <ProgressCard message={entry.message} />;
   }
-  if (entry.kind === "message") {
-    return (
-      <div
-        id={`message-${entry.key}`}
-        className="py-1 text-sm text-ink-secondary"
-      >
-        <MessageContent
-          content={entry.message.content}
-          markdown
-          onOpenFile={onOpenFile}
-          resolveFilePath={resolveFilePath}
-        />
-      </div>
-    );
-  }
   return <ToolCard pair={entry.pair} onOpenFile={onOpenFile} />;
 });
-
-/**
- * 该消息是否代表「助手转去继续执行」。文本之后一旦出现这类消息,说明
- * 它只是中间叙述,应折叠进执行轨道的时间线位置。progress 不算触发:
- * 压缩等进度可能出现在最终回复之后,不能因此把答案折叠掉;显式发送
- * 文件渲染在轨道外,同样不触发。普通写文件属于执行步骤,会触发折叠。
- * 工具名可能只出现在 output 上,与
- * buildToolPair 一致地按 call → output 顺序解析,保证分类不劈叉。
- *
- * 空 reasoning 不触发:走 OpenAI Responses 协议的供应商每轮收口时都会
- * 补一个没有思考文本的 reasoning 占位(只为回传 reasoning_item_id),
- * 它落在最终正文之后,否则会把整段答案折进轨道里再随收口一起藏掉。
- */
-export function startsTrackWork(
-  message: StreamMessage,
-  outputsByCallId: Map<string, StreamMessage>,
-): boolean {
-  if (message.type === "reasoning") {
-    return textFromContent(message.content).trim().length > 0;
-  }
-  if (!isToolCall(message.type)) return false;
-  const data = toolData(message);
-  const name =
-    stringValue(data.name) ||
-    stringValue(
-      toolData(outputsByCallId.get(stringValue(data.call_id)) ?? null).name,
-    );
-  // 名称未知(仍在流式)时不触发折叠,避免交付调用先折叠正文再弹回。
-  if (!name) return false;
-  return name !== "send_file_to_user";
-}
 
 /**
  * 内联 `<thinking>` 标签的模型不走结构化 reasoning 通道。展示层把
@@ -1154,6 +934,3 @@ function isToolOutput(type: StreamMessage["type"]) {
   );
 }
 
-function stringValue(value: unknown) {
-  return typeof value === "string" ? value : "";
-}

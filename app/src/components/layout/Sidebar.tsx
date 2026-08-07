@@ -100,7 +100,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   return (
     // 深色下侧栏（bg）比画布（canvas）更亮，抬升本身已经分层，
     // 再加一条比两者都亮的描边会变成刺眼的接缝 → 深色去掉右边框。
-    <aside className="flex w-[16.5rem] shrink-0 flex-col border-r border-line bg-bg dark:border-r-transparent">
+    <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line bg-bg dark:border-r-transparent">
       {/* macOS overlay 标题栏：两个常用入口与红绿灯同排；按钮之外的
           空白仍是原生拖拽区。Web 端保持普通页面内工具栏的位置。 */}
       <div

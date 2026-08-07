@@ -118,7 +118,7 @@ export function ConversationSidePanel({
   }
 
   return (
-    <aside className="flex w-[19rem] shrink-0 flex-col border-l border-line bg-bg/70">
+    <aside className="flex min-h-0 w-[19rem] shrink-0 flex-col border-l border-line bg-bg/70">
       <div className="flex h-11 shrink-0 items-center border-b border-line px-2">
         <div className="flex min-w-0 flex-1 items-center rounded-[var(--radius-sm)] bg-fill-hover px-0.5 py-0.5">
           <PanelTab
@@ -310,7 +310,7 @@ function FilePreviewPanel({
   const { t } = useTranslation();
   const filename = fileBaseName(path) || path;
   return (
-    <aside className="flex w-[min(42rem,48vw)] min-w-[20rem] shrink-0 flex-col border-l border-line bg-bg/70">
+    <aside className="flex min-h-0 w-[min(42rem,48vw)] min-w-[20rem] shrink-0 flex-col border-l border-line bg-bg/70">
       <div className="flex min-h-12 shrink-0 items-center gap-1 border-b border-line px-2 py-1">
         {onBack && (
           <button
@@ -778,7 +778,7 @@ function ChangeDiffPanel({
     }
   };
   return (
-    <aside className="flex w-[min(42rem,48vw)] min-w-[20rem] shrink-0 flex-col border-l border-line bg-bg/70">
+    <aside className="flex min-h-0 w-[min(42rem,48vw)] min-w-[20rem] shrink-0 flex-col border-l border-line bg-bg/70">
       <div className="flex h-11 shrink-0 items-center gap-1 border-b border-line px-2">
         {onBack && (
           <button

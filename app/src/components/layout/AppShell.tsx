@@ -114,7 +114,10 @@ export function AppShell() {
   };
 
   return (
-    <div className="relative flex h-full">
+    // min-h-0 + overflow-hidden: keep the shell viewport-bound so only
+    // nested scroll regions (chat messages, sidebar list, page bodies)
+    // move — never the chrome (top bar / side rail) with the document.
+    <div className="relative flex h-full min-h-0 overflow-hidden">
       {/* macOS overlay 标题栏：只覆盖没有控件的区域，避免透明拖拽层
           截走左上角按钮的点击。侧栏展开时，左侧由 Sidebar 自己负责拖拽。 */}
       {isMacDesktopShell() && (
@@ -153,7 +156,7 @@ export function AppShell() {
           </IconButton>
         </div>
       )}
-      <main className="min-w-0 flex-1 bg-canvas">
+      <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-canvas">
         <Outlet />
       </main>
       <Suspense fallback={null}>

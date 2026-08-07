@@ -132,6 +132,8 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
       )}
     </>
   );
+  // 行尾槽在两种状态下宽度都尽量小:运行中只有 13px 的 Spinner(不带
+  // 「运行中」文字),完成后换成时长 + 状态图标,避免收尾时右侧抽动。
   const after = running ? (
     <ToolStatus running={running} failed={failed} />
   ) : (
@@ -151,14 +153,12 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
 
   return (
     <ToolDisclosure
-      card={running}
       toggle={toggle}
       after={after}
-      detailClassName={
-        running
-          ? "max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain px-4 py-3"
-          : "mb-2 mt-1 rounded-[var(--radius-md)] border border-line bg-bubble-tool px-4 py-3"
-      }
+      // 详情面板两态完全同形:描边卡片 + 恒定限高滚动。限高不随完成
+      // 取消——展开着的面板在收口那一刻从 20rem 弹到全高,正是要消灭
+      // 的那类几何突变;长输出在面板内滚动即可。
+      detailClassName="mb-2 mt-1 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] border border-line bg-bubble-tool px-4 py-3"
     >
       {detail}
     </ToolDisclosure>
@@ -176,13 +176,10 @@ export function ToolStatus({
 }) {
   const { t } = useTranslation();
   const detail = useToolDetail();
+  // 运行中只给 13px 的 Spinner:文字标签会让行尾宽度在收尾瞬间大幅回缩,
+  // 与完成态的时长标签宽度差越小,切换越安静。
   if (running) {
-    return (
-      <span className="flex shrink-0 items-center gap-1.5 text-ink-muted">
-        <Spinner size={13} />
-        {t("tool.statusRunning")}
-      </span>
-    );
+    return <Spinner size={13} className="shrink-0 text-ink-muted" />;
   }
   if (failed) {
     if (!detail) return null;

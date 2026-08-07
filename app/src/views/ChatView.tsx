@@ -46,7 +46,8 @@ import { Button, Card, SkeletonRows } from "../components/ui";
 import { getChatBanner } from "../lib/chatBanner";
 import { isMacDesktopShell, startDesktopWindowDrag } from "../lib/desktop";
 import { useTranslation } from "../lib/i18n";
-import { isAtBottom as isScrollAtBottom } from "../lib/scroll";
+import { BOTTOM_THRESHOLD_PX } from "../lib/scroll";
+import type { StreamMessage } from "../lib/stream";
 import { shortcutLabel } from "../lib/shortcuts";
 import { useChatStore } from "../stores/chat";
 import { useUiStore } from "../stores/ui";
@@ -244,7 +245,8 @@ export function ChatView() {
   const routerNavigate = useNavigate();
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollRafRef = useRef<number | null>(null);
+  /** 已锚定的最新用户消息 id;null = 本会话还没做过首次填充。 */
+  const anchoredUserIdRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
   const [atBottom, setAtBottom] = useState(true);
   const [hasNewContent, setHasNewContent] = useState(false);
@@ -347,11 +349,36 @@ export function ChatView() {
     if (chatId && chatId !== activeChatId) void openChat(chatId);
   }, [activeChatId, chatId, openChat]);
 
+  /**
+   * 「底部」一律按**内容末尾**计,不按 scrollHeight:尾轮为问题锚顶
+   * 预留的 TAIL_MIN_HEIGHT 空白不算内容,否则「回到底部」会把人送进
+   * 一片空白,「有新内容」指示也会在全部内容都可见时还亮着。
+   * 逐轮取子元素的实际 bottom(轮容器自身带 min-height,不可信)。
+   */
+  const contentBottomOf = (element: HTMLElement): number => {
+    const wrapper = element.querySelector("[data-chat-content]");
+    if (!wrapper) return element.scrollHeight;
+    const containerTop = element.getBoundingClientRect().top;
+    let bottom = 0;
+    for (const block of wrapper.children) {
+      const parts = block.children.length > 0 ? block.children : [block];
+      for (const part of parts) {
+        const rect = part.getBoundingClientRect();
+        if (rect.bottom > bottom) bottom = rect.bottom;
+      }
+    }
+    if (bottom === 0) return element.scrollHeight;
+    return element.scrollTop + (bottom - containerTop);
+  };
+  const distanceToContentBottom = (element: HTMLElement): number =>
+    contentBottomOf(element) - (element.scrollTop + element.clientHeight);
+
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
     const handleScroll = () => {
-      const nextAtBottom = isScrollAtBottom(element);
+      const nextAtBottom =
+        distanceToContentBottom(element) <= BOTTOM_THRESHOLD_PX;
       atBottomRef.current = nextAtBottom;
       setAtBottom(nextAtBottom);
       if (nextAtBottom) setHasNewContent(false);
@@ -360,33 +387,71 @@ export function ChatView() {
     return () => element.removeEventListener("scroll", handleScroll);
   }, [historyLoading, isEmpty]);
 
+  /* 滚动模型:问题锚顶,不跟随。
+   *
+   * 发送新问题时把它滚到视口顶部,答案在其下方向下生长;流式期间视口
+   * 一动不动——回答结束时用户看到的是答案的**开头**,顺着读下去,而不是
+   * 被拖到结尾再往回找。旧的"每帧钉在底部"会把上方所有已读内容顶得
+   * 不停位移,是抖动感的最大放大器。
+   * 打开历史会话仍一次性落底(最近内容在底部是历史浏览的常识)。 */
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
-    if (scrollRafRef.current !== null) {
-      window.cancelAnimationFrame(scrollRafRef.current);
+    let lastUser: StreamMessage | undefined;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]!.role === "user") {
+        lastUser = messages[index];
+        break;
+      }
     }
-    scrollRafRef.current = window.requestAnimationFrame(() => {
-      scrollRafRef.current = null;
-      if (atBottomRef.current) {
-        element.scrollTop = element.scrollHeight;
-        setHasNewContent(false);
-      } else {
-        setHasNewContent(true);
-      }
-    });
-    return () => {
-      if (scrollRafRef.current !== null) {
-        window.cancelAnimationFrame(scrollRafRef.current);
-        scrollRafRef.current = null;
-      }
+    const anchorToQuestion = (userId: string, smooth: boolean) => {
+      window.requestAnimationFrame(() => {
+        const target = document.getElementById(`message-${userId}`);
+        if (!target || !scrollRef.current) return;
+        const container = scrollRef.current;
+        // 32px 呼吸:问题贴着标题栏会显得局促,留出一行余量。
+        const offset =
+          container.scrollTop +
+          target.getBoundingClientRect().top -
+          container.getBoundingClientRect().top -
+          32;
+        container.scrollTo({
+          top: Math.max(0, offset),
+          behavior: smooth ? "smooth" : "auto",
+        });
+      });
     };
-  }, [pendingApprovals, messages]);
+    // 首次填充:打开历史会话落底;但新会话首帧(正在流式)必须锚顶——
+    // 此时底部是 TAIL_MIN_HEIGHT 预留的锚定空间,落底会把问题推出视口。
+    if (anchoredUserIdRef.current === null) {
+      if (messages.length === 0) return;
+      anchoredUserIdRef.current = lastUser?.id ?? "";
+      if (isStreaming && lastUser) {
+        anchorToQuestion(lastUser.id, false);
+      } else {
+        element.scrollTop = element.scrollHeight;
+      }
+      return;
+    }
+    // 新问题出现:锚到视口顶部(留 12px 呼吸),此后不再自动滚动。
+    if (lastUser && lastUser.id !== anchoredUserIdRef.current) {
+      anchoredUserIdRef.current = lastUser.id;
+      anchorToQuestion(lastUser.id, true);
+      return;
+    }
+    // 内容生长:视口不动,只维护「下方有新内容」指示。
+    const nowAtBottom = distanceToContentBottom(element) <= BOTTOM_THRESHOLD_PX;
+    atBottomRef.current = nowAtBottom;
+    setAtBottom(nowAtBottom);
+    if (!nowAtBottom) setHasNewContent(true);
+  }, [pendingApprovals, messages, isStreaming]);
 
   useEffect(() => {
     atBottomRef.current = true;
     setAtBottom(true);
     setHasNewContent(false);
+    // 换会话重置锚定基线,下一次消息填充按「首次填充」处理。
+    anchoredUserIdRef.current = null;
     setSearchOpen(false);
     setSearchQuery("");
     setActiveSearchMessageId("");
@@ -427,7 +492,13 @@ export function ChatView() {
 
   const scrollToBottom = () => {
     const element = scrollRef.current;
-    if (element) element.scrollTop = element.scrollHeight;
+    if (element) {
+      // 让最后一条内容的末尾贴近输入框(留 16px),而不是滚到预留空白的尽头。
+      element.scrollTop = Math.max(
+        0,
+        contentBottomOf(element) - element.clientHeight + 16,
+      );
+    }
     atBottomRef.current = true;
     setAtBottom(true);
     setHasNewContent(false);
@@ -503,7 +574,7 @@ export function ChatView() {
 
   return (
     <div
-      className="relative flex h-full flex-col"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden"
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDragOver={onDragOver}
@@ -734,8 +805,11 @@ export function ChatView() {
             </div>
           )}
           <div className="qp-fade-in flex min-h-0 flex-1">
-            <section className="flex min-w-0 flex-1 flex-col">
-              <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div
+                ref={scrollRef}
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+              >
                 {historyLoading ? (
                   <div className="mx-auto w-full max-w-[48rem] px-8 py-10">
                     <Card className="p-4">

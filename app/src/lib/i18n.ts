@@ -660,6 +660,9 @@ export const dictionaries = {
     "settings.appearance.title": "外观",
     "settings.appearance.theme": "主题",
     "settings.appearance.description": "主题会立即应用到整个工作台。",
+    "settings.contextUsage.title": "显示上下文用量",
+    "settings.contextUsage.description":
+      "在输入框旁常显本轮已用的上下文百分比。默认关闭。",
     "settings.theme.light": "浅色",
     "settings.theme.dark": "深色",
     "settings.theme.system": "跟随系统",
@@ -1499,6 +1502,9 @@ export const dictionaries = {
     "settings.appearance.theme": "Theme",
     "settings.appearance.description":
       "Theme changes apply across the workspace.",
+    "settings.contextUsage.title": "Show context usage",
+    "settings.contextUsage.description":
+      "Keep the percentage of context used for this turn next to the composer. Off by default.",
     "settings.theme.light": "Light",
     "settings.theme.dark": "Dark",
     "settings.theme.system": "System",

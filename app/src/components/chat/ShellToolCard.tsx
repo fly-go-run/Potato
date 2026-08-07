@@ -7,8 +7,10 @@ import { useToolDetail } from "../../stores/uiPrefs";
 import { useTranslation } from "../../lib/i18n";
 
 /**
- * 完成态收敛为无填充的"安静行"(正文是版面主角,执行过程退居次要);
- * 运行中保持当前步骤可见，长输出在卡内滚动，失败以 danger 色保持可见。
+ * 执行轨道里恒定是无填充的"安静行"(正文是版面主角,执行过程退居次要):
+ * 运行中与完成态共用同一套行几何,只有图标/文字颜色和行尾槽随状态变化,
+ * 收尾时整行一个像素都不动。长输出在展开的详情面板内滚动,失败以 danger
+ * 色保持可见。
  */
 export function ShellToolCard({ pair }: { pair: ToolPair }) {
   const { t } = useTranslation();
@@ -38,24 +40,26 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
     </div>
   );
 
-  const toggle = running ? (
-    <>
-      <Terminal size={14} className="shrink-0 text-ink-secondary" />
-      <code className="min-w-0 flex-1 truncate font-mono text-ink">
-        {command || t("tool.shell")}
-      </code>
-    </>
-  ) : (
+  // 图标与字号在两态完全一致(12px / 继承行的 text-xs),只换颜色。
+  const toggle = (
     <>
       <Terminal
         size={12}
         className={`shrink-0 ${
-          debugStatus && failed ? "text-danger" : "text-ink-muted"
+          running
+            ? "text-ink-secondary"
+            : debugStatus && failed
+            ? "text-danger"
+            : "text-ink-muted"
         }`}
       />
       <code
-        className={`min-w-0 flex-1 truncate font-mono text-[12px] ${
-          debugStatus && failed ? "text-danger" : "text-ink-tertiary"
+        className={`min-w-0 flex-1 truncate font-mono ${
+          running
+            ? "text-ink"
+            : debugStatus && failed
+            ? "text-danger"
+            : "text-ink-tertiary"
         }`}
       >
         {command || t("tool.shell")}
@@ -81,14 +85,10 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
 
   return (
     <ToolDisclosure
-      card={running}
       toggle={toggle}
       after={after}
-      detailClassName={
-        running
-          ? "px-4 py-3"
-          : "mb-2 mt-1 rounded-[var(--radius-md)] border border-line bg-bubble-tool px-4 py-3"
-      }
+      // 详情面板两态同形;输出本身已在 <pre> 里限高滚动,面板不再另加上限。
+      detailClassName="mb-2 mt-1 rounded-[var(--radius-md)] border border-line bg-bubble-tool px-4 py-3"
     >
       {detail}
     </ToolDisclosure>

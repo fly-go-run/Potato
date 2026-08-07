@@ -8,6 +8,12 @@ html,
 body,
 #root {
   height: 100%;
+  /* Desktop shell: scroll only happens inside intentional regions
+     (message list, sidebar nav, settings body). Without this lock,
+     flex min-height:auto can grow past the viewport and the document
+     itself becomes the scroller — top bar, composer, and chrome all
+     move together on trackpad overscroll. */
+  overflow: hidden;
 }
 
 body {
@@ -175,6 +181,18 @@ select,
   min-height: 0;
   overflow: hidden;
 }
+/* 整段结构折叠(轮次收口):高度过渡放慢一档,同时内容轻微淡出/入,
+   读作「整理归档」而不是「内容被抽走」 */
+.qp-collapse-struct {
+  transition: grid-template-rows var(--dur-struct)
+    cubic-bezier(0.22, 1, 0.36, 1);
+}
+.qp-collapse-struct > div {
+  transition: opacity var(--dur-struct) ease-out;
+}
+.qp-collapse-struct[data-closed] > div {
+  opacity: 0;
+}
 
 /* Radix 弹层：套在 [data-radix-*] Content 上的通用类 */
 .qp-overlay {
@@ -196,7 +214,9 @@ select,
   .qp-swap-in {
     animation: none;
   }
-  .qp-collapse {
+  .qp-collapse,
+  .qp-collapse-struct,
+  .qp-collapse-struct > div {
     transition: none;
   }
   /* 静态整环仍可读作「进行中」,不旋转 */
