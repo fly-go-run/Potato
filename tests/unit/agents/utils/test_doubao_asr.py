@@ -154,6 +154,40 @@ class TestAudioFormatForPath:
             text = await mod.transcribe_doubao_flash(str(audio))
         assert text is None
 
+    @pytest.mark.asyncio
+    async def test_no_speech_is_empty_text_not_failure(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        """录到静音 => 空转写,不是失败。
+
+        用户没开口是正常结果。以前这里和「鉴权失败」一样返回 None,路由
+        据此抛 500,界面就弹出「转写失败,请检查供应商配置和日志」——把一次
+        没说话说成配置有问题,还要人去翻日志。
+        """
+        monkeypatch.setenv("apikey", "sk-test")
+        audio = tmp_path / "a.wav"
+        audio.write_bytes(b"\x00" * 16)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {
+            "X-Api-Status-Code": mod.NO_SPEECH_STATUS,
+            "X-Api-Message": "[Normal silence audio] no valid speech in audio",
+            "X-Tt-Logid": "log-3",
+        }
+        mock_response.json.return_value = {}
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        with patch.object(mod.httpx, "AsyncClient", return_value=mock_client):
+            text = await mod.transcribe_doubao_flash(str(audio))
+        assert text == ""
+
 
 class TestNeedsConversion:
     """Browser recordings always need ffmpeg; the packaged app may lack it."""

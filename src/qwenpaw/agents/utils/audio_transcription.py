@@ -187,11 +187,12 @@ async def _transcribe_local_whisper(file_path: str) -> Optional[str]:
                 text[:80],
             )
             return text
-        logger.warning(
+        # 同上:识别成功但没有人声,是空结果而不是错误。
+        logger.info(
             "Local Whisper returned empty text for %s",
             file_path,
         )
-        return None
+        return ""
     except Exception:
         logger.warning(
             "Local Whisper transcription failed for %s",
@@ -277,8 +278,9 @@ async def _transcribe_whisper_api(file_path: str) -> Optional[str]:
         if text:
             logger.debug("Transcribed audio %s: %s", file_path, text[:80])
             return text
-        logger.warning("Transcription returned empty text for %s", file_path)
-        return None
+        # 与 doubao 路径一致:调用成功但没有人声,返回空文本而不是失败。
+        logger.info("Transcription returned empty text for %s", file_path)
+        return ""
     except Exception:
         logger.warning(
             "Audio transcription failed for %s",
@@ -309,7 +311,9 @@ async def transcribe_audio(file_path: str) -> Optional[str]:
     - ``local_whisper``: local openai-whisper
     - ``doubao_asr``: Doubao OpenSpeech flash HTTP
 
-    Returns the transcribed text, or ``None`` on failure.
+    Returns the transcribed text, ``""`` when the call succeeded but the audio
+    held no speech (the user simply did not say anything — a normal outcome,
+    not an error), or ``None`` on failure.
     """
     from ...config import load_config
 

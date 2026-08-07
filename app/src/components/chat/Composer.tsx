@@ -771,23 +771,30 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   }
                   aria-pressed={voiceState === "recording"}
                   onClick={toggleVoice}
-                  className={
+                  // mr-[17px]:让麦克风左右的留白在静止态看起来一样宽。
+                  //
+                  // 行上是统一的 gap-1(4px),但两侧的邻居性质不同:模型选择器
+                  // 有 14px 内边距且静止态不铺底色,那 14px 就是纯死白,全部计入
+                  // 左侧空隙;发送键是实心圆,右侧只有 gap 本身。实测墨迹到墨迹
+                  // 是 29.6px vs 16.7px,差了一倍。补到 17px 让两边都是 ~29.6px。
+                  // 放在麦克风上而不是发送键上:语音不可用时它整个不渲染,不会
+                  // 连带改动原有布局。
+                  className={`mr-[17px] ${
                     voiceState === "recording"
                       ? "text-danger hover:text-danger"
-                      : undefined
-                  }
+                      : ""
+                  }`}
                 >
                   {voiceState === "transcribing" ||
                   voiceState === "starting" ? (
                     <Loader2 size={18} className="animate-spin" />
+                  ) : voiceState === "recording" ? (
+                    // 录音中按钮的动作是「停止」,就得画成停止:红色脉冲的
+                    // 麦克风只说明正在录,没告诉用户点下去会怎样。方块与
+                    // 发送键的停流按钮同一套语义。
+                    <Square size={15} fill="currentColor" className="animate-pulse" />
                   ) : (
-                    <Mic
-                      size={18}
-                      strokeWidth={1.9}
-                      className={
-                        voiceState === "recording" ? "animate-pulse" : undefined
-                      }
-                    />
+                    <Mic size={18} strokeWidth={1.9} />
                   )}
                 </IconButton>
               )}

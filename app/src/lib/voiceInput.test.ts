@@ -169,11 +169,12 @@ describe("VoiceRecorder lifecycle", () => {
     const file = await stopping;
     vi.useRealTimers();
 
-    // 请求到了 16k context,不需要重采样:两块各 8 帧 = 16 个采样,
-    // 加 44 字节头。若尾块被丢掉,这里会是 44 + 8*2 = 60。
+    // context 是设备原生的 48k(录音器不再强制 16k,那会让 WebKit 送出
+    // 整段静音),48k→16k 降采样 3:1:两块各 8 帧 = 16 个采样 → 5 个,
+    // 加 44 字节头。若尾块被丢掉,只剩 8 帧 → 2 个采样 = 48 字节。
     expect(file.name).toMatch(/^voice-\d+\.wav$/);
     expect(file.type).toBe("audio/wav");
-    expect(file.size).toBe(44 + 16 * 2);
+    expect(file.size).toBe(44 + 5 * 2);
     expect(stream.tracks[0]!.stopped).toBe(true);
     expect(context.closed).toBe(1);
   });
@@ -249,7 +250,8 @@ describe("VoiceRecorder concurrency", () => {
     vi.useRealTimers();
 
     expect(a).toBe(b);
-    expect(a.size).toBe(44 + 16 * 2);
+    // 同上:16 个 48k 采样降到 16k 后是 5 个。
+    expect(a.size).toBe(44 + 5 * 2);
   });
 
   it("does not arm a recording that was cancelled mid-permission", async () => {

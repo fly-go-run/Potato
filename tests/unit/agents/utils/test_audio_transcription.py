@@ -420,7 +420,12 @@ class TestTranscribeLocalWhisper:
             assert result == "hello"
 
     @pytest.mark.asyncio
-    async def test_empty_text_returns_none(self):
+    async def test_empty_text_returns_empty_not_failure(self):
+        """没说话 != 转写失败。
+
+        识别跑通了、只是音频里没有人声,调用方应该拿到空文本(界面留空),
+        而不是 ``None``——后者会一路变成「转写失败,请检查供应商配置」。
+        """
         mock_model = MagicMock()
         mock_model.transcribe.return_value = {"text": "   "}
 
@@ -440,7 +445,7 @@ class TestTranscribeLocalWhisper:
             )
 
             result = await _transcribe_local_whisper("/tmp/audio.wav")
-            assert result is None
+            assert result == ""
 
 
 # ---------------------------------------------------------------------------
