@@ -29,6 +29,10 @@ import { Button, IconButton } from "../ui";
 import { ApiError, sttApi } from "../../lib/api";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { skillApi, type SkillInfo } from "../../lib/capabilities";
+import {
+  skillDescription,
+  skillDisplayName,
+} from "../../lib/skillPresentation";
 import { isImeCommitEnter } from "../../lib/ime";
 import {
   applyTrigger,
@@ -60,7 +64,7 @@ const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
 export function Composer({ wide = false }: { wide?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [text, setText] = useState("");
   const [voiceState, setVoiceState] = useState<VoiceUiState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -227,13 +231,18 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         .filter(
           (skill) =>
             !needle ||
-            `${skill.name} ${skill.description}`
+            `${skill.name} ${skillDisplayName(skill.name, language)} ${skill.description}`
               .toLocaleLowerCase()
               .includes(needle),
         )
         .map((skill) => ({
           value: skill.name,
-          description: skill.description,
+          label: skillDisplayName(skill.name, language),
+          description: skillDescription(
+            skill.name,
+            skill.description,
+            language,
+          ),
           icon: "skill" as const,
           emoji: skill.emoji,
         }));
@@ -241,7 +250,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     return conversationFiles.filter(
       (item) => !needle || item.value.toLocaleLowerCase().includes(needle),
     );
-  }, [trigger, skills, conversationFiles]);
+  }, [trigger, skills, conversationFiles, language]);
 
   const skillsLoading = trigger?.kind === "slash" && skills === null;
 
