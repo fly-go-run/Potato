@@ -1,26 +1,9 @@
 import {
   ArrowDown,
-  Bug,
-  CalendarClock,
   CloudUpload,
-  CodeXml,
-  Coffee,
-  FileCode2,
   FolderClosed,
-  FileText,
-  Gauge,
-  Image,
-  LayoutTemplate,
-  MousePointer2,
-  NotebookPen,
-  Palette,
   PanelRightOpen,
-  Presentation,
   Search,
-  ScanSearch,
-  SwatchBook,
-  Table2,
-  TestTube2,
   X,
 } from "lucide-react";
 import {
@@ -45,7 +28,7 @@ import { Banner } from "../components/ui/Banner";
 import { Button, Card, SkeletonRows } from "../components/ui";
 import { getChatBanner } from "../lib/chatBanner";
 import { isMacDesktopShell, startDesktopWindowDrag } from "../lib/desktop";
-import { useTranslation } from "../lib/i18n";
+import { useTranslation, type TranslationKey } from "../lib/i18n";
 import { BOTTOM_THRESHOLD_PX } from "../lib/scroll";
 import type { StreamMessage } from "../lib/stream";
 import { shortcutLabel } from "../lib/shortcuts";
@@ -58,185 +41,26 @@ const ConversationSidePanel = lazy(() =>
   })),
 );
 
-function CapabilityChips({ wide = false }: { wide?: boolean }) {
-  const { t } = useTranslation();
-  const [category, setCategory] = useState<"office" | "code" | "design">(
-    "office",
-  );
-  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(
-    null,
-  );
-  const setComposerDraft = useChatStore((state) => state.setComposerDraft);
-  const busy = useChatStore((state) => state.isSubmitting || state.isStreaming);
-  // key 是胶囊上的短标签,prompt 是点击后填入的完整任务指令(部分留白等用户补充)
-  const groups = {
-    office: [
-      {
-        key: "chat.suggest.report",
-        prompt: "chat.suggest.report.prompt",
-        icon: NotebookPen,
-      },
-      {
-        key: "chat.suggest.doc",
-        prompt: "chat.suggest.doc.prompt",
-        icon: FileText,
-      },
-      {
-        key: "chat.suggest.sheet",
-        prompt: "chat.suggest.sheet.prompt",
-        icon: Table2,
-      },
-      {
-        key: "chat.suggest.slides",
-        prompt: "chat.suggest.slides.prompt",
-        icon: Presentation,
-      },
-      {
-        key: "chat.suggest.cron",
-        prompt: "chat.suggest.cron.prompt",
-        icon: CalendarClock,
-      },
-    ],
-    code: [
-      {
-        key: "chat.suggest.code.explain",
-        prompt: "chat.suggest.code.explain.prompt",
-        icon: FileCode2,
-      },
-      {
-        key: "chat.suggest.code.fix",
-        prompt: "chat.suggest.code.fix.prompt",
-        icon: Bug,
-      },
-      {
-        key: "chat.suggest.code.test",
-        prompt: "chat.suggest.code.test.prompt",
-        icon: TestTube2,
-      },
-      {
-        key: "chat.suggest.code.review",
-        prompt: "chat.suggest.code.review.prompt",
-        icon: ScanSearch,
-      },
-      {
-        key: "chat.suggest.code.refactor",
-        prompt: "chat.suggest.code.refactor.prompt",
-        icon: Gauge,
-      },
-      {
-        key: "chat.suggest.code.project",
-        prompt: "chat.suggest.code.project.prompt",
-        icon: CodeXml,
-      },
-    ],
-    design: [
-      {
-        key: "chat.suggest.design.ui",
-        prompt: "chat.suggest.design.ui.prompt",
-        icon: LayoutTemplate,
-      },
-      {
-        key: "chat.suggest.design.image",
-        prompt: "chat.suggest.design.image.prompt",
-        icon: Image,
-      },
-      {
-        key: "chat.suggest.design.interaction",
-        prompt: "chat.suggest.design.interaction.prompt",
-        icon: MousePointer2,
-      },
-      {
-        key: "chat.suggest.design.prototype",
-        prompt: "chat.suggest.design.prototype.prompt",
-        icon: Palette,
-      },
-      {
-        key: "chat.suggest.design.review",
-        prompt: "chat.suggest.design.review.prompt",
-        icon: ScanSearch,
-      },
-      {
-        key: "chat.suggest.design.system",
-        prompt: "chat.suggest.design.system.prompt",
-        icon: SwatchBook,
-      },
-    ],
-  } as const;
-  const categories = [
-    { value: "office", label: "chat.category.office", icon: Coffee },
-    { value: "code", label: "chat.category.code", icon: CodeXml },
-    { value: "design", label: "chat.category.design", icon: Palette },
-  ] as const;
-  const suggestions = groups[category];
-  return (
-    // padding 在 max-w 外层，与 Composer 同构，胶囊行才能与输入卡左右对齐
-    <div className="px-4 sm:px-6">
-      <div className="flex justify-center">
-        <div
-          role="tablist"
-          aria-label={t("chat.category.label")}
-          className="inline-flex items-center rounded-full bg-fill-hover p-0.5"
-        >
-          {categories.map(({ value, label, icon: Icon }) => {
-            const selected = category === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => {
-                  setCategory(value);
-                  setSelectedSuggestion(null);
-                }}
-                className={`flex h-9 items-center gap-2 rounded-full px-5 text-[14px] font-medium transition-[background-color,color,box-shadow] duration-[var(--dur-fast)] ${
-                  selected
-                    ? "bg-btn-primary text-btn-primary-ink shadow-[var(--shadow-control)]"
-                    : "text-ink-secondary hover:bg-fill-active hover:text-ink"
-                }`}
-              >
-                <Icon size={16} strokeWidth={1.8} />
-                {t(label)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div
-        className={`mx-auto mt-14 flex flex-wrap justify-center gap-2 ${
-          wide ? "w-full sm:w-[91%] sm:max-w-[90rem]" : "w-full max-w-[48rem]"
-        }`}
-      >
-        {suggestions.map(({ key, prompt, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            disabled={busy}
-            aria-pressed={selectedSuggestion === key}
-            onClick={() => {
-              setSelectedSuggestion(key);
-              setComposerDraft(t(prompt));
-            }}
-            className={`group flex h-9 items-center gap-1.5 rounded-full border px-4 text-[13px] leading-5 shadow-[var(--shadow-control)] transition-[background-color,color,box-shadow,opacity] duration-[var(--dur-fast)] disabled:pointer-events-none disabled:opacity-40 ${
-              selectedSuggestion === key
-                ? "border-line bg-fill-hover text-ink dark:border-line-highlight"
-                : "border-line bg-surface text-ink-secondary hover:bg-fill-hover hover:text-ink active:bg-fill-active dark:border-line-highlight dark:shadow-none"
-            }`}
-          >
-            <Icon
-              size={16}
-              className={`shrink-0 transition-colors duration-[var(--dur-fast)] ${
-                selectedSuggestion === key
-                  ? "text-ink-secondary"
-                  : "text-icon group-hover:text-icon-strong"
-              }`}
-            />
-            {t(key)}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+
+/** 时段问候:口号退役,首页对人不对市场说话。 */
+function timeGreeting(t: (key: TranslationKey) => string): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return t("chat.greeting.morning");
+  if (hour >= 12 && hour < 18) return t("chat.greeting.afternoon");
+  return t("chat.greeting.evening");
+}
+
+/** 发现性提示只给前 5 次空态:学会之后它就是噪音。 */
+function showTriggerHint(): boolean {
+  try {
+    const key = "qwenpaw_home_hint_seen";
+    const seen = Number(window.localStorage.getItem(key) ?? "0");
+    if (seen >= 5) return false;
+    window.localStorage.setItem(key, String(seen + 1));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function ChatView() {
@@ -248,6 +72,7 @@ export function ChatView() {
   /** 已锚定的最新用户消息 id;null = 本会话还没做过首次填充。 */
   const anchoredUserIdRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
+  const triggerHintVisible = useMemo(() => showTriggerHint(), []);
   const [atBottom, setAtBottom] = useState(true);
   const [hasNewContent, setHasNewContent] = useState(false);
   const [switchingModel, setSwitchingModel] = useState<string | null>(null);
@@ -652,16 +477,20 @@ export function ChatView() {
         <div className="qp-fade-in flex min-h-0 flex-1 flex-col justify-start pb-10 pt-[13vh]">
           <div className="px-4 sm:px-6">
             <h1 className="font-display text-center text-[32px] font-semibold leading-[42px] tracking-[-0.025em] text-ink sm:text-[34px]">
-              {t("chat.emptyTitle")}
+              {timeGreeting(t)}
             </h1>
+            {triggerHintVisible && (
+              <p className="mt-3 text-center text-[12px] text-ink-tertiary">
+                {t("chat.emptyTriggersHint")}
+              </p>
+            )}
             <p className="sr-only">
               {t("chat.emptyHint", { shortcut: shortcutLabel("K") })}
             </p>
           </div>
-          <div className="mt-12">
-            <CapabilityChips wide />
+          <div className="mt-10">
+            <Composer wide />
           </div>
-          <Composer wide />
         </div>
       ) : (
         <>

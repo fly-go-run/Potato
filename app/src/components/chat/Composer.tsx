@@ -300,6 +300,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         <Button
           variant="ghost"
           size="sm"
+          aria-label={t("composer.approval.aria")}
           className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
         >
           <ShieldCheck size={15} className="text-icon" />
@@ -314,6 +315,10 @@ export function Composer({ wide = false }: { wide?: boolean }) {
           align="start"
           className="qp-pop z-50 min-w-64 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
         >
+          {/* 缩短的 chip 文案(自动/关闭)靠这里的节头找回语境 */}
+          <div className="px-2.5 pb-1 pt-1.5 text-[11px] text-ink-muted">
+            {t("composer.approval.aria")}
+          </div>
           {approvalLevels.map((item) => (
             <DropdownMenu.Item
               key={item.value}

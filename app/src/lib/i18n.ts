@@ -77,64 +77,12 @@ export const dictionaries = {
 
     "chat.closeNotice": "关闭提示",
     "chat.loading": "加载会话…",
-    "chat.emptyTitle": "Potato，帮你把工作做完",
+    "chat.greeting.morning": "早上好",
+    "chat.greeting.afternoon": "下午好",
+    "chat.greeting.evening": "晚上好",
+    "chat.emptyTriggersHint": "输入 / 调用技能，@ 引用文件",
     "chat.emptyHint": "输入任务开始，或用 {shortcut} 检索历史会话",
-    "chat.category.label": "任务场景",
-    "chat.category.office": "日常办公",
-    "chat.category.code": "代码开发",
-    "chat.category.design": "设计创意",
     "chat.error.serviceUnavailable": "服务暂时不可用，请检查连接后重试。",
-    "chat.suggest.report": "写周报",
-    "chat.suggest.report.prompt":
-      "帮我写一份本周工作周报。先梳理本周的会话记录、定时任务运行结果和记忆里的工作沉淀，按「本周完成 / 进行中 / 下周计划 / 需要协调」四段用 markdown 输出，语气务实简洁。",
-    "chat.suggest.doc": "文档处理",
-    "chat.suggest.doc.prompt":
-      "我有一份文档需要处理，先告诉我你能做哪些：转换格式、提取要点、翻译或润色。",
-    "chat.suggest.sheet": "表格数据",
-    "chat.suggest.sheet.prompt":
-      "我接下来会发给你一份表格文件（Excel/CSV）。请先了解数据结构，然后帮我做数据清洗和统计汇总，最后输出一份带图表建议和结论的分析摘要。我的具体关注点是：",
-    "chat.suggest.slides": "做份 PPT",
-    "chat.suggest.slides.prompt":
-      "帮我做一份幻灯片。先和我确认主题、听众和页数，给出大纲让我确认，再生成 pptx 文件。主题是：",
-    "chat.suggest.cron": "定时提醒",
-    "chat.suggest.cron.prompt":
-      "帮我创建一个每天早上 9:00 运行的定时提醒任务，结果投递到这个会话。提醒内容是：",
-    "chat.suggest.code.explain": "理解代码",
-    "chat.suggest.code.explain.prompt":
-      "请阅读当前工作区的代码，先说明整体结构和关键调用链，再解释我接下来指出的文件或模块：",
-    "chat.suggest.code.fix": "修复问题",
-    "chat.suggest.code.fix.prompt":
-      "请复现并定位当前工作区里的问题，说明根因，完成修复并运行相关测试。问题表现是：",
-    "chat.suggest.code.test": "补齐测试",
-    "chat.suggest.code.test.prompt":
-      "请检查当前改动的测试覆盖，补齐最有价值的单元测试和回归测试，并说明覆盖了哪些边界：",
-    "chat.suggest.code.review": "代码审查",
-    "chat.suggest.code.review.prompt":
-      "请审查当前工作区的改动，优先发现会导致错误、回归或维护风险的问题，按严重程度给出证据：",
-    "chat.suggest.code.refactor": "重构优化",
-    "chat.suggest.code.refactor.prompt":
-      "请分析当前实现的性能和可维护性瓶颈，给出最小风险的重构方案，完成修改并验证：",
-    "chat.suggest.code.project": "分析项目",
-    "chat.suggest.code.project.prompt":
-      "请快速熟悉当前项目，梳理技术栈、目录结构、启动方式和最重要的业务流程，输出一份可执行的上手说明。",
-    "chat.suggest.design.ui": "设计界面",
-    "chat.suggest.design.ui.prompt":
-      "请为这个需求设计一个可直接实现的界面，先明确视觉方向、信息层级和关键交互，再完成前端实现：",
-    "chat.suggest.design.image": "生成配图",
-    "chat.suggest.design.image.prompt":
-      "请根据我的用途规划并生成一张配图，先确认画面主体、风格、比例和需要避免的元素。用途是：",
-    "chat.suggest.design.interaction": "优化交互",
-    "chat.suggest.design.interaction.prompt":
-      "请检查当前界面的操作路径、反馈、焦点和异常状态，找出最影响使用的问题并完成交互优化。",
-    "chat.suggest.design.prototype": "制作原型",
-    "chat.suggest.design.prototype.prompt":
-      "请把这个产品想法整理成可点击原型，覆盖核心流程、主要页面和关键状态。产品想法是：",
-    "chat.suggest.design.review": "视觉检查",
-    "chat.suggest.design.review.prompt":
-      "请对当前界面做一次严格的视觉审查，检查布局、间距、字体、颜色、阴影、圆角和响应式，并修复高优先级问题。",
-    "chat.suggest.design.system": "整理规范",
-    "chat.suggest.design.system.prompt":
-      "请从当前产品界面提炼并统一设计规范，包括颜色、字体、间距、圆角、阴影和组件状态，并落到可复用的设计 token。",
     "chat.contextUsed": "上下文已用 {ratio}%",
     "chat.toolGroup": "已完成 {count} 个步骤",
     "chat.toolGroupWithFailures": "已完成 {count} 个步骤（{failed} 个失败）",
@@ -406,6 +354,7 @@ export const dictionaries = {
     "composer.stop": "停止生成",
     "composer.send": "发送",
     "composer.defaultPermission": "默认权限",
+    "composer.approval.aria": "审批档位",
     "composer.approval.auto": "自动",
     "composer.approval.smart": "智能",
     "composer.approval.strict": "严格",
@@ -899,66 +848,14 @@ export const dictionaries = {
 
     "chat.closeNotice": "Dismiss notice",
     "chat.loading": "Loading chat…",
-    "chat.emptyTitle": "Potato, let's get your work done",
+    "chat.greeting.morning": "Good morning",
+    "chat.greeting.afternoon": "Good afternoon",
+    "chat.greeting.evening": "Good evening",
+    "chat.emptyTriggersHint": "Type / for skills, @ for files",
     "chat.emptyHint":
       "Enter a task to begin, or use {shortcut} to search past chats",
-    "chat.category.label": "Task category",
-    "chat.category.office": "Daily work",
-    "chat.category.code": "Development",
-    "chat.category.design": "Design",
     "chat.error.serviceUnavailable":
       "The service is temporarily unavailable. Check your connection and try again.",
-    "chat.suggest.report": "Weekly report",
-    "chat.suggest.report.prompt":
-      "Draft my weekly work report. Review this week's chats, cron run results, and memory notes, then write it in markdown with four sections: Done / In progress / Next week / Needs coordination. Keep the tone practical and concise.",
-    "chat.suggest.doc": "Documents",
-    "chat.suggest.doc.prompt":
-      "I have a document to work on. First tell me what you can do with it: convert the format, pull out the key points, translate it, or polish the writing.",
-    "chat.suggest.sheet": "Spreadsheet",
-    "chat.suggest.sheet.prompt":
-      "I'm about to send you a spreadsheet (Excel/CSV). First understand its structure, then clean the data, produce summary statistics, and finish with an analysis digest including chart suggestions and conclusions. What I care about most is: ",
-    "chat.suggest.slides": "Slide deck",
-    "chat.suggest.slides.prompt":
-      "Help me build a slide deck. First confirm the topic, audience, and length with me, share an outline for approval, then generate the pptx file. The topic is: ",
-    "chat.suggest.cron": "Daily reminder",
-    "chat.suggest.cron.prompt":
-      "Create a scheduled task that runs every morning at 9:00 and delivers to this chat. The reminder should say: ",
-    "chat.suggest.code.explain": "Understand code",
-    "chat.suggest.code.explain.prompt":
-      "Read the current workspace, outline its structure and key call paths, then explain the file or module I point to:",
-    "chat.suggest.code.fix": "Fix an issue",
-    "chat.suggest.code.fix.prompt":
-      "Reproduce and diagnose this issue in the current workspace, explain the root cause, implement a fix, and run the relevant tests:",
-    "chat.suggest.code.test": "Add tests",
-    "chat.suggest.code.test.prompt":
-      "Review test coverage for the current changes, add the most valuable unit and regression tests, and explain the covered edge cases:",
-    "chat.suggest.code.review": "Review code",
-    "chat.suggest.code.review.prompt":
-      "Review the current workspace changes for bugs, regressions, and maintainability risks. Report evidence in severity order:",
-    "chat.suggest.code.refactor": "Refactor",
-    "chat.suggest.code.refactor.prompt":
-      "Analyze the current implementation for performance and maintainability bottlenecks, then make and verify the lowest-risk improvements:",
-    "chat.suggest.code.project": "Explore project",
-    "chat.suggest.code.project.prompt":
-      "Get familiar with the current project and summarize its stack, structure, startup flow, and most important product paths in an actionable onboarding note.",
-    "chat.suggest.design.ui": "Design UI",
-    "chat.suggest.design.ui.prompt":
-      "Design and implement a production-ready interface for this request. First define the visual direction, information hierarchy, and key interactions:",
-    "chat.suggest.design.image": "Create artwork",
-    "chat.suggest.design.image.prompt":
-      "Plan and generate an image for my use case. First confirm the subject, style, aspect ratio, and elements to avoid. Use case:",
-    "chat.suggest.design.interaction": "Improve UX",
-    "chat.suggest.design.interaction.prompt":
-      "Audit the current interface flow, feedback, focus behavior, and edge states, then fix the highest-impact interaction problems.",
-    "chat.suggest.design.prototype": "Build prototype",
-    "chat.suggest.design.prototype.prompt":
-      "Turn this product idea into a clickable prototype covering the core flow, primary pages, and key states:",
-    "chat.suggest.design.review": "Visual review",
-    "chat.suggest.design.review.prompt":
-      "Run a strict visual review of the current interface across layout, spacing, typography, color, shadows, radii, and responsiveness, then fix high-priority issues.",
-    "chat.suggest.design.system": "Design system",
-    "chat.suggest.design.system.prompt":
-      "Extract and unify the current product's design system, including color, type, spacing, radii, shadows, and component states, and implement reusable tokens.",
     "chat.contextUsed": "Context used {ratio}%",
     "chat.toolGroup": "Completed {count} steps",
     "chat.toolGroupWithFailures": "Completed {count} steps ({failed} failed)",
@@ -1243,6 +1140,7 @@ export const dictionaries = {
     "composer.stop": "Stop generating",
     "composer.send": "Send",
     "composer.defaultPermission": "Default permission",
+    "composer.approval.aria": "Approval level",
     "composer.approval.auto": "Auto",
     "composer.approval.smart": "Smart",
     "composer.approval.strict": "Strict",
