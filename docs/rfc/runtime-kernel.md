@@ -220,10 +220,28 @@ after: List[str]               # order-only：若 dep 已注册则排其后；
 ## 4. 后续阶段（本 RFC 不实施，仅锚定）
 
 - P1 Tool Runtime 统一管线；model-facing canonical JSON 与 UI meta 分离。
+  规范形态采用"能力 seam + 可换后端"（web_search 的 hosted/tavily 双后端
+  是手工先例，管线落地后作为标准模式沉淀）。
 - P1.5 持久化下移（checkpoint-policy 模式，热路径不 await 落盘）。
 - P2 观察者式审计事件日志（只写不读；永不作为真相源）。
 - P2 三 Scope 收敛（App/Workspace/Request），PluginRegistry 单例退役。
 - P3 Mode → AgentPreset。
+
+### 4.1 工具能力借鉴清单（源自 Harness 内置包对照，2026-08-14 拍板）
+
+Tool Runtime（P1）落地后的小工作包，按性价比排序：
+
+1. **持久 shell 会话**（仿 `tool-bash-persistent`）：现有 shell 每次
+   独立进程；加会话变体（cwd/env 跨调用保留），独立工具或参数开关。
+2. **压缩期工具结果修剪**（仿 `compaction-tool-result-pruner`）：
+   上下文压缩优先修剪陈旧工具输出（文件内容/shell 输出），
+   而非一律摘要。
+3. **file_io 读后写守卫**（仿 `fs-observation-policy`）：编辑前须读过、
+   文件外部变更后须重新观察的新鲜度策略。
+4. **远期**：进程内 fork 子代理（依赖 P2 事件日志，届时再评估）。
+
+QwenPaw 已领先无需跟进的域：LSP/AST/浏览器/桌面截图/媒体查看；
+不学 Harness 的每工具一包粒度；jobs/goal/plan-mode 有本地等价物。
 - Backlog：见 §2.3；另有 PawApp router `dependencies.append` 原地
   mutation 无 disposer（pawapp/app.py:241-256）。
 
