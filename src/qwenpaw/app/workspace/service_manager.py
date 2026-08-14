@@ -121,6 +121,12 @@ class ServiceManager:
         self.reused_services: Set[str] = set()
         self.borrowed_services: Set[str] = set()
         self.last_start_results: Dict[str, ServiceStartResult] = {}
+        self.started_services: Set[str] = set()
+
+    @property
+    def has_started_services(self) -> bool:
+        """Whether this manager owns services started in this attempt."""
+        return bool(self.started_services)
 
     def register(self, descriptor: ServiceDescriptor) -> None:
         """Register a service descriptor.
@@ -302,8 +308,9 @@ class ServiceManager:
             f"({len(self.reused_services)} reused)",
         )
 
-        layers = self.startup_layers()
         self.last_start_results = {}
+        self.started_services = set()
+        layers = self.startup_layers()
 
         for layer in layers:
             descriptors = [self.descriptors[name] for name in layer]
@@ -334,12 +341,13 @@ class ServiceManager:
                         if descriptor.optional
                         else ServiceStartStatus.FAILED
                     )
-                    self.last_start_results[descriptor.name] = (
+                    self._record_start_result(
+                        descriptor.name,
                         ServiceStartResult(
                             status=status,
                             error=error,
                             blocked_by=blocked_by,
-                        )
+                        ),
                     )
                     if descriptor.optional:
                         logger.warning(str(error))
@@ -357,12 +365,12 @@ class ServiceManager:
                         ],
                     )
                     for descriptor, result in zip(concurrent, results):
-                        self.last_start_results[descriptor.name] = result
+                        self._record_start_result(descriptor.name, result)
                     self._raise_first_required_failure(concurrent)
 
                 for descriptor in sequential:
                     result = await self._start_service(descriptor)
-                    self.last_start_results[descriptor.name] = result
+                    self._record_start_result(descriptor.name, result)
                     self._raise_first_required_failure([descriptor])
 
                 # Yield between priority groups so the event loop can serve
@@ -375,6 +383,15 @@ class ServiceManager:
             f"in {elapsed:.3f}s",
         )
         return dict(self.last_start_results)
+
+    def _record_start_result(
+        self,
+        name: str,
+        result: ServiceStartResult,
+    ) -> None:
+        self.last_start_results[name] = result
+        if result.status == ServiceStartStatus.STARTED:
+            self.started_services.add(name)
 
     def _raise_first_required_failure(
         self,
@@ -612,9 +629,16 @@ class ServiceManager:
         )
 
         layers = self.startup_layers()
+        target_names: Optional[Set[str]] = None
+        if rollback:
+            target_names = set(self.started_services)
 
         for layer in reversed(layers):
-            descriptors = [self.descriptors[name] for name in layer]
+            descriptors = [
+                self.descriptors[name]
+                for name in layer
+                if target_names is None or name in target_names
+            ]
 
             # Stop all services in this priority group concurrently
             results = await asyncio.gather(
@@ -638,6 +662,10 @@ class ServiceManager:
                     logger.warning(
                         f"Error stopping service '{desc.name}': {result}",
                     )
+        if target_names is None:
+            self.started_services.clear()
+        else:
+            self.started_services.difference_update(target_names)
 
     async def _stop_service(
         self,

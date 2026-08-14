@@ -584,7 +584,8 @@ class Workspace:
             final: If True (default), stop ALL services including reusable.
                    If False, skip reusable services (for reload scenario).
         """
-        if not self._started:
+        rollback = not self._started
+        if rollback and not self._service_manager.has_started_services:
             logger.debug(f"Workspace not started: {self.agent_id}")
             return
 
@@ -593,7 +594,10 @@ class Workspace:
         )
 
         # Stop all services via ServiceManager (handles reuse automatically)
-        await self._service_manager.stop_all(final=final)
+        await self._service_manager.stop_all(
+            final=final,
+            rollback=rollback,
+        )
 
         self._started = False
         logger.info(f"Workspace stopped: {self.agent_id}")
