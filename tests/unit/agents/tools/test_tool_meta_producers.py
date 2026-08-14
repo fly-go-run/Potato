@@ -3,9 +3,13 @@
 import json
 
 import pytest
-from agentscope.message import TextBlock
+from agentscope.message import TextBlock, ToolResultState
+from agentscope.tool import ToolChunk
 
-from qwenpaw.agents.tools.run_tool_batch import _build_batch_response
+from qwenpaw.agents.tools.run_tool_batch import (
+    _build_batch_response,
+    _response_payload,
+)
 from qwenpaw.agents.tools.send_file import send_file_to_user
 from qwenpaw.runtime.tool_meta import QP_META_MAX_BYTES, build_batch_qp_meta
 
@@ -115,3 +119,51 @@ def test_batch_metadata_respects_50_step_and_4kb_boundaries():
     )
     assert len(capped["data"]["steps"]) == 50
     assert capped["data"]["truncated"] is True
+
+
+@pytest.mark.parametrize(
+    ("text", "state", "qp_ok", "expected"),
+    [
+        ('{"ok": false}', ToolResultState.ERROR, True, True),
+        ('{"ok": true}', ToolResultState.SUCCESS, False, False),
+        ("Error: legacy prose", ToolResultState.SUCCESS, True, True),
+        ("looks successful", ToolResultState.SUCCESS, False, False),
+    ],
+)
+def test_batch_child_result_prefers_qp_ok(text, state, qp_ok, expected):
+    response = ToolChunk(
+        content=[TextBlock(type="text", text=text)],
+        state=state,
+        metadata={
+            "qp": {
+                "v": 1,
+                "kind": "shell",
+                "ok": qp_ok,
+                "data": {"sandboxed": False},
+            },
+        },
+    )
+
+    assert _response_payload(response)["ok"] is expected
+
+
+@pytest.mark.parametrize(
+    ("text", "state", "expected"),
+    [
+        ('{"ok": false}', ToolResultState.SUCCESS, False),
+        ("plain", ToolResultState.ERROR, False),
+        ("Error: legacy prose", ToolResultState.SUCCESS, False),
+        ("plain", ToolResultState.SUCCESS, True),
+    ],
+)
+def test_batch_child_result_without_qp_keeps_legacy_fallback(
+    text,
+    state,
+    expected,
+):
+    response = ToolChunk(
+        content=[TextBlock(type="text", text=text)],
+        state=state,
+    )
+
+    assert _response_payload(response)["ok"] is expected

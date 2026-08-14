@@ -169,6 +169,7 @@ def _response_payload(response: ToolChunk) -> dict[str, Any]:
     """Convert a ToolChunk into a normalised result dict.
 
     The ``ok`` field is inferred from:
+    - Structured ``metadata["qp"]["ok"]`` when present.
     - The response ``state`` (ERROR / DENIED → not ok).
     - JSON responses with an explicit ``ok`` field (``browser_use``,
       ``desktop_screenshot``).
@@ -187,19 +188,26 @@ def _response_payload(response: ToolChunk) -> dict[str, Any]:
 
     text = _extract_text(response)
     content = list(response.content or [])
+    metadata = getattr(response, "metadata", None)
+    qp = metadata.get("qp") if isinstance(metadata, dict) else None
+    qp_ok = qp.get("ok") if isinstance(qp, dict) else None
+    if not isinstance(qp_ok, bool):
+        qp_ok = None
 
     # Try JSON first — some tools return structured JSON with ``ok``.
     try:
         payload = json.loads(text)
         if isinstance(payload, dict):
-            if "ok" not in payload:
+            if qp_ok is not None:
+                payload["ok"] = qp_ok
+            elif "ok" not in payload:
                 payload["ok"] = not is_error_state and "error" not in payload
             elif is_error_state:
                 payload["ok"] = False
             payload["_raw_blocks"] = content
             return payload
         return {
-            "ok": not is_error_state,
+            "ok": qp_ok if qp_ok is not None else not is_error_state,
             "value": payload,
             "_raw_blocks": content,
         }
@@ -207,7 +215,9 @@ def _response_payload(response: ToolChunk) -> dict[str, Any]:
         pass
 
     # Plain-text response — check state and known error patterns.
-    if is_error_state or _is_error_text(text):
+    if qp_ok is False or (
+        qp_ok is None and (is_error_state or _is_error_text(text))
+    ):
         return {"ok": False, "error": text, "_raw_blocks": content}
     return {"ok": True, "text": text, "_raw_blocks": content}
 

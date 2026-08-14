@@ -444,7 +444,7 @@ async def _policy_tool_call(
     if hasattr(result, "metadata") and result.metadata:
         violation_msg = result.metadata.get("sandbox_violation", "")
     if not violation_msg:
-        # Fallback: extract from content text
+        # Legacy fallback for results created before structured metadata.
         for block in result.content or []:
             if hasattr(block, "text") and "Sandbox violation:" in block.text:
                 violation_msg = (
