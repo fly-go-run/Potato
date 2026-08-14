@@ -6,13 +6,13 @@ import {
   ChevronDown,
   Clock3,
   FolderClosed,
-  MessageCirclePlus,
   Moon,
   MoreHorizontal,
   NotebookPen,
   PanelLeft,
   PenLine,
   PenSquare,
+  SquarePen,
   Pin,
   PinOff,
   Search,
@@ -137,7 +137,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           aria-label={t("sidebar.newChat")}
           onClick={startNewChat}
         >
-          <MessageCirclePlus size={17} />
+          <SquarePen size={16} />
         </IconButton>
       </div>
 
