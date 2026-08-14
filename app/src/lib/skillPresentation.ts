@@ -1,87 +1,93 @@
 import type { Language } from "./i18n";
 
 /**
- * 技能的用户可读文案。后端的 name 是工程标识符(browser_cdp),
- * description 是写给模型看的英文触发 prompt("Use this skill when…"),
- * 都不能直接对用户展示;这里维护面向人的中英文显示名与一句话描述。
- * 未收录的技能回落到原始名/原描述——宁可暴露一个待补条目,不伪装。
- *
- * 展示名 ≤6 个汉字,像功能不像变量;原始名保留在 title(悬停可见),
- * 且搜索匹配同时命中原始名与展示名。
+ * 技能的用户可读文案(唯一来源:/ 弹层、设置列表、SkillsView 三处共用)。
+ * 后端 name 是工程标识符(browser_cdp),SKILL.md 的 description 是写给
+ * 模型看的触发 prompt——都不许当用户主文案。未收录技能:名字回落
+ * Title Case,描述回落空(由调用方显示「暂无描述」),不拿触发语凑数。
+ * raw 名保留在:写回输入框的 token、搜索匹配、tooltip、详情内部标识。
  */
 interface SkillCopy {
-  zh: { name: string; description: string };
-  en: { name: string; description: string };
+  name: { zh: string; en: string };
+  desc: { zh: string; en: string };
 }
 
 const SKILL_COPY: Record<string, SkillCopy> = {
   qa_source_index: {
-    zh: { name: "资料索引", description: "检索团队问答资料库并给出出处。" },
-    en: { name: "QA index", description: "Search the QA source library with citations." },
+    name: { zh: "资料索引", en: "QA index" },
+    desc: { zh: "检索问答资料库", en: "Search the QA library" },
   },
   browser_cdp: {
-    zh: { name: "接管浏览器", description: "连接你已打开的 Chrome，自动完成网页操作。" },
-    en: { name: "Take over Chrome", description: "Attach to your running Chrome and automate it." },
+    name: { zh: "接管浏览器", en: "Take over browser" },
+    desc: { zh: "控制已打开的 Chrome", en: "Control your open Chrome" },
   },
   browser_visible: {
-    zh: { name: "显示浏览器", description: "让自动化浏览器以可见窗口运行。" },
-    en: { name: "Visible browser", description: "Run browser automation in a visible window." },
+    name: { zh: "显示浏览器", en: "Show browser" },
+    desc: { zh: "让操作窗口可见", en: "Keep the window visible" },
   },
   channel_message: {
-    zh: { name: "发送消息", description: "主动向用户、会话或群发一条消息。" },
-    en: { name: "Send a message", description: "Proactively message a user, session, or channel." },
+    name: { zh: "发送消息", en: "Send message" },
+    desc: { zh: "向指定会话发一条", en: "Send to a chat or group" },
   },
   chat_with_agent: {
-    zh: { name: "咨询同伴", description: "拉另一个 agent 一起讨论或帮忙。" },
-    en: { name: "Ask another agent", description: "Consult another agent for help." },
+    name: { zh: "咨询助手", en: "Ask an agent" },
+    desc: { zh: "找另一个助手商量", en: "Consult another assistant" },
   },
   cron: {
-    zh: { name: "定时任务", description: "创建和管理定时运行的任务。" },
-    en: { name: "Scheduled tasks", description: "Create and manage scheduled jobs." },
+    name: { zh: "定时任务", en: "Schedule tasks" },
+    desc: { zh: "创建和管理定时任务", en: "Create and manage jobs" },
   },
   dingtalk_channel: {
-    zh: { name: "接入钉钉", description: "自动完成钉钉消息通道的配置。" },
-    en: { name: "DingTalk setup", description: "Set up the DingTalk message channel." },
+    name: { zh: "接入钉钉", en: "Connect DingTalk" },
+    desc: { zh: "自动配好钉钉通道", en: "Set up the DingTalk channel" },
+  },
+  dingtalk_channel_connect: {
+    name: { zh: "接入钉钉", en: "Connect DingTalk" },
+    desc: { zh: "自动配好钉钉通道", en: "Set up the DingTalk channel" },
   },
   docx: {
-    zh: { name: "Word 文档", description: "创建、阅读和编辑 Word 文档。" },
-    en: { name: "Word documents", description: "Create, read, and edit Word documents." },
+    name: { zh: "Word 文档", en: "Word documents" },
+    desc: { zh: "创建阅读编辑文档", en: "Create, read, and edit Word" },
   },
   file_reader: {
-    zh: { name: "读取文件", description: "读取并摘要文本类文件。" },
-    en: { name: "Read files", description: "Read and summarize text files." },
+    name: { zh: "阅读文件", en: "Read files" },
+    desc: { zh: "读取并摘要文本", en: "Read and summarize text" },
   },
   guidance: {
-    zh: { name: "使用帮助", description: "回答 Potato 的安装与配置问题。" },
-    en: { name: "Help", description: "Answer Potato setup and usage questions." },
+    name: { zh: "使用帮助", en: "Get help" },
+    desc: { zh: "回答安装配置问题", en: "Answer setup questions" },
   },
   himalaya: {
-    zh: { name: "收发邮件", description: "通过邮箱账号收发和管理邮件。" },
-    en: { name: "Email", description: "Send and manage email via your account." },
+    name: { zh: "收发邮件", en: "Handle email" },
+    desc: { zh: "用邮箱收发和管理", en: "Read and send mail" },
   },
   make_skill: {
-    zh: { name: "沉淀技能", description: "把本次会话的做法保存为可复用技能。" },
-    en: { name: "Save as skill", description: "Turn this session's approach into a reusable skill." },
+    name: { zh: "沉淀技能", en: "Save as skill" },
+    desc: { zh: "把做法做成可复用技能", en: "Turn this into a reusable skill" },
   },
   make_plan: {
-    zh: { name: "制定计划", description: "把需求整理成分步可执行的计划。" },
-    en: { name: "Make a plan", description: "Turn a request into an actionable step plan." },
+    name: { zh: "整理计划", en: "Make a plan" },
+    desc: { zh: "把需求拆成执行步骤", en: "Break the request into steps" },
   },
   multi_agent_collaboration: {
-    zh: { name: "多人协作", description: "把任务分发给多个 agent 协作完成。" },
-    en: { name: "Multi-agent", description: "Fan a task out to multiple agents." },
+    name: { zh: "分派协作", en: "Delegate work" },
+    desc: { zh: "把任务分给多个助手", en: "Split work across agents" },
   },
   pdf: {
-    zh: { name: "PDF 文档", description: "阅读、生成和处理 PDF 文件。" },
-    en: { name: "PDF", description: "Read, create, and process PDF files." },
+    name: { zh: "PDF 文档", en: "PDF documents" },
+    desc: { zh: "阅读生成处理 PDF", en: "Read, create, and process PDFs" },
   },
   pptx: {
-    zh: { name: "幻灯片", description: "创建和编辑 PowerPoint 演示文稿。" },
-    en: { name: "Slides", description: "Create and edit PowerPoint decks." },
+    name: { zh: "幻灯片", en: "Slides" },
+    desc: { zh: "创建和编辑演示文稿", en: "Create and edit presentations" },
   },
   xlsx: {
-    zh: { name: "表格", description: "读取、生成与分析 Excel 表格。" },
-    en: { name: "Spreadsheets", description: "Read, create, and analyze Excel files." },
+    name: { zh: "表格", en: "Spreadsheets" },
+    desc: { zh: "读取生成分析表格", en: "Read, create, and analyze tables" },
+  },
+  news: {
+    name: { zh: "查询新闻", en: "Fetch news" },
+    desc: { zh: "查新闻并做摘要", en: "Fetch and summarize news" },
   },
 };
 
@@ -89,16 +95,34 @@ function normalizeSkillName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "_");
 }
 
-/** 面向人的显示名;未收录回落原始名。 */
+/** 面向人的显示名;未收录回落 Title Case(不编造中文)。 */
 export function skillDisplayName(name: string, language: Language): string {
-  return SKILL_COPY[normalizeSkillName(name)]?.[language].name ?? name;
+  const entry = SKILL_COPY[normalizeSkillName(name)];
+  if (entry) return entry.name[language];
+  return name
+    .replace(/^mcp__/, "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** 面向人的一句话描述;未收录回落传入的原描述。 */
-export function skillDescription(
-  name: string,
-  fallback: string,
-  language: Language = "zh",
-): string {
-  return SKILL_COPY[normalizeSkillName(name)]?.[language].description ?? fallback;
+/** 面向人的一句话描述;未收录返回空串(调用方显示「暂无描述」)。 */
+export function skillDescription(name: string, language: Language): string {
+  return SKILL_COPY[normalizeSkillName(name)]?.desc[language] ?? "";
+}
+
+/** 搜索干草堆:raw + 中英名 + 中英描述 + tags;不含 SKILL.md 长文。 */
+export function skillSearchHaystack(name: string, tags: string[] = []): string {
+  const key = normalizeSkillName(name);
+  const entry = SKILL_COPY[key];
+  return [
+    name,
+    key,
+    entry?.name.zh,
+    entry?.name.en,
+    entry?.desc.zh,
+    entry?.desc.en,
+    ...tags,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }

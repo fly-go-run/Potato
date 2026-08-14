@@ -46,7 +46,11 @@ import {
 } from "../lib/capabilities";
 import { presentError, type ErrorPresentation } from "../lib/errorPresentation";
 import { useTranslation } from "../lib/i18n";
-import { skillDescription } from "../lib/skillPresentation";
+import {
+  skillDescription,
+  skillDisplayName,
+  skillSearchHaystack,
+} from "../lib/skillPresentation";
 
 type MainTab = "skills" | "plugins";
 type SkillSourceTab = "pool" | "hub" | "upload";
@@ -99,7 +103,7 @@ export function SkillsView() {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return skills;
     return skills.filter((skill) =>
-      `${skill.name} ${humanSkillName(skill.name)} ${skill.description} ${(
+      `${skillSearchHaystack(skill.name)} ${(
         skill.tags ?? []
       ).join(" ")}`
         .toLocaleLowerCase()
@@ -374,7 +378,7 @@ function SkillRow({
   onOpen: () => void;
   onToggle: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   return (
     // 行主体是原生 button；Switch 作为兄弟节点浮在其上（而非嵌套 button），
     // 既保住语义又避免 switch 的点击冒泡到行展开。
@@ -398,10 +402,10 @@ function SkillRow({
               skill.enabled ? "text-ink" : "text-ink-secondary"
             }`}
           >
-            {humanSkillName(skill.name)}
+            {skillDisplayName(skill.name, language)}
           </span>
           <p className="line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
-            {skillDescription(skill.name, skill.description) ||
+            {skillDescription(skill.name, language) ||
               t("skills.noDescription")}
           </p>
         </div>
@@ -413,7 +417,7 @@ function SkillRow({
             disabled={busy}
             onChange={onToggle}
             aria-label={t("skills.toggleLabel", {
-              name: humanSkillName(skill.name),
+              name: skillDisplayName(skill.name, language),
             })}
           />
         </span>
@@ -494,7 +498,7 @@ function SkillDetails({
   onDelete: (skill: SkillInfo) => void;
   onToggle: (skill: SkillInfo) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   return (
     <Dialog.Root open={skill !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -507,7 +511,7 @@ function SkillDetails({
             </span>
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
-                {skill ? humanSkillName(skill.name) : ""}
+                {skill ? skillDisplayName(skill.name, language) : ""}
               </Dialog.Title>
               <Dialog.Description className="mt-0.5 text-xs text-ink-tertiary">
                 {t("skills.detailsDescription")}
@@ -538,7 +542,7 @@ function SkillDetails({
                   aria-label={
                     skill
                       ? t("skills.toggleLabel", {
-                          name: humanSkillName(skill.name),
+                          name: skillDisplayName(skill.name, language),
                         })
                       : t("skills.enableLabel")
                   }
@@ -548,7 +552,7 @@ function SkillDetails({
             <Detail label={t("skills.description")}>
               <p className="whitespace-pre-wrap text-sm leading-6 text-ink-secondary">
                 {skill
-                  ? skillDescription(skill.name, skill.description) ||
+                  ? skillDescription(skill.name, language) ||
                     t("skills.noDescription")
                   : t("skills.noDescription")}
               </p>
@@ -900,7 +904,7 @@ function AddCapabilityDialog({
                     {t("skills.import.workspaceHint")}
                   </p>
                   <p className="mt-3 text-xs text-ink-secondary">
-                    {humanSkillName(pendingPoolSkill.name)}
+                    {skillDisplayName(pendingPoolSkill.name, language)}
                   </p>
                   <div
                     role="radiogroup"
@@ -968,10 +972,10 @@ function AddCapabilityDialog({
                 icon={<Blocks size={16} />}
                 items={pool.map((skill) => ({
                   key: skill.name,
-                  name: humanSkillName(skill.name),
+                  name: skillDisplayName(skill.name, language),
                   title: skill.name,
                   emoji: skill.emoji,
-                  description: skillDescription(skill.name, skill.description),
+                  description: skillDescription(skill.name, language),
                   version: skill.version_text,
                   installed: installedSkills.some(
                     (installed) => installed.name === skill.name,
@@ -1031,10 +1035,7 @@ function AddCapabilityDialog({
                       items={hubResults.map((skill) => ({
                         key: skill.slug,
                         name: skill.name,
-                        description: skillDescription(
-                          skill.name,
-                          skill.description,
-                        ),
+                        description: skillDescription(skill.name, language),
                         version: skill.version,
                         installed: installedSkills.some(
                           (installed) =>
@@ -1283,12 +1284,6 @@ function Detail({
  * snake_case 内部标识 → 可读名称（与 ToolCard 的 humanToolName 同一套规则；
  * 该函数未导出，此处内联等价实现，避免为复用去改动工具卡片）。
  */
-function humanSkillName(name: string) {
-  return name
-    .replace(/^mcp__/, "")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
 
 function workspaceLabel(workspace: WorkspaceSkillSummary, fallback: string) {
   const agentName = workspace.agent_name?.trim();

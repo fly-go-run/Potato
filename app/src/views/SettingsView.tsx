@@ -63,6 +63,7 @@ import {
   resetDesktopWindowState,
   setDesktopWindowStatePreference,
 } from "../lib/desktop";
+import { skillDisplayName } from "../lib/skillPresentation";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 import {
   buildThemeTemplate,
@@ -106,13 +107,10 @@ const SECTION_LABELS: Record<SectionId, TranslationKey> = {
  * 显式选服务端搜索则是直接失败(那正是"显式"的意义),而选了 Tavily 时
  * 有没有 key 根本不相干。
  */
-function webSearchHint(state: WebSearchSettings | null): TranslationKey {
-  if (!state || state.hosted_configured) {
-    return "settings.webSearch.description";
-  }
-  if (state.web_search_backend === "tavily") {
-    return "settings.webSearch.description";
-  }
+function webSearchHint(state: WebSearchSettings | null): TranslationKey | null {
+  // 只在会出问题时说话:缺密钥仍选服务端=会失败;缺密钥自动档=已回退。
+  if (!state || state.hosted_configured) return null;
+  if (state.web_search_backend === "tavily") return null;
   return state.web_search_backend === "hosted"
     ? "settings.webSearch.needsKeyStrict"
     : "settings.webSearch.needsKey";
@@ -1047,7 +1045,6 @@ export function SettingsView() {
                     <SettingsGroup>
                       <SettingRow
                         title={t("settings.models.current")}
-                        description={t("settings.models.currentHint")}
                       >
                         <div className="text-right">
                           <div className="text-[13px] text-ink">
@@ -1074,9 +1071,6 @@ export function SettingsView() {
                       <div className="px-2 pb-2 pt-1">
                         <div className="text-[13px] font-medium text-ink">
                           {t("settings.provider.listTitle")}
-                        </div>
-                        <div className="mt-0.5 text-xs leading-5 text-ink-tertiary">
-                          {t("settings.provider.listDescription")}
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -1109,7 +1103,6 @@ export function SettingsView() {
                   <SettingsGroup>
                     <SettingRow
                       title={t("settings.appearance.theme")}
-                      description={t("settings.appearance.description")}
                     >
                       <SegmentedControl
                         variant="track"
@@ -1127,7 +1120,10 @@ export function SettingsView() {
                     </SettingRow>
                     <SettingRow
                       title={t("settings.webSearch.title")}
-                      description={t(webSearchHint(webSearch))}
+                      description={(() => {
+                        const hint = webSearchHint(webSearch);
+                        return hint ? t(hint) : undefined;
+                      })()}
                     >
                       <Select
                         className="w-56"
@@ -1178,7 +1174,6 @@ export function SettingsView() {
                     )}
                     <SettingRow
                       title={t("settings.contextUsage.title")}
-                      description={t("settings.contextUsage.description")}
                     >
                       <Switch
                         checked={showContextUsage}
@@ -1188,7 +1183,6 @@ export function SettingsView() {
                     </SettingRow>
                     <SettingRow
                       title={t("settings.theme.custom")}
-                      description={t("settings.theme.customHint")}
                     >
                       <div className="flex items-center gap-2">
                         <Button
@@ -1256,7 +1250,6 @@ export function SettingsView() {
                     ))}
                     <SettingRow
                       title={t("settings.language.title")}
-                      description={t("settings.language.description")}
                     >
                       <SegmentedControl
                         variant="track"
@@ -1272,7 +1265,6 @@ export function SettingsView() {
                       <>
                         <SettingRow
                           title={t("settings.window.remember")}
-                          description={t("settings.window.rememberHint")}
                         >
                           <Switch
                             checked={rememberWindow}
@@ -1285,7 +1277,6 @@ export function SettingsView() {
                         </SettingRow>
                         <SettingRow
                           title={t("settings.window.reset")}
-                          description={t("settings.window.resetHint")}
                         >
                           <Button
                             variant="secondary"
@@ -1310,7 +1301,7 @@ export function SettingsView() {
                       title={t("settings.voice.title")}
                       description={
                         doubaoKeyReady
-                          ? t("settings.voice.descriptionReady")
+                          ? undefined
                           : t("settings.voice.descriptionMissingKey")
                       }
                     >
@@ -1356,16 +1347,19 @@ export function SettingsView() {
                             key={skill.name}
                             className="flex items-center gap-3 border-t border-line px-4 py-2 first:border-t-0"
                           >
-                            <span className="min-w-0 flex-1 truncate text-[13px] text-ink-secondary">
+                            <span
+                              title={skill.name}
+                              className="min-w-0 flex-1 truncate text-[13px] text-ink-secondary"
+                            >
                               {skill.emoji ? `${skill.emoji} ` : ""}
-                              {skill.name}
+                              {skillDisplayName(skill.name, language)}
                             </span>
                             <Switch
                               checked={skill.enabled}
                               onChange={() =>
                                 void toggleSkill(skill.name, !skill.enabled)
                               }
-                              aria-label={skill.name}
+                              aria-label={skillDisplayName(skill.name, language)}
                             />
                           </div>
                         ))}
@@ -1405,7 +1399,6 @@ export function SettingsView() {
                   )}
                   <SettingRow
                     title={t("settings.security.approval")}
-                    description={t("settings.security.approvalHint")}
                   >
                     <span className="text-[13px] text-ink-secondary">
                       {t(
@@ -1419,7 +1412,6 @@ export function SettingsView() {
                 <SettingsGroup>
                   <SettingRow
                     title={t("settings.data.uploadLimit")}
-                    description={t("settings.data.uploadLimitHint")}
                   >
                     <span className="text-[13px] tabular-nums text-ink-secondary">
                       {uploadLimitMb === "unknown"
@@ -1431,7 +1423,6 @@ export function SettingsView() {
                   </SettingRow>
                   <SettingRow
                     title={t("settings.data.export")}
-                    description={t("settings.data.exportDescription")}
                   >
                     <Button
                       variant="secondary"
@@ -1858,9 +1849,6 @@ function ProviderDetail({
                 </span>
               )}
             </div>
-            <div className="mt-0.5 text-xs leading-5 text-ink-tertiary">
-              {t("settings.models.manageModelsDescription")}
-            </div>
           </div>
           <Button
             variant="secondary"
@@ -2017,7 +2005,6 @@ function ProviderCreate({
         <SettingsGroup>
           <SettingRow
             title={t("settings.create.name")}
-            description={t("settings.create.nameDescription")}
           >
             <Input
               autoFocus

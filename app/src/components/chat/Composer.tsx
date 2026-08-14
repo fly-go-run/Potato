@@ -238,11 +238,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         .map((skill) => ({
           value: skill.name,
           label: skillDisplayName(skill.name, language),
-          description: skillDescription(
-            skill.name,
-            skill.description,
-            language,
-          ),
+          description: skillDescription(skill.name, language),
           icon: "skill" as const,
           emoji: skill.emoji,
         }));
@@ -270,27 +266,22 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const approvalLevels: Array<{
     value: ApprovalLevel;
     label: string;
-    hint: string;
   }> = [
     {
       value: "AUTO",
       label: t("composer.approval.auto"),
-      hint: t("composer.approval.autoHint"),
     },
     {
       value: "SMART",
       label: t("composer.approval.smart"),
-      hint: t("composer.approval.smartHint"),
     },
     {
       value: "STRICT",
       label: t("composer.approval.strict"),
-      hint: t("composer.approval.strictHint"),
     },
     {
       value: "OFF",
       label: t("composer.approval.off"),
-      hint: t("composer.approval.offHint"),
     },
   ];
   const model = activeModel?.active_llm;
@@ -339,9 +330,6 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             >
               <span className="min-w-0">
                 <span className="block text-xs text-ink">{item.label}</span>
-                <span className="mt-0.5 block text-[11px] leading-4 text-ink-tertiary">
-                  {item.hint}
-                </span>
               </span>
               {approvalLevel === item.value && (
                 <Check size={13} className="mt-0.5 shrink-0 text-accent" />

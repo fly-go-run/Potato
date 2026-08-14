@@ -25,10 +25,6 @@ export const dictionaries = {
     "memory.discardDescription": "这条记忆有未保存的修改，关闭后将丢失。",
     "memory.discardConfirm": "放弃修改",
     "sidebar.actionFailed": "操作失败：{message}",
-    "composer.approval.autoHint": "常规操作自动放行，仅高风险操作会询问。",
-    "composer.approval.smartHint": "智能判断，重要或有影响的操作会先询问。",
-    "composer.approval.strictHint": "每个工具操作都需要你确认。",
-    "composer.approval.offHint": "全部自动执行，不再询问，请谨慎使用。",
     "composer.skillsLoadFailed": "技能加载失败",
     "approval.similarConfirmTitle": "批准同类操作？",
     "approval.similarConfirmBody":
@@ -358,10 +354,10 @@ export const dictionaries = {
     "composer.send": "发送",
     "composer.defaultPermission": "默认权限",
     "composer.approval.aria": "审批档位",
-    "composer.approval.auto": "自动",
-    "composer.approval.smart": "智能",
-    "composer.approval.strict": "严格",
-    "composer.approval.off": "关闭",
+    "composer.approval.auto": "自动放行",
+    "composer.approval.smart": "重要先问",
+    "composer.approval.strict": "每次确认",
+    "composer.approval.off": "从不询问",
     "composer.fileCount": "{count} 个文件",
     "composer.uploading": "正在上传附件…",
     "composer.voice.start": "语音输入",
@@ -532,7 +528,7 @@ export const dictionaries = {
     "settings.create.baseUrlPlaceholder": "https://api.example.com/v1",
     "settings.create.protocol": "接口协议",
     "settings.create.protocolDescription":
-      "端点用哪套接口。Responses 是 Codex 用的协议，DeepSeek 等也已支持。",
+      "Codex 用 Responses，其余多用 Chat Completions。",
     "settings.create.protocolChat": "Chat Completions",
     "settings.create.protocolResponses": "Responses",
     "settings.create.apiKeyOptional": "API key（可选）",
@@ -621,14 +617,14 @@ export const dictionaries = {
     "settings.webSearch.description":
       "服务端搜索由模型供应商代跑：它自己检索、读网页后作答，质量更好但更慢；Tavily 只返回摘要，免费但有速率限制。两者都与当前对话用哪个模型无关。",
     "settings.webSearch.needsKey":
-      "还没有可用于服务端搜索的密钥，现在搜索会退回 Tavily。去「模型与供应商」里配置 DeepSeek 即可启用。",
+      "没有服务端密钥，将退回 Tavily。",
     "settings.webSearch.needsKeyStrict":
-      "已指定服务端搜索，但没有可用的密钥，搜索会直接失败（指定后不会退回 Tavily）。请去「模型与供应商」里配置。",
+      "已指定服务端搜索但无密钥，搜索会失败。",
     "settings.webSearch.auto": "自动（有密钥就用服务端搜索）",
     "settings.webSearch.tavily": "Tavily（免费）",
     "settings.webSearch.model": "搜索用的模型",
     "settings.webSearch.modelHint":
-      "由上面选中的供应商执行搜索的模型，必须是该供应商支持内置联网搜索的模型。DeepSeek 用 deepseek-v4-flash。",
+      "须是该供应商支持联网的模型。",
     "settings.theme.light": "浅色",
     "settings.theme.dark": "深色",
     "settings.theme.system": "跟随系统",
@@ -636,11 +632,11 @@ export const dictionaries = {
     "settings.sandbox.description":
       "在隔离环境中执行 Shell 命令，限制对工作区外的读写与网络。",
     "settings.sandbox.label": "启用沙箱隔离",
-    "settings.sandbox.on": "命令在沙箱中执行，工作区外的访问受限。",
-    "settings.sandbox.off": "命令直接以当前用户身份执行，无隔离。",
+    "settings.sandbox.on": "工作区外访问受限。",
+    "settings.sandbox.off": "以当前用户直接执行，无隔离。",
     "settings.sandbox.unsupported":
-      "当前平台不支持沙箱后端，已开启但本会话未生效。",
-    "settings.sandbox.notAdmin": "已开启，但需以管理员身份重启后才会生效。",
+      "本平台不支持，已开但未生效。",
+    "settings.sandbox.notAdmin": "需以管理员重启后生效。",
     "settings.sandbox.enabledNotice": "沙箱已启用。",
     "settings.sandbox.disabledNotice": "沙箱已关闭。",
 
@@ -659,7 +655,7 @@ export const dictionaries = {
     "settings.voice.descriptionReady":
       "使用 .env 中的火山语音密钥，经后端调用豆包极速版 ASR。开启后可在输入框麦克风转写。",
     "settings.voice.descriptionMissingKey":
-      "未检测到豆包语音密钥。请在项目 .env 中配置 apikey（及 keyid）后重启后端。",
+      "未配置豆包密钥，开关不可用。",
     "settings.voice.enabledNotice": "已启用豆包语音转写",
     "settings.voice.disabledNotice": "已关闭语音转写",
     "settings.loading": "正在读取设置…",
@@ -795,13 +791,6 @@ export const dictionaries = {
       "This memory has unsaved edits that will be lost.",
     "memory.discardConfirm": "Discard",
     "sidebar.actionFailed": "Action failed: {message}",
-    "composer.approval.autoHint":
-      "Routine actions run automatically; only risky ones ask first.",
-    "composer.approval.smartHint":
-      "Smart judgement — impactful actions ask first.",
-    "composer.approval.strictHint": "Every tool action asks for confirmation.",
-    "composer.approval.offHint":
-      "Everything runs without asking. Use with care.",
     "composer.skillsLoadFailed": "Couldn't load skills",
     "approval.similarConfirmTitle": "Approve similar actions?",
     "approval.similarConfirmBody":
@@ -1147,10 +1136,10 @@ export const dictionaries = {
     "composer.send": "Send",
     "composer.defaultPermission": "Default permission",
     "composer.approval.aria": "Approval level",
-    "composer.approval.auto": "Auto",
-    "composer.approval.smart": "Smart",
-    "composer.approval.strict": "Strict",
-    "composer.approval.off": "Off",
+    "composer.approval.auto": "Auto-allow",
+    "composer.approval.smart": "Ask if risky",
+    "composer.approval.strict": "Always ask",
+    "composer.approval.off": "Never ask",
     "composer.fileCount": "{count} files",
     "composer.uploading": "Uploading attachments…",
     "composer.voice.start": "Voice input",
@@ -1331,7 +1320,7 @@ export const dictionaries = {
     "settings.create.baseUrlPlaceholder": "https://api.example.com/v1",
     "settings.create.protocol": "API protocol",
     "settings.create.protocolDescription":
-      "Which API the endpoint speaks. Responses is the protocol Codex uses; " +
+      "Responses is for Codex; most others use Chat Completions." +
       "DeepSeek and others support it too.",
     "settings.create.protocolChat": "Chat Completions",
     "settings.create.protocolResponses": "Responses",
@@ -1429,14 +1418,14 @@ export const dictionaries = {
     "settings.webSearch.description":
       "Hosted search runs on the model provider's servers: it searches, reads pages, then answers — better results, slower. Tavily returns snippets only: free, but rate limited. Both are independent of the model this chat uses.",
     "settings.webSearch.needsKey":
-      "No API key available for hosted search, so searches fall back to Tavily. Add a DeepSeek key under Models & providers to switch over.",
+      "No hosted-search key; falling back to Tavily.",
     "settings.webSearch.needsKeyStrict":
-      "Hosted search is pinned but has no usable API key, so searches will fail rather than fall back. Add one under Models & providers.",
+      "Hosted search is pinned but has no key, so search will fail.",
     "settings.webSearch.auto": "Auto (hosted when a key exists)",
     "settings.webSearch.tavily": "Tavily (free)",
     "settings.webSearch.model": "Search model",
     "settings.webSearch.modelHint":
-      "The model the provider above runs the search with. It must be one that host serves with a built-in web search tool. DeepSeek uses deepseek-v4-flash.",
+      "Must be a model this provider hosts with built-in search.",
     "settings.theme.light": "Light",
     "settings.theme.dark": "Dark",
     "settings.theme.system": "System",
@@ -1445,13 +1434,13 @@ export const dictionaries = {
       "Run shell commands in an isolated environment that limits reads, writes, and network beyond the workspace.",
     "settings.sandbox.label": "Enable sandbox isolation",
     "settings.sandbox.on":
-      "Commands run inside the sandbox; access outside the workspace is restricted.",
+      "Access outside the workspace is restricted.",
     "settings.sandbox.off":
-      "Commands run directly as the current user, with no isolation.",
+      "Runs as you, with no isolation.",
     "settings.sandbox.unsupported":
-      "This platform has no supported sandbox backend; enabled but inactive this session.",
+      "Not supported here; on, but inactive.",
     "settings.sandbox.notAdmin":
-      "Enabled, but takes effect only after restarting as administrator.",
+      "Takes effect after an admin restart.",
     "settings.sandbox.enabledNotice": "Sandbox enabled.",
     "settings.sandbox.disabledNotice": "Sandbox disabled.",
 
@@ -1473,7 +1462,7 @@ export const dictionaries = {
     "settings.voice.descriptionReady":
       "Uses Volcengine speech keys from .env via backend Doubao flash ASR. Enable to transcribe from the composer mic.",
     "settings.voice.descriptionMissingKey":
-      "No Doubao speech credentials found. Set apikey (and keyid) in .env and restart the backend.",
+      "Doubao key missing, so this switch is off.",
     "settings.voice.enabledNotice": "Doubao transcription enabled",
     "settings.voice.disabledNotice": "Transcription disabled",
     "settings.loading": "Loading settings…",
