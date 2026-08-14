@@ -10,6 +10,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
+from enum import StrEnum
 from functools import partial
 from typing import (
     TYPE_CHECKING,
@@ -29,6 +30,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class ServiceDependencyError(RuntimeError):
+    """Raised when the registered service dependency graph is invalid."""
+
+
+class ServiceStartStatus(StrEnum):
+    """Terminal result of one service during a startup attempt."""
+
+    STARTED = "started"
+    REUSED = "reused"
+    SKIPPED_OPTIONAL = "skipped_optional"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class ServiceStartResult:
+    """Structured startup result for one service node."""
+
+    status: ServiceStartStatus
+    error: Optional[BaseException] = None
+    blocked_by: tuple[str, ...] = ()
+
+
 @dataclass
 class ServiceDescriptor:
     """Descriptor for a workspace service component.
@@ -46,6 +69,8 @@ class ServiceDescriptor:
         reusable: Whether this service can be reused across reloads
         reload_func: Optional hook called when reusable service is reused
         dependencies: List of service names that must start before this one
+        after: Order-only dependencies. Registered services named here start
+            first, but their absence or failure does not block this service.
         priority: Startup priority (lower = earlier, reversed for shutdown)
         concurrent_init: Whether this can be initialized concurrently
         optional: If True, a failure during start logs but does not abort
@@ -71,6 +96,7 @@ class ServiceDescriptor:
         ]
     ] = None
     dependencies: List[str] = field(default_factory=list)
+    after: List[str] = field(default_factory=list)
     priority: int = 100
     concurrent_init: bool = True
     optional: bool = False
@@ -93,6 +119,7 @@ class ServiceManager:
         self.services: Dict[str, Any] = {}
         self.descriptors: Dict[str, ServiceDescriptor] = {}
         self.reused_services: Set[str] = set()
+        self.last_start_results: Dict[str, ServiceStartResult] = {}
 
     def register(self, descriptor: ServiceDescriptor) -> None:
         """Register a service descriptor.
@@ -160,26 +187,123 @@ class ServiceManager:
                 reusable[name] = self.services[name]
         return reusable
 
-    def _group_by_priority(self) -> Dict[int, List[ServiceDescriptor]]:
+    @staticmethod
+    def _group_by_priority(
+        descriptors: List[ServiceDescriptor],
+    ) -> Dict[int, List[ServiceDescriptor]]:
         """Group service descriptors by priority.
 
         Returns:
             Dict mapping priority to list of descriptors
         """
         groups: Dict[int, List[ServiceDescriptor]] = {}
-        for descriptor in self.descriptors.values():
+        for descriptor in descriptors:
             if descriptor.priority not in groups:
                 groups[descriptor.priority] = []
             groups[descriptor.priority].append(descriptor)
         return groups
 
-    async def start_all(self) -> None:
-        """Start all registered services in priority order.
+    def startup_layers(self) -> List[List[str]]:
+        """Validate the graph and return deterministic Kahn layers.
 
-        Services with same priority are started concurrently if allowed.
-        Reused services are skipped.  Between priority groups and after each
-        sequential service, the event loop is yielded so HTTP requests can
-        be served during background startup.
+        This method only inspects descriptors.  In particular, it does not
+        construct services or invoke lifecycle hooks, so ``start_all`` can
+        reject an invalid graph before producing any runtime effects.
+        """
+        missing = [
+            (descriptor.name, dependency)
+            for descriptor in self.descriptors.values()
+            for dependency in descriptor.dependencies
+            if dependency not in self.descriptors
+        ]
+        if missing:
+            details = ", ".join(
+                f"'{consumer}' requires '{dependency}'"
+                for consumer, dependency in missing
+            )
+            raise ServiceDependencyError(
+                f"Missing required service dependencies: {details}",
+            )
+
+        adjacency: Dict[str, List[str]] = {
+            name: [] for name in self.descriptors
+        }
+        indegree = {name: 0 for name in self.descriptors}
+        for descriptor in self.descriptors.values():
+            predecessors = dict.fromkeys(
+                [
+                    *descriptor.dependencies,
+                    *(
+                        name
+                        for name in descriptor.after
+                        if name in self.descriptors
+                    ),
+                ],
+            )
+            for predecessor in predecessors:
+                adjacency[predecessor].append(descriptor.name)
+                indegree[descriptor.name] += 1
+
+        current = [
+            name for name in self.descriptors if indegree[name] == 0
+        ]
+        layers: List[List[str]] = []
+        visited = 0
+        while current:
+            layers.append(current)
+            visited += len(current)
+            next_layer: List[str] = []
+            for name in current:
+                for dependent in adjacency[name]:
+                    indegree[dependent] -= 1
+                    if indegree[dependent] == 0:
+                        next_layer.append(dependent)
+            current = next_layer
+
+        if visited != len(self.descriptors):
+            cycle = self._find_cycle(adjacency)
+            path = " -> ".join(cycle) if cycle else "unknown"
+            raise ServiceDependencyError(
+                f"Service dependency cycle detected: {path}",
+            )
+        return layers
+
+    @staticmethod
+    def _find_cycle(adjacency: Dict[str, List[str]]) -> List[str]:
+        """Return one deterministic cycle path, including its repeated root."""
+        state = {name: 0 for name in adjacency}
+        stack: List[str] = []
+        positions: Dict[str, int] = {}
+
+        def visit(name: str) -> Optional[List[str]]:
+            state[name] = 1
+            positions[name] = len(stack)
+            stack.append(name)
+            for dependent in adjacency[name]:
+                if state[dependent] == 0:
+                    cycle = visit(dependent)
+                    if cycle:
+                        return cycle
+                elif state[dependent] == 1:
+                    return [*stack[positions[dependent] :], dependent]
+            stack.pop()
+            positions.pop(name)
+            state[name] = 2
+            return None
+
+        for name in adjacency:
+            if state[name] == 0:
+                cycle = visit(name)
+                if cycle:
+                    return cycle
+        return []
+
+    async def start_all(self) -> Dict[str, ServiceStartResult]:
+        """Start all registered services in dependency order.
+
+        The dependency graph is validated before any service is constructed.
+        Each topological layer is split into priority groups; services within
+        a group preserve the existing ``concurrent_init`` behavior.
         """
         t0 = time.perf_counter()
         logger.debug(
@@ -187,35 +311,94 @@ class ServiceManager:
             f"({len(self.reused_services)} reused)",
         )
 
-        priority_groups = self._group_by_priority()
+        layers = self.startup_layers()
+        self.last_start_results = {}
 
-        for priority in sorted(priority_groups.keys()):
-            descriptors = priority_groups[priority]
+        for layer in layers:
+            descriptors = [self.descriptors[name] for name in layer]
+            priority_groups = self._group_by_priority(descriptors)
+            for priority in sorted(priority_groups):
+                group = priority_groups[priority]
 
-            # Separate concurrent and sequential services
-            concurrent = [d for d in descriptors if d.concurrent_init]
-            sequential = [d for d in descriptors if not d.concurrent_init]
+                ready: List[ServiceDescriptor] = []
+                for descriptor in group:
+                    blocked_by = tuple(
+                        dependency
+                        for dependency in descriptor.dependencies
+                        if self.last_start_results[dependency].status
+                        not in {
+                            ServiceStartStatus.STARTED,
+                            ServiceStartStatus.REUSED,
+                        }
+                    )
+                    if not blocked_by:
+                        ready.append(descriptor)
+                        continue
+                    error = RuntimeError(
+                        f"Service '{descriptor.name}' blocked by failed "
+                        f"required dependencies: {', '.join(blocked_by)}",
+                    )
+                    status = (
+                        ServiceStartStatus.SKIPPED_OPTIONAL
+                        if descriptor.optional
+                        else ServiceStartStatus.FAILED
+                    )
+                    self.last_start_results[descriptor.name] = (
+                        ServiceStartResult(
+                            status=status,
+                            error=error,
+                            blocked_by=blocked_by,
+                        )
+                    )
+                    if descriptor.optional:
+                        logger.warning(str(error))
+                    else:
+                        raise error
 
-            # Start concurrent services in parallel
-            if concurrent:
-                await asyncio.gather(
-                    *[self._start_service(desc) for desc in concurrent],
-                )
+                concurrent = [d for d in ready if d.concurrent_init]
+                sequential = [d for d in ready if not d.concurrent_init]
 
-            # Start sequential services one by one
-            for desc in sequential:
-                await self._start_service(desc)
+                if concurrent:
+                    results = await asyncio.gather(
+                        *[
+                            self._start_service(descriptor)
+                            for descriptor in concurrent
+                        ],
+                    )
+                    for descriptor, result in zip(concurrent, results):
+                        self.last_start_results[descriptor.name] = result
+                    self._raise_first_required_failure(concurrent)
 
-            # Yield between priority groups so event loop can serve requests
-            await asyncio.sleep(0)
+                for descriptor in sequential:
+                    result = await self._start_service(descriptor)
+                    self.last_start_results[descriptor.name] = result
+                    self._raise_first_required_failure([descriptor])
+
+                # Yield between priority groups so the event loop can serve
+                # requests during background startup.
+                await asyncio.sleep(0)
 
         elapsed = time.perf_counter() - t0
         logger.debug(
             f"All services started for {self.workspace.agent_id} "
             f"in {elapsed:.3f}s",
         )
+        return dict(self.last_start_results)
 
-    async def _start_service(self, descriptor: ServiceDescriptor) -> None:
+    def _raise_first_required_failure(
+        self,
+        descriptors: List[ServiceDescriptor],
+    ) -> None:
+        for descriptor in descriptors:
+            result = self.last_start_results[descriptor.name]
+            if result.status == ServiceStartStatus.FAILED:
+                assert result.error is not None
+                raise result.error
+
+    async def _start_service(
+        self,
+        descriptor: ServiceDescriptor,
+    ) -> ServiceStartResult:
         """Start a single service.
 
         Args:
@@ -245,6 +428,13 @@ class ServiceManager:
                     f"{self.workspace.agent_id} ({elapsed:.3f}s)",
                 )
 
+            status = (
+                ServiceStartStatus.REUSED
+                if is_reused
+                else ServiceStartStatus.STARTED
+            )
+            return ServiceStartResult(status=status)
+
         except Exception as e:
             if descriptor.optional:
                 logger.warning(
@@ -252,12 +442,18 @@ class ServiceManager:
                     f"{self.workspace.agent_id} (continuing without it): {e}",
                 )
                 self.services.pop(name, None)
-                return
+                return ServiceStartResult(
+                    status=ServiceStartStatus.SKIPPED_OPTIONAL,
+                    error=e,
+                )
             logger.exception(
                 f"Failed to start service '{name}' "
                 f"for {self.workspace.agent_id}: {e}",
             )
-            raise
+            return ServiceStartResult(
+                status=ServiceStartStatus.FAILED,
+                error=e,
+            )
 
     async def _get_or_create_service(
         self,
@@ -380,7 +576,7 @@ class ServiceManager:
         )
 
     async def stop_all(self, final: bool = False) -> None:
-        """Stop all services in reverse priority order.
+        """Stop all services in reverse topological layers.
 
         Args:
             final: If True, stop ALL services including reusable ones.
@@ -394,11 +590,10 @@ class ServiceManager:
             f"({len(self.reused_services)} reused, final={final})",
         )
 
-        priority_groups = self._group_by_priority()
+        layers = self.startup_layers()
 
-        # Stop in reverse priority order
-        for priority in sorted(priority_groups.keys(), reverse=True):
-            descriptors = priority_groups[priority]
+        for layer in reversed(layers):
+            descriptors = [self.descriptors[name] for name in layer]
 
             # Stop all services in this priority group concurrently
             results = await asyncio.gather(
