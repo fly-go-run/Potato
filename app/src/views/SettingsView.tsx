@@ -64,6 +64,7 @@ import {
   setDesktopWindowStatePreference,
 } from "../lib/desktop";
 import { skillDisplayName } from "../lib/skillPresentation";
+import { prettyModelName } from "../lib/modelPresentation";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 import {
   buildThemeTemplate,
@@ -1047,8 +1048,13 @@ export function SettingsView() {
                         title={t("settings.models.current")}
                       >
                         <div className="text-right">
-                          <div className="text-[13px] text-ink">
-                            {activePair?.model || t("settings.models.noActive")}
+                          <div
+                            title={activePair?.model}
+                            className="text-[13px] text-ink"
+                          >
+                            {activePair?.model
+                              ? prettyModelName(activePair.model)
+                              : t("settings.models.noActive")}
                           </div>
                           {activePair && (
                             <div className="mt-0.5 text-xs text-ink-tertiary">

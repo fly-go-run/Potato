@@ -16,6 +16,7 @@ import {
   type ProviderInfo,
 } from "../../lib/api";
 import { useTranslation } from "../../lib/i18n";
+import { prettyModelName } from "../../lib/modelPresentation";
 import { useChatStore } from "../../stores/chat";
 
 const DEFAULT_REASONING_EFFORTS = [
@@ -213,7 +214,9 @@ export function ModelPicker() {
           <span className="truncate">
             {modelLoading
               ? t("composer.loadingModel")
-              : model?.model || t("composer.noModel")}
+              : model?.model
+              ? prettyModelName(model.model)
+              : t("composer.noModel")}
           </span>
           {activeEffortLabel ? (
             <span className="shrink-0 text-[13px] text-ink-tertiary">
@@ -237,7 +240,9 @@ export function ModelPicker() {
                 <span className="max-w-36 truncate">
                   {modelLoading
                     ? t("composer.loadingModel")
-                    : model?.model || t("composer.noModel")}
+                    : model?.model
+              ? prettyModelName(model.model)
+              : t("composer.noModel")}
                 </span>
                 <ChevronRight size={14} className="shrink-0" />
               </span>
@@ -285,7 +290,9 @@ export function ModelPicker() {
                               className={SUB_ITEM_CLASS}
                             >
                               <span className="truncate">
-                                {item.name || item.id}
+                                {item.name && item.name !== item.id
+                                  ? item.name
+                                  : prettyModelName(item.id)}
                               </span>
                               {switching === key ? (
                                 <LoaderCircle
