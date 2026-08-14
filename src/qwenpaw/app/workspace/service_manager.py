@@ -119,6 +119,7 @@ class ServiceManager:
         self.services: Dict[str, Any] = {}
         self.descriptors: Dict[str, ServiceDescriptor] = {}
         self.reused_services: Set[str] = set()
+        self.borrowed_services: Set[str] = set()
         self.last_start_results: Dict[str, ServiceStartResult] = {}
 
     def register(self, descriptor: ServiceDescriptor) -> None:
@@ -138,8 +139,9 @@ class ServiceManager:
     async def set_reusable(self, name: str, instance: Any) -> None:
         """Mark a service instance as reused from previous workspace.
 
-        Must be called before start_all(). If the service descriptor has a
-        reload_func, it will be called with the workspace and instance.
+        Must be called before start_all().  This only records the borrowed
+        instance; any ``reload_func`` runs later at this node's position in
+        the dependency graph.
 
         Args:
             name: Service name
@@ -161,19 +163,8 @@ class ServiceManager:
 
         self.services[name] = instance
         self.reused_services.add(name)
+        self.borrowed_services.add(name)
         logger.debug(f"Marked service '{name}' as reused")
-
-        # Trigger reload_func if provided
-        if descriptor.reload_func is not None:
-            try:
-                result = descriptor.reload_func(self.workspace, instance)
-                if asyncio.iscoroutine(result):
-                    await result
-                logger.debug(f"Called reload_func for service '{name}'")
-            except Exception as e:
-                logger.warning(
-                    f"Error calling reload_func for service '{name}': {e}",
-                )
 
     def get_reusable_services(self) -> Dict[str, Any]:
         """Get all reusable service instances for transfer to new workspace.
@@ -418,6 +409,8 @@ class ServiceManager:
                 descriptor,
                 is_reused,
             )
+            if is_reused:
+                await self._run_reload_func(descriptor, service)
             service = await self._run_post_init(descriptor, service, name)
             await self._run_start_method(descriptor, service, is_reused)
 
@@ -453,6 +446,27 @@ class ServiceManager:
             return ServiceStartResult(
                 status=ServiceStartStatus.FAILED,
                 error=e,
+            )
+
+    async def _run_reload_func(
+        self,
+        descriptor: ServiceDescriptor,
+        service: Any,
+    ) -> None:
+        """Refresh a reused instance at its dependency-graph position."""
+        if descriptor.reload_func is None:
+            return
+        try:
+            result = descriptor.reload_func(self.workspace, service)
+            if asyncio.iscoroutine(result):
+                await result
+            logger.debug(
+                f"Called reload_func for service '{descriptor.name}'",
+            )
+        except Exception as exc:  # preserve the former best-effort behavior
+            logger.warning(
+                f"Error calling reload_func for service "
+                f"'{descriptor.name}': {exc}",
             )
 
     async def _get_or_create_service(
@@ -575,12 +589,19 @@ class ServiceManager:
             f"{self.workspace.agent_id}",
         )
 
-    async def stop_all(self, final: bool = False) -> None:
+    async def stop_all(
+        self,
+        final: bool = False,
+        *,
+        rollback: bool = False,
+    ) -> None:
         """Stop all services in reverse topological layers.
 
         Args:
             final: If True, stop ALL services including reusable ones.
                    If False (default), skip reusable services (for reload).
+            rollback: If True, never stop borrowed reused instances because
+                their ownership still belongs to the previous workspace.
 
         Reused services are skipped. Errors are logged but don't stop
         the shutdown process.
@@ -600,12 +621,19 @@ class ServiceManager:
                 *[
                     self._stop_service(desc, final=final)
                     for desc in descriptors
+                    if not rollback
+                    or desc.name not in self.borrowed_services
                 ],
                 return_exceptions=True,
             )
 
             # Log any exceptions that occurred
-            for desc, result in zip(descriptors, results):
+            stopped_descriptors = [
+                desc
+                for desc in descriptors
+                if not rollback or desc.name not in self.borrowed_services
+            ]
+            for desc, result in zip(stopped_descriptors, results):
                 if isinstance(result, Exception):
                     logger.warning(
                         f"Error stopping service '{desc.name}': {result}",

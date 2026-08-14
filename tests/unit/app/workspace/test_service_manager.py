@@ -304,3 +304,88 @@ async def test_stop_uses_reverse_layers_and_concurrency_within_layer():
     await shutdown
     assert set(events[2:4]) == {"root_a:start", "root_b:start"}
 
+
+@pytest.mark.asyncio
+async def test_reused_reload_runs_at_transitive_topological_position():
+    events: list[str] = []
+    manager = _manager()
+    reused = SimpleNamespace()
+
+    async def reload_reused(_workspace, instance):
+        assert instance is reused
+        events.append("R:reload")
+
+    manager.register(
+        ServiceDescriptor(
+            name="D",
+            post_init=_post_init("D:start", events),
+        ),
+    )
+    manager.register(
+        ServiceDescriptor(
+            name="R",
+            dependencies=["D"],
+            reusable=True,
+            reload_func=reload_reused,
+        ),
+    )
+    manager.register(
+        ServiceDescriptor(
+            name="C",
+            dependencies=["R"],
+            post_init=_post_init("C:start", events),
+        ),
+    )
+
+    await manager.set_reusable("R", reused)
+    assert events == []
+
+    results = await manager.start_all()
+
+    assert events == ["D:start", "R:reload", "C:start"]
+    assert results["R"].status == ServiceStartStatus.REUSED
+
+
+@pytest.mark.asyncio
+async def test_failure_rollback_never_stops_borrowed_service():
+    manager = _manager()
+    stop_events: list[str] = []
+
+    class Service:
+        def __init__(self, name: str):
+            self.name = name
+
+        async def stop(self):
+            stop_events.append(self.name)
+
+    borrowed = Service("borrowed")
+    owned = Service("owned")
+    manager.register(
+        ServiceDescriptor(
+            name="borrowed",
+            reusable=True,
+            stop_method="stop",
+        ),
+    )
+    manager.register(
+        ServiceDescriptor(name="owned", stop_method="stop"),
+    )
+    manager.register(
+        ServiceDescriptor(
+            name="failure",
+            dependencies=["borrowed", "owned"],
+            post_init=_post_init(
+                "failure",
+                [],
+                error=RuntimeError("boom"),
+            ),
+        ),
+    )
+    await manager.set_reusable("borrowed", borrowed)
+    manager.services["owned"] = owned
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await manager.start_all()
+    await manager.stop_all(final=True, rollback=True)
+
+    assert stop_events == ["owned"]
