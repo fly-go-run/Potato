@@ -130,10 +130,7 @@ export function MessageList({
         ),
       )}
       {showPendingTurn && (
-        <div
-          data-testid="turn-assistant"
-          className={`qp-msg-in mb-10 ${TAIL_MIN_HEIGHT}`}
-        >
+        <div data-testid="turn-assistant" className={`mb-10 ${TAIL_MIN_HEIGHT}`}>
           <AssistantHeader />
           <TurnFlow pieces={[]} foldEntries={[]} waiting pulsing live />
         </div>
@@ -155,7 +152,7 @@ const UserTurn = memo(function UserTurn({
   activeMessageId,
 }: UserTurnProps) {
   return (
-    <div data-testid="turn-user" className="qp-msg-in mb-8 flex justify-end">
+    <div data-testid="turn-user" className="mb-8 flex justify-end">
       {/* 70% 上限 + 中档圆角:对表 WB(682px 宽的 18px 圆角灰板太"网页") */}
       <div className="max-w-[70%] rounded-[var(--radius-md)] bg-bubble-user px-4 py-2.5 text-[15px] leading-[1.7]">
         {messages.map((message) => (
@@ -214,11 +211,10 @@ const AssistantTurn = memo(function AssistantTurn({
   onOpenFile,
   onOpenChange,
 }: AssistantTurnProps) {
-  // 流式中挂载的轮是从等待占位原位接管的,重播入场动画会闪一下;
-  // 该决定只在挂载时定一次,避免流结束时 class 变化重新触发动画。
-  const enterAnimation = useRef(!streaming).current;
-  // 流式出生的轮在它还是尾轮期间保持锚定空间(见 TAIL_MIN_HEIGHT)。
-  const bornStreaming = !enterAnimation;
+  // 入场动画已整体移除(设计裁决:内容直接出现,不做淡入)。
+  // 流式出生的轮在它还是尾轮期间保持锚定空间(见 TAIL_MIN_HEIGHT);
+  // 该判定只在挂载时定一次,与原 enterAnimation 同语义。
+  const bornStreaming = useRef(streaming).current;
   // 内联 <thinking> 标签的模型:思考段拆成轨道条目,正文只留干净文本。
   const presented = useMemo(
     () => messages.flatMap(presentInlineThinking),
@@ -326,9 +322,7 @@ const AssistantTurn = memo(function AssistantTurn({
   return (
     <div
       data-testid="turn-assistant"
-      className={`${enterAnimation ? "qp-msg-in " : ""}mb-10${
-        tail && bornStreaming ? ` ${TAIL_MIN_HEIGHT}` : ""
-      }`}
+      className={`mb-10${tail && bornStreaming ? ` ${TAIL_MIN_HEIGHT}` : ""}`}
     >
       <AssistantHeader />
       <TurnFlow
@@ -607,9 +601,9 @@ function TurnFlow({
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
-      <span key={summary} className="qp-swap-in">
-        {summary}
-      </span>
+      {/* 摘要文字直接替换,不做交叉淡化——状态变化本身就是信息,
+          给它加动画反而把注意力引向动画。 */}
+      <span>{summary}</span>
       {durationLabel && (
         <span className="shrink-0 tabular-nums">· {durationLabel}</span>
       )}
@@ -626,7 +620,7 @@ function TurnFlow({
   return (
     <div className="my-1.5">
       {showHeader && (
-        <div className="flex items-center gap-2">
+        <div className="group flex items-center gap-2">
           {toggleable ? (
             <button
               type="button"
@@ -642,7 +636,9 @@ function TurnFlow({
             </div>
           )}
           {toggleable && headerOpen && (
-            <div className="qp-fade-in inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px]">
+            // 密度切换是低频操作,常驻会给每条完成轨道多一块 chrome;
+            // 悬停/键盘聚焦时才显形,resting 状态只有摘要一行字。
+            <div className="inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px] opacity-0 transition-opacity duration-[var(--dur-fast)] focus-within:opacity-100 group-hover:opacity-100">
               <button
                 type="button"
                 onClick={() => setDetailedTools(false)}

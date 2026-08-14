@@ -19,7 +19,6 @@ import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
 import {
   humanToolLabel,
-  pairDurationLabel,
   richOutputText,
   toolPairStatus,
   ToolStatus,
@@ -73,7 +72,6 @@ export function FileToolCard({
     typeof parameters.file_path === "string" ? parameters.file_path : "";
   const { running, failed } = toolPairStatus(pair);
   const debugStatus = useToolDetail();
-  const durationLabel = running ? "" : pairDurationLabel(pair);
   const titleKey = FILE_TOOL_TITLES[pair.name] ?? "tool.genericName";
   // 失败退回中性名词,成功/运行中用时态标签(正在读取 / 读取了)。
   const title = failed ? t(titleKey) : humanToolLabel(pair.name, running, t);
@@ -164,14 +162,10 @@ export function FileToolCard({
       </span>
     </>
   );
+  // 逐条时长已整体移除——总时长归执行轨道头,行内时长是逐条噪音。
   const after = (
     <>
       {pathNode}
-      {durationLabel && (
-        <span className="ml-auto shrink-0 pl-2 text-[11px] tabular-nums text-ink-muted">
-          {durationLabel}
-        </span>
-      )}
       <ToolStatus running={running} failed={failed} quiet />
     </>
   );
@@ -296,8 +290,9 @@ function fileBaseName(path: string): string {
 }
 
 function directoryOf(path: string): string {
+  // 裸文件名(无目录段)返回空——回落到路径会让卡片把文件名重复两遍。
   const directory = path.slice(0, path.length - fileBaseName(path).length);
-  return directory.replace(/[/\\]$/, "") || path;
+  return directory.replace(/[/\\]$/, "");
 }
 
 /**

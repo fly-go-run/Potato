@@ -2,7 +2,7 @@ import { Check, Terminal, X } from "lucide-react";
 import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
-import { pairDurationLabel, richOutputText, toolPairStatus } from "./ToolCard";
+import { richOutputText, toolPairStatus } from "./ToolCard";
 import { useToolDetail } from "../../stores/uiPrefs";
 import { useTranslation } from "../../lib/i18n";
 import { qpBool, qpInt } from "../../lib/toolMeta";
@@ -18,13 +18,13 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
   const command = shellCommand(pair.arguments);
   const { running, failed } = toolPairStatus(pair);
   const debugStatus = useToolDetail();
-  const durationLabel = running ? "" : pairDurationLabel(pair);
   const output = richOutputText(pair.result);
-  // qp meta(有则展示,历史会话无 meta 时整段静默):exit code 用终端
-  // 母语 "exit N" 不翻译,与 $ 提示符同一语域;非零才值得刺眼。
-  // 有符号读取:-1=超时、负数=信号终止,恰是最需要展示的终态。
+  // qp meta(有则展示,历史会话无 meta 时整段静默)。异常才落墨:
+  // 干净退出(exit 0)不渲染任何东西——零是预期,只有非零/信号值得占
+  // 一块注意力。有符号读取:-1=超时、负数=信号终止,恰是最需要展示的。
   // 沙箱只在"没进沙箱"时提示——默认开沙箱的前提下,缺席才是信号。
   const exitCode = qpInt(pair.meta, "exit_code");
+  const abnormalExit = exitCode !== null && exitCode !== 0;
   const unsandboxed = qpBool(pair.meta, "sandboxed") === false;
 
   const detail = (
@@ -32,19 +32,13 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
       <div className="mb-2 flex gap-2 text-ink-secondary">
         <span className="select-none text-ink-muted">$</span>
         <span className="whitespace-pre-wrap break-all">{command}</span>
-        {(exitCode !== null || unsandboxed) && (
+        {(abnormalExit || unsandboxed) && (
           <span className="ml-auto flex shrink-0 select-none items-center gap-2 pl-3 text-[11px]">
             {unsandboxed && (
               <span className="text-warn">{t("tool.shell.noSandbox")}</span>
             )}
-            {exitCode !== null && (
-              <span
-                className={`tabular-nums ${
-                  exitCode === 0 ? "text-ink-muted" : "text-danger"
-                }`}
-              >
-                exit {exitCode}
-              </span>
+            {abnormalExit && (
+              <span className="tabular-nums text-danger">exit {exitCode}</span>
             )}
           </span>
         )}
@@ -89,22 +83,14 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
       </code>
     </>
   );
+  // 行尾不再放逐条时长:总时长归执行轨道头,行内时长是逐条噪音。
   const after = running ? (
     <Spinner size={13} className="text-ink-muted" />
-  ) : (
-    <>
-      {durationLabel && (
-        <span className="ml-auto shrink-0 pl-2 text-[11px] tabular-nums text-ink-muted">
-          {durationLabel}
-        </span>
-      )}
-      {debugStatus && failed ? (
-        <X size={13} className="shrink-0 text-danger" />
-      ) : debugStatus ? (
-        <Check size={13} className="shrink-0 text-ink-muted" />
-      ) : null}
-    </>
-  );
+  ) : debugStatus && failed ? (
+    <X size={13} className="shrink-0 text-danger" />
+  ) : debugStatus ? (
+    <Check size={13} className="shrink-0 text-ink-muted" />
+  ) : null;
 
   return (
     <ToolDisclosure

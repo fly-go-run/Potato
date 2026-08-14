@@ -157,6 +157,52 @@ describe("collectConversationArtifacts", () => {
     ).toBe(true);
   });
 
+  it("suppresses the write card when the same path is explicitly sent", () => {
+    // 一个文件只配一张大卡:send 出卡,同路径的 write 留在轨道当安静行。
+    const written = [
+      toolMessage("call-1", "function_call", {
+        call_id: "1",
+        name: "write_file",
+        arguments: JSON.stringify({ file_path: "/tmp/report.pdf" }),
+      }),
+      toolMessage("out-1", "function_call_output", {
+        call_id: "1",
+        name: "write_file",
+        output: "Wrote 9 bytes",
+        state: "completed",
+      }),
+    ];
+    const sent = [
+      toolMessage("call-2", "function_call", {
+        call_id: "2",
+        name: "send_file_to_user",
+        arguments: JSON.stringify({ file_path: "/tmp/report.pdf" }),
+      }),
+      toolMessage("out-2", "function_call_output", {
+        call_id: "2",
+        name: "send_file_to_user",
+        output: JSON.stringify([
+          { type: "text", text: "File sent successfully." },
+        ]),
+        state: "completed",
+      }),
+    ];
+    const artifacts = collectConversationArtifacts([...written, ...sent]);
+
+    expect(artifacts).toEqual([
+      expect.objectContaining({ path: "/tmp/report.pdf", via: "sent" }),
+    ]);
+    expect(
+      shouldPresentArtifactPair(
+        buildToolPair(written[0]!, written[1]!),
+        artifacts,
+      ),
+    ).toBe(false);
+    expect(
+      shouldPresentArtifactPair(buildToolPair(sent[0]!, sent[1]!), artifacts),
+    ).toBe(true);
+  });
+
   it("keeps one task-level entry when the same path is delivered twice", () => {
     const messages = [
       toolMessage("call-1", "function_call", {
@@ -273,6 +319,7 @@ describe("collectConversationArtifacts", () => {
         path: "/Users/me/下载目录文档清单.txt",
         name: "下载目录文档清单.txt",
         sourceMessageId: "assistant-1",
+        via: "linked",
       },
     ]);
   });
@@ -395,6 +442,7 @@ describe("resolveConversationFileLink", () => {
       path: "/Users/example/Downloads/下载目录文档清单.txt",
       name: "下载目录文档清单.txt",
       sourceMessageId: "call-1",
+      via: "sent" as const,
     },
   ];
 

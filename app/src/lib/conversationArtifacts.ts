@@ -8,6 +8,8 @@ export interface ConversationArtifact {
   path: string;
   name: string;
   sourceMessageId: string;
+  /** 交付方式:显式 send_file_to_user,或最终答复里的链接点名。 */
+  via: "sent" | "linked";
 }
 
 export function collectConversationArtifacts(
@@ -35,15 +37,17 @@ export function collectConversationArtifacts(
     if (!isSuccessfulArtifactPair(pair)) continue;
     const path = filePathFromArguments(pair.arguments);
     if (!path) continue;
-    const artifact = {
+    const key = artifactPathKey(path);
+    const sent = pair.name === "send_file_to_user";
+    const artifact: ConversationArtifact = {
       id: `${message.id}:${path}`,
       path,
       name: fileBaseName(path) || path,
       sourceMessageId: message.id,
+      via: sent ? "sent" : "linked",
     };
-    const key = artifactPathKey(path);
     candidatesByPath.set(key, artifact);
-    if (pair.name === "send_file_to_user") {
+    if (sent) {
       deliveredByPath.set(key, artifact);
     }
   }
@@ -62,14 +66,18 @@ export function collectConversationArtifacts(
         if (!path) continue;
         const key = artifactPathKey(path);
         if (deliveredByPath.has(key)) continue;
+        const candidate = candidatesByPath.get(key);
         deliveredByPath.set(
           key,
-          candidatesByPath.get(key) ?? {
-            id: `${message.id}:${path}`,
-            path,
-            name: fileBaseName(path) || path,
-            sourceMessageId: message.id,
-          },
+          candidate
+            ? { ...candidate, via: "linked" }
+            : {
+                id: `${message.id}:${path}`,
+                path,
+                name: fileBaseName(path) || path,
+                sourceMessageId: message.id,
+                via: "linked",
+              },
         );
       }
     }
@@ -77,7 +85,14 @@ export function collectConversationArtifacts(
   return Array.from(deliveredByPath.values()).reverse();
 }
 
-/** 是否应把文件工具从执行轨道提升成面向用户的产物卡。 */
+/**
+ * 是否应把文件工具从执行轨道提升成面向用户的产物卡。
+ *
+ * 一个文件只配一张大卡:显式发送的由 send 调用出卡;写入类调用只有在
+ * 「正文链接点名交付且没人发送过它」时才补位出卡。此前写入与发送各出
+ * 一张再加汇总卡,同一文件在一轮里最多曝光三次——写文件是过程,不是
+ * 交付,过程留在轨道里当安静行。
+ */
 export function shouldPresentArtifactPair(
   pair: ReturnType<typeof buildToolPair>,
   artifacts: ConversationArtifact[],
@@ -87,7 +102,10 @@ export function shouldPresentArtifactPair(
   const path = filePathFromArguments(pair.arguments);
   if (!path) return false;
   const key = artifactPathKey(path);
-  return artifacts.some((artifact) => artifactPathKey(artifact.path) === key);
+  return artifacts.some(
+    (artifact) =>
+      artifact.via === "linked" && artifactPathKey(artifact.path) === key,
+  );
 }
 
 /** 去重 key:斜杠归一 + Windows 盘符大小写归一(路径本体保持原样)。 */

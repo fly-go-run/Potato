@@ -1,5 +1,4 @@
 import { Check, X } from "lucide-react";
-import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
 import { useToolDetail } from "../../stores/uiPrefs";
 import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
@@ -88,7 +87,6 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
   const { running, failed } = toolPairStatus(pair);
   const debugStatus = useToolDetail();
   const summary = argumentSummary(pair.arguments, t);
-  const durationLabel = running ? "" : pairDurationLabel(pair);
   // 失败时退回中性名词,「读取了」这类完成时态只留给成功。
   const label = failed
     ? humanToolName(pair.name, t)
@@ -145,23 +143,14 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
     </>
   );
   // 行尾槽在两种状态下宽度都尽量小:运行中只有 13px 的 Spinner(不带
-  // 「运行中」文字),完成后换成时长 + 状态图标,避免收尾时右侧抽动。
+  // 「运行中」文字)。逐条时长已整体移除——总时长归执行轨道头。
   const after = running ? (
     <ToolStatus running={running} failed={failed} />
-  ) : (
-    <>
-      {durationLabel && (
-        <span className="ml-auto shrink-0 pl-2 text-[11px] tabular-nums text-ink-muted">
-          {durationLabel}
-        </span>
-      )}
-      {debugStatus && failed ? (
-        <X size={13} className="shrink-0 text-danger" />
-      ) : debugStatus ? (
-        <Check size={13} className="shrink-0 text-ink-muted" />
-      ) : null}
-    </>
-  );
+  ) : debugStatus && failed ? (
+    <X size={13} className="shrink-0 text-danger" />
+  ) : debugStatus ? (
+    <Check size={13} className="shrink-0 text-ink-muted" />
+  ) : null;
 
   return (
     <ToolDisclosure
@@ -214,20 +203,6 @@ export function ToolStatus({
       {t("tool.statusComplete")}
     </span>
   );
-}
-
-/**
- * 单次工具调用耗时:call 首见 → output 收口(无 output 时退回 call
- * 自身收口)。历史加载的会话没有实时计时,返回空串即隐藏。
- */
-export function pairDurationLabel(pair: ToolPair): string {
-  const start = pair.call ? getMessageTiming(pair.call.id)?.startedAt : null;
-  if (start == null) return "";
-  const end =
-    (pair.output ? getMessageTiming(pair.output.id)?.endedAt : null) ??
-    (pair.call ? getMessageTiming(pair.call.id)?.endedAt : null);
-  if (end == null) return "";
-  return formatDuration(end - start);
 }
 
 export function toolData(message: StreamMessage | null) {

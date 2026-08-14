@@ -3,7 +3,6 @@ import { lazy, Suspense, useState } from "react";
 import type { StreamMessage } from "../../lib/stream";
 import { textFromContent } from "../../lib/content";
 import { useTranslation } from "../../lib/i18n";
-import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
 import { Collapse } from "./Collapse";
 
 const Markdown = lazy(() =>
@@ -19,11 +18,6 @@ export function ReasoningBlock({ message }: { message: StreamMessage }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const text = textFromContent(message.content);
-  const timing = getMessageTiming(message.id);
-  const durationLabel =
-    timing && timing.endedAt !== null
-      ? formatDuration(timing.endedAt - timing.startedAt)
-      : "";
 
   return (
     <div className="my-1 text-ink-secondary">
@@ -40,9 +34,6 @@ export function ReasoningBlock({ message }: { message: StreamMessage }) {
           }`}
         />
         <span>{t("reasoning.process")}</span>
-        {durationLabel && (
-          <span className="shrink-0 tabular-nums">· {durationLabel}</span>
-        )}
       </button>
       <Collapse open={open}>
         <div className="ml-4 border-l border-line pl-3 pt-1 text-ink-secondary">
