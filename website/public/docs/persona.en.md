@@ -89,7 +89,7 @@ In the Console's **Agent → Workspace** page, you can:
    - **Disabled** (switch off): File is not loaded into the system prompt
 4. **Adjust load order**: Enabled files can be drag-and-drop reordered, **affecting their concatenation order in the system prompt** (top to bottom, files higher up are loaded first)
 5. **Upload/download workspace**:
-   - Upload ZIP files (max 100MB) to batch import persona files into workspace (overwrites same-named files; non-`.md` files won't display in UI but are preserved)
+   - Upload ZIP files (max 200MB) to batch import persona files into workspace (overwrites same-named files; non-`.md` files won't display in UI but are preserved)
    - Download entire workspace as ZIP for backup
 6. **View workspace path**: Page header shows the current workspace's full path
 

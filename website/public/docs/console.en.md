@@ -243,7 +243,7 @@ date to view or edit that day's memory.
 Click **Download** to export the entire workspace as a `.zip` to your machine.
 
 **Upload/restore workspace:**
-Click **Upload** → choose a `.zip` (max 100 MB). Existing workspace files will be
+Click **Upload** → choose a `.zip` (max 200 MB). Existing workspace files will be
 replaced. Useful for migration and backup restore.
 
 ---
