@@ -93,7 +93,7 @@ export function FileToolCard({
   const detail = (
     <div className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
       <div className="flex gap-3 border-b border-line px-4 py-2 text-xs">
-        <span className="shrink-0 text-ink-muted">{t("tool.file.path")}</span>
+        <span className="shrink-0 text-ink-tertiary">{t("tool.file.path")}</span>
         {path && onOpenFile ? (
           <button
             type="button"
@@ -110,7 +110,7 @@ export function FileToolCard({
         )}
       </div>
       <div className="px-4 py-3">
-        <div className="mb-2 text-xs font-medium text-ink-muted">
+        <div className="mb-2 text-xs font-medium text-ink-tertiary">
           {pair.name === "edit_file"
             ? t("tool.file.changes")
             : t("tool.file.content")}
@@ -131,7 +131,7 @@ export function FileToolCard({
     );
   }
 
-  const pathTone = failed ? "text-danger" : "text-ink-muted";
+  const pathTone = failed ? "text-danger" : "text-ink-secondary";
   const pathNode =
     path && onOpenFile ? (
       <button
@@ -260,7 +260,7 @@ function ArtifactCard({
           title={t("tool.file.open")}
           aria-label={t("tool.file.open")}
           onClick={(event) => handleSystemOpenClick(event, path)}
-          className="shrink-0 rounded-[var(--radius-sm)] p-1.5 text-ink-muted transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+          className="shrink-0 rounded-[var(--radius-sm)] p-1.5 text-icon transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-icon-strong"
         >
           <ArrowUpRight size={15} />
         </a>
@@ -427,7 +427,7 @@ function FileToolContent({
 
   if (!content) {
     return (
-      <div className="text-xs text-ink-muted">
+      <div className="text-xs text-ink-tertiary">
         {!pair.output && pair.call?.status === "in_progress"
           ? t("tool.running")
           : t("tool.noResult")}

@@ -144,7 +144,7 @@ export function MemoryView() {
                   <h2 className="text-[13px] font-medium text-ink-secondary">
                     {t(GROUP_LABEL_KEYS[group.key])}
                   </h2>
-                  <span className="text-[11px] text-ink-muted">
+                  <span className="text-[11px] text-ink-tertiary">
                     {t("memory.itemCount", { count: group.items.length })}
                   </span>
                 </div>
@@ -161,7 +161,7 @@ export function MemoryView() {
                         onClick={() => setSelected(file)}
                         className="group flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover focus-visible:bg-fill-active"
                       >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-ink-muted transition-colors group-hover:text-accent">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-icon transition-colors group-hover:text-accent">
                           <FileText size={16} />
                         </span>
                         <span className="min-w-0 flex-1">
@@ -191,7 +191,7 @@ export function MemoryView() {
                         </span>
                         <ChevronRight
                           size={15}
-                          className="shrink-0 text-ink-muted transition-colors group-hover:text-ink-secondary"
+                          className="shrink-0 text-icon transition-colors group-hover:text-icon-strong"
                         />
                       </button>
                     );
@@ -342,14 +342,14 @@ function MemoryDetails({
             className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(40rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none"
           >
             <header className="flex items-start gap-3 border-b border-line px-5 py-4">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-ink-muted">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-icon">
                 <NotebookPen size={18} />
               </span>
               <div className="min-w-0 flex-1">
                 <Dialog.Title className="truncate font-medium text-ink">
                   {file ? memoryDisplayName(file) : ""}
                 </Dialog.Title>
-                <Dialog.Description className="mt-0.5 truncate text-xs text-ink-muted">
+                <Dialog.Description className="mt-0.5 truncate text-xs text-ink-tertiary">
                   {file
                     ? t(SOURCE_LABEL_KEYS[memoryGroupKey(file.filename)])
                     : t("memory.detailsDescription")}
@@ -445,7 +445,7 @@ function MemoryDetails({
               ) : editor.content ? (
                 <Markdown>{editor.content}</Markdown>
               ) : (
-                <div className="flex flex-col items-center py-20 text-center text-ink-muted">
+                <div className="flex flex-col items-center py-20 text-center text-ink-tertiary">
                   <FileText size={24} />
                   <p className="mt-3 text-sm">{t("memory.emptyContent")}</p>
                 </div>
@@ -522,13 +522,13 @@ function TechnicalDetails({
   ];
   return (
     <section className="mt-8 border-t border-line pt-4">
-      <h3 className="text-[11px] font-medium text-ink-muted">
+      <h3 className="text-[11px] font-medium text-ink-tertiary">
         {t("memory.tech.title")}
       </h3>
       <dl className="mt-2 space-y-1">
         {rows.map((row) => (
           <div key={row.label} className="flex gap-3 text-xs leading-5">
-            <dt className="w-14 shrink-0 text-ink-muted">{row.label}</dt>
+            <dt className="w-14 shrink-0 text-ink-tertiary">{row.label}</dt>
             <dd
               className={`min-w-0 flex-1 break-all text-ink-tertiary ${
                 row.mono ? "font-mono" : ""

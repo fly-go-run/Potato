@@ -73,12 +73,20 @@ select,
      Tab 不可达,焦点环只会在开屏时闪现误导 */
   [tabindex]:not([tabindex="-1"])
 ):focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--tint);
   outline-offset: 2px;
 }
-/* 鼠标点击不触发 outline（只在键盘 focus-visible 时出现），
- * 但保留元素自身的 :focus 样式空间。 */
-:where(button, a, [role="switch"], [role="tab"]):focus:not(:focus-visible) {
+/* 鼠标点击不得残留 focus 环：:focus 与 :focus-visible 选择器对齐，
+ * 点击只走 :focus，outline 必须清掉。 */
+:where(
+  button,
+  a,
+  select,
+  [role="switch"],
+  [role="tab"],
+  [role="menuitem"],
+  [tabindex]:not([tabindex="-1"])
+):focus:not(:focus-visible) {
   outline: none;
 }
 

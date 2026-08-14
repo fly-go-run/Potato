@@ -58,7 +58,7 @@ export function ToolDisclosure({
         >
           <ChevronRight
             size={12}
-            className={`shrink-0 text-ink-muted transition-transform duration-[var(--dur-fast)] ${
+            className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
               open ? "rotate-90" : ""
             }`}
           />

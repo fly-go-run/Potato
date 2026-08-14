@@ -92,19 +92,19 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
   const detail = (
     <div className="space-y-3">
       <section>
-        <div className="mb-1 text-xs font-medium text-ink-muted">
+        <div className="mb-1 text-xs font-medium text-ink-tertiary">
           {t("tool.parameters")}
         </div>
         <JsonView value={pair.arguments || {}} />
       </section>
       <section>
-        <div className="mb-1 text-xs font-medium text-ink-muted">
+        <div className="mb-1 text-xs font-medium text-ink-tertiary">
           {t("tool.result")}
         </div>
         {pair.result ? (
           <JsonView value={richOutputText(pair.result)} />
         ) : (
-          <div className="text-xs text-ink-muted">
+          <div className="text-xs text-ink-tertiary">
             {running ? t("tool.running") : t("tool.noResult")}
           </div>
         )}
@@ -123,13 +123,13 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
       )}
       <span
         className={`min-w-0 shrink-0 truncate font-medium ${
-          running ? "text-ink" : failed ? "text-danger" : "text-ink-tertiary"
+          running ? "text-ink" : failed ? "text-danger" : "text-ink-secondary"
         }`}
       >
         {label}
       </span>
       {summary && (
-        <span className="min-w-0 flex-1 truncate text-ink-muted">
+        <span className="min-w-0 flex-1 truncate text-ink-tertiary">
           {summary}
         </span>
       )}
@@ -167,7 +167,7 @@ export function ToolStatus({
   quiet?: boolean;
 }) {
   if (!running) return null;
-  return <Spinner size={13} className="shrink-0 text-ink-muted" />;
+  return <Spinner size={13} className="shrink-0 text-ink-tertiary" />;
 }
 
 export function toolData(message: StreamMessage | null) {

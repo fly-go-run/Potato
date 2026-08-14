@@ -387,7 +387,7 @@ function SkillRow({
       >
         <span
           className={`grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool ${
-            skill.enabled ? "text-ink-tertiary" : "text-ink-muted"
+            skill.enabled ? "text-icon" : "text-ink-muted"
           }`}
         >
           {skill.emoji || <Blocks size={18} />}
@@ -420,7 +420,7 @@ function SkillRow({
         <ChevronRight
           size={14}
           aria-hidden
-          className="text-ink-muted transition-colors duration-[var(--dur-fast)] group-hover:text-ink-secondary"
+          className="text-icon transition-colors duration-[var(--dur-fast)] group-hover:text-icon-strong"
         />
       </div>
     </div>
@@ -441,7 +441,7 @@ function PluginRow({
   const source = plugin.installed_from || plugin.source;
   return (
     <div className="flex items-center gap-3.5 px-4 py-3 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-tertiary">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-icon">
         <Puzzle size={18} />
       </span>
       <div className="min-w-0 flex-1">
@@ -460,7 +460,7 @@ function PluginRow({
             </Badge>
           )}
           {toolCount !== null && (
-            <span className="text-[11px] text-ink-muted">
+            <span className="text-[11px] text-ink-tertiary">
               · {t("plugins.tools", { count: toolCount })}
             </span>
           )}
@@ -502,14 +502,14 @@ function SkillDetails({
         <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(29rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             {/* emoji 只在详情里出现；列表行统一线稿，保证整列图标一致。 */}
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base text-ink-tertiary">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base text-icon">
               {skill?.emoji || <Blocks size={18} />}
             </span>
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
                 {skill ? humanSkillName(skill.name) : ""}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-ink-muted">
+              <Dialog.Description className="mt-0.5 text-xs text-ink-tertiary">
                 {t("skills.detailsDescription")}
               </Dialog.Description>
             </div>
@@ -528,7 +528,7 @@ function SkillDetails({
                 {busy && (
                   <LoaderCircle
                     size={14}
-                    className="animate-spin text-ink-muted"
+                    className="animate-spin text-ink-tertiary"
                   />
                 )}
                 <Switch
@@ -579,7 +579,7 @@ function SkillDetails({
                     ))}
                   </div>
                 ) : (
-                  <span className="text-sm text-ink-muted">
+                  <span className="text-sm text-ink-tertiary">
                     {t("skills.noTags")}
                   </span>
                 )}
@@ -864,7 +864,7 @@ function AddCapabilityDialog({
                   ? t("skills.add.title")
                   : t("plugins.add.title")}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-ink-muted">
+              <Dialog.Description className="mt-0.5 text-xs text-ink-tertiary">
                 {mode === "skills"
                   ? t("skills.add.description")
                   : t("plugins.add.description")}
@@ -896,7 +896,7 @@ function AddCapabilityDialog({
                   <h3 className="text-sm font-medium text-ink">
                     {t("skills.import.workspace")}
                   </h3>
-                  <p className="mt-1 text-xs leading-5 text-ink-muted">
+                  <p className="mt-1 text-xs leading-5 text-ink-tertiary">
                     {t("skills.import.workspaceHint")}
                   </p>
                   <p className="mt-3 text-xs text-ink-secondary">
@@ -1021,7 +1021,7 @@ function AddCapabilityDialog({
                     </div>
                   )}
                 {hubResults.length === 0 ? (
-                  <p className="py-12 text-center text-sm text-ink-muted">
+                  <p className="py-12 text-center text-sm text-ink-tertiary">
                     {t("skills.add.hubHint")}
                   </p>
                 ) : (
@@ -1147,7 +1147,7 @@ function CapabilitySourceList({
   const { t } = useTranslation();
   if (items.length === 0) {
     return (
-      <p className="py-12 text-center text-sm text-ink-muted">
+      <p className="py-12 text-center text-sm text-ink-tertiary">
         {t("skills.add.none")}
       </p>
     );
@@ -1156,7 +1156,7 @@ function CapabilitySourceList({
     <Card className="divide-y divide-line overflow-hidden rounded-[var(--radius-md)]">
       {items.map((item) => (
         <div key={item.key} className="flex items-center gap-3 px-4 py-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-tertiary">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-icon">
             {item.emoji || icon}
           </span>
           <div className="min-w-0 flex-1">
@@ -1220,7 +1220,7 @@ function ZipUpload({
       <span className="mt-3 text-sm font-medium text-ink">
         {busy ? t("skills.add.uploading") : t("skills.add.chooseZip")}
       </span>
-      <span className="mt-1 text-xs text-ink-muted">
+      <span className="mt-1 text-xs text-ink-tertiary">
         {t("skills.add.zipHint")}
       </span>
       <input
@@ -1250,7 +1250,7 @@ function SearchField({
     <label className="relative block w-full max-w-xs">
       <Search
         size={15}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon"
       />
       <Input
         value={value}
@@ -1271,7 +1271,7 @@ function Detail({
 }) {
   return (
     <section>
-      <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+      <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-tertiary">
         {label}
       </h3>
       {children}

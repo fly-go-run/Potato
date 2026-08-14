@@ -48,7 +48,7 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
             : JSON.stringify(output, null, 2)}
         </pre>
       ) : (
-        <span className="text-ink-muted">
+        <span className="text-ink-tertiary">
           {running ? t("tool.waitingOutput") : t("tool.noOutput")}
         </span>
       )}
@@ -65,12 +65,12 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
             ? "text-danger"
             : running
             ? "text-ink-secondary"
-            : "text-ink-muted"
+            : "text-icon"
         }`}
       />
       <code
         className={`min-w-0 flex-1 truncate font-mono ${
-          failed ? "text-danger" : running ? "text-ink" : "text-ink-tertiary"
+          failed ? "text-danger" : running ? "text-ink" : "text-ink-secondary"
         }`}
       >
         {command || t("tool.shell")}
@@ -80,7 +80,7 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
   // 行尾槽只在运行中占 13px 的 Spinner。完成态零落墨——成功是预期,
   // 失败由整行 danger 色承担,不靠行尾图标。
   const after = running ? (
-    <Spinner size={13} className="text-ink-muted" />
+    <Spinner size={13} className="text-ink-tertiary" />
   ) : null;
 
   return (

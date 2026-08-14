@@ -8,10 +8,12 @@
  *  - 四级表面：canvas（内容画布）/ bg（侧栏、外围）/ surface（卡片、composer）/
  *    raised（弹层）。浅色下 canvas 微灰、surface 纯白 → 白卡浮在画布上；
  *    深色下 canvas 最暗、侧栏与卡片抬升（对标 WB 深色的 elevation 反转）。
- *  - 颜色极度克制：所有界面 chrome 都使用中性灰；彩色只留给
- *    成功 / 警告 / 错误等真正有语义的状态，不作品牌装饰。
+ *  - 颜色极度克制：界面 chrome 使用中性灰；成功 / 警告 / 错误仍是唯一的
+ *    语义彩。C2-lite 另开独立 --tint，只接三处状态信号：侧栏选中字/标、
+ *    :focus-visible ring、Switch 开启态。第四消费点必须重新决议。
  *  - 阴影双层（近景锐 + 远景柔）才有真实高度感；深色叠高光描边补纵深。
  *  - 排版四级：display / title / body / caption，字重与色阶共同分层。
+ *    安静靠版式与尺寸，不靠把内容本体压进 muted。
  * ============================================================ */
 
 :root {
@@ -27,8 +29,12 @@
   /* -- 文本四级：主 / 次 / 三 / 弱 -- */
   --ink: #202020;            /* 主文本、标题 */
   --ink-secondary: #505050;  /* 次级文本、正文补充 */
-  --ink-tertiary: #747474;   /* 三级：元信息、时间戳、设置说明 */
-  --ink-muted: #9b9b9b;      /* 弱化：占位符、禁用 */
+  --ink-tertiary: #6d6d6d;   /* 三级：元信息、时间戳、说明；行内 chrome */
+  --ink-muted: #8f8f8f;      /* 弱化：仅占位符、禁用、装饰 */
+
+  /* -- 图标两档：--icon 只给导航/工具栏；chevron/spinner/disclosure 走 tertiary -- */
+  --icon: #505050;           /* 常态导航 / 工具栏图标 = ink-secondary 档 */
+  --icon-strong: #202020;    /* 选中 / 强调图标 = ink 档 */
 
   /* -- 描边与分隔 -- */
   --line: #ececea;           /* 分隔线 / 常规描边 */
@@ -39,11 +45,13 @@
   --fill-hover: #eeeeec;     /* hover 底 */
   --fill-active: #e6e6e4;    /* 按下 / 选中底 */
 
-  /* -- 中性强调：避免焦点框、未读徽标和选中态跳出蓝色 -- */
+  /* -- 中性强调：装饰 chrome 仍走灰；彩色状态走 --tint，不改 accent -- */
   --accent: #4a4a4a;
   --accent-hover: #242424;
   --accent-soft: #ededed;
-  --ring: rgba(23, 23, 23, 0.24);
+  /* C2-lite tint：基准 #3b6ef0。只允许 3 个消费点，见文件头。 */
+  --tint: #3b6ef0;
+  --ring: rgba(59, 110, 240, 0.38);
 
   /* -- 主按钮（中性近黑，Codex 风格；accent 不再背负「主操作」） -- */
   --btn-primary: #1c1c1c;
@@ -82,6 +90,7 @@
 
   /* -- 过渡时长 -- */
   --dur-fast: 120ms;   /* 交互态（hover/active/color） */
+  --dur-selected: 150ms; /* 选中 pill 切换：比 hover 慢一档，读得出换层 */
   --dur-panel: 160ms;  /* 弹层开合 */
   --dur-struct: 280ms; /* 结构变化(整段折叠/版面重排):比弹层慢一档,读得出"发生了什么" */
 
@@ -108,8 +117,10 @@
 
   --ink: #ececec;
   --ink-secondary: #b0b0b0;
-  --ink-tertiary: #8f8f8f;
-  --ink-muted: #6f6f6f;
+  --ink-tertiary: #969696;
+  --ink-muted: #787878;
+  --icon: #b0b0b0;
+  --icon-strong: #ececec;
 
   --line: #303030;
   --line-strong: #464646;
@@ -121,7 +132,8 @@
   --accent: #c9c9c9;
   --accent-hover: #eeeeee;
   --accent-soft: #343434;
-  --ring: rgba(236, 236, 236, 0.28);
+  --tint: #6b8fe6;
+  --ring: rgba(107, 143, 230, 0.45);
 
   --btn-primary: #ececec;    /* 深色下主按钮为近白 + 深字 */
   --btn-primary-hover: #ffffff;
@@ -158,6 +170,8 @@
   --color-ink-secondary: var(--ink-secondary);
   --color-ink-tertiary: var(--ink-tertiary);
   --color-ink-muted: var(--ink-muted);
+  --color-icon: var(--icon);
+  --color-icon-strong: var(--icon-strong);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-line-highlight: var(--line-highlight);
@@ -166,6 +180,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
+  --color-tint: var(--tint);
   --color-ring: var(--ring);
   --color-btn-primary: var(--btn-primary);
   --color-btn-primary-hover: var(--btn-primary-hover);

@@ -931,7 +931,7 @@ export function SettingsView() {
                       : "text-ink-secondary hover:bg-fill-hover hover:text-ink",
                   )}
                 >
-                  <span className={selected ? "text-ink" : "text-ink-muted"}>
+                  <span className={selected ? "text-ink" : "text-icon"}>
                     {item.icon}
                   </span>
                   {t(SECTION_LABELS[item.id])}
@@ -1232,7 +1232,7 @@ export function SettingsView() {
                           <span className="truncate text-[13px] text-ink">
                             {customTheme.name}
                           </span>
-                          <span className="shrink-0 text-[11px] text-ink-muted">
+                          <span className="shrink-0 text-[11px] text-ink-tertiary">
                             {t(
                               customTheme.base === "dark"
                                 ? "settings.theme.baseDark"
@@ -1562,11 +1562,11 @@ function ProviderListRow({
         </div>
       </div>
       {modelCount > 0 && (
-        <span className="shrink-0 text-xs tabular-nums text-ink-muted">
+        <span className="shrink-0 text-xs tabular-nums text-ink-tertiary">
           {t("settings.provider.modelCount", { count: modelCount })}
         </span>
       )}
-      <ChevronRight size={14} className="shrink-0 text-ink-muted" />
+      <ChevronRight size={14} className="shrink-0 text-ink-tertiary" />
     </button>
   );
 }
@@ -1718,7 +1718,7 @@ function ProviderDetail({
           ) : providerConfigured(provider) ? (
             <Badge tone="ok">{t("settings.provider.configured")}</Badge>
           ) : (
-            <span className="text-xs text-ink-muted">
+            <span className="text-xs text-ink-tertiary">
               {t("settings.provider.notConfigured")}
             </span>
           )}
@@ -1853,7 +1853,7 @@ function ProviderDetail({
             <div className="text-[13px] font-medium text-ink">
               {t("settings.provider.modelsTitle")}
               {models.length > 0 && (
-                <span className="ml-1.5 text-xs font-normal text-ink-muted">
+                <span className="ml-1.5 text-xs font-normal text-ink-tertiary">
                   {models.length}
                 </span>
               )}
@@ -1878,7 +1878,7 @@ function ProviderDetail({
         </div>
         <div className="max-h-72 overflow-y-auto rounded-[var(--radius-sm)] border border-line bg-surface">
           {models.length === 0 ? (
-            <div className="px-3 py-3 text-xs text-ink-muted">
+            <div className="px-3 py-3 text-xs text-ink-tertiary">
               {t("settings.models.noModels")}
             </div>
           ) : (
@@ -1898,7 +1898,7 @@ function ProviderDetail({
                     {item.name || item.id}
                   </div>
                   {item.name && item.name !== item.id && (
-                    <div className="truncate font-mono text-[11px] text-ink-muted">
+                    <div className="truncate font-mono text-[11px] text-ink-tertiary">
                       {item.id}
                     </div>
                   )}
@@ -1909,7 +1909,7 @@ function ProviderDetail({
                   </Badge>
                 )}
                 {builtin ? (
-                  <span className="text-[11px] text-ink-muted">
+                  <span className="text-[11px] text-ink-tertiary">
                     {t("settings.models.builtinBadge")}
                   </span>
                 ) : (

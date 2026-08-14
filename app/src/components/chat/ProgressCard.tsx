@@ -72,7 +72,7 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
         <Spinner size={13} className="text-ink-tertiary" />
         <span className="min-w-0 truncate font-medium text-ink">{title}</span>
       </div>
-      <div className="mt-1 pl-[22px] text-ink-muted">
+      <div className="mt-1 pl-[22px] text-ink-tertiary">
         {status || t("tool.progressWaiting")}
       </div>
     </div>

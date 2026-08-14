@@ -33,7 +33,26 @@ import { shortcutLabel } from "../../lib/shortcuts";
 import { setThemePreference } from "../../lib/theme";
 import { useChatStore } from "../../stores/chat";
 import { useUiStore } from "../../stores/ui";
+import { cn } from "../../lib/cn";
 import { Button, ConfirmDialog, IconButton, Input, SkeletonRows } from "../ui";
+
+const NAV_TRANSITION =
+  "transition-[background-color,color,border-color,box-shadow] duration-[150ms] ease-out";
+
+function navItemClass(active: boolean, extra?: string) {
+  return cn(
+    "flex items-center gap-2.5 rounded-[var(--radius-sm)] border px-3 py-2 text-sm leading-5",
+    NAV_TRANSITION,
+    active
+      ? "border-line bg-surface text-tint shadow-[var(--shadow-control)] hover:border-line-strong active:bg-fill-hover dark:border-line-highlight dark:bg-raised dark:shadow-none dark:hover:border-line-strong"
+      : "border-transparent text-ink hover:bg-fill-hover active:bg-fill-active",
+    extra,
+  );
+}
+
+function navIconClass(active: boolean) {
+  return cn("shrink-0", active ? "text-tint" : "text-icon");
+}
 
 export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const { t } = useTranslation();
@@ -92,9 +111,9 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   };
 
   return (
-    // 深色下侧栏（bg）比画布（canvas）更亮，抬升本身已经分层，
-    // 再加一条比两者都亮的描边会变成刺眼的接缝 → 深色去掉右边框。
-    <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line bg-bg dark:border-r-transparent">
+    // 浅色 #f5f5f4 贴画布 #fbfbfb 仍糊，接缝用 line-strong。
+    // 深色靠抬升分层，描边改 line-highlight，避免一条更亮的硬缝。
+    <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line-strong bg-bg dark:border-line-highlight">
       {/* macOS overlay 标题栏：两个常用入口与红绿灯同排；按钮之外的
           空白仍是原生拖拽区。Web 端保持普通页面内工具栏的位置。 */}
       <div
@@ -134,28 +153,25 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <button
           type="button"
           onClick={startNewChat}
-          className={`flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm leading-5 text-ink transition-colors duration-[var(--dur-fast)] ${
-            location.pathname === "/" ? "bg-fill-active" : "hover:bg-fill-hover"
-          }`}
+          className={navItemClass(location.pathname === "/", "w-full text-left")}
         >
-          <PenSquare size={16} className="text-ink-muted" />
+          <PenSquare
+            size={16}
+            strokeWidth={1.75}
+            className={navIconClass(location.pathname === "/")}
+          />
           <span className="flex-1">{t("sidebar.newChat")}</span>
         </button>
         <NavLink
           to="/crons"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
+          className={({ isActive }) => navItemClass(isActive, "mt-0.5")}
         >
           {({ isActive }) => (
             <>
               <Clock3
                 size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+                strokeWidth={1.75}
+                className={navIconClass(isActive)}
               />
               <span className="flex-1">{t("sidebar.crons")}</span>
             </>
@@ -163,19 +179,14 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         </NavLink>
         <NavLink
           to="/skills"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
+          className={({ isActive }) => navItemClass(isActive, "mt-0.5")}
         >
           {({ isActive }) => (
             <>
               <Blocks
                 size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+                strokeWidth={1.75}
+                className={navIconClass(isActive)}
               />
               <span className="flex-1">{t("sidebar.skills")}</span>
             </>
@@ -183,19 +194,14 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         </NavLink>
         <NavLink
           to="/memory"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
+          className={({ isActive }) => navItemClass(isActive, "mt-0.5")}
         >
           {({ isActive }) => (
             <>
               <NotebookPen
                 size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+                strokeWidth={1.75}
+                className={navIconClass(isActive)}
               />
               <span className="flex-1">{t("sidebar.memory")}</span>
             </>
@@ -204,9 +210,9 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <button
           type="button"
           onClick={onSearch}
-          className="mt-0.5 flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm leading-5 text-ink transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
+          className={navItemClass(false, "mt-0.5 w-full text-left")}
         >
-          <Search size={16} className="text-ink-muted" />
+          <Search size={16} strokeWidth={1.75} className={navIconClass(false)} />
           <span className="flex-1">{t("sidebar.searchChats")}</span>
         </button>
       </div>
@@ -224,7 +230,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                   ? t("sidebar.collapseGroup")
                   : t("sidebar.expandGroup")
               }
-              className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors hover:text-ink-secondary"
+              className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink-secondary transition-colors hover:text-ink"
             >
               <span className="truncate">
                 {t("sidebar.projectsGroup", {
@@ -233,7 +239,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
               </span>
               <ChevronDown
                 size={13}
-                className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+                className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
                   projectsExpanded ? "" : "-rotate-90"
                 }`}
               />
@@ -258,17 +264,18 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                       >
                         <FolderClosed
                           size={14}
-                          className="shrink-0 text-ink-muted"
+                          strokeWidth={1.8}
+                          className="shrink-0 text-icon"
                         />
                         <span className="min-w-0 flex-1 truncate">
                           {project.name}
                         </span>
-                        <span className="text-[10px] tabular-nums text-ink-muted">
+                        <span className="text-[10px] tabular-nums text-ink-tertiary">
                           {project.chats.length}
                         </span>
                         <ChevronDown
                           size={12}
-                          className={`shrink-0 text-ink-muted transition-transform ${
+                          className={`shrink-0 text-ink-tertiary transition-transform ${
                             open ? "" : "-rotate-90"
                           }`}
                         />
@@ -303,14 +310,14 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 ? t("sidebar.collapseGroup")
                 : t("sidebar.expandGroup")
             }
-            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink-secondary"
+            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:text-ink"
           >
             <span className="truncate">
               {t("sidebar.chatsGroup", { count: groupedChats.unbound.length })}
             </span>
             <ChevronDown
               size={13}
-              className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+              className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
                 chatsExpanded ? "" : "-rotate-90"
               }`}
             />
@@ -321,7 +328,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 <SkeletonRows rows={4} />
               </div>
             ) : groupedChats.unbound.length === 0 ? (
-              <div className="px-3 py-2 text-[13px] leading-5 text-ink-muted">
+              <div className="px-3 py-2 text-[13px] leading-5 text-ink-tertiary">
                 {groupedChats.workspaces.length === 0
                   ? t("sidebar.empty")
                   : t("sidebar.unboundEmpty")}
@@ -358,14 +365,16 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           title={t("sidebar.settings")}
           aria-label={t("sidebar.settings")}
           className={({ isActive }) =>
-            `inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-[var(--dur-fast)] ${
+            cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+              NAV_TRANSITION,
               isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink-muted hover:bg-fill-hover hover:text-ink"
-            }`
+                ? "border-line bg-surface text-tint shadow-[var(--shadow-control)] hover:border-line-strong dark:border-line-highlight dark:bg-raised dark:shadow-none"
+                : "border-transparent text-icon hover:bg-fill-hover hover:text-icon-strong",
+            )
           }
         >
-          <Settings size={16} />
+          <Settings size={16} strokeWidth={1.75} />
         </NavLink>
       </div>
     </aside>
@@ -522,19 +531,28 @@ function ChatRow({
       <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
         <div
           onContextMenu={openContextMenu}
-          className={`group relative flex items-center rounded-md transition-colors duration-[var(--dur-fast)] ${
-            active ? "bg-fill-active" : "hover:bg-fill-hover"
-          }`}
+          className={cn(
+            "group relative flex items-center rounded-md border",
+            NAV_TRANSITION,
+            active
+              ? "border-line bg-surface shadow-[var(--shadow-control)] hover:border-line-strong active:bg-fill-hover dark:border-line-highlight dark:bg-raised dark:shadow-none dark:hover:border-line-strong"
+              : "border-transparent hover:bg-fill-hover active:bg-fill-active",
+          )}
         >
           <button
             type="button"
             onClick={() => navigate(`/chat/${chat.id}`)}
-            className={`flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-sm leading-5 ${
-              nested ? "pl-2" : "pl-3"
-            } ${active ? "text-ink" : "text-ink-secondary"}`}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-[13px] font-medium leading-5",
+              nested ? "pl-2" : "pl-3",
+              active ? "text-tint" : "text-ink",
+            )}
           >
             {chat.pinned && (
-              <Pin size={12} className={`shrink-0 text-ink-muted`} />
+              <Pin
+                size={12}
+                className={cn("shrink-0", active ? "text-tint" : "text-icon")}
+              />
             )}
             <span className="min-w-0 flex-1 truncate">
               {chat.name || t("sidebar.untitled")}
@@ -546,7 +564,7 @@ function ChatRow({
         */}
           <span
             aria-hidden={menuOpen ? true : undefined}
-            className={`pointer-events-none min-w-9 shrink-0 pr-2.5 text-right text-[11px] tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
+            className={`pointer-events-none min-w-9 shrink-0 pr-2.5 text-right text-[11px] font-normal tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
               menuOpen ? "opacity-0" : "group-hover:opacity-0"
             }`}
           >

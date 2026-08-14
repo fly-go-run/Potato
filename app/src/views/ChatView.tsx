@@ -217,10 +217,10 @@ function CapabilityChips({ wide = false }: { wide?: boolean }) {
               setSelectedSuggestion(key);
               setComposerDraft(t(prompt));
             }}
-            className={`group flex h-9 items-center gap-1.5 rounded-full border border-transparent px-4 text-[13px] leading-5 shadow-[var(--shadow-control)] transition-[background-color,color,box-shadow,opacity] duration-[var(--dur-fast)] disabled:pointer-events-none disabled:opacity-40 ${
+            className={`group flex h-9 items-center gap-1.5 rounded-full border px-4 text-[13px] leading-5 shadow-[var(--shadow-control)] transition-[background-color,color,box-shadow,opacity] duration-[var(--dur-fast)] disabled:pointer-events-none disabled:opacity-40 ${
               selectedSuggestion === key
-                ? "bg-fill-active text-ink"
-                : "bg-surface text-ink-secondary hover:bg-fill-hover hover:text-ink active:bg-fill-active"
+                ? "border-line bg-fill-hover text-ink dark:border-line-highlight"
+                : "border-line bg-surface text-ink-secondary hover:bg-fill-hover hover:text-ink active:bg-fill-active dark:border-line-highlight dark:shadow-none"
             }`}
           >
             <Icon
@@ -228,7 +228,7 @@ function CapabilityChips({ wide = false }: { wide?: boolean }) {
               className={`shrink-0 transition-colors duration-[var(--dur-fast)] ${
                 selectedSuggestion === key
                   ? "text-ink-secondary"
-                  : "text-ink-tertiary group-hover:text-ink-secondary"
+                  : "text-icon group-hover:text-icon-strong"
               }`}
             />
             {t(key)}
@@ -710,8 +710,8 @@ export function ChatView() {
                 aria-expanded={searchOpen}
                 className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   searchOpen
-                    ? "bg-fill-active text-ink"
-                    : "text-ink-muted hover:bg-fill-hover hover:text-ink"
+                    ? "bg-fill-active text-icon-strong"
+                    : "text-icon hover:bg-fill-hover hover:text-icon-strong"
                 }`}
               >
                 <Search size={15} />
@@ -726,8 +726,8 @@ export function ChatView() {
                 aria-expanded={sidePanelOpen}
                 className={`relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   sidePanelOpen
-                    ? "bg-fill-active text-ink"
-                    : "text-ink-muted hover:bg-fill-hover hover:text-ink"
+                    ? "bg-fill-active text-icon-strong"
+                    : "text-icon hover:bg-fill-hover hover:text-icon-strong"
                 }`}
               >
                 <PanelRightOpen size={15} />
@@ -744,7 +744,7 @@ export function ChatView() {
           {searchOpen && (
             <div className="absolute right-3 top-12 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
               <div className="flex h-11 items-center gap-2 border-b border-line px-3">
-                <Search size={14} className="shrink-0 text-ink-muted" />
+                <Search size={14} className="shrink-0 text-icon" />
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
@@ -755,7 +755,7 @@ export function ChatView() {
                   className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
                 />
                 {searchQuery && (
-                  <span className="shrink-0 text-[11px] tabular-nums text-ink-muted">
+                  <span className="shrink-0 text-[11px] tabular-nums text-ink-tertiary">
                     {t("chat.search.count", { count: searchMatches.length })}
                   </span>
                 )}
@@ -764,18 +764,18 @@ export function ChatView() {
                   onClick={() => setSearchOpen(false)}
                   title={t("chat.search.close")}
                   aria-label={t("chat.search.close")}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
                 >
                   <X size={14} />
                 </button>
               </div>
               <div className="max-h-64 overflow-y-auto p-1.5">
                 {!searchQuery.trim() ? (
-                  <div className="px-3 py-5 text-center text-xs text-ink-muted">
+                  <div className="px-3 py-5 text-center text-xs text-ink-tertiary">
                     {t("chat.search.hint")}
                   </div>
                 ) : searchMatches.length === 0 ? (
-                  <div className="px-3 py-5 text-center text-xs text-ink-muted">
+                  <div className="px-3 py-5 text-center text-xs text-ink-tertiary">
                     {t("chat.search.empty")}
                   </div>
                 ) : (
@@ -790,7 +790,7 @@ export function ChatView() {
                           : "hover:bg-fill-hover"
                       }`}
                     >
-                      <span className="block text-[11px] text-ink-muted">
+                      <span className="block text-[11px] text-ink-tertiary">
                         {match.role === "user"
                           ? t("chat.search.you")
                           : t("chat.search.assistant")}

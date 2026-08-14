@@ -216,11 +216,11 @@ export function ModelPicker() {
               : model?.model || t("composer.noModel")}
           </span>
           {activeEffortLabel ? (
-            <span className="shrink-0 text-[13px] text-ink-muted">
+            <span className="shrink-0 text-[13px] text-ink-tertiary">
               {activeEffortLabel}
             </span>
           ) : null}
-          <ChevronDown size={14} className="shrink-0 text-ink-muted" />
+          <ChevronDown size={14} className="shrink-0 text-ink-tertiary" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -233,7 +233,7 @@ export function ModelPicker() {
           <DropdownMenu.Sub>
             <DropdownMenu.SubTrigger className={TOP_ROW_CLASS}>
               <span>{t("composer.menu.model")}</span>
-              <span className="flex min-w-0 items-center gap-1 text-ink-muted">
+              <span className="flex min-w-0 items-center gap-1 text-ink-tertiary">
                 <span className="max-w-36 truncate">
                   {modelLoading
                     ? t("composer.loadingModel")
@@ -249,12 +249,12 @@ export function ModelPicker() {
                 className={`${MENU_PANEL_CLASS} max-h-96 min-w-56 overflow-y-auto`}
               >
                 {listLoading && providers === null ? (
-                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-ink-muted">
+                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-ink-tertiary">
                     <LoaderCircle size={14} className="animate-spin" />
                     {t("composer.modelListLoading")}
                   </div>
                 ) : !providers || providers.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-ink-muted">
+                  <div className="px-3 py-2 text-sm text-ink-tertiary">
                     {t("composer.modelListEmpty")}
                   </div>
                 ) : (
@@ -266,7 +266,7 @@ export function ModelPicker() {
                     if (models.length === 0) return null;
                     return (
                       <DropdownMenu.Group key={provider.id}>
-                        <DropdownMenu.Label className="px-3 pb-1 pt-2 text-xs text-ink-muted">
+                        <DropdownMenu.Label className="px-3 pb-1 pt-2 text-xs text-ink-tertiary">
                           {provider.name || provider.id}
                         </DropdownMenu.Label>
                         {models.map((item) => {
@@ -290,7 +290,7 @@ export function ModelPicker() {
                               {switching === key ? (
                                 <LoaderCircle
                                   size={14}
-                                  className="shrink-0 animate-spin text-ink-muted"
+                                  className="shrink-0 animate-spin text-ink-tertiary"
                                 />
                               ) : active ? (
                                 <Check
@@ -314,7 +314,7 @@ export function ModelPicker() {
             <DropdownMenu.Sub>
               <DropdownMenu.SubTrigger className={TOP_ROW_CLASS}>
                 <span>{t("composer.effort.title")}</span>
-                <span className="flex items-center gap-1 text-ink-muted">
+                <span className="flex items-center gap-1 text-ink-tertiary">
                   <span>{effortText(activeEffort)}</span>
                   <ChevronRight size={14} className="shrink-0" />
                 </span>
@@ -325,7 +325,7 @@ export function ModelPicker() {
                   alignOffset={-4}
                   className={`${MENU_PANEL_CLASS} min-w-44`}
                 >
-                  <DropdownMenu.Label className="px-3 pb-1 pt-1.5 text-xs text-ink-muted">
+                  <DropdownMenu.Label className="px-3 pb-1 pt-1.5 text-xs text-ink-tertiary">
                     {t("composer.effort.title")}
                   </DropdownMenu.Label>
                   {activeEffortOptions.map((option) => {
@@ -344,7 +344,7 @@ export function ModelPicker() {
                         {effortSaving === option ? (
                           <LoaderCircle
                             size={14}
-                            className="shrink-0 animate-spin text-ink-muted"
+                            className="shrink-0 animate-spin text-ink-tertiary"
                           />
                         ) : selected ? (
                           <Check size={15} className="shrink-0 text-ink" />
@@ -373,10 +373,10 @@ export function ModelPicker() {
                 {effortSaving === "__default__" ? (
                   <LoaderCircle
                     size={13}
-                    className="shrink-0 animate-spin text-ink-muted"
+                    className="shrink-0 animate-spin text-ink-tertiary"
                   />
                 ) : (
-                  <RotateCcw size={14} className="shrink-0 text-ink-muted" />
+                  <RotateCcw size={14} className="shrink-0 text-icon" />
                 )}
               </DropdownMenu.Item>
             </>

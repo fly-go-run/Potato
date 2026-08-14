@@ -450,7 +450,7 @@ function FileChangesCard({
           type="button"
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
-          className="flex w-full items-center gap-1 border-t border-line px-3.5 py-2 text-left text-[12px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+          className="flex w-full items-center gap-1 border-t border-line px-3.5 py-2 text-left text-[12px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
         >
           {expanded
             ? t("chat.changes.showLess")
@@ -626,7 +626,7 @@ function TurnFlow({
               type="button"
               onClick={() => setManualOpen(!headerOpen)}
               aria-expanded={headerOpen}
-              className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
             >
               {summaryContent}
             </button>
@@ -645,7 +645,7 @@ function TurnFlow({
                 aria-pressed={!detailedTools}
                 className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
                   detailedTools
-                    ? "text-ink-muted hover:text-ink-secondary"
+                    ? "text-ink-secondary hover:text-ink"
                     : "bg-fill-hover text-ink-secondary"
                 }`}
               >
@@ -658,7 +658,7 @@ function TurnFlow({
                 className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
                   detailedTools
                     ? "bg-fill-hover text-ink-secondary"
-                    : "text-ink-muted hover:text-ink-secondary"
+                    : "text-ink-secondary hover:text-ink"
                 }`}
               >
                 {t("chat.density.detailed")}
@@ -856,7 +856,7 @@ function ActionButton({
       disabled={disabled}
       title={label}
       aria-label={label}
-      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary disabled:pointer-events-none disabled:opacity-40"
+      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-icon transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-icon-strong disabled:pointer-events-none disabled:opacity-40"
     >
       {children}
     </button>

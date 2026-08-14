@@ -76,7 +76,7 @@ export function TriggerPopover({
         </div>
       )}
       {!loading && !errorText && items.length === 0 && (
-        <div className="px-3.5 pb-3 pt-1 text-[13px] text-ink-muted">
+        <div className="px-3.5 pb-3 pt-1 text-[13px] text-ink-tertiary">
           {kind === "slash"
             ? t("composer.trigger.noSkills")
             : t("composer.trigger.noFiles")}
@@ -111,7 +111,7 @@ export function TriggerPopover({
               ) : (
                 <Icon
                   size={13}
-                  className="relative top-px shrink-0 self-center text-ink-tertiary"
+                  className="relative top-px shrink-0 self-center text-icon"
                 />
               )}
               <span className="shrink-0 text-[13px] font-medium text-ink">

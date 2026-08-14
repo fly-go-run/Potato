@@ -157,20 +157,20 @@ export function ConversationSidePanel({
               </div>
               <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3 text-xs">
                 <div>
-                  <dt className="text-ink-muted">{t("chat.panel.messages")}</dt>
+                  <dt className="text-ink-tertiary">{t("chat.panel.messages")}</dt>
                   <dd className="mt-1 tabular-nums text-ink-secondary">
                     {messages.length}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-ink-muted">{t("chat.panel.steps")}</dt>
+                  <dt className="text-ink-tertiary">{t("chat.panel.steps")}</dt>
                   <dd className="mt-1 tabular-nums text-ink-secondary">
                     {completedSteps}
                   </dd>
                 </div>
                 {activeLlm && (
                   <div className="col-span-2 min-w-0">
-                    <dt className="text-ink-muted">{t("chat.panel.model")}</dt>
+                    <dt className="text-ink-tertiary">{t("chat.panel.model")}</dt>
                     <dd
                       className="mt-1 truncate text-ink-secondary"
                       title={`${activeLlm.provider_id} / ${activeLlm.model}`}
@@ -191,7 +191,7 @@ export function ConversationSidePanel({
                 <button
                   type="button"
                   onClick={() => setTab("changes")}
-                  className="text-xs text-ink-tertiary hover:text-ink"
+                  className="text-xs text-ink-secondary hover:text-ink"
                 >
                   {t("chat.panel.viewAll")}
                 </button>
@@ -212,7 +212,7 @@ export function ConversationSidePanel({
                 <button
                   type="button"
                   onClick={() => setTab("artifacts")}
-                  className="text-xs text-ink-tertiary hover:text-ink"
+                  className="text-xs text-ink-secondary hover:text-ink"
                 >
                   {t("chat.panel.viewAll")}
                 </button>
@@ -235,7 +235,7 @@ export function ConversationSidePanel({
               <div className="mt-2 text-[13px] text-ink-secondary">
                 {t("chat.panel.noArtifacts")}
               </div>
-              <div className="mt-1 text-xs leading-5 text-ink-muted">
+              <div className="mt-1 text-xs leading-5 text-ink-tertiary">
                 {t("chat.panel.noArtifactsHint")}
               </div>
             </div>
@@ -263,7 +263,7 @@ export function ConversationSidePanel({
                         <span className="block truncate text-[13px] font-medium text-ink">
                           {artifact.name}
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+                        <span className="mt-0.5 block truncate text-[11px] text-ink-tertiary">
                           {directoryOf(artifact.path)}
                         </span>
                       </button>
@@ -276,7 +276,7 @@ export function ConversationSidePanel({
                         onClick={(event) =>
                           handleSystemOpenClick(event, artifact.path)
                         }
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
                       >
                         <ArrowUpRight size={14} />
                       </a>
@@ -284,7 +284,7 @@ export function ConversationSidePanel({
                     <button
                       type="button"
                       onClick={() => onLocate(artifact.sourceMessageId)}
-                      className="mt-2 flex items-center gap-1 text-[11px] text-ink-tertiary hover:text-ink"
+                      className="mt-2 flex items-center gap-1 text-[11px] text-ink-secondary hover:text-ink"
                     >
                       {t("chat.panel.locate")}
                       <ChevronRight size={11} />
@@ -318,7 +318,7 @@ function FilePreviewPanel({
             onClick={onBack}
             title={t("chat.panel.back")}
             aria-label={t("chat.panel.back")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted transition-colors hover:bg-fill-hover hover:text-ink"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-tertiary transition-colors hover:bg-fill-hover hover:text-ink"
           >
             <ChevronRight size={15} className="rotate-180" />
           </button>
@@ -328,7 +328,7 @@ function FilePreviewPanel({
           <span className="block truncate text-[13px] font-medium text-ink">
             {filename}
           </span>
-          <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+          <span className="mt-0.5 block truncate text-[11px] text-ink-tertiary">
             {directoryOf(path)}
           </span>
         </span>
@@ -339,7 +339,7 @@ function FilePreviewPanel({
               onClick={() => void revealLocalPathInFileManager(path)}
               title={t("chat.preview.reveal")}
               aria-label={t("chat.preview.reveal")}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
             >
               <FolderOpen size={14} />
             </button>
@@ -348,7 +348,7 @@ function FilePreviewPanel({
               onClick={() => void openLocalPathWithSystem(path)}
               title={t("chat.preview.openSystem")}
               aria-label={t("chat.preview.openSystem")}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
             >
               <ArrowUpRight size={14} />
             </button>
@@ -360,7 +360,7 @@ function FilePreviewPanel({
             rel="noreferrer"
             title={t("tool.file.open")}
             aria-label={t("tool.file.open")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
           >
             <ArrowUpRight size={14} />
           </a>
@@ -504,7 +504,7 @@ function TextFilePreview({
 
   if (state.phase === "loading") {
     return (
-      <div className="flex items-center gap-2 px-4 py-3 text-xs text-ink-muted">
+      <div className="flex items-center gap-2 px-4 py-3 text-xs text-ink-tertiary">
         <LoaderCircle size={13} className="animate-spin" />
         {t("chat.preview.loading")}
       </div>
@@ -587,7 +587,7 @@ function CodeFileView({ text, language }: { text: string; language?: string }) {
         ))}
       </div>
       {truncated > 0 && (
-        <div className="border-t border-line px-4 py-1.5 text-[11px] text-ink-muted">
+        <div className="border-t border-line px-4 py-1.5 text-[11px] text-ink-tertiary">
           {t("chat.diff.truncated", { count: truncated })}
         </div>
       )}
@@ -612,7 +612,7 @@ function ChangesList({
         <div className="mt-2 text-[13px] text-ink-secondary">
           {t("chat.panel.noChanges")}
         </div>
-        <div className="mt-1 text-xs leading-5 text-ink-muted">
+        <div className="mt-1 text-xs leading-5 text-ink-tertiary">
           {t("chat.panel.noChangesHint")}
         </div>
       </div>
@@ -635,7 +635,7 @@ function ChangesList({
                 {change.name}
               </span>
               {shortDir && (
-                <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+                <span className="mt-0.5 block truncate text-[11px] text-ink-tertiary">
                   {shortDir}
                 </span>
               )}
@@ -786,7 +786,7 @@ function ChangeDiffPanel({
             onClick={onBack}
             title={t("chat.panel.back")}
             aria-label={t("chat.panel.back")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted transition-colors hover:bg-fill-hover hover:text-ink"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-tertiary transition-colors hover:bg-fill-hover hover:text-ink"
           >
             <ChevronRight size={15} className="rotate-180" />
           </button>
@@ -798,7 +798,7 @@ function ChangeDiffPanel({
         >
           {change.name}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">
+        <span className="min-w-0 flex-1 truncate text-[11px] text-ink-tertiary">
           {shortDir}
         </span>
         <ChangeStat additions={headerAdditions} deletions={headerDeletions} />
@@ -827,7 +827,7 @@ function ChangeDiffPanel({
               disabled={undoState === "busy"}
               title={t("chat.diff.undo")}
               aria-label={t("chat.diff.undo")}
-              className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted transition-colors hover:bg-fill-hover hover:text-ink disabled:opacity-50"
+              className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon transition-colors hover:bg-fill-hover hover:text-icon-strong disabled:opacity-50"
             >
               {undoState === "busy" ? (
                 <LoaderCircle size={14} className="animate-spin" />
@@ -842,7 +842,7 @@ function ChangeDiffPanel({
           rel="noreferrer"
           title={t("tool.file.open")}
           aria-label={t("tool.file.open")}
-          className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+          className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
         >
           <ArrowUpRight size={14} />
         </a>
@@ -862,7 +862,7 @@ function ChangeDiffPanel({
           </div>
         ) : null}
         {gitState.phase === "loading" ? (
-          <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-ink-muted">
+          <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-ink-tertiary">
             <LoaderCircle size={13} className="animate-spin" />
             {t("chat.diff.loading")}
           </div>
@@ -919,7 +919,7 @@ function GitDiffView({
 
   return (
     <section className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
-      <div className="flex items-center justify-between border-b border-line px-3 py-1.5 text-[11px] text-ink-muted">
+      <div className="flex items-center justify-between border-b border-line px-3 py-1.5 text-[11px] text-ink-tertiary">
         <span className="flex items-center gap-1.5">
           <GitBranch size={12} />
           {staged ? t("chat.diff.staged") : t("chat.diff.workingTree")} ·{" "}
@@ -981,7 +981,7 @@ function GitDiffView({
         </div>
       </div>
       {truncated > 0 && (
-        <div className="border-t border-line px-3 py-1.5 text-[11px] text-ink-muted">
+        <div className="border-t border-line px-3 py-1.5 text-[11px] text-ink-tertiary">
           {t("chat.diff.truncated", { count: truncated })}
         </div>
       )}
@@ -1026,7 +1026,7 @@ function DiffBlock({ edit, ordinal }: { edit: FileEdit; ordinal: number }) {
   const truncated = lines.length - visible.length;
   return (
     <section className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
-      <div className="flex items-center justify-between border-b border-line px-3 py-1.5 text-[11px] text-ink-muted">
+      <div className="flex items-center justify-between border-b border-line px-3 py-1.5 text-[11px] text-ink-tertiary">
         <span>
           {t(DIFF_TOOL_LABELS[edit.tool])}
           {ordinal > 0 ? ` · ${ordinal}` : ""}
@@ -1069,7 +1069,7 @@ function DiffBlock({ edit, ordinal }: { edit: FileEdit; ordinal: number }) {
         </div>
       </div>
       {truncated > 0 && (
-        <div className="border-t border-line px-3 py-1.5 text-[11px] text-ink-muted">
+        <div className="border-t border-line px-3 py-1.5 text-[11px] text-ink-tertiary">
           {t("chat.diff.truncated", { count: truncated })}
         </div>
       )}
@@ -1119,10 +1119,10 @@ function PanelTab({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[6px] px-2 py-1 text-xs transition-colors ${
+      className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[6px] border px-2 py-1 text-xs transition-[background-color,color,box-shadow,border-color] duration-[150ms] ease-out ${
         active
-          ? "bg-surface text-ink shadow-[var(--shadow-sm)]"
-          : "text-ink-tertiary hover:text-ink"
+          ? "border-line bg-surface text-ink shadow-[var(--shadow-sm)] dark:border-line-highlight dark:shadow-none"
+          : "border-transparent text-ink-secondary hover:text-ink"
       }`}
     >
       <Icon size={13} />

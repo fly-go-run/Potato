@@ -47,7 +47,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             {approval.tool_display_name || approval.tool_name}
           </div>
           {summary && (
-            <div className="mt-0.5 truncate font-mono text-xs text-ink-muted">
+            <div className="mt-0.5 truncate font-mono text-xs text-ink-tertiary">
               {summary}
             </div>
           )}
@@ -66,7 +66,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
           <div className="grid gap-2 text-xs sm:grid-cols-2">
             {approval.exact_target && (
               <div>
-                <div className="text-ink-muted">{t("approval.target")}</div>
+                <div className="text-ink-tertiary">{t("approval.target")}</div>
                 <div className="mt-0.5 break-all font-mono text-ink-secondary">
                   {approval.exact_target}
                 </div>
@@ -74,7 +74,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             )}
             {approval.tool_source && (
               <div>
-                <div className="text-ink-muted">{t("approval.source")}</div>
+                <div className="text-ink-tertiary">{t("approval.source")}</div>
                 <div className="mt-0.5 text-ink-secondary">
                   {approval.tool_source}
                 </div>

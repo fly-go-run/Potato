@@ -25,7 +25,7 @@ export function ReasoningBlock({ message }: { message: StreamMessage }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-xs font-medium text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-xs font-medium text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
       >
         <ChevronRight
           size={12}
@@ -48,7 +48,7 @@ export function ReasoningBlock({ message }: { message: StreamMessage }) {
               <Markdown>{text}</Markdown>
             </Suspense>
           ) : (
-            <span className="text-xs text-ink-muted">
+            <span className="text-xs text-ink-tertiary">
               {t("reasoning.waiting")}
             </span>
           )}

@@ -183,7 +183,7 @@ export function ChatSearchDialog({
             {t("search.description")}
           </Dialog.Description>
           <div className="flex items-center gap-2 border-b border-line px-4">
-            <Search size={16} className="shrink-0 text-ink-muted" />
+            <Search size={16} className="shrink-0 text-icon" />
             <Input
               autoFocus
               value={query}
@@ -200,7 +200,7 @@ export function ChatSearchDialog({
           </div>
           <div className="max-h-80 overflow-y-auto p-2">
             {items.length === 0 ? (
-              <div className="px-3 py-8 text-center text-sm text-ink-muted">
+              <div className="px-3 py-8 text-center text-sm text-ink-tertiary">
                 {t("search.empty")}
               </div>
             ) : (
@@ -208,7 +208,7 @@ export function ChatSearchDialog({
                 if (section.items.length === 0) return null;
                 return (
                   <section key={section.id}>
-                    <h2 className="px-3 pb-1 pt-2 text-[11px] text-ink-muted">
+                    <h2 className="px-3 pb-1 pt-2 text-[11px] text-ink-tertiary">
                       {t(section.title)}
                     </h2>
                     {section.items.map((item) => {
@@ -236,17 +236,17 @@ export function ChatSearchDialog({
                               : "text-ink-secondary hover:bg-fill-hover"
                           }`}
                         >
-                          <Icon size={15} className="shrink-0 text-ink-muted" />
+                          <Icon size={15} className="shrink-0 text-icon" />
                           {item.chat?.pinned && (
                             <Pin
                               size={12}
-                              className="shrink-0 text-ink-muted"
+                              className="shrink-0 text-icon"
                             />
                           )}
                           <span className="min-w-0 flex-1">
                             <span className="block truncate">{item.label}</span>
                             {item.chat && (
-                              <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] font-normal text-ink-muted">
+                              <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] font-normal text-ink-tertiary">
                                 {project && (
                                   <span className="min-w-0 truncate">
                                     {project.name}

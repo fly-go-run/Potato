@@ -302,7 +302,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
           size="sm"
           className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
         >
-          <ShieldCheck size={15} className="text-ink-tertiary" />
+          <ShieldCheck size={15} className="text-icon" />
           {/* 审批档位是安全边界,任何入口都必须显示当前档位 */}
           {approvalLabel}
           <ChevronDown size={13} />
@@ -322,7 +322,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             >
               <span className="min-w-0">
                 <span className="block text-xs text-ink">{item.label}</span>
-                <span className="mt-0.5 block text-[11px] leading-4 text-ink-muted">
+                <span className="mt-0.5 block text-[11px] leading-4 text-ink-tertiary">
                   {item.hint}
                 </span>
               </span>
@@ -743,7 +743,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                     className={`hidden pr-1 text-[11px] sm:inline ${
                       turnUsage.context_usage.context_usage_ratio >= 80
                         ? "text-warn"
-                        : "text-ink-muted"
+                        : "text-ink-tertiary"
                     }`}
                   >
                     {t("chat.contextUsed", {
@@ -853,7 +853,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
               {showContextUsage &&
                 turnUsage?.context_usage?.context_usage_ratio !== undefined && (
-                  <span className="hidden pr-1 text-[11px] text-ink-muted sm:inline">
+                  <span className="hidden pr-1 text-[11px] text-ink-tertiary sm:inline">
                     {t("chat.contextUsed", {
                       // 后端 ratio 已是百分数(context_stats.py 乘过 100)
                       ratio:

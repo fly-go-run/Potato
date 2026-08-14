@@ -116,7 +116,7 @@ function PageLoading({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-full items-center justify-center bg-surface text-sm text-ink-muted">
+    <div className="flex h-full items-center justify-center bg-surface text-sm text-ink-tertiary">
       {t(label)}
     </div>
   );
@@ -125,7 +125,7 @@ function PageLoading({
 function SettingsLoading() {
   const { t } = useTranslation();
   return (
-    <div className="flex h-full items-center justify-center bg-surface text-sm text-ink-muted">
+    <div className="flex h-full items-center justify-center bg-surface text-sm text-ink-tertiary">
       {t("settings.loading")}
     </div>
   );
