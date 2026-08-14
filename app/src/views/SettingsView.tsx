@@ -26,6 +26,7 @@ import {
   IconButton,
   Input,
   SegmentedControl,
+  Select,
   SkeletonRows,
   Switch,
 } from "../components/ui";
@@ -40,12 +41,15 @@ import {
   providerReady,
   settingsApi,
   sttApi,
+  webSearchApi,
   CUSTOM_PROVIDER_PROTOCOLS,
   type ChatModelName,
   type ModelInfo,
   type ProviderInfo,
   type SandboxStatus,
   type TranscriptionProviderType,
+  type WebSearchBackend,
+  type WebSearchSettings,
 } from "../lib/api";
 import {
   pluginApi,
@@ -97,6 +101,47 @@ const SECTION_LABELS: Record<SectionId, TranslationKey> = {
   about: "settings.nav.about",
 };
 
+/**
+ * 缺 key 的后果取决于选了哪档,所以文案不能一概而论:auto 会退回 Tavily,
+ * 显式选服务端搜索则是直接失败(那正是"显式"的意义),而选了 Tavily 时
+ * 有没有 key 根本不相干。
+ */
+function webSearchHint(state: WebSearchSettings | null): TranslationKey {
+  if (!state || state.hosted_configured) {
+    return "settings.webSearch.description";
+  }
+  if (state.web_search_backend === "tavily") {
+    return "settings.webSearch.description";
+  }
+  return state.web_search_backend === "hosted"
+    ? "settings.webSearch.needsKeyStrict"
+    : "settings.webSearch.needsKey";
+}
+
+/** The dropdown is one list; these two are not providers. */
+const WEB_SEARCH_AUTO = "__auto__";
+const WEB_SEARCH_TAVILY = "__tavily__";
+
+/**
+ * 下拉的当前值:auto 与 tavily 是伪供应商项,其余是真实供应商 id。
+ * hosted 但没记住供应商时落回 auto——显示一个空选项等于让用户猜。
+ */
+function webSearchSelectValue(state: WebSearchSettings | null): string {
+  if (!state) return WEB_SEARCH_AUTO;
+  if (state.web_search_backend === "tavily") return WEB_SEARCH_TAVILY;
+  if (state.web_search_backend === "auto") return WEB_SEARCH_AUTO;
+  return state.web_search_provider_id || WEB_SEARCH_AUTO;
+}
+
+/**
+ * 换供应商时给一个能直接用的模型名,省得用户对着空框猜。只对内置的
+ * DeepSeek 有把握;别家网关代理什么模型只有用户知道,所以沿用他上次填的。
+ */
+function defaultSearchModel(providerId: string, current: string): string {
+  if (providerId.startsWith("deepseek")) return "deepseek-v4-flash";
+  return current;
+}
+
 const APPROVAL_LABELS: Record<string, TranslationKey> = {
   AUTO: "composer.approval.auto",
   SMART: "composer.approval.smart",
@@ -124,6 +169,7 @@ export function SettingsView() {
   const activeModel = useChatStore((state) => state.activeModel);
   const loadActiveModel = useChatStore((state) => state.loadActiveModel);
   const [section, setSection] = useState<SectionId>("models");
+  const [webSearch, setWebSearch] = useState<WebSearchSettings | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -211,6 +257,22 @@ export function SettingsView() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
+
+  useEffect(() => {
+    let active = true;
+    void webSearchApi
+      .get()
+      .then((state) => {
+        if (active) setWebSearch(state);
+      })
+      .catch(() => {
+        // An older backend has no such endpoint; the row then just shows
+        // the default rather than blocking the whole settings page.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -705,6 +767,54 @@ export function SettingsView() {
     setThemePreference(preference);
   };
 
+  const saveWebSearch = (update: {
+    web_search_backend: WebSearchBackend;
+    web_search_provider_id?: string;
+    web_search_model?: string;
+  }) => {
+    const previous = webSearch;
+    // Optimistic: snapping back on the next render would read as the click
+    // not registering. hosted_configured is the server's to know, so after
+    // the write lands we re-read rather than keep a guess.
+    setWebSearch((state) =>
+      state
+        ? {
+            ...state,
+            ...update,
+            web_search_provider_id:
+              update.web_search_provider_id ?? state.web_search_provider_id,
+            web_search_model: update.web_search_model ?? state.web_search_model,
+          }
+        : null,
+    );
+    void webSearchApi
+      .set(update)
+      .then(() => webSearchApi.get().then(setWebSearch))
+      .catch((reason: unknown) => {
+        setWebSearch(previous);
+        setError(readableError(reason));
+      });
+  };
+
+  const chooseWebSearchSource = (value: string) => {
+    if (value === WEB_SEARCH_TAVILY) {
+      saveWebSearch({ web_search_backend: "tavily" });
+      return;
+    }
+    if (value === WEB_SEARCH_AUTO) {
+      saveWebSearch({ web_search_backend: "auto" });
+      return;
+    }
+    saveWebSearch({
+      web_search_backend: "hosted",
+      web_search_provider_id: value,
+      web_search_model: defaultSearchModel(
+        value,
+        webSearch?.web_search_model ?? "",
+      ),
+    });
+  };
+
   const importThemeFile = async (file: File) => {
     clearBanners();
     try {
@@ -1015,6 +1125,57 @@ export function SettingsView() {
                         onChange={chooseTheme}
                       />
                     </SettingRow>
+                    <SettingRow
+                      title={t("settings.webSearch.title")}
+                      description={t(webSearchHint(webSearch))}
+                    >
+                      <Select
+                        className="w-56"
+                        aria-label={t("settings.webSearch.title")}
+                        value={webSearchSelectValue(webSearch)}
+                        onChange={(event) =>
+                          chooseWebSearchSource(event.target.value)
+                        }
+                      >
+                        <option value={WEB_SEARCH_AUTO}>
+                          {t("settings.webSearch.auto")}
+                        </option>
+                        <option value={WEB_SEARCH_TAVILY}>
+                          {t("settings.webSearch.tavily")}
+                        </option>
+                        {(webSearch?.providers ?? []).map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </SettingRow>
+                    {webSearch?.web_search_backend === "hosted" && (
+                      <SettingRow
+                        title={t("settings.webSearch.model")}
+                        description={t("settings.webSearch.modelHint")}
+                      >
+                        <Input
+                          className="w-56"
+                          defaultValue={webSearch.web_search_model}
+                          placeholder="deepseek-v4-flash"
+                          aria-label={t("settings.webSearch.model")}
+                          // Commit on blur, like the provider key field:
+                          // saving per keystroke would write a config file
+                          // for every character.
+                          onBlur={(event) => {
+                            const next = event.target.value.trim();
+                            if (!next || next === webSearch.web_search_model) {
+                              return;
+                            }
+                            saveWebSearch({
+                              web_search_backend: "hosted",
+                              web_search_model: next,
+                            });
+                          }}
+                        />
+                      </SettingRow>
+                    )}
                     <SettingRow
                       title={t("settings.contextUsage.title")}
                       description={t("settings.contextUsage.description")}

@@ -724,6 +724,23 @@ class QwenPawAgent(CodingModeMixin, Agent):
         async for evt in super()._reply(**kwargs):
             yield evt
 
+    @staticmethod
+    def _web_search_deadline() -> float:
+        """Tool deadline matching the search's own HTTP budget, plus slack.
+
+        The slack covers connection setup and result formatting so the tool
+        deadline never fires first and hides the more specific HTTP timeout
+        message.
+        """
+        default = 140.0
+        try:
+            from ..config import load_config
+
+            configured = load_config().agents.web_search_timeout_seconds
+            return float(configured) + 20.0
+        except Exception:  # pylint: disable=broad-except
+            return default
+
     def _register_tool_call_hooks(self) -> None:
         """Register per-tool default timeouts on the ToolCoordinator."""
         mgr = self._get_tool_coordinator()
@@ -736,6 +753,22 @@ class QwenPawAgent(CodingModeMixin, Agent):
         )
         mgr.hooks.register("chat_with_agent", default_timeout_secs=300.0)
         mgr.hooks.register("check_agent_task", default_timeout_secs=30.0)
+        # A DeepSeek-backed web_search fans out into several server-side
+        # searches and page reads, so it needs far more headroom than a
+        # plain HTTP call. Track the configured budget rather than a second
+        # hard-coded number: the two disagreeing is how you get a search
+        # that dies for no visible reason.
+        #
+        # Note this deadline does not currently stop anything — the
+        # coordinator's offload path is disabled (see the FIXME in
+        # tool_calls/_coordinator.py), so on expiry it clears the deadline
+        # and keeps waiting for the tool. The real bound is the HTTP
+        # timeout inside the tool. Keeping this in sync means re-enabling
+        # offload will not suddenly truncate legitimate searches.
+        mgr.hooks.register(
+            "web_search",
+            default_timeout_secs=self._web_search_deadline(),
+        )
         mgr.hooks.register("grep_search", default_timeout_secs=30.0)
         mgr.hooks.register("glob_search", default_timeout_secs=15.0)
         mgr.hooks.register("ast_search", default_timeout_secs=35.0)

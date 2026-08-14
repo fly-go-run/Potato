@@ -663,6 +663,18 @@ export const dictionaries = {
     "settings.contextUsage.title": "显示上下文用量",
     "settings.contextUsage.description":
       "在输入框旁常显本轮已用的上下文百分比。默认关闭。",
+    "settings.webSearch.title": "联网搜索方式",
+    "settings.webSearch.description":
+      "服务端搜索由模型供应商代跑：它自己检索、读网页后作答，质量更好但更慢；Tavily 只返回摘要，免费但有速率限制。两者都与当前对话用哪个模型无关。",
+    "settings.webSearch.needsKey":
+      "还没有可用于服务端搜索的密钥，现在搜索会退回 Tavily。去「模型与供应商」里配置 DeepSeek 即可启用。",
+    "settings.webSearch.needsKeyStrict":
+      "已指定服务端搜索，但没有可用的密钥，搜索会直接失败（指定后不会退回 Tavily）。请去「模型与供应商」里配置。",
+    "settings.webSearch.auto": "自动（有密钥就用服务端搜索）",
+    "settings.webSearch.tavily": "Tavily（免费）",
+    "settings.webSearch.model": "搜索用的模型",
+    "settings.webSearch.modelHint":
+      "由上面选中的供应商执行搜索的模型，必须是该供应商支持内置联网搜索的模型。DeepSeek 用 deepseek-v4-flash。",
     "settings.theme.light": "浅色",
     "settings.theme.dark": "深色",
     "settings.theme.system": "跟随系统",
@@ -1505,6 +1517,18 @@ export const dictionaries = {
     "settings.contextUsage.title": "Show context usage",
     "settings.contextUsage.description":
       "Keep the percentage of context used for this turn next to the composer. Off by default.",
+    "settings.webSearch.title": "Web search backend",
+    "settings.webSearch.description":
+      "Hosted search runs on the model provider's servers: it searches, reads pages, then answers — better results, slower. Tavily returns snippets only: free, but rate limited. Both are independent of the model this chat uses.",
+    "settings.webSearch.needsKey":
+      "No API key available for hosted search, so searches fall back to Tavily. Add a DeepSeek key under Models & providers to switch over.",
+    "settings.webSearch.needsKeyStrict":
+      "Hosted search is pinned but has no usable API key, so searches will fail rather than fall back. Add one under Models & providers.",
+    "settings.webSearch.auto": "Auto (hosted when a key exists)",
+    "settings.webSearch.tavily": "Tavily (free)",
+    "settings.webSearch.model": "Search model",
+    "settings.webSearch.modelHint":
+      "The model the provider above runs the search with. It must be one that host serves with a built-in web search tool. DeepSeek uses deepseek-v4-flash.",
     "settings.theme.light": "Light",
     "settings.theme.dark": "Dark",
     "settings.theme.system": "System",

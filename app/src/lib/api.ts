@@ -434,6 +434,34 @@ export const sttApi = {
     ),
 };
 
+export type WebSearchBackend = "auto" | "hosted" | "tavily";
+
+export interface WebSearchSettings {
+  web_search_backend: WebSearchBackend;
+  web_search_provider_id: string;
+  web_search_model: string;
+  hosted_configured: boolean;
+  /** Providers holding a key — the ones that could run a hosted search. */
+  providers: { id: string; name: string }[];
+}
+
+export const webSearchApi = {
+  get: () => apiJson<WebSearchSettings>("/api/workspace/web-search-backend"),
+  set: (update: {
+    web_search_backend: WebSearchBackend;
+    web_search_provider_id?: string;
+    web_search_model?: string;
+  }) =>
+    apiJson<{
+      web_search_backend: WebSearchBackend;
+      web_search_provider_id: string;
+      web_search_model: string;
+    }>("/api/workspace/web-search-backend", {
+      method: "PUT",
+      body: JSON.stringify(update),
+    }),
+};
+
 export const projectApi = {
   current: () => apiJson<CodingProjectInfo>("/api/workspace/coding-project"),
   list: () => apiJson<CodingProject[]>("/api/workspace/coding-project/list"),
