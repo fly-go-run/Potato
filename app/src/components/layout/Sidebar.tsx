@@ -2,13 +2,13 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { isMacDesktopShell, startDesktopWindowDrag } from "../../lib/desktop";
 import {
-  Blocks,
+  LayoutGrid,
   ChevronDown,
   Clock3,
   FolderClosed,
   Moon,
   MoreHorizontal,
-  NotebookPen,
+  Notebook,
   PanelLeft,
   PenLine,
   PenSquare,
@@ -183,7 +183,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         >
           {({ isActive }) => (
             <>
-              <Blocks
+              <LayoutGrid
                 size={16}
                 strokeWidth={1.75}
                 className={navIconClass(isActive)}
@@ -198,7 +198,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         >
           {({ isActive }) => (
             <>
-              <NotebookPen
+              <Notebook
                 size={16}
                 strokeWidth={1.75}
                 className={navIconClass(isActive)}
