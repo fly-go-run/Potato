@@ -7,9 +7,9 @@
  */
 
 const WHITELIST: Record<string, string> = {
-  "gpt-5.6-terra": "Terra 5.6",
-  "gpt-5.6-sol": "Sol 5.6",
-  "gpt-5.6-luna": "Luna 5.6",
+  "gpt-5.6-terra": "5.6 Terra",
+  "gpt-5.6-sol": "5.6 Sol",
+  "gpt-5.6-luna": "5.6 Luna",
   "grok-4.6": "Grok 4.6",
   "grok-4.5": "Grok 4.5",
   "deepseek-v4-flash": "DeepSeek V4 Flash",

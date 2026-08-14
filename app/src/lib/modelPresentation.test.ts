@@ -8,7 +8,7 @@ describe("prettyModelName", () => {
     );
   });
   it("whitelist may drop vendor and reorder", () => {
-    expect(prettyModelName("gpt-5.6-terra")).toBe("Terra 5.6");
+    expect(prettyModelName("gpt-5.6-terra")).toBe("5.6 Terra");
     expect(prettyModelName("grok-4.6")).toBe("Grok 4.6");
   });
   it("fallback never drops the first token", () => {

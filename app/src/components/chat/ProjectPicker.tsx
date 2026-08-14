@@ -245,7 +245,7 @@ export function ProjectPicker() {
             variant="ghost"
             size="sm"
             title={project?.path ?? t("projects.defaultWorkspace")}
-            className="max-w-40 bg-fill-hover px-2 hover:bg-fill-active data-[state=open]:bg-fill-active"
+            className="max-w-40 px-2 data-[state=open]:bg-fill-hover"
           >
             <Folder size={14} className="shrink-0" />
             <span className="truncate">

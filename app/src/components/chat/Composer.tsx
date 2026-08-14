@@ -304,11 +304,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
           variant="ghost"
           size="sm"
           aria-label={t("composer.approval.aria")}
-          className={
-            insideComposer
-              ? "bg-fill-hover px-2 hover:bg-fill-active"
-              : "hidden bg-fill-hover px-2 hover:bg-fill-active sm:flex"
-          }
+          className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
         >
           <ShieldCheck size={15} />
           {/* 审批档位是安全边界,任何入口都必须显示当前档位 */}
