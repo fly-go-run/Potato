@@ -304,9 +304,13 @@ export function Composer({ wide = false }: { wide?: boolean }) {
           variant="ghost"
           size="sm"
           aria-label={t("composer.approval.aria")}
-          className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
+          className={
+            insideComposer
+              ? "bg-fill-hover px-2 hover:bg-fill-active"
+              : "hidden bg-fill-hover px-2 hover:bg-fill-active sm:flex"
+          }
         >
-          <ShieldCheck size={15} className="text-icon" />
+          <ShieldCheck size={15} />
           {/* 审批档位是安全边界,任何入口都必须显示当前档位 */}
           {approvalLabel}
           <ChevronDown size={13} />
@@ -724,7 +728,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   ? t("composer.generating")
                   : t("composer.placeholder")
               }
-              className="block min-h-[86px] max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55"
+              className="block min-h-[86px] max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[16px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55"
             />
             <div className="flex items-center gap-1 px-3 pb-3">
               <input

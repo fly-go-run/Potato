@@ -28,7 +28,7 @@ const variants: Record<ButtonVariant, string> = {
   secondary:
     "border border-line bg-surface text-ink-secondary shadow-[var(--shadow-control)] hover:bg-fill-hover hover:text-ink active:bg-fill-active dark:border-line-highlight dark:shadow-none",
   ghost:
-    "text-ink-secondary hover:bg-fill-hover hover:text-ink active:bg-fill-active",
+    "text-ink hover:bg-fill-hover active:bg-fill-active",
   // accent：兼容少量旧入口，但仍遵循当前的中性强调色。
   accent:
     "bg-accent text-btn-primary-ink shadow-[var(--shadow-control)] hover:bg-accent-hover active:opacity-90",

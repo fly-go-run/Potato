@@ -230,7 +230,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                   ? t("sidebar.collapseGroup")
                   : t("sidebar.expandGroup")
               }
-              className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink-secondary transition-colors hover:text-ink"
+              className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink transition-colors"
             >
               <span className="truncate">
                 {t("sidebar.projectsGroup", {
@@ -260,7 +260,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                         }
                         aria-expanded={open}
                         title={project.path}
-                        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[12px] text-ink-secondary hover:bg-fill-hover"
+                        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[12px] text-ink hover:bg-fill-hover"
                       >
                         <FolderClosed
                           size={14}
@@ -310,7 +310,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 ? t("sidebar.collapseGroup")
                 : t("sidebar.expandGroup")
             }
-            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:text-ink"
+            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink transition-colors duration-[var(--dur-fast)]"
           >
             <span className="truncate">
               {t("sidebar.chatsGroup", { count: groupedChats.unbound.length })}
@@ -719,7 +719,7 @@ function MenuItem({
   return (
     <DropdownMenu.Item
       onSelect={onSelect}
-      className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
+      className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
     >
       {icon}
       {label}
