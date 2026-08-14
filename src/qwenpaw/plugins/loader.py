@@ -521,6 +521,7 @@ class PluginLoader:
             )
 
         module = importlib.util.module_from_spec(spec)
+        api: PluginApi | None = None
 
         try:
             sys.modules[module_name] = module
@@ -574,6 +575,17 @@ class PluginLoader:
                     "Plugin must implement 'register(api)' method",
                 )
         except Exception:
+            if api is not None:
+                try:
+                    await api.scope.aclose()
+                except Exception:  # noqa: BLE001
+                    logger.error(
+                        "Failed-load scope cleanup failed for '%s'",
+                        plugin_id,
+                        exc_info=True,
+                    )
+            else:
+                self.registry.unregister_plugin(plugin_id)
             self._cleanup_failed_load(
                 plugin_id,
                 module_name,
@@ -607,10 +619,7 @@ class PluginLoader:
             plugin_id,
         )
 
-        # 1. Registry (manifest, providers, hooks, middleware, routes, …)
-        self.registry.unregister_plugin(plugin_id)
-
-        # 2. sys.modules — by module-name prefix
+        # 1. sys.modules — by module-name prefix
         prefix = module_name + "."
         stale = [
             k for k in sys.modules if k == module_name or k.startswith(prefix)
@@ -618,7 +627,7 @@ class PluginLoader:
         for k in stale:
             sys.modules.pop(k, None)
 
-        # 3. sys.modules — by __file__ path (catches bare imports that
+        # 2. sys.modules — by __file__ path (catches bare imports that
         #    bypassed the plugin_<id> namespace, e.g. ``import utils``
         #    after the plugin inserted its dir into sys.path).
         source_resolved = _norm_realpath(source_path)
@@ -633,7 +642,7 @@ class PluginLoader:
         for k in stale_by_file:
             sys.modules.pop(k, None)
 
-        # 4. sys.path — remove the plugin directory if it was added
+        # 3. sys.path — remove the plugin directory if it was added
         plugin_dir_real = _norm_realpath(source_path)
         sys.path[:] = [
             p for p in sys.path if _norm_realpath(p) != plugin_dir_real
@@ -1308,12 +1317,22 @@ class PluginLoader:
             p for p in sys.path if _norm_realpath(p) != plugin_dir_real
         ]
 
-        # Remove tools from agents.tools + runtime registries while
-        # ownership records still exist, then drop plugin registry state.
-        self._cleanup_plugin_tools(plugin_id, record)
+        if record.api is not None:
+            try:
+                await record.api.scope.aclose()
+            except Exception:  # noqa: BLE001
+                logger.error(
+                    "Registration cleanup failed for plugin '%s'",
+                    plugin_id,
+                    exc_info=True,
+                )
+        else:
+            # Compatibility for synthetic/legacy records that registered
+            # directly through the now-handle-producing registries.
+            self.registry.unregister_plugin(plugin_id)
+            from .api import close_legacy_tool_registrations
 
-        # Clear all in-memory registry entries for this plugin
-        self.registry.unregister_plugin(plugin_id)
+            close_legacy_tool_registrations(plugin_id)
 
         # Remove from the loaded-plugins dict
         del self._loaded_plugins[plugin_id]
@@ -1328,111 +1347,6 @@ class PluginLoader:
                 )
 
         logger.info(f"Unloaded plugin '{plugin_id}'")
-
-    def _cleanup_plugin_tools(
-        self,
-        plugin_id: str,
-        record: PluginRecord,
-    ) -> None:
-        """Remove plugin tools from agents.tools and runtime registries.
-
-        Uses ``sys.modules`` directly to avoid the parent-package
-        attribute cache that would bypass any test/runtime overrides.
-        Also unbridges workspace ``ToolRegistry`` / ``builtin_tool_funcs``
-        so hot-reload cannot keep a stale callable.
-
-        Args:
-            plugin_id: Plugin identifier (for logging)
-            record: PluginRecord whose tools should be removed
-        """
-        if record.api is not None:
-            record.api.close_tool_registrations()
-            return
-        try:
-            from .api import (
-                _TOOL_PLUGIN_OWNERS,
-                _TOOL_PLUGIN_OWNERS_LOCK,
-                _unbridge_from_runtime,
-            )
-
-            tools_module = sys.modules.get("qwenpaw.agents.tools")
-            meta: Dict = record.manifest.meta or {}
-            # Manifest names are candidates only — never deletion authority.
-            # A misconfigured / malicious plugin must not unload another
-            # plugin's tool, a builtin, or a hot-reload replacement.
-            manifest_candidates: List[str] = []
-
-            # Legacy single-tool format: meta.tool_name
-            old_name = meta.get("tool_name")
-            if old_name and isinstance(old_name, str):
-                manifest_candidates.append(old_name)
-
-            # Multi-tool format: meta.tools[].name
-            # Tolerate malformed meta.tools (null / non-list) — same as
-            # routers.plugins._tool_names_from_meta.
-            raw_tools = meta.get("tools")
-            for tool in raw_tools if isinstance(raw_tools, list) else ():
-                name = tool.get("name") if isinstance(tool, dict) else None
-                if isinstance(name, str) and name.strip():
-                    manifest_candidates.append(name.strip())
-
-            with _TOOL_PLUGIN_OWNERS_LOCK:
-                tool_names = [
-                    name
-                    for name, owner in _TOOL_PLUGIN_OWNERS.items()
-                    if owner == plugin_id
-                ]
-
-            for claimed in manifest_candidates:
-                if claimed not in tool_names:
-                    logger.warning(
-                        "Skipping unload cleanup for tool '%s': "
-                        "manifest of plugin '%s' claims it but "
-                        "ownership is held by %r",
-                        claimed,
-                        plugin_id,
-                        _TOOL_PLUGIN_OWNERS.get(claimed),
-                    )
-
-            for tool_name in tool_names:
-                tool_func = (
-                    getattr(tools_module, tool_name, None)
-                    if tools_module is not None
-                    else None
-                )
-                try:
-                    _unbridge_from_runtime(
-                        tool_name,
-                        tool_func,
-                        self.registry,
-                    )
-                except Exception as unbridge_exc:  # noqa: BLE001
-                    logger.debug(
-                        "Runtime unbridge failed for '%s' "
-                        "(plugin '%s'): %s",
-                        tool_name,
-                        plugin_id,
-                        unbridge_exc,
-                        exc_info=True,
-                    )
-
-                if tools_module is None:
-                    continue
-                if hasattr(tools_module, tool_name):
-                    delattr(tools_module, tool_name)
-                if tool_name in tools_module.__all__:
-                    tools_module.__all__.remove(tool_name)
-
-            if tool_names:
-                logger.info(
-                    f"Removed tools {tool_names} from agents.tools "
-                    f"for plugin '{plugin_id}'",
-                )
-        except Exception as exc:
-            logger.warning(
-                f"Failed to clean up tools for plugin '{plugin_id}': "
-                f"{exc}",
-            )
 
     def get_loaded_plugin(self, plugin_id: str) -> Optional[PluginRecord]:
         """Get loaded plugin record.

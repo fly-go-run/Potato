@@ -2,6 +2,7 @@
 """Ownership-handle tests for plugin and runtime registries."""
 
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 from fastapi import APIRouter, FastAPI
@@ -9,6 +10,12 @@ from fastapi import APIRouter, FastAPI
 from qwenpaw.app.workspace.workspace_plugins import WorkspacePlugins
 from qwenpaw.app.channels.command_registry import CommandRegistry
 from qwenpaw.plugins.api import PluginApi
+from qwenpaw.plugins.architecture import (
+    PluginEntryPoints,
+    PluginManifest,
+    PluginRecord,
+)
+from qwenpaw.plugins.loader import PluginLoader
 from qwenpaw.plugins.registry import PluginRegistry, ProviderRegistration
 from qwenpaw.runtime.hooks import HookBase, HookRegistry, HookResult
 from qwenpaw.runtime.phases import Phase
@@ -203,3 +210,35 @@ def test_register_mode_rolls_back_partial_setup() -> None:
 
     assert plugins.modes == []
     assert plugins.slash_command_registry.names() == []
+
+
+async def test_loader_unload_awaits_plugin_scope() -> None:
+    registry = _fresh_plugin_registry()
+    loader = PluginLoader(plugin_dirs=[])
+    loader.registry = registry
+    api = PluginApi("owned-plugin", config={})
+    api.set_registry(registry)
+    api.register_provider("owned-provider", object)
+    disposed: list[str] = []
+
+    async def dispose_async() -> None:
+        disposed.append("async")
+
+    api.add_disposer(dispose_async, tag="async-resource")
+    manifest = PluginManifest(
+        id="owned-plugin",
+        version="1.0.0",
+        entry=PluginEntryPoints(backend="plugin.py"),
+    )
+    loader._loaded_plugins[manifest.id] = PluginRecord(
+        manifest=manifest,
+        source_path=Path("/fake-owned-plugin"),
+        enabled=True,
+        api=api,
+    )
+
+    await loader.unload_plugin(manifest.id)
+
+    assert disposed == ["async"]
+    assert registry.get_provider("owned-provider") is None
+    assert loader.get_loaded_plugin(manifest.id) is None

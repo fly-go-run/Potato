@@ -852,17 +852,7 @@ async def uninstall_plugin(plugin_id: str, request: Request):
                 raise KeyError(f"Plugin '{plugin_id}' is not loaded.")
             meta: dict = record.manifest.meta or {}
 
-            provider_ids, command_names = _collect_plugin_runtime_ids(
-                loader.registry,
-                plugin_id,
-            )
             await loader.unload_plugin(plugin_id, delete_files=True)
-            _post_unload_cleanup(
-                request,
-                plugin_id,
-                provider_ids,
-                command_names,
-            )
             await asyncio.to_thread(
                 _remove_plugin_tools_from_agents,
                 plugin_id,

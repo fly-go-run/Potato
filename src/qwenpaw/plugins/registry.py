@@ -167,6 +167,10 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         self._prompt_sections: List[PromptSectionRegistration] = []
         self._prompt_section_names: set = set()
         self._workspace_manager: Optional[Any] = None
+        self._registration_handles: Dict[
+            str,
+            List[RegistrationHandle],
+        ] = {}
 
         self._initialized = True
 
@@ -198,7 +202,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             plugin_id,
             priority,
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._remove_identity(
                 self._middleware_registrations,
                 registration,
@@ -320,7 +325,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
                     )
             http_app.openapi_schema = None
 
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             _dispose,
             tag=f"plugin:{plugin_id}:http:{normalized}",
         )
@@ -328,36 +334,6 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
     def get_http_router_registrations(self) -> List[HttpRouterRegistration]:
         """Return a copy of HTTP router registrations (for diagnostics)."""
         return list(self._http_router_registrations)
-
-    def _unregister_plugin_http_routes(self, plugin_id: str) -> None:
-        http_app = self._plugin_http_app
-        if http_app is None:
-            return
-
-        to_drop = [
-            reg
-            for reg in self._http_router_registrations
-            if reg.plugin_id == plugin_id
-        ]
-        routes = http_app.router.routes
-        for reg in to_drop:
-            self._http_prefix_to_plugin.pop(reg.prefix, None)
-            for route in reg.routes:
-                try:
-                    routes.remove(route)
-                except ValueError:
-                    logger.warning(
-                        "Could not remove plugin HTTP route %r for '%s' "
-                        "(already removed?)",
-                        getattr(route, "path", route),
-                        plugin_id,
-                    )
-
-        self._http_router_registrations = [
-            r
-            for r in self._http_router_registrations
-            if r.plugin_id != plugin_id
-        ]
 
     def register_provider(
         self,
@@ -400,7 +376,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         logger.info(
             f"Registered provider '{provider_id}' from plugin '{plugin_id}'",
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._pop_identity(
                 self._providers,
                 provider_id,
@@ -540,7 +517,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered startup hook '{hook_name}' from plugin '{plugin_id}' "
             f"(priority={priority})",
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._remove_identity(self._startup_hooks, hook),
             tag=f"plugin:{plugin_id}:startup:{hook_name}",
         )
@@ -573,7 +551,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered shutdown hook '{hook_name}' from plugin "
             f"'{plugin_id}' (priority={priority})",
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._remove_identity(self._shutdown_hooks, hook),
             tag=f"plugin:{plugin_id}:shutdown:{hook_name}",
         )
@@ -629,7 +608,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered uninstall hook '{hook_name}' from plugin "
             f"'{plugin_id}' (priority={priority})",
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._remove_identity(self._uninstall_hooks, hook),
             tag=f"plugin:{plugin_id}:uninstall:{hook_name}",
         )
@@ -673,7 +653,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered workspace_created hook '{hook_name}' from plugin "
             f"'{plugin_id}' (priority={priority})",
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._remove_identity(
                 self._workspace_created_hooks,
                 hook,
@@ -776,7 +757,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             if self._remove_identity(self._prompt_sections, registration):
                 self._prompt_section_names.discard(normalized_name)
 
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             _dispose,
             tag=f"plugin:{plugin_id}:prompt:{normalized_name}",
         )
@@ -808,7 +790,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered control command '{handler.command_name}' "
             f"from plugin '{plugin_id}' (priority={priority_level})",
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._remove_identity(self._control_commands, cmd_reg),
             tag=(
                 f"plugin:{plugin_id}:control-command:"
@@ -931,7 +914,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered channel '{normalized_key}' from plugin "
             f"'{plugin_id}'",
         )
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._pop_identity(
                 self._channels,
                 normalized_key,
@@ -962,26 +946,6 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         """
         return self._channels.get(channel_key)
 
-    def _unregister_plugin_channels(self, plugin_id: str) -> None:
-        """Remove all channels registered by a plugin (used on unload).
-
-        Note: This only removes the registration from the registry.
-        Already-instantiated channel instances in ChannelManager are
-        cleaned up when the workspace triggers a config reload
-        (schedule_agent_reload), which rebuilds the ChannelManager.
-        """
-        to_remove = [
-            key
-            for key, reg in self._channels.items()
-            if reg.plugin_id == plugin_id
-        ]
-        for key in to_remove:
-            del self._channels[key]
-            logger.info(
-                f"Unregistered channel '{key}' (plugin '{plugin_id}' "
-                f"unloaded)",
-            )
-
     def register_plugin_manifest(
         self,
         plugin_id: str,
@@ -995,7 +959,8 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         """
         self._plugin_manifests[plugin_id] = manifest
         logger.debug(f"Registered manifest for plugin '{plugin_id}'")
-        return RegistrationHandle(
+        return self._registration_handle(
+            plugin_id,
             lambda: self._pop_identity(
                 self._plugin_manifests,
                 plugin_id,
@@ -1012,6 +977,21 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
                 del items[index]
                 return True
         return False
+
+    def _registration_handle(
+        self,
+        plugin_id: str,
+        dispose_fn: Callable[[], None],
+        *,
+        tag: str,
+    ) -> RegistrationHandle:
+        handle = RegistrationHandle(dispose_fn, tag=tag)
+        self._registration_handles.setdefault(plugin_id, []).append(handle)
+        return handle
+
+    def discard_registration_handles(self, plugin_id: str) -> None:
+        """Forget compatibility aliases after the owning scope closes."""
+        self._registration_handles.pop(plugin_id, None)
 
     @staticmethod
     def _pop_identity(mapping: dict, key: Any, target: Any) -> bool:
@@ -1044,75 +1024,24 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         return self._plugin_manifests.get(plugin_id)
 
     def unregister_plugin(self, plugin_id: str) -> None:
-        """Remove all in-memory registrations for a plugin.
+        """Synchronously dispose direct registry registrations.
 
-        Clears manifest, providers, hooks, channels, and control commands
-        that were registered under the given plugin_id.  Does not
-        touch disk or agent configurations.
-
-        Args:
-            plugin_id: Plugin identifier to remove
+        Loader-managed plugins use ``await api.scope.aclose()``. This thin
+        compatibility entry point exists for direct registry consumers and
+        therefore supports synchronous handles only.
         """
-        self._unregister_plugin_http_routes(plugin_id)
-        self._unregister_plugin_channels(plugin_id)
-
-        try:
-            from .api import release_tool_ownership_for_plugin
-
-            release_tool_ownership_for_plugin(plugin_id)
-        except Exception:  # noqa: BLE001
-            logger.debug(
-                "Tool ownership release skipped for plugin %s",
-                plugin_id,
-                exc_info=True,
+        handles = self._registration_handles.pop(plugin_id, [])
+        errors: list[Exception] = []
+        for handle in reversed(handles):
+            try:
+                handle.dispose_sync()
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+        if errors:
+            raise ExceptionGroup(
+                f"errors unregistering plugin {plugin_id!r}",
+                errors,
             )
-
-        self._plugin_manifests.pop(plugin_id, None)
-
-        providers_to_remove = [
-            pid
-            for pid, reg in self._providers.items()
-            if reg.plugin_id == plugin_id
-        ]
-        for pid in providers_to_remove:
-            del self._providers[pid]
-            logger.info(
-                f"Unregistered provider '{pid}' " f"for plugin '{plugin_id}'",
-            )
-
-        self._startup_hooks = [
-            h for h in self._startup_hooks if h.plugin_id != plugin_id
-        ]
-        self._shutdown_hooks = [
-            h for h in self._shutdown_hooks if h.plugin_id != plugin_id
-        ]
-        self._uninstall_hooks = [
-            h for h in self._uninstall_hooks if h.plugin_id != plugin_id
-        ]
-        self._workspace_created_hooks = [
-            h
-            for h in self._workspace_created_hooks
-            if h.plugin_id != plugin_id
-        ]
-        self._control_commands = [
-            c for c in self._control_commands if c.plugin_id != plugin_id
-        ]
-        self._middleware_registrations = [
-            r
-            for r in self._middleware_registrations
-            if r.plugin_id != plugin_id
-        ]
-        removed_sections = [
-            s for s in self._prompt_sections if s.plugin_id == plugin_id
-        ]
-        self._prompt_sections = [
-            s for s in self._prompt_sections if s.plugin_id != plugin_id
-        ]
-        for s in removed_sections:
-            self._prompt_section_names.discard(s.name)
-        logger.info(
-            f"Unregistered all entries for plugin '{plugin_id}'",
-        )
 
     def get_plugin_id_for_tool(self, tool_name: str) -> Optional[str]:
         """Get plugin ID that provides a specific tool.

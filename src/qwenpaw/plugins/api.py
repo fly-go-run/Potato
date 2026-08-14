@@ -57,6 +57,7 @@ def get_tool_config(tool_name: str) -> Optional[Dict[str, Any]]:
 # a different plugin claiming the same name fails closed.
 _TOOL_PLUGIN_OWNERS: Dict[str, str] = {}
 _TOOL_PLUGIN_TOKENS: Dict[str, object] = {}
+_TOOL_RUNTIME_SCOPES: Dict[str, Scope] = {}
 _TOOL_PLUGIN_OWNERS_LOCK = threading.Lock()
 
 
@@ -187,6 +188,13 @@ def _bridge_to_runtime(
 
     from ..runtime.tool_registry import ToolDescriptor
 
+    owned_scope = scope
+    if owned_scope is None:
+        previous = _TOOL_RUNTIME_SCOPES.pop(tool_name, None)
+        if previous is not None:
+            previous.close()
+        owned_scope = Scope(tag=f"legacy-tool:{tool_name}")
+
     desc = getattr(tool_func, "_tool_descriptor", None)
     if desc is None:
         is_async = inspect.iscoroutinefunction(tool_func)
@@ -222,8 +230,7 @@ def _bridge_to_runtime(
             if tool_name in tr and hasattr(tr, "unregister"):
                 tr.unregister(tool_name)
             handle = tr.register(desc)
-            if scope is not None:
-                scope.add(handle)
+            owned_scope.add(handle)
             logger.info(
                 "Injected '%s' into workspace '%s' ToolRegistry",
                 tool_name,
@@ -242,13 +249,15 @@ def _bridge_to_runtime(
                 if not _tool_func_matches_name(fn, tool_name)
             ]
             funcs.append(tool_func)
-            if scope is not None:
-                scope.add(
-                    RegistrationHandle(
-                        lambda: _remove_bootstrap_func(funcs, tool_func),
-                        tag=f"tool-bootstrap:{tool_name}",
-                    ),
-                )
+            owned_scope.add(
+                RegistrationHandle(
+                    lambda: _remove_bootstrap_func(funcs, tool_func),
+                    tag=f"tool-bootstrap:{tool_name}",
+                ),
+            )
+
+    if scope is None:
+        _TOOL_RUNTIME_SCOPES[tool_name] = owned_scope
 
 
 def _remove_bootstrap_func(funcs: list, tool_func: Callable) -> None:
@@ -285,6 +294,10 @@ def _unbridge_from_runtime(
     registry,
 ) -> None:
     """Undo :func:`_bridge_to_runtime` for failed expose or plugin unload."""
+    tracked = _TOOL_RUNTIME_SCOPES.pop(tool_name, None)
+    if tracked is not None:
+        tracked.close()
+        return
     if registry is None:
         return
     wm = registry.get_workspace_manager()
@@ -321,6 +334,21 @@ def _unbridge_from_runtime(
                 for fn in funcs
                 if not _tool_func_matches_name(fn, tool_name)
             ]
+
+
+def close_legacy_tool_registrations(plugin_id: str) -> None:
+    """Close handle-tracked tool effects created outside a PluginApi."""
+    with _TOOL_PLUGIN_OWNERS_LOCK:
+        names = [
+            name
+            for name, owner in _TOOL_PLUGIN_OWNERS.items()
+            if owner == plugin_id
+        ]
+    for name in names:
+        scope = _TOOL_RUNTIME_SCOPES.pop(name, None)
+        if scope is not None:
+            scope.close()
+    release_tool_ownership_for_plugin(plugin_id)
 
 
 def _write_tool_config(
@@ -415,6 +443,14 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             registry: PluginRegistry instance
         """
         self._registry = registry
+        self.scope.add(
+            RegistrationHandle(
+                lambda: registry.discard_registration_handles(
+                    self.plugin_id,
+                ),
+                tag=f"plugin:{self.plugin_id}:registry-aliases",
+            ),
+        )
 
     def _own(self, handle: RegistrationHandle) -> RegistrationHandle:
         """Attach a host registration handle to this plugin's scope."""
