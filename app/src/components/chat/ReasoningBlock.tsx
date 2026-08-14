@@ -29,6 +29,7 @@ export function ReasoningBlock({ message }: { message: StreamMessage }) {
       >
         <ChevronRight
           size={12}
+          strokeWidth={1.8}
           className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
             open ? "rotate-90" : ""
           }`}

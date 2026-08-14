@@ -144,7 +144,7 @@ export function AppShell() {
             aria-label={t("sidebar.expand")}
             onClick={toggleSidebar}
           >
-            <PanelLeft size={16} />
+            <PanelLeft size={16} strokeWidth={1.75} />
           </IconButton>
           <IconButton
             size="sm"
@@ -152,7 +152,7 @@ export function AppShell() {
             aria-label={t("sidebar.newChat")}
             onClick={startNewChat}
           >
-            <SquarePen size={16} />
+            <SquarePen size={16} strokeWidth={1.75} />
           </IconButton>
         </div>
       )}

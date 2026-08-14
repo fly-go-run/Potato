@@ -279,7 +279,7 @@ export function CronsView() {
           actions={
             view === "runs" || jobs.length === 0 ? undefined : (
               <Button variant="primary" size="sm" onClick={() => openNew()}>
-                <Plus size={15} />
+                <Plus size={16} strokeWidth={1.75} />
                 {t("crons.new")}
               </Button>
             )
@@ -337,12 +337,12 @@ export function CronsView() {
           </Card>
         ) : jobs.length === 0 ? (
           <EmptyState
-            icon={<CalendarClock size={20} />}
+            icon={<CalendarClock size={20} strokeWidth={1.75} />}
             title={t("crons.emptyTitle")}
             description={t("crons.emptyDescription")}
             action={
               <Button variant="primary" size="sm" onClick={() => openNew()}>
-                <Plus size={15} />
+                <Plus size={16} strokeWidth={1.75} />
                 {t("crons.new")}
               </Button>
             }
@@ -435,21 +435,21 @@ export function CronsView() {
                             disabled={busy || !isCronJobEditable(spec)}
                             onClick={() => setEditing(spec)}
                           >
-                            <Pencil size={15} />
+                            <Pencil size={14} strokeWidth={1.8} />
                           </ActionButton>
                           <ActionButton
                             title={t("crons.runNow")}
                             disabled={busy}
                             onClick={() => void act(spec, "run")}
                           >
-                            <Play size={15} />
+                            <Play size={14} strokeWidth={1.8} />
                           </ActionButton>
                           <ActionButton
                             title={t("crons.history")}
                             disabled={busy}
                             onClick={() => setHistoryJob(spec)}
                           >
-                            <History size={15} />
+                            <History size={14} strokeWidth={1.8} />
                           </ActionButton>
                           <ActionButton
                             title={t("crons.delete")}
@@ -457,7 +457,7 @@ export function CronsView() {
                             danger
                             onClick={() => setPendingDelete(spec)}
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} strokeWidth={1.8} />
                           </ActionButton>
                         </div>
                       </td>
@@ -499,6 +499,7 @@ export function CronsView() {
                   >
                     <Icon
                       size={16}
+                      strokeWidth={1.75}
                       className="mt-0.5 shrink-0 text-icon"
                     />
                     <span className="min-w-0 flex-1">
@@ -682,7 +683,7 @@ function CronFormDialog({
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("common.cancel")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -855,7 +856,7 @@ function GlobalRunHistory({
           </div>
         )}
         <EmptyState
-          icon={<History size={20} />}
+          icon={<History size={20} strokeWidth={1.75} />}
           title={t("crons.runs.emptyTitle")}
           description={
             jobs.length === 0
@@ -962,7 +963,7 @@ function HistoryDrawer({
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("common.cancel")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -988,7 +989,8 @@ function HistoryDrawer({
                   >
                     <div className="flex items-start gap-3">
                       <Clock3
-                        size={15}
+                        size={14}
+                        strokeWidth={1.8}
                         className="mt-0.5 shrink-0 text-icon"
                       />
                       <div className="min-w-0 flex-1">

@@ -183,7 +183,7 @@ export function ChatSearchDialog({
             {t("search.description")}
           </Dialog.Description>
           <div className="flex items-center gap-2 border-b border-line px-4">
-            <Search size={16} className="shrink-0 text-icon" />
+            <Search size={16} strokeWidth={1.75} className="shrink-0 text-icon" />
             <Input
               autoFocus
               value={query}
@@ -236,10 +236,11 @@ export function ChatSearchDialog({
                               : "text-ink-secondary hover:bg-fill-hover"
                           }`}
                         >
-                          <Icon size={15} className="shrink-0 text-icon" />
+                          <Icon size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
                           {item.chat?.pinned && (
                             <Pin
                               size={12}
+                              strokeWidth={1.8}
                               className="shrink-0 text-icon"
                             />
                           )}

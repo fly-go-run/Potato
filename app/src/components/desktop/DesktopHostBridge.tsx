@@ -333,7 +333,8 @@ export function DesktopHostBridge() {
           className="fixed bottom-4 left-1/2 z-[60] flex w-[min(32rem,calc(100%-2rem))] -translate-x-1/2 items-start gap-3 rounded-[var(--radius-md)] border border-line bg-raised px-4 py-3 text-sm text-ink shadow-[var(--shadow-lg)]"
         >
           <RefreshCw
-            size={17}
+            size={16}
+            strokeWidth={1.75}
             className={
               update.phase === "checking" || update.phase === "downloading"
                 ? "mt-0.5 shrink-0 animate-spin text-accent"
@@ -370,7 +371,7 @@ export function DesktopHostBridge() {
                   {update.source === "available" &&
                     update.supportsLaterInstall && (
                       <Button size="sm" onClick={() => void downloadLater()}>
-                        <Download size={14} />
+                        <Download size={14} strokeWidth={1.8} />
                         {t("desktop.update.downloadLater")}
                       </Button>
                     )}

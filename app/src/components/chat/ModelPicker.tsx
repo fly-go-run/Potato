@@ -223,7 +223,7 @@ export function ModelPicker() {
               {activeEffortLabel}
             </span>
           ) : null}
-          <ChevronDown size={14} className="shrink-0 text-ink-tertiary" />
+          <ChevronDown size={14} strokeWidth={1.8} className="shrink-0 text-ink-tertiary" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -244,7 +244,7 @@ export function ModelPicker() {
               ? prettyModelName(model.model)
               : t("composer.noModel")}
                 </span>
-                <ChevronRight size={14} className="shrink-0" />
+                <ChevronRight size={14} strokeWidth={1.8} className="shrink-0" />
               </span>
             </DropdownMenu.SubTrigger>
             <DropdownMenu.Portal>
@@ -255,7 +255,7 @@ export function ModelPicker() {
               >
                 {listLoading && providers === null ? (
                   <div className="flex items-center gap-2 px-3 py-2 text-sm text-ink-tertiary">
-                    <LoaderCircle size={14} className="animate-spin" />
+                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     {t("composer.modelListLoading")}
                   </div>
                 ) : !providers || providers.length === 0 ? (
@@ -297,11 +297,13 @@ export function ModelPicker() {
                               {switching === key ? (
                                 <LoaderCircle
                                   size={14}
+                                  strokeWidth={1.8}
                                   className="shrink-0 animate-spin text-ink-tertiary"
                                 />
                               ) : active ? (
                                 <Check
-                                  size={13}
+                                  size={14}
+                                  strokeWidth={1.8}
                                   className="shrink-0 text-accent"
                                 />
                               ) : null}
@@ -323,7 +325,7 @@ export function ModelPicker() {
                 <span>{t("composer.effort.title")}</span>
                 <span className="flex items-center gap-1 text-ink-tertiary">
                   <span>{effortText(activeEffort)}</span>
-                  <ChevronRight size={14} className="shrink-0" />
+                  <ChevronRight size={14} strokeWidth={1.8} className="shrink-0" />
                 </span>
               </DropdownMenu.SubTrigger>
               <DropdownMenu.Portal>
@@ -351,10 +353,11 @@ export function ModelPicker() {
                         {effortSaving === option ? (
                           <LoaderCircle
                             size={14}
+                            strokeWidth={1.8}
                             className="shrink-0 animate-spin text-ink-tertiary"
                           />
                         ) : selected ? (
-                          <Check size={15} className="shrink-0 text-ink" />
+                          <Check size={14} strokeWidth={1.8} className="shrink-0 text-ink" />
                         ) : null}
                       </DropdownMenu.Item>
                     );
@@ -379,11 +382,12 @@ export function ModelPicker() {
                 <span>{t("composer.effort.reset")}</span>
                 {effortSaving === "__default__" ? (
                   <LoaderCircle
-                    size={13}
+                    size={14}
+                    strokeWidth={1.8}
                     className="shrink-0 animate-spin text-ink-tertiary"
                   />
                 ) : (
-                  <RotateCcw size={14} className="shrink-0 text-icon" />
+                  <RotateCcw size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
                 )}
               </DropdownMenu.Item>
             </>
@@ -396,7 +400,7 @@ export function ModelPicker() {
             }
             className="flex cursor-default items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
           >
-            <Settings size={14} />
+            <Settings size={14} strokeWidth={1.8} />
             {t("composer.manageModels")}
           </DropdownMenu.Item>
         </DropdownMenu.Content>

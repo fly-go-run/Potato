@@ -131,7 +131,7 @@ export function MemoryView() {
         ) : error ? null : files.length === 0 ? (
           <div className="mt-6">
             <EmptyState
-              icon={<Notebook size={20} />}
+              icon={<Notebook size={20} strokeWidth={1.75} />}
               title={t("memory.emptyTitle")}
               description={t("memory.emptyDescription")}
             />
@@ -162,7 +162,7 @@ export function MemoryView() {
                         className="group flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover focus-visible:bg-fill-active"
                       >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bubble-tool text-icon transition-colors group-hover:text-accent">
-                          <FileText size={16} />
+                          <FileText size={16} strokeWidth={1.75} />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium leading-5 text-ink">
@@ -190,7 +190,8 @@ export function MemoryView() {
                           </span>
                         </span>
                         <ChevronRight
-                          size={15}
+                          size={14}
+                          strokeWidth={1.8}
                           className="shrink-0 text-icon transition-colors group-hover:text-icon-strong"
                         />
                       </button>
@@ -343,7 +344,7 @@ function MemoryDetails({
           >
             <header className="flex items-start gap-3 border-b border-line px-5 py-4">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-icon">
-                <Notebook size={18} />
+                <Notebook size={16} strokeWidth={1.75} />
               </span>
               <div className="min-w-0 flex-1">
                 <Dialog.Title className="truncate font-medium text-ink">
@@ -364,7 +365,7 @@ function MemoryDetails({
                     dispatch({ type: "edit" });
                   }}
                 >
-                  <Pencil size={14} />
+                  <Pencil size={14} strokeWidth={1.8} />
                   {t("memory.edit")}
                 </Button>
               )}
@@ -374,7 +375,7 @@ function MemoryDetails({
                 disabled={editor.saving}
                 onClick={requestClose}
               >
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </header>
 
@@ -446,7 +447,7 @@ function MemoryDetails({
                 <Markdown>{editor.content}</Markdown>
               ) : (
                 <div className="flex flex-col items-center py-20 text-center text-ink-tertiary">
-                  <FileText size={24} />
+                  <FileText size={24} strokeWidth={1.75} />
                   <p className="mt-3 text-sm">{t("memory.emptyContent")}</p>
                 </div>
               )}
@@ -473,9 +474,9 @@ function MemoryDetails({
                   onClick={() => void save()}
                 >
                   {editor.saving ? (
-                    <LoaderCircle size={14} className="animate-spin" />
+                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                   ) : (
-                    <Save size={14} />
+                    <Save size={14} strokeWidth={1.8} />
                   )}
                   {editor.saving ? t("memory.saving") : t("memory.save")}
                 </Button>

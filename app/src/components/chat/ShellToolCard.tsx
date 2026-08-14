@@ -60,6 +60,7 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
     <>
       <Terminal
         size={12}
+        strokeWidth={1.8}
         className={`shrink-0 ${
           failed
             ? "text-danger"

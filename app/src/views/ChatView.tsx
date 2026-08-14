@@ -394,7 +394,7 @@ export function ChatView() {
     >
       {dragging && (
         <div className="pointer-events-none absolute inset-3 z-50 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-accent bg-accent-soft/60">
-          <CloudUpload size={28} className="text-accent" />
+          <CloudUpload size={28} strokeWidth={1.75} className="text-accent" />
           <span className="text-sm font-medium text-accent">
             {t("chat.dropFiles")}
           </span>
@@ -504,6 +504,7 @@ export function ChatView() {
                   <FolderClosed
                     data-tauri-drag-region
                     size={12}
+                    strokeWidth={1.8}
                     className="shrink-0"
                   />
                   <span data-tauri-drag-region className="truncate">
@@ -525,7 +526,7 @@ export function ChatView() {
                     : "text-icon hover:bg-fill-hover hover:text-icon-strong"
                 }`}
               >
-                <Search size={15} />
+                <Search size={16} strokeWidth={1.75} />
               </button>
               <button
                 type="button"
@@ -541,7 +542,7 @@ export function ChatView() {
                     : "text-icon hover:bg-fill-hover hover:text-icon-strong"
                 }`}
               >
-                <PanelRightOpen size={15} />
+                <PanelRightOpen size={16} strokeWidth={1.75} />
                 {artifacts.length + fileChanges.length > 0 && (
                   <span className="absolute right-0.5 top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-btn-primary px-1 text-[9px] leading-3.5 text-btn-primary-ink">
                     {artifacts.length + fileChanges.length > 9
@@ -555,7 +556,7 @@ export function ChatView() {
           {searchOpen && (
             <div className="absolute right-3 top-12 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
               <div className="flex h-11 items-center gap-2 border-b border-line px-3">
-                <Search size={14} className="shrink-0 text-icon" />
+                <Search size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
@@ -577,7 +578,7 @@ export function ChatView() {
                   aria-label={t("chat.search.close")}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
                 >
-                  <X size={14} />
+                  <X size={14} strokeWidth={1.8} />
                 </button>
               </div>
               <div className="max-h-64 overflow-y-auto p-1.5">
@@ -644,7 +645,7 @@ export function ChatView() {
                       onClick={scrollToBottom}
                       className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-raised px-3 py-1.5 text-xs text-ink-secondary shadow-[var(--shadow-md)] transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
                     >
-                      <ArrowDown size={13} />
+                      <ArrowDown size={14} strokeWidth={1.8} />
                       {t("chat.backToBottom")}
                     </button>
                   </div>

@@ -158,6 +158,7 @@ export function FileToolCard({
     <>
       <RowIcon
         size={12}
+        strokeWidth={1.8}
         className={`shrink-0 ${
           failed
             ? "text-danger"
@@ -241,7 +242,7 @@ function ArtifactCard({
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
           title={path}
         >
-          <Icon size={20} className="shrink-0 text-ink-secondary" />
+          <Icon size={20} strokeWidth={1.75} className="shrink-0 text-ink-secondary" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium text-ink">
               {name}
@@ -262,7 +263,7 @@ function ArtifactCard({
           onClick={(event) => handleSystemOpenClick(event, path)}
           className="shrink-0 rounded-[var(--radius-sm)] p-1.5 text-icon transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-icon-strong"
         >
-          <ArrowUpRight size={15} />
+          <ArrowUpRight size={14} strokeWidth={1.8} />
         </a>
       </div>
       <Collapse open={expanded}>

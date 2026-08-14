@@ -39,7 +39,7 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
   if (failed) {
     return (
       <div className="my-2 flex items-center gap-2 text-xs text-danger">
-        <Icon size={14} className="shrink-0" />
+        <Icon size={14} strokeWidth={1.8} className="shrink-0" />
         <span className="min-w-0 truncate font-medium">
           {t("progress.failedTitle")}
         </span>
@@ -55,7 +55,7 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
   if (completed) {
     return (
       <div className="my-2 flex items-center gap-2 text-xs text-ink-muted">
-        {debugStatus && <Icon size={14} className="shrink-0" />}
+        {debugStatus && <Icon size={14} strokeWidth={1.8} className="shrink-0" />}
         <span className="min-w-0 truncate font-medium text-ink-secondary">
           {title}
         </span>

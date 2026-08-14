@@ -413,7 +413,7 @@ function FileChangesCard({
     <div className="my-3 overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
       <div className="flex items-center gap-2.5 px-3.5 py-2.5">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-fill-hover text-ink-secondary">
-          <FileDiff size={15} />
+          <FileDiff size={14} strokeWidth={1.8} />
         </span>
         <span className="text-[13px] font-medium text-ink">
           {t("chat.changes.title", { count: stats.files })}
@@ -456,7 +456,8 @@ function FileChangesCard({
             ? t("chat.changes.showLess")
             : t("chat.changes.showMore", { count: hiddenCount })}
           <ChevronDown
-            size={13}
+            size={14}
+            strokeWidth={1.8}
             className={`transition-transform duration-[var(--dur-fast)] ${
               expanded ? "rotate-180" : ""
             }`}
@@ -609,7 +610,8 @@ function TurnFlow({
       )}
       {toggleable && (
         <ChevronRight
-          size={13}
+          size={14}
+          strokeWidth={1.8}
           className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
             headerOpen ? "rotate-90" : ""
           }`}
@@ -823,7 +825,7 @@ function MessageActions({
         label={copied ? t("message.copied") : t("message.copy")}
         onClick={() => void copy()}
       >
-        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {copied ? <Check size={14} strokeWidth={1.8} /> : <Copy size={14} strokeWidth={1.8} />}
       </ActionButton>
       {regeneratePrompt && (
         <ActionButton
@@ -831,7 +833,7 @@ function MessageActions({
           disabled={busy}
           onClick={() => void sendMessage(regeneratePrompt, navigate)}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} strokeWidth={1.8} />
         </ActionButton>
       )}
     </div>

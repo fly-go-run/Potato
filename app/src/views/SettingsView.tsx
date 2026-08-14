@@ -863,12 +863,12 @@ export function SettingsView() {
   };
 
   const navItems: { id: SectionId; icon: ReactNode }[] = [
-    { id: "models", icon: <Bot size={16} /> },
-    { id: "general", icon: <SlidersHorizontal size={16} /> },
-    { id: "security", icon: <ShieldCheck size={16} /> },
-    { id: "data", icon: <HardDrive size={16} /> },
-    { id: "shortcuts", icon: <Keyboard size={16} /> },
-    { id: "about", icon: <Info size={16} /> },
+    { id: "models", icon: <Bot size={16} strokeWidth={1.75} /> },
+    { id: "general", icon: <SlidersHorizontal size={16} strokeWidth={1.75} /> },
+    { id: "security", icon: <ShieldCheck size={16} strokeWidth={1.75} /> },
+    { id: "data", icon: <HardDrive size={16} strokeWidth={1.75} /> },
+    { id: "shortcuts", icon: <Keyboard size={16} strokeWidth={1.75} /> },
+    { id: "about", icon: <Info size={16} strokeWidth={1.75} /> },
   ];
   const activeSection: SectionId = navItems.some((item) => item.id === section)
     ? section
@@ -953,7 +953,7 @@ export function SettingsView() {
                 title={t("settings.close")}
                 onClick={closePanel}
               >
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </header>
 
@@ -1097,7 +1097,7 @@ export function SettingsView() {
                           }}
                           className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-[13px] text-ink-secondary transition-colors hover:bg-fill-hover hover:text-ink"
                         >
-                          <Plus size={14} />
+                          <Plus size={14} strokeWidth={1.8} />
                           {t("settings.provider.addCustom")}
                         </button>
                       </div>
@@ -1203,7 +1203,7 @@ export function SettingsView() {
                           size="sm"
                           onClick={() => themeFileRef.current?.click()}
                         >
-                          <Upload size={13} />
+                          <Upload size={14} strokeWidth={1.8} />
                           {t("settings.theme.import")}
                         </Button>
                         <input
@@ -1250,7 +1250,7 @@ export function SettingsView() {
                           aria-label={t("settings.theme.deleteTheme")}
                           onClick={() => deleteCustomTheme(customTheme.id)}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} strokeWidth={1.8} />
                         </IconButton>
                       </div>
                     ))}
@@ -1294,7 +1294,8 @@ export function SettingsView() {
                           >
                             {resettingWindow ? (
                               <LoaderCircle
-                                size={13}
+                                size={14}
+                                strokeWidth={1.8}
                                 className="animate-spin"
                               />
                             ) : null}
@@ -1437,9 +1438,9 @@ export function SettingsView() {
                       onClick={() => void exportWorkspace()}
                     >
                       {exporting ? (
-                        <LoaderCircle size={13} className="animate-spin" />
+                        <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                       ) : (
-                        <Download size={13} />
+                        <Download size={14} strokeWidth={1.8} />
                       )}
                       {t("settings.data.export")}
                     </Button>
@@ -1563,7 +1564,7 @@ function ProviderListRow({
           {t("settings.provider.modelCount", { count: modelCount })}
         </span>
       )}
-      <ChevronRight size={14} className="shrink-0 text-ink-tertiary" />
+      <ChevronRight size={14} strokeWidth={1.8} className="shrink-0 text-ink-tertiary" />
     </button>
   );
 }
@@ -1684,7 +1685,7 @@ function ProviderDetail({
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <ChevronLeft size={14} />
+          <ChevronLeft size={14} strokeWidth={1.8} />
           {t("settings.provider.backToList")}
         </Button>
         <div className="min-w-0 flex-1" />
@@ -1695,7 +1696,7 @@ function ProviderDetail({
             disabled={busy}
             onClick={onRemoveProvider}
           >
-            <Trash2 size={13} className="text-danger" />
+            <Trash2 size={14} strokeWidth={1.8} className="text-danger" />
             <span className="text-danger">{t("settings.provider.delete")}</span>
           </Button>
         )}
@@ -1764,7 +1765,7 @@ function ProviderDetail({
                     onClick={onClearKey}
                   >
                     {clearingKey ? (
-                      <LoaderCircle size={13} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     ) : (
                       t("settings.provider.clearKey")
                     )}
@@ -1821,9 +1822,9 @@ function ProviderDetail({
                   onClick={onTest}
                 >
                   {testState.phase === "busy" ? (
-                    <LoaderCircle size={13} className="animate-spin" />
+                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                   ) : (
-                    <PlugZap size={13} />
+                    <PlugZap size={14} strokeWidth={1.8} />
                   )}
                   {t("settings.provider.test")}
                 </Button>
@@ -1834,7 +1835,7 @@ function ProviderDetail({
                   disabled={!dirty || busy}
                 >
                   {saving ? (
-                    <LoaderCircle size={13} className="animate-spin" />
+                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                   ) : null}
                   {t("settings.provider.save")}
                 </Button>
@@ -1863,9 +1864,9 @@ function ProviderDetail({
             onClick={onDiscover}
           >
             {discovering ? (
-              <LoaderCircle size={13} className="animate-spin" />
+              <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
             ) : (
-              <Radar size={13} />
+              <Radar size={14} strokeWidth={1.8} />
             )}
             {t("settings.models.discover")}
           </Button>
@@ -1915,9 +1916,9 @@ function ProviderDetail({
                     onClick={() => onRemoveModel(item.id)}
                   >
                     {removingModel === item.id ? (
-                      <LoaderCircle size={14} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     ) : (
-                      <Trash2 size={14} />
+                      <Trash2 size={14} strokeWidth={1.8} />
                     )}
                   </IconButton>
                 )}
@@ -1955,9 +1956,9 @@ function ProviderDetail({
             disabled={busy || !newModelId.trim()}
           >
             {addingModel ? (
-              <LoaderCircle size={13} className="animate-spin" />
+              <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
             ) : (
-              <Plus size={13} />
+              <Plus size={14} strokeWidth={1.8} />
             )}
             {t("settings.models.addModelConfirm")}
           </Button>
@@ -1998,7 +1999,7 @@ function ProviderCreate({
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <ChevronLeft size={14} />
+          <ChevronLeft size={14} strokeWidth={1.8} />
           {t("settings.provider.backToList")}
         </Button>
       </div>
@@ -2071,9 +2072,9 @@ function ProviderCreate({
               disabled={creating || !name.trim() || !baseUrl.trim()}
             >
               {creating ? (
-                <LoaderCircle size={13} className="animate-spin" />
+                <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
               ) : (
-                <Plus size={13} />
+                <Plus size={14} strokeWidth={1.8} />
               )}
               {t("settings.create.submit")}
             </Button>

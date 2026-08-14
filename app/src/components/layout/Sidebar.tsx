@@ -237,7 +237,8 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 })}
               </span>
               <ChevronDown
-                size={13}
+                size={14}
+                strokeWidth={1.8}
                 className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
                   projectsExpanded ? "" : "-rotate-90"
                 }`}
@@ -274,6 +275,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                         </span>
                         <ChevronDown
                           size={12}
+                          strokeWidth={1.8}
                           className={`shrink-0 text-ink-tertiary transition-transform ${
                             open ? "" : "-rotate-90"
                           }`}
@@ -315,7 +317,8 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
               {t("sidebar.chatsGroup", { count: groupedChats.unbound.length })}
             </span>
             <ChevronDown
-              size={13}
+              size={14}
+              strokeWidth={1.8}
               className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
                 chatsExpanded ? "" : "-rotate-90"
               }`}
@@ -554,6 +557,7 @@ function ChatRow({
             {chat.pinned && (
               <Pin
                 size={12}
+                strokeWidth={1.8}
                 className={cn("shrink-0", active ? "text-tint" : "text-icon")}
               />
             )}
@@ -580,7 +584,7 @@ function ChatRow({
               title={t("sidebar.chatActions")}
               className="absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
             >
-              <MoreHorizontal size={15} />
+              <MoreHorizontal size={14} strokeWidth={1.8} />
             </IconButton>
           </DropdownMenu.Trigger>
         </div>
@@ -591,7 +595,7 @@ function ChatRow({
             className="qp-pop z-50 min-w-32 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
           >
             <MenuItem
-              icon={<PenLine size={14} />}
+              icon={<PenLine size={14} strokeWidth={1.8} />}
               label={t("sidebar.rename")}
               onSelect={() => {
                 setRenameValue(chat.name);
@@ -600,7 +604,7 @@ function ChatRow({
               }}
             />
             <MenuItem
-              icon={chat.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              icon={chat.pinned ? <PinOff size={14} strokeWidth={1.8} /> : <Pin size={14} strokeWidth={1.8} />}
               label={chat.pinned ? t("sidebar.unpin") : t("sidebar.pin")}
               onSelect={() => void togglePin()}
             />
@@ -612,7 +616,7 @@ function ChatRow({
               }}
               className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-danger outline-none hover:bg-danger-soft focus:bg-danger-soft"
             >
-              <Trash2 size={14} />
+              <Trash2 size={14} strokeWidth={1.8} />
               {t("sidebar.delete")}
             </DropdownMenu.Item>
           </DropdownMenu.Content>

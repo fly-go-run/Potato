@@ -34,7 +34,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
     <section className="my-4 overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-sm)]">
       <div className="flex items-start gap-3 border-b border-line bg-bubble-tool px-4 py-3">
         <div className="mt-0.5 rounded-md bg-accent-soft p-1.5 text-accent">
-          <AlertTriangle size={16} />
+          <AlertTriangle size={16} strokeWidth={1.75} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -86,7 +86,8 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
         <details className="group rounded-md bg-bubble-tool">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-ink-secondary">
             <ChevronRight
-              size={13}
+              size={14}
+              strokeWidth={1.8}
               className="transition-transform group-open:rotate-90"
             />
             {t("approval.parameters")}
@@ -103,7 +104,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             disabled={processing !== null}
             onClick={() => void act("approve")}
           >
-            <Check size={14} />
+            <Check size={14} strokeWidth={1.8} />
             {processing === "approve:exact"
               ? t("approval.processing")
               : t("approval.approve")}
@@ -115,7 +116,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
               disabled={processing !== null || confirmingSimilar}
               onClick={() => setConfirmingSimilar(true)}
             >
-              <CopyCheck size={14} />
+              <CopyCheck size={14} strokeWidth={1.8} />
               {processing === "approve:similar"
                 ? t("approval.processing")
                 : t("approval.approveSimilar")}
@@ -127,7 +128,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             disabled={processing !== null}
             onClick={() => void act("deny")}
           >
-            <X size={14} />
+            <X size={14} strokeWidth={1.8} />
             {processing === "deny:exact"
               ? t("approval.processing")
               : t("approval.deny")}

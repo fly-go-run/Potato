@@ -112,7 +112,8 @@ export function TriggerPopover({
                 </span>
               ) : (
                 <Icon
-                  size={13}
+                  size={14}
+                  strokeWidth={1.8}
                   className="relative top-px shrink-0 self-center text-icon"
                 />
               )}

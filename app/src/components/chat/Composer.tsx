@@ -306,10 +306,10 @@ export function Composer({ wide = false }: { wide?: boolean }) {
           aria-label={t("composer.approval.aria")}
           className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
         >
-          <ShieldCheck size={15} />
+          <ShieldCheck size={16} strokeWidth={1.75} />
           {/* 审批档位是安全边界,任何入口都必须显示当前档位 */}
           {approvalLabel}
-          <ChevronDown size={13} />
+          <ChevronDown size={14} strokeWidth={1.8} />
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -332,7 +332,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 <span className="block text-xs text-ink">{item.label}</span>
               </span>
               {approvalLevel === item.value && (
-                <Check size={13} className="mt-0.5 shrink-0 text-accent" />
+                <Check size={14} strokeWidth={1.8} className="mt-0.5 shrink-0 text-accent" />
               )}
             </DropdownMenu.Item>
           ))}
@@ -668,7 +668,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                       />
                     ) : (
                       <div className="flex min-w-0 flex-col items-center gap-1 px-2 text-ink-secondary">
-                        <FileText size={18} />
+                        <FileText size={18} strokeWidth={1.75} />
                         <span className="w-full truncate text-center text-[10px]">
                           {attachment.file.name}
                         </span>
@@ -681,7 +681,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                       onClick={() => removeImage(attachment.id)}
                       className="absolute right-1 top-1 h-6 w-6 bg-raised shadow-[var(--shadow-sm)]"
                     >
-                      <X size={12} />
+                      <X size={12} strokeWidth={1.8} />
                     </IconButton>
                   </div>
                 ))}
@@ -746,7 +746,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                     disabled={busy}
                     title={t("composer.add")}
                   >
-                    <Plus size={20} strokeWidth={1.9} />
+                    <Plus size={20} strokeWidth={1.75} />
                   </IconButton>
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Portal>
@@ -761,14 +761,14 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                       onSelect={() => fileInputRef.current?.click()}
                       className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
                     >
-                      <Paperclip size={14} className="text-icon" />
+                      <Paperclip size={14} strokeWidth={1.8} className="text-icon" />
                       {t("composer.addMenu.upload")}
                     </DropdownMenu.Item>
                     <DropdownMenu.Item
                       onSelect={() => insertTriggerSymbol("@")}
                       className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
                     >
-                      <AtSign size={14} className="text-icon" />
+                      <AtSign size={14} strokeWidth={1.8} className="text-icon" />
                       <span className="flex-1">
                         {t("composer.addMenu.reference")}
                       </span>
@@ -780,7 +780,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                       onSelect={() => insertTriggerSymbol("/")}
                       className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
                     >
-                      <Sparkles size={14} className="text-icon" />
+                      <Sparkles size={14} strokeWidth={1.8} className="text-icon" />
                       <span className="flex-1">
                         {t("composer.addMenu.skill")}
                       </span>
@@ -853,18 +853,18 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 >
                   {voiceState === "transcribing" ||
                   voiceState === "starting" ? (
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={16} strokeWidth={1.75} className="animate-spin" />
                   ) : voiceState === "recording" ? (
                     // 录音中按钮的动作是「停止」,就得画成停止:红色脉冲的
                     // 麦克风只说明正在录,没告诉用户点下去会怎样。方块与
                     // 发送键的停流按钮同一套语义。
                     <Square
-                      size={15}
+                      size={16}
                       fill="currentColor"
                       className="animate-pulse"
                     />
                   ) : (
-                    <Mic size={18} strokeWidth={1.9} />
+                    <Mic size={18} strokeWidth={1.75} />
                   )}
                 </IconButton>
               )}
@@ -877,7 +877,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   onClick={() => void stop()}
                   className={sendButtonClass}
                 >
-                  <Square size={15} fill="currentColor" />
+                  <Square size={16} fill="currentColor" />
                 </button>
               ) : (
                 <button
@@ -888,7 +888,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   onClick={submit}
                   className={sendButtonClass}
                 >
-                  <ArrowUp size={18} strokeWidth={2.4} />
+                  <ArrowUp size={16} strokeWidth={2.4} />
                 </button>
               )}
             </div>

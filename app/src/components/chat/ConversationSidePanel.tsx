@@ -231,7 +231,7 @@ export function ConversationSidePanel({
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {artifacts.length === 0 ? (
             <div className="flex h-full min-h-40 flex-col items-center justify-center px-5 text-center">
-              <Files size={22} className="text-ink-muted" />
+              <Files size={22} strokeWidth={1.75} className="text-ink-muted" />
               <div className="mt-2 text-[13px] text-ink-secondary">
                 {t("chat.panel.noArtifacts")}
               </div>
@@ -249,7 +249,7 @@ export function ConversationSidePanel({
                     className="group rounded-[var(--radius-md)] bg-surface px-2.5 py-2.5"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Icon size={17} className="shrink-0 text-ink-secondary" />
+                      <Icon size={16} strokeWidth={1.75} className="shrink-0 text-ink-secondary" />
                       <button
                         type="button"
                         onClick={() =>
@@ -278,7 +278,7 @@ export function ConversationSidePanel({
                         }
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
                       >
-                        <ArrowUpRight size={14} />
+                        <ArrowUpRight size={14} strokeWidth={1.8} />
                       </a>
                     </div>
                     <button
@@ -287,7 +287,7 @@ export function ConversationSidePanel({
                       className="mt-2 flex items-center gap-1 text-[11px] text-ink-secondary hover:text-ink"
                     >
                       {t("chat.panel.locate")}
-                      <ChevronRight size={11} />
+                      <ChevronRight size={12} strokeWidth={1.8} />
                     </button>
                   </div>
                 );
@@ -320,10 +320,10 @@ function FilePreviewPanel({
             aria-label={t("chat.panel.back")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-tertiary transition-colors hover:bg-fill-hover hover:text-ink"
           >
-            <ChevronRight size={15} className="rotate-180" />
+            <ChevronRight size={14} strokeWidth={1.8} className="rotate-180" />
           </button>
         )}
-        <FileText size={15} className="shrink-0 text-ink-secondary" />
+        <FileText size={14} strokeWidth={1.8} className="shrink-0 text-ink-secondary" />
         <span className="min-w-0 flex-1 leading-tight" title={path}>
           <span className="block truncate text-[13px] font-medium text-ink">
             {filename}
@@ -341,7 +341,7 @@ function FilePreviewPanel({
               aria-label={t("chat.preview.reveal")}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
             >
-              <FolderOpen size={14} />
+              <FolderOpen size={14} strokeWidth={1.8} />
             </button>
             <button
               type="button"
@@ -350,7 +350,7 @@ function FilePreviewPanel({
               aria-label={t("chat.preview.openSystem")}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
             >
-              <ArrowUpRight size={14} />
+              <ArrowUpRight size={14} strokeWidth={1.8} />
             </button>
           </>
         ) : (
@@ -362,7 +362,7 @@ function FilePreviewPanel({
             aria-label={t("tool.file.open")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
           >
-            <ArrowUpRight size={14} />
+            <ArrowUpRight size={14} strokeWidth={1.8} />
           </a>
         )}
       </div>
@@ -505,7 +505,7 @@ function TextFilePreview({
   if (state.phase === "loading") {
     return (
       <div className="flex items-center gap-2 px-4 py-3 text-xs text-ink-tertiary">
-        <LoaderCircle size={13} className="animate-spin" />
+        <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
         {t("chat.preview.loading")}
       </div>
     );
@@ -608,7 +608,7 @@ function ChangesList({
   if (changes.length === 0) {
     return (
       <div className="flex h-full min-h-40 flex-col items-center justify-center px-5 text-center">
-        <FileDiff size={22} className="text-ink-muted" />
+        <FileDiff size={22} strokeWidth={1.75} className="text-ink-muted" />
         <div className="mt-2 text-[13px] text-ink-secondary">
           {t("chat.panel.noChanges")}
         </div>
@@ -788,10 +788,10 @@ function ChangeDiffPanel({
             aria-label={t("chat.panel.back")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-tertiary transition-colors hover:bg-fill-hover hover:text-ink"
           >
-            <ChevronRight size={15} className="rotate-180" />
+            <ChevronRight size={14} strokeWidth={1.8} className="rotate-180" />
           </button>
         )}
-        <FileDiff size={15} className="shrink-0 text-ink-secondary" />
+        <FileDiff size={14} strokeWidth={1.8} className="shrink-0 text-ink-secondary" />
         <span
           className="min-w-0 truncate text-[13px] font-medium text-ink"
           title={change.path}
@@ -830,9 +830,9 @@ function ChangeDiffPanel({
               className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon transition-colors hover:bg-fill-hover hover:text-icon-strong disabled:opacity-50"
             >
               {undoState === "busy" ? (
-                <LoaderCircle size={14} className="animate-spin" />
+                <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
               ) : (
-                <Undo2 size={14} />
+                <Undo2 size={14} strokeWidth={1.8} />
               )}
             </button>
           ))}
@@ -844,7 +844,7 @@ function ChangeDiffPanel({
           aria-label={t("tool.file.open")}
           className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
         >
-          <ArrowUpRight size={14} />
+          <ArrowUpRight size={14} strokeWidth={1.8} />
         </a>
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
@@ -863,7 +863,7 @@ function ChangeDiffPanel({
         ) : null}
         {gitState.phase === "loading" ? (
           <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-ink-tertiary">
-            <LoaderCircle size={13} className="animate-spin" />
+            <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
             {t("chat.diff.loading")}
           </div>
         ) : gitState.phase === "git" ? (
@@ -921,7 +921,7 @@ function GitDiffView({
     <section className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
       <div className="flex items-center justify-between border-b border-line px-3 py-1.5 text-[11px] text-ink-tertiary">
         <span className="flex items-center gap-1.5">
-          <GitBranch size={12} />
+          <GitBranch size={12} strokeWidth={1.8} />
           {staged ? t("chat.diff.staged") : t("chat.diff.workingTree")} ·{" "}
           {branch}
         </span>
@@ -1125,7 +1125,7 @@ function PanelTab({
           : "border-transparent text-ink-secondary hover:text-ink"
       }`}
     >
-      <Icon size={13} />
+      <Icon size={14} strokeWidth={1.8} />
       <span className="truncate">{label}</span>
     </button>
   );

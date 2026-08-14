@@ -195,7 +195,7 @@ export function SkillsView() {
               size="sm"
               onClick={() => setAddOpen(true)}
             >
-              <Plus size={15} />
+              <Plus size={16} strokeWidth={1.75} />
               {t("skills.add")}
             </Button>
           }
@@ -274,7 +274,7 @@ export function SkillsView() {
           <section className="mt-5">
             {filteredSkills.length === 0 ? (
               <EmptyState
-                icon={<PackageOpen size={20} />}
+                icon={<PackageOpen size={20} strokeWidth={1.75} />}
                 title={t(query ? "skills.noResults" : "skills.empty")}
                 description={t(
                   query
@@ -299,7 +299,7 @@ export function SkillsView() {
         ) : plugins.length === 0 ? (
           <div className="mt-5">
             <EmptyState
-              icon={<Puzzle size={20} />}
+              icon={<Puzzle size={20} strokeWidth={1.75} />}
               title={t("plugins.empty")}
               description={t("plugins.emptyDescription")}
             />
@@ -394,7 +394,7 @@ function SkillRow({
             skill.enabled ? "text-icon" : "text-ink-muted"
           }`}
         >
-          {skill.emoji || <LayoutGrid size={18} />}
+          {skill.emoji || <LayoutGrid size={14} strokeWidth={1.8} />}
         </span>
         <div className="min-w-0 flex-1">
           <span
@@ -423,6 +423,7 @@ function SkillRow({
         </span>
         <ChevronRight
           size={14}
+          strokeWidth={1.8}
           aria-hidden
           className="text-icon transition-colors duration-[var(--dur-fast)] group-hover:text-icon-strong"
         />
@@ -446,7 +447,7 @@ function PluginRow({
   return (
     <div className="flex items-center gap-3.5 px-4 py-3 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-icon">
-        <Puzzle size={18} />
+        <Puzzle size={14} strokeWidth={1.8} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
@@ -475,9 +476,9 @@ function PluginRow({
       </div>
       <Button variant="danger" size="sm" disabled={busy} onClick={onDelete}>
         {busy ? (
-          <LoaderCircle size={14} className="animate-spin" />
+          <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
         ) : (
-          <Trash2 size={14} />
+          <Trash2 size={14} strokeWidth={1.8} />
         )}
         {t("plugins.uninstall")}
       </Button>
@@ -507,7 +508,7 @@ function SkillDetails({
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             {/* emoji 只在详情里出现；列表行统一线稿，保证整列图标一致。 */}
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base text-icon">
-              {skill?.emoji || <LayoutGrid size={18} />}
+              {skill?.emoji || <LayoutGrid size={16} strokeWidth={1.75} />}
             </span>
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
@@ -519,7 +520,7 @@ function SkillDetails({
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("skills.close")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -532,6 +533,7 @@ function SkillDetails({
                 {busy && (
                   <LoaderCircle
                     size={14}
+                    strokeWidth={1.8}
                     className="animate-spin text-ink-tertiary"
                   />
                 )}
@@ -577,7 +579,7 @@ function SkillDetails({
                   <div className="flex flex-wrap gap-1.5">
                     {skill.tags.map((tag) => (
                       <Badge key={tag} tone="neutral">
-                        <Tags size={11} />
+                        <Tags size={12} strokeWidth={1.8} />
                         {tag}
                       </Badge>
                     ))}
@@ -606,9 +608,9 @@ function SkillDetails({
               onClick={() => skill && onDelete(skill)}
             >
               {busy ? (
-                <LoaderCircle size={14} className="animate-spin" />
+                <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
               ) : (
-                <Trash2 size={14} />
+                <Trash2 size={14} strokeWidth={1.8} />
               )}
               {t("skills.delete")}
             </Button>
@@ -876,7 +878,7 @@ function AddCapabilityDialog({
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("skills.close")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -969,7 +971,7 @@ function AddCapabilityDialog({
               <SkeletonRows rows={5} />
             ) : mode === "skills" && skillTab === "pool" ? (
               <CapabilitySourceList
-                icon={<LayoutGrid size={16} />}
+                icon={<LayoutGrid size={16} strokeWidth={1.75} />}
                 items={pool.map((skill) => ({
                   key: skill.name,
                   name: skillDisplayName(skill.name, language),
@@ -1009,7 +1011,7 @@ function AddCapabilityDialog({
                   (hubTask.status === "pending" ||
                     hubTask.status === "importing") && (
                     <div className="mt-3 flex items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-xs text-accent">
-                      <LoaderCircle size={14} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                       <span className="min-w-0 flex-1">
                         {t("skills.add.installing", {
                           name: hubTask.skillName,
@@ -1031,7 +1033,7 @@ function AddCapabilityDialog({
                 ) : (
                   <div className="mt-4">
                     <CapabilitySourceList
-                      icon={<LayoutGrid size={16} />}
+                      icon={<LayoutGrid size={16} strokeWidth={1.75} />}
                       items={hubResults.map((skill) => ({
                         key: skill.slug,
                         name: skill.name,
@@ -1062,7 +1064,7 @@ function AddCapabilityDialog({
               />
             ) : pluginTab === "catalog" ? (
               <CapabilitySourceList
-                icon={<Puzzle size={16} />}
+                icon={<Puzzle size={16} strokeWidth={1.75} />}
                 items={catalog.map((plugin) => ({
                   key: plugin.plugin_id,
                   name: plugin.name,
@@ -1106,7 +1108,7 @@ function AddCapabilityDialog({
                     disabled={!url.trim() || busy !== null}
                   >
                     {busy === url.trim() && (
-                      <LoaderCircle size={14} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     )}
                     {t("plugins.add.install")}
                   </Button>
@@ -1188,9 +1190,9 @@ function CapabilitySourceList({
               onClick={() => onInstall(item.key)}
             >
               {busy === item.key ? (
-                <LoaderCircle size={13} className="animate-spin" />
+                <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
               ) : (
-                <Download size={13} />
+                <Download size={14} strokeWidth={1.8} />
               )}
               {t("skills.add.import")}
             </Button>
@@ -1214,9 +1216,9 @@ function ZipUpload({
   return (
     <label className="flex cursor-pointer flex-col items-center rounded-lg border border-dashed border-line px-6 py-12 text-center transition-colors hover:border-line-strong focus-within:border-line-strong focus-within:shadow-[0_0_0_3px_var(--ring)]">
       {busy ? (
-        <LoaderCircle size={24} className="animate-spin text-accent" />
+        <LoaderCircle size={24} strokeWidth={1.75} className="animate-spin text-accent" />
       ) : (
-        <Upload size={24} className="text-accent" />
+        <Upload size={24} strokeWidth={1.75} className="text-accent" />
       )}
       <span className="mt-3 text-sm font-medium text-ink">
         {busy ? t("skills.add.uploading") : t("skills.add.chooseZip")}
@@ -1250,7 +1252,8 @@ function SearchField({
   return (
     <label className="relative block w-full max-w-xs">
       <Search
-        size={15}
+        size={14}
+        strokeWidth={1.8}
         className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon"
       />
       <Input
