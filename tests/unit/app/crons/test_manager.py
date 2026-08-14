@@ -72,6 +72,38 @@ async def test_keepalive_task_lifecycle(manager: CronManager):
 
 
 @pytest.mark.asyncio
+async def test_stop_cancels_and_awaits_dispatched_execution_tasks(
+    manager: CronManager,
+    repo: InMemoryJobRepository,
+):
+    spec = make_cron_job_spec(job_id="running")
+    await repo.upsert_job(spec)
+    await manager.start()
+    entered = asyncio.Event()
+    cleaned_up = asyncio.Event()
+    never_finishes = asyncio.Event()
+
+    async def execute(_job):
+        entered.set()
+        try:
+            await never_finishes.wait()
+        finally:
+            cleaned_up.set()
+
+    manager._executor.execute = AsyncMock(side_effect=execute)
+
+    await manager.run_job("running")
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    tasks = tuple(manager._execution_tasks)
+
+    await manager.stop()
+
+    assert cleaned_up.is_set()
+    assert tasks and all(task.done() for task in tasks)
+    assert manager._execution_tasks == set()
+
+
+@pytest.mark.asyncio
 async def test_scheduled_dream_waits_for_random_delay(
     repo: InMemoryJobRepository,
 ):

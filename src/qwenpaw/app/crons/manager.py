@@ -89,6 +89,7 @@ class CronManager(ManagerBase):
         self._rt: Dict[str, _Runtime] = {}
         self._started = False
         self._keepalive_task: Optional[asyncio.Task] = None
+        self._execution_tasks: set[asyncio.Task] = set()
 
     async def start(self) -> None:
         async with self._lock:
@@ -179,11 +180,31 @@ class CronManager(ManagerBase):
 
     async def stop(self) -> None:
         async with self._lock:
-            if not self._started:
+            if not self._started and not self._execution_tasks:
                 return
+            was_started = self._started
             self._started = False
             keepalive = self._keepalive_task
             self._keepalive_task = None
+            if was_started:
+                # Prevent the scheduler from dispatching new work before
+                # draining tasks already handed off by this manager.
+                self._scheduler.shutdown(wait=False)
+
+            execution_tasks = [
+                task
+                for task in self._execution_tasks
+                if not task.done() and task is not asyncio.current_task()
+            ]
+            for task in execution_tasks:
+                task.cancel()
+            if execution_tasks:
+                await asyncio.gather(
+                    *execution_tasks,
+                    return_exceptions=True,
+                )
+            self._execution_tasks.difference_update(execution_tasks)
+
             if keepalive is not None:
                 keepalive.cancel()
                 try:
@@ -195,7 +216,6 @@ class CronManager(ManagerBase):
                         "Error cancelling cron keepalive task: %s",
                         repr(exc),
                     )
-            self._scheduler.shutdown(wait=False)
 
     async def _keepalive_loop(self) -> None:
         """Keep the asyncio event loop ticking while cron is running.
@@ -394,6 +414,8 @@ class CronManager(ManagerBase):
             ),
             name=f"cron-run-{job_id}",
         )
+        self._execution_tasks.add(task)
+        task.add_done_callback(self._execution_tasks.discard)
         task.add_done_callback(lambda t: self._task_done_cb(t, job))
 
     # ----- callbacks -----

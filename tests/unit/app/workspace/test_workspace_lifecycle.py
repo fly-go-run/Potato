@@ -125,3 +125,20 @@ def test_production_service_graph_snapshot():
         ["cron_manager"],
         ["agent_config_watcher"],
     ]
+
+
+def test_production_shutdown_orders_cron_before_channel_and_core():
+    workspace = Workspace.__new__(Workspace)
+    manager = ServiceManager(workspace)
+    workspace._service_manager = manager  # pylint: disable=protected-access
+    Workspace._register_services(workspace)  # pylint: disable=protected-access
+
+    stop_layers = list(reversed(manager.startup_layers()))
+    stop_rank = {
+        name: rank
+        for rank, layer in enumerate(stop_layers)
+        for name in layer
+    }
+
+    assert stop_rank["cron_manager"] < stop_rank["channel_manager"]
+    assert stop_rank["channel_manager"] < stop_rank["chat_manager"]

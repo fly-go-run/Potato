@@ -27,18 +27,28 @@ borrowed，正常成功后的 final stop 仍可停止已接管实例。新增
 仍会停止，borrowed 服务不会被误停；回滚后清空集合，避免二次停止。
 新增 workspace 中途失败回滚测试。全量单测：5618 passed，8 skipped。
 
-## Commit 4 — 生产依赖声明与图快照（本提交）
+## Commit 4 — 生产依赖声明与图快照（`05f5d07c`）
 
 按 RFC 补齐四处生产声明：channel 的 local workspace/session/chat required
 边，cron 的 channel/chat required 边，agent watcher 的 channel/cron
 order-only 边，driver watcher 的 driver order-only 边。快照测试锁定 9 个
 生产 descriptor 的注册全集、8 条边全集及 4 层 Kahn 结果；同时将同层
 候选固定为注册序，避免邻接遍历顺序影响诊断与测试。
+全量单测：5619 passed，8 skipped。
 
-## Commit 5 — CronManager 关停安全（待实施）
+## Commit 5 — CronManager 关停安全（本提交）
 
-待补充派发 task 的跟踪、取消与 await 收尾测试，以及最终全量测试和一次
-CLI 冒烟结果。
+CronManager 以 task 集合跟踪 `run_job()` 派发的执行任务；`stop()` 先关闭
+scheduler 防止新增派发，再 cancel 并 gather 等待全部执行任务的 `finally`
+收尾，之后才返回给 ServiceManager 继续逆图关停。新增执行 task 取消/等待/
+清集合测试，并验证生产停止层满足 cron → channel → core。最终全量单测：
+5621 passed，8 skipped。
+
+冒烟使用临时 `QWENPAW_WORKING_DIR`、受支持的 `none` 内存后端及真实
+uvicorn lifespan 脚本化启动；结构化状态表的 9 个节点全部为 `started`，
+随后完整执行应用 shutdown，进程以 0 退出。干净目录默认 remelight 在未
+配置模型时会按既有语义成为 `skipped_optional`，因此验收目录显式选择
+无需模型的 `none` 后端；未修改生产默认。
 
 ## 新发现的未声明依赖
 
@@ -62,4 +72,5 @@ channel、memory 对 cron 属运行时可缺失能力，构造与启动不读取
 - 插件注册体系与 P0-A backlog：未修改。
 - Tool Runtime、事件日志、三 Scope 收敛：未修改。
 - 条件服务的 absent 独立状态、失败 hook 的事务协议：仅记录，未扩展。
-- Cron 派发 task 泄漏：留在独立 commit 5 修复。
+- Cron 派发 task 泄漏：已在独立 commit 5 修复；未扩展到 APScheduler
+  自身拥有的 listener bookkeeping task。
