@@ -4,6 +4,7 @@ import {
   parseQpMeta,
   qpBool,
   qpCount,
+  qpInt,
   qpString,
   recordLegacyParse,
   resetLegacyParseCounts,
@@ -62,6 +63,19 @@ describe("qp accessors", () => {
     expect(qpBool(meta, "exit_code")).toBeNull();
     expect(qpString(meta, "violation")).toBe("denied");
     expect(qpString(meta, "sandboxed")).toBeNull();
+  });
+
+  it("qpInt keeps negative exit codes (timeout=-1, signal kills)", () => {
+    const shellMeta = parseQpMeta({
+      v: 1,
+      kind: "shell",
+      ok: false,
+      data: { exit_code: -1 },
+    });
+    expect(qpInt(shellMeta, "exit_code")).toBe(-1);
+    expect(qpCount(shellMeta, "exit_code")).toBeNull();
+    expect(qpInt(shellMeta, "missing")).toBeNull();
+    expect(qpInt(null, "exit_code")).toBeNull();
   });
 });
 

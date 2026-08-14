@@ -5,7 +5,7 @@ import type { ToolPair } from "./ToolCard";
 import { pairDurationLabel, richOutputText, toolPairStatus } from "./ToolCard";
 import { useToolDetail } from "../../stores/uiPrefs";
 import { useTranslation } from "../../lib/i18n";
-import { qpBool, qpCount } from "../../lib/toolMeta";
+import { qpBool, qpInt } from "../../lib/toolMeta";
 
 /**
  * 执行轨道里恒定是无填充的"安静行"(正文是版面主角,执行过程退居次要):
@@ -22,8 +22,9 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
   const output = richOutputText(pair.result);
   // qp meta(有则展示,历史会话无 meta 时整段静默):exit code 用终端
   // 母语 "exit N" 不翻译,与 $ 提示符同一语域;非零才值得刺眼。
+  // 有符号读取:-1=超时、负数=信号终止,恰是最需要展示的终态。
   // 沙箱只在"没进沙箱"时提示——默认开沙箱的前提下,缺席才是信号。
-  const exitCode = qpCount(pair.meta, "exit_code");
+  const exitCode = qpInt(pair.meta, "exit_code");
   const unsandboxed = qpBool(pair.meta, "sandboxed") === false;
 
   const detail = (

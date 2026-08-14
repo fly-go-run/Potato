@@ -42,9 +42,18 @@ export function parseQpMeta(raw: unknown): QpMeta | null {
 
 /** data 里的非负整数字段；缺失或形状不对返回 null,绝不猜。 */
 export function qpCount(meta: QpMeta | null, key: string): number | null {
+  const raw = qpInt(meta, key);
+  return raw !== null && raw >= 0 ? raw : null;
+}
+
+/**
+ * data 里的有符号整数字段。exit_code 这类值域含负数(-1=超时,
+ * 负数=被信号终止),不能用 count 语义读——那会把它们静默滤掉。
+ */
+export function qpInt(meta: QpMeta | null, key: string): number | null {
   if (!meta) return null;
   const raw = meta.data[key];
-  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0) return null;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
   return raw;
 }
 
