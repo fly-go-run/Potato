@@ -37,15 +37,15 @@ import { cn } from "../../lib/cn";
 import { Button, ConfirmDialog, IconButton, Input, SkeletonRows } from "../ui";
 
 const NAV_TRANSITION =
-  "transition-[background-color,color,border-color,box-shadow] duration-[150ms] ease-out";
+  "transition-[background-color] duration-[150ms] ease-out";
 
 function navItemClass(active: boolean, extra?: string) {
   return cn(
-    "flex items-center gap-2.5 rounded-[var(--radius-sm)] border px-3 py-2 text-sm leading-5",
+    "flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5",
     NAV_TRANSITION,
     active
-      ? "border-line bg-surface text-ink shadow-[var(--shadow-control)] hover:border-line-strong active:bg-fill-hover dark:border-line-highlight dark:bg-raised dark:shadow-none dark:hover:border-line-strong"
-      : "border-transparent text-ink hover:bg-fill-hover active:bg-fill-active",
+      ? "bg-[rgba(0,0,0,0.08)] text-ink hover:bg-[rgba(0,0,0,0.12)] active:bg-[rgba(0,0,0,0.12)] dark:bg-[rgba(255,255,255,0.10)] dark:hover:bg-[rgba(255,255,255,0.14)] dark:active:bg-[rgba(255,255,255,0.14)]"
+      : "text-ink hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
     extra,
   );
 }
@@ -366,11 +366,11 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           aria-label={t("sidebar.settings")}
           className={({ isActive }) =>
             cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
               NAV_TRANSITION,
               isActive
-                ? "border-line bg-surface text-ink shadow-[var(--shadow-control)] hover:border-line-strong dark:border-line-highlight dark:bg-raised dark:shadow-none"
-                : "border-transparent text-icon hover:bg-fill-hover hover:text-icon-strong",
+                ? "bg-[rgba(0,0,0,0.08)] text-tint dark:bg-[rgba(255,255,255,0.10)]"
+                : "text-icon hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
             )
           }
         >
@@ -532,11 +532,11 @@ function ChatRow({
         <div
           onContextMenu={openContextMenu}
           className={cn(
-            "group relative flex items-center rounded-md border",
+            "group relative flex items-center rounded-[var(--radius-sm)]",
             NAV_TRANSITION,
             active
-              ? "border-line bg-surface shadow-[var(--shadow-control)] hover:border-line-strong active:bg-fill-hover dark:border-line-highlight dark:bg-raised dark:shadow-none dark:hover:border-line-strong"
-              : "border-transparent hover:bg-fill-hover active:bg-fill-active",
+              ? "bg-[rgba(0,0,0,0.08)] hover:bg-[rgba(0,0,0,0.12)] active:bg-[rgba(0,0,0,0.12)] dark:bg-[rgba(255,255,255,0.10)] dark:hover:bg-[rgba(255,255,255,0.14)] dark:active:bg-[rgba(255,255,255,0.14)]"
+              : "hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
           )}
         >
           <button
