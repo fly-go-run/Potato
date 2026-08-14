@@ -44,7 +44,7 @@ function navItemClass(active: boolean, extra?: string) {
     "flex items-center gap-2.5 rounded-[var(--radius-sm)] border px-3 py-2 text-sm leading-5",
     NAV_TRANSITION,
     active
-      ? "border-line bg-surface text-tint shadow-[var(--shadow-control)] hover:border-line-strong active:bg-fill-hover dark:border-line-highlight dark:bg-raised dark:shadow-none dark:hover:border-line-strong"
+      ? "border-line bg-surface text-ink shadow-[var(--shadow-control)] hover:border-line-strong active:bg-fill-hover dark:border-line-highlight dark:bg-raised dark:shadow-none dark:hover:border-line-strong"
       : "border-transparent text-ink hover:bg-fill-hover active:bg-fill-active",
     extra,
   );
@@ -369,7 +369,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
               "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
               NAV_TRANSITION,
               isActive
-                ? "border-line bg-surface text-tint shadow-[var(--shadow-control)] hover:border-line-strong dark:border-line-highlight dark:bg-raised dark:shadow-none"
+                ? "border-line bg-surface text-ink shadow-[var(--shadow-control)] hover:border-line-strong dark:border-line-highlight dark:bg-raised dark:shadow-none"
                 : "border-transparent text-icon hover:bg-fill-hover hover:text-icon-strong",
             )
           }
@@ -545,7 +545,7 @@ function ChatRow({
             className={cn(
               "flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-[13px] font-medium leading-5",
               nested ? "pl-2" : "pl-3",
-              active ? "text-tint" : "text-ink",
+              "text-ink",
             )}
           >
             {chat.pinned && (
@@ -559,13 +559,14 @@ function ChatRow({
             </span>
           </button>
           {/*
-          时间与操作按钮共用行尾这块空间：时间占流内宽度（给按钮预留位置），
-          hover / 菜单打开时淡出让位，绝对定位的「…」按钮淡入覆盖上来。
+          行尾(2026-08-14 终版):静息态只有标题;整行 hover 同时浮现
+          时间与「…」——时间槽 pr-9 给按钮让出右端,两者并存不重叠,
+          菜单可发现性与基线一致(整行 hover,不缩热区)。
         */}
           <span
             aria-hidden={menuOpen ? true : undefined}
-            className={`pointer-events-none min-w-9 shrink-0 pr-2.5 text-right text-[11px] font-normal tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
-              menuOpen ? "opacity-0" : "group-hover:opacity-0"
+            className={`pointer-events-none shrink-0 pr-9 text-right text-[11px] font-normal tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
+              menuOpen ? "opacity-0" : "opacity-0 group-hover:opacity-100"
             }`}
           >
             {updatedAt ? t(updatedAt.key, updatedAt.params) : ""}
@@ -574,7 +575,7 @@ function ChatRow({
             <IconButton
               size="sm"
               title={t("sidebar.chatActions")}
-              className="absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+              className="absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
             >
               <MoreHorizontal size={15} />
             </IconButton>

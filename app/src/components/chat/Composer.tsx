@@ -626,16 +626,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             onHover={setActiveIndex}
           />
         )}
-        {/* 双层结构(对标 WB):内层白卡=本次输入,外层托盘下挂会话环境
-            (项目/审批)。圆角走标尺(18/14),阴影用 composer 专档
-            (深色为 none:近黑背景上黑阴影是无效像素,层级靠表面差)。 */}
-        <div
-          className={
-            wide
-              ? "overflow-visible rounded-[var(--radius-bubble)] bg-composer-tray"
-              : "overflow-visible"
-          }
-        >
+        {/* 单卡结构(2026-08-14 终版):托盘层退役,工作区/审批 chip
+            收进输入卡底部控制行——与会话页 composer 同形。 */}
+        <div className="overflow-visible">
           <div className="relative z-10 rounded-[var(--radius-bubble)] border border-line bg-surface shadow-[var(--shadow-composer)] transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-line-strong focus-within:shadow-[var(--shadow-composer-focus)]">
             {pendingImages.length > 0 && (
               <div className="flex gap-2 overflow-x-auto px-3 pt-3">
@@ -730,14 +723,14 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 <Plus size={20} strokeWidth={1.9} />
               </IconButton>
 
-              {!wide && renderApprovalControl(true)}
+              {wide && <ProjectPicker />}
+              {renderApprovalControl(true)}
 
               <div className="flex-1" />
 
               {/* 上下文用量默认不显示(设置 → 通用 里可打开):它在绝大多数
                   会话里停在个位数,没有可操作性,却一直占着输入框旁的注意力 */}
               {showContextUsage &&
-                !wide &&
                 turnUsage?.context_usage?.context_usage_ratio !== undefined && (
                   <span
                     className={`hidden pr-1 text-[11px] sm:inline ${
@@ -842,27 +835,6 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             </p>
           )}
 
-          {wide && (
-            /* 首页专属工作环境托盘；session 把默认权限留在白卡内，
-             * 这里只承载工作区、首页审批档位和上下文用量。 */
-            <div className="flex min-h-11 items-center gap-1 px-3 pb-2 pt-2">
-              <ProjectPicker />
-              {renderApprovalControl(false)}
-
-              <div className="flex-1" />
-
-              {showContextUsage &&
-                turnUsage?.context_usage?.context_usage_ratio !== undefined && (
-                  <span className="hidden pr-1 text-[11px] text-ink-tertiary sm:inline">
-                    {t("chat.contextUsed", {
-                      // 后端 ratio 已是百分数(context_stats.py 乘过 100)
-                      ratio:
-                        turnUsage.context_usage.context_usage_ratio.toFixed(1),
-                    })}
-                  </span>
-                )}
-            </div>
-          )}
         </div>
       </div>
     </div>

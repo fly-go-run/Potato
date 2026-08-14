@@ -24,7 +24,6 @@
   --surface: #ffffff;        /* 卡片 / composer，全页最亮=视觉中心 */
   --surface-raised: #ffffff; /* 弹层、菜单、抽屉 */
   --overlay: rgba(17, 17, 17, 0.4); /* 模态遮罩:永远压暗,不随文本色反转 */
-  --composer-tray: #f5f5f4;  /* composer 下挂托盘：只在输入卡底部露出 */
 
   /* -- 文本四级：主 / 次 / 三 / 弱 -- */
   --ink: #202020;            /* 主文本、标题 */
@@ -113,7 +112,6 @@
   --surface: #202020;        /* 卡片 / composer：再亮一档 */
   --surface-raised: #2a2a2a; /* 弹层最亮，脱离页面 */
   --overlay: rgba(0, 0, 0, 0.55); /* 深色遮罩仍是压暗(修 bg-ink 反向 bug) */
-  --composer-tray: #2a2a2a;  /* 深色托盘比面板亮:近 chrome 层靠提亮表达 */
 
   --ink: #ececec;
   --ink-secondary: #b0b0b0;
@@ -162,7 +160,6 @@
 @theme inline {
   --color-canvas: var(--canvas);
   --color-overlay: var(--overlay);
-  --color-composer-tray: var(--composer-tray);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-raised: var(--surface-raised);
