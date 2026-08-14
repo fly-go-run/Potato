@@ -152,18 +152,3 @@ def build_batch_qp_meta(
                 raise
             retained.pop()
             truncated = True
-
-
-def assert_qp_terminal_chunk(chunk: object) -> None:
-    """Assert that ``qp`` is valid and appears only on a final chunk.
-
-    Tool producers and aggregation tests can call this at their boundary.
-    Chunks without ``qp`` remain valid because structured metadata is optional.
-    """
-
-    metadata = getattr(chunk, "metadata", None)
-    if not isinstance(metadata, dict) or "qp" not in metadata:
-        return
-    if getattr(chunk, "is_last", None) is not True:
-        raise AssertionError("metadata['qp'] is only allowed on a final chunk")
-    validate_qp_meta(metadata["qp"])

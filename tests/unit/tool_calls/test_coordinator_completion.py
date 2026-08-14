@@ -8,9 +8,10 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator
 
 import pytest
-from agentscope.message import TextBlock, ToolResultBlock
-from agentscope.tool import ToolResponse
+from agentscope.message import TextBlock, ToolResultBlock, ToolResultState
+from agentscope.tool import ToolChunk, ToolResponse
 
+from qwenpaw.runtime.tool_meta import build_qp_meta
 from qwenpaw.tool_calls import (
     OffloadUnavailableError,
     ToolCoordinator,
@@ -62,6 +63,20 @@ async def _collect(
     return events
 
 
+def _tool_chunk(*, text: str, is_last: bool, qp=None) -> ToolChunk:
+    metadata = {} if qp is None else {"qp": qp}
+    return ToolChunk(
+        content=[TextBlock(type="text", text=text)],
+        is_last=is_last,
+        state=(
+            ToolResultState.SUCCESS
+            if is_last
+            else ToolResultState.RUNNING
+        ),
+        metadata=metadata,
+    )
+
+
 async def _wait_for_hint(
     coordinator: ToolCoordinator,
     session_id: str,
@@ -71,6 +86,70 @@ async def _wait_for_hint(
         if hints:
             return hints[0]
         await asyncio.sleep(0.01)
+
+
+@pytest.mark.asyncio
+async def test_non_terminal_qp_is_discarded_before_chunk_aggregation(caplog):
+    coordinator = ToolCoordinator()
+    tool_call = _ToolCall()
+    stale_qp = build_qp_meta(
+        "shell",
+        True,
+        {"sandboxed": False, "exit_code": 1},
+    )
+
+    async def next_handler(
+        tool_call: _ToolCall,
+    ) -> AsyncGenerator[Any, None]:
+        yield _tool_chunk(text="partial", is_last=False, qp=stale_qp)
+        yield _tool_chunk(text="done", is_last=True)
+
+    events = await _collect(
+        coordinator.execute(
+            tool_call=tool_call,
+            next_handler=next_handler,
+            session_id="session-1",
+            agent_id="agent-1",
+            root_session_id="root-1",
+        ),
+    )
+
+    assert "qp" not in events[-1].metadata
+    assert "discarded qp metadata from non-terminal chunk" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_terminal_qp_wins_after_non_terminal_qp_is_discarded():
+    coordinator = ToolCoordinator()
+    tool_call = _ToolCall()
+    stale_qp = build_qp_meta(
+        "shell",
+        True,
+        {"sandboxed": False, "exit_code": 1},
+    )
+    terminal_qp = build_qp_meta(
+        "shell",
+        True,
+        {"sandboxed": False, "exit_code": 0},
+    )
+
+    async def next_handler(
+        tool_call: _ToolCall,
+    ) -> AsyncGenerator[Any, None]:
+        yield _tool_chunk(text="partial", is_last=False, qp=stale_qp)
+        yield _tool_chunk(text="done", is_last=True, qp=terminal_qp)
+
+    events = await _collect(
+        coordinator.execute(
+            tool_call=tool_call,
+            next_handler=next_handler,
+            session_id="session-1",
+            agent_id="agent-1",
+            root_session_id="root-1",
+        ),
+    )
+
+    assert events[-1].metadata["qp"] == terminal_qp
 
 
 @pytest.mark.asyncio
