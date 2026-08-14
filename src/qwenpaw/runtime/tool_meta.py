@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from difflib import SequenceMatcher
 from typing import Any, Literal, Mapping, TypedDict, cast
 
@@ -30,6 +31,47 @@ TOOL_META_KINDS = frozenset(
         "batch",
     },
 )
+
+logger = logging.getLogger(__name__)
+
+_REQUIRED_DATA_FIELDS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "file_write": (
+        frozenset({"path"}),
+        frozenset(
+            {"bytes_written", "additions", "deletions", "created"},
+        ),
+    ),
+    "file_edit": (
+        frozenset({"path"}),
+        frozenset({"replacements", "additions", "deletions"}),
+    ),
+    "file_read": (
+        frozenset({"path"}),
+        frozenset({"bytes_read", "line_start", "line_end", "total_lines"}),
+    ),
+    "shell": (
+        frozenset({"sandboxed"}),
+        frozenset({"exit_code"}),
+    ),
+    "file_sent": (
+        frozenset({"path"}),
+        frozenset({"size_bytes", "attached"}),
+    ),
+    "web_search": (
+        frozenset({"backend"}),
+        frozenset(),
+    ),
+    "batch": (
+        frozenset({"total", "completed", "failed", "truncated"}),
+        frozenset(),
+    ),
+}
+
+_OPTIONAL_DATA_FIELDS: dict[str, frozenset[str]] = {
+    "shell": frozenset({"violation"}),
+    "web_search": frozenset({"source_count"}),
+    "batch": frozenset({"steps"}),
+}
 
 
 class QpMeta(TypedDict):
@@ -69,6 +111,29 @@ def validate_qp_meta(meta: object) -> QpMeta:
         raise ValueError("qp metadata ok must be a bool")
     if not isinstance(meta["data"], dict):
         raise ValueError("qp metadata data must be a dict")
+
+    kind = cast(str, meta["kind"])
+    always_required, success_required = _REQUIRED_DATA_FIELDS[kind]
+    required = always_required | (success_required if meta["ok"] else set())
+    data_fields = set(meta["data"])
+    known_fields = (
+        always_required
+        | success_required
+        | _OPTIONAL_DATA_FIELDS.get(kind, frozenset())
+    )
+    unknown_fields = data_fields - known_fields
+    if unknown_fields:
+        logger.warning(
+            "unknown qp metadata data fields for kind %s: %s",
+            kind,
+            ", ".join(sorted(map(str, unknown_fields))),
+        )
+    missing_fields = required - data_fields
+    if missing_fields:
+        raise ValueError(
+            f"qp metadata data missing required fields for {kind}: "
+            f"{', '.join(sorted(missing_fields))}",
+        )
 
     size = _serialized_size(meta)
     if size > QP_META_MAX_BYTES:
