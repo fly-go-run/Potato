@@ -74,3 +74,54 @@ async def test_start_failure_rolls_back_actual_started_services(monkeypatch):
     assert workspace._started is False  # pylint: disable=protected-access
     assert not workspace._service_manager.has_started_services  # pylint: disable=protected-access
 
+
+def test_production_service_graph_snapshot():
+    """Lock the complete production registry, edges, and Kahn layers."""
+    workspace = Workspace.__new__(Workspace)
+    manager = ServiceManager(workspace)
+    workspace._service_manager = manager  # pylint: disable=protected-access
+
+    Workspace._register_services(workspace)  # pylint: disable=protected-access
+
+    assert tuple(manager.descriptors) == (
+        "local_workspace",
+        "session",
+        "memory_manager",
+        "driver_manager",
+        "chat_manager",
+        "channel_manager",
+        "cron_manager",
+        "agent_config_watcher",
+        "driver_config_watcher",
+    )
+    actual_edges = {
+        ("required", dependency, descriptor.name)
+        for descriptor in manager.descriptors.values()
+        for dependency in descriptor.dependencies
+    } | {
+        ("after", dependency, descriptor.name)
+        for descriptor in manager.descriptors.values()
+        for dependency in descriptor.after
+    }
+    assert actual_edges == {
+        ("required", "local_workspace", "channel_manager"),
+        ("required", "session", "channel_manager"),
+        ("required", "chat_manager", "channel_manager"),
+        ("required", "channel_manager", "cron_manager"),
+        ("required", "chat_manager", "cron_manager"),
+        ("after", "channel_manager", "agent_config_watcher"),
+        ("after", "cron_manager", "agent_config_watcher"),
+        ("after", "driver_manager", "driver_config_watcher"),
+    }
+    assert manager.startup_layers() == [
+        [
+            "local_workspace",
+            "session",
+            "memory_manager",
+            "driver_manager",
+            "chat_manager",
+        ],
+        ["channel_manager", "driver_config_watcher"],
+        ["cron_manager"],
+        ["agent_config_watcher"],
+    ]

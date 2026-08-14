@@ -225,6 +225,9 @@ class ServiceManager:
         adjacency: Dict[str, List[str]] = {
             name: [] for name in self.descriptors
         }
+        registration_order = {
+            name: index for index, name in enumerate(self.descriptors)
+        }
         indegree = {name: 0 for name in self.descriptors}
         for descriptor in self.descriptors.values():
             predecessors = dict.fromkeys(
@@ -255,7 +258,10 @@ class ServiceManager:
                     indegree[dependent] -= 1
                     if indegree[dependent] == 0:
                         next_layer.append(dependent)
-            current = next_layer
+            current = sorted(
+                next_layer,
+                key=registration_order.__getitem__,
+            )
 
         if visited != len(self.descriptors):
             cycle = self._find_cycle(adjacency)
