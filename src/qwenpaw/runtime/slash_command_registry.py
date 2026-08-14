@@ -14,6 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
+from .registration import RegistrationHandle
+
 if TYPE_CHECKING:
     from agentscope.message import Msg
 
@@ -56,7 +58,7 @@ class SlashCommandRegistry:
         self._fallback: FallbackHandler | None = None
 
     # ---------------------------------------------------------------- register
-    def register(self, spec: CommandSpec) -> None:
+    def register(self, spec: CommandSpec) -> RegistrationHandle:
         names = (spec.name, *spec.aliases)
         for nm in names:
             key = nm.lower()
@@ -72,6 +74,17 @@ class SlashCommandRegistry:
                 )
         for nm in names:
             self._by_name[nm.lower()] = spec
+        keys = tuple(nm.lower() for nm in names)
+
+        def _dispose() -> None:
+            for key in keys:
+                if self._by_name.get(key) is spec:
+                    self._by_name.pop(key, None)
+
+        return RegistrationHandle(
+            _dispose,
+            tag=f"slash-command:{spec.name}",
+        )
 
     def register_fallback(self, handler: FallbackHandler) -> None:
         if self._fallback is not None:

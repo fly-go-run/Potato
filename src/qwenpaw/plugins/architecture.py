@@ -222,4 +222,5 @@ class PluginRecord:
     source_path: Path
     enabled: bool
     instance: Optional[Any] = None
+    api: Optional[Any] = None
     diagnostics: List[str] = field(default_factory=list)

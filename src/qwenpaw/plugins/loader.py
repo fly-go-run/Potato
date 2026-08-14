@@ -497,7 +497,7 @@ class PluginLoader:
         source_path: Path,
         config: Optional[Dict],
         manifest: "PluginManifest",
-    ) -> Any:
+    ) -> tuple[Any, PluginApi]:
         """Dynamically load and register backend plugin module.
 
         Returns:
@@ -558,7 +558,12 @@ class PluginLoader:
             }
             api = PluginApi(plugin_id, config or {}, manifest_dict)
             api.set_registry(self.registry)
-            self.registry.register_plugin_manifest(plugin_id, manifest_dict)
+            api.scope.add(
+                self.registry.register_plugin_manifest(
+                    plugin_id,
+                    manifest_dict,
+                ),
+            )
 
             if hasattr(plugin_def, "register"):
                 result = plugin_def.register(api)
@@ -576,7 +581,7 @@ class PluginLoader:
             )
             raise
 
-        return plugin_def
+        return plugin_def, api
 
     def _cleanup_failed_load(
         self,
@@ -710,6 +715,7 @@ class PluginLoader:
         )
 
         plugin_def = None
+        api = None
         if not backend_exists:
             logger.info(
                 "Plugin '%s' has no backend entry point "
@@ -719,7 +725,7 @@ class PluginLoader:
         else:
             assert backend_entry_file is not None
             try:
-                plugin_def = await self._load_backend_module(
+                plugin_def, api = await self._load_backend_module(
                     plugin_id,
                     backend_entry_file,
                     source_path,
@@ -738,6 +744,7 @@ class PluginLoader:
             source_path=source_path,
             enabled=True,
             instance=plugin_def,
+            api=api,
         )
         self._loaded_plugins[plugin_id] = record
         logger.info(f"✓ Loaded plugin '{plugin_id}' successfully")

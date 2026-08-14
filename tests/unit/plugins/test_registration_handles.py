@@ -2,7 +2,10 @@
 """Ownership-handle tests for plugin and runtime registries."""
 
 from fastapi import APIRouter, FastAPI
+from types import SimpleNamespace
 
+from qwenpaw.app.workspace.workspace_plugins import WorkspacePlugins
+from qwenpaw.plugins.api import PluginApi
 from qwenpaw.plugins.registry import PluginRegistry, ProviderRegistration
 from qwenpaw.runtime.hooks import HookBase, HookRegistry, HookResult
 from qwenpaw.runtime.phases import Phase
@@ -88,3 +91,37 @@ def test_hook_registry_disposer_invalidates_sorted_cache() -> None:
 
     assert Phase.PRE_EXECUTE not in registry._sorted_cache
     assert registry.hooks_for(Phase.PRE_EXECUTE) == []
+
+
+async def test_plugin_api_scope_owns_delayed_workspace_registrations() -> None:
+    registry = _fresh_plugin_registry()
+    api = PluginApi("plugin-a", config={})
+    api.set_registry(registry)
+    first = SimpleNamespace(plugins=WorkspacePlugins(), agent_id="first")
+    second = SimpleNamespace(plugins=WorkspacePlugins(), agent_id="second")
+    api._get_all_workspaces = lambda: [first]
+    api._get_workspace_from_info = lambda info: (
+        second if info["agent_id"] == "second" else None
+    )
+
+    async def handler(ctx, args):  # noqa: ANN001, ARG001
+        return None
+
+    disposed: list[str] = []
+    api.add_disposer(lambda: disposed.append("custom"), tag="custom")
+    api.register_slash_command("owned", handler)
+    for hook in registry.get_startup_hooks():
+        hook.callback()
+    for hook in registry.get_workspace_created_hooks():
+        hook.callback({"agent_id": "second"})
+
+    assert first.plugins.slash_command_registry.names() == ["owned"]
+    assert second.plugins.slash_command_registry.names() == ["owned"]
+
+    await api.scope.aclose()
+
+    assert first.plugins.slash_command_registry.names() == []
+    assert second.plugins.slash_command_registry.names() == []
+    assert registry.get_startup_hooks() == []
+    assert registry.get_workspace_created_hooks() == []
+    assert disposed == ["custom"]

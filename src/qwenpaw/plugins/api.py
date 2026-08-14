@@ -6,6 +6,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type
 
+from ..runtime.registration import Disposer, RegistrationHandle, Scope
+
 logger = logging.getLogger(__name__)
 
 
@@ -335,6 +337,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         self.config = config
         self.manifest = manifest or {}
         self._registry = None
+        self.scope = Scope(tag=f"plugin:{plugin_id}")
 
     def set_registry(self, registry):
         """Set registry reference (called by loader).
@@ -343,6 +346,14 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             registry: PluginRegistry instance
         """
         self._registry = registry
+
+    def _own(self, handle: RegistrationHandle) -> RegistrationHandle:
+        """Attach a host registration handle to this plugin's scope."""
+        return self.scope.add(handle)
+
+    def add_disposer(self, fn: Disposer, *, tag: str) -> None:
+        """Register cleanup for a plugin-managed custom side effect."""
+        self._own(RegistrationHandle(fn, tag=tag))
 
     def register_provider(
         self,
@@ -377,13 +388,15 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             if "meta" in self.manifest:
                 merged_metadata["meta"] = self.manifest["meta"]
 
-            self._registry.register_provider(
-                plugin_id=self.plugin_id,
-                provider_id=provider_id,
-                provider_class=provider_class,
-                label=label or provider_id,
-                base_url=base_url,
-                metadata=merged_metadata,
+            self._own(
+                self._registry.register_provider(
+                    plugin_id=self.plugin_id,
+                    provider_id=provider_id,
+                    provider_class=provider_class,
+                    label=label or provider_id,
+                    base_url=base_url,
+                    metadata=merged_metadata,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered provider "
@@ -411,11 +424,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_startup_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_startup_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered startup hook "
@@ -443,11 +458,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_shutdown_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_shutdown_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered shutdown hook "
@@ -486,11 +503,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_uninstall_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_uninstall_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered uninstall hook "
@@ -521,11 +540,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_workspace_created_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_workspace_created_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered "
@@ -557,11 +578,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ValueError: If *prefix* is invalid or already taken.
         """
         if self._registry:
-            self._registry.register_http_router(
-                self.plugin_id,
-                router,
-                prefix=prefix,
-                tags=tags,
+            self._own(
+                self._registry.register_http_router(
+                    self.plugin_id,
+                    router,
+                    prefix=prefix,
+                    tags=tags,
+                ),
             )
 
     def register_control_command(
@@ -577,10 +600,12 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             priority_level: Command priority (default: 10 = high)
         """
         if self._registry:
-            self._registry.register_control_command(
-                plugin_id=self.plugin_id,
-                handler=handler,
-                priority_level=priority_level,
+            self._own(
+                self._registry.register_control_command(
+                    plugin_id=self.plugin_id,
+                    handler=handler,
+                    priority_level=priority_level,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered control command "
@@ -612,10 +637,12 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             >>> api.register_middleware(my_factory, priority=50)
         """
         if self._registry:
-            self._registry.register_middleware(
-                plugin_id=self.plugin_id,
-                factory=middleware_factory,
-                priority=priority,
+            self._own(
+                self._registry.register_middleware(
+                    plugin_id=self.plugin_id,
+                    factory=middleware_factory,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered middleware "
@@ -696,15 +723,17 @@ class PluginApi:  # pylint: disable=too-many-public-methods
                 f"channel_class {channel_class!r} must have a "
                 f"'channel' class attribute as the channel key",
             )
-        self._registry.register_channel(
-            plugin_id=self.plugin_id,
-            channel_key=channel_key,
-            channel_class=channel_class,
-            label=label,
-            description=description,
-            config_fields=config_fields,
-            icon=icon,
-            doc_url=doc_url,
+        self._own(
+            self._registry.register_channel(
+                plugin_id=self.plugin_id,
+                channel_key=channel_key,
+                channel_class=channel_class,
+                label=label,
+                description=description,
+                config_fields=config_fields,
+                icon=icon,
+                doc_url=doc_url,
+            ),
         )
         logger.info(
             f"Plugin '{self.plugin_id}' registered channel "
@@ -1136,12 +1165,14 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             provider = _gated_provider
 
         if self._registry:
-            self._registry.register_prompt_section(
-                plugin_id=self.plugin_id,
-                name=name,
-                after=after,
-                agent_id=agent_id,
-                provider=provider,
+            self._own(
+                self._registry.register_prompt_section(
+                    plugin_id=self.plugin_id,
+                    name=name,
+                    after=after,
+                    agent_id=agent_id,
+                    provider=provider,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered prompt "
@@ -1196,7 +1227,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Register a CommandSpec to all existing workspaces."""
         for ws in self._get_all_workspaces():
             try:
-                ws.plugins.slash_command_registry.register(spec)
+                self._own(ws.plugins.slash_command_registry.register(spec))
             except ValueError as exc:
                 logger.debug(
                     f"Slash cmd already registered: {exc}",
@@ -1212,7 +1243,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            ws.plugins.slash_command_registry.register(spec)
+            self._own(ws.plugins.slash_command_registry.register(spec))
         except ValueError as exc:
             logger.debug(
                 f"Slash cmd already registered: {exc}",
@@ -1222,7 +1253,9 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Instantiate and register *mode_cls* on every workspace."""
         for ws in self._get_all_workspaces():
             try:
-                ws.plugins.register_mode(mode_cls(), ws)
+                handle = ws.plugins.register_mode(mode_cls(), ws)
+                if isinstance(handle, RegistrationHandle):
+                    self._own(handle)
             except ValueError as exc:
                 logger.debug(
                     f"Mode already registered: {exc}",
@@ -1238,7 +1271,9 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            ws.plugins.register_mode(mode_cls(), ws)
+            handle = ws.plugins.register_mode(mode_cls(), ws)
+            if isinstance(handle, RegistrationHandle):
+                self._own(handle)
         except ValueError as exc:
             logger.debug(
                 f"Mode already registered: {exc}",
@@ -1248,7 +1283,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Register a runtime hook to all workspaces."""
         for ws in self._get_all_workspaces():
             try:
-                ws.plugins.hook_registry.register(hook)
+                self._own(ws.plugins.hook_registry.register(hook))
             except (TypeError, ValueError) as exc:
                 logger.debug(
                     f"Hook registration issue: {exc}",
@@ -1264,7 +1299,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            ws.plugins.hook_registry.register(hook)
+            self._own(ws.plugins.hook_registry.register(hook))
         except (TypeError, ValueError) as exc:
             logger.debug(
                 f"Hook registration issue: {exc}",
@@ -1286,12 +1321,24 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             return
         self._attach_stop_handler(ws, reg)
 
-    @staticmethod
-    def _attach_stop_handler(ws, reg):
+    def _attach_stop_handler(self, ws, reg):
         """Attach a stop handler registration to workspace."""
         if not hasattr(ws.plugins, "stop_handlers"):
             ws.plugins.stop_handlers = []
         ws.plugins.stop_handlers.append(reg)
+
+        def _dispose() -> None:
+            for index, registered in enumerate(ws.plugins.stop_handlers):
+                if registered is reg:
+                    del ws.plugins.stop_handlers[index]
+                    break
+
+        self._own(
+            RegistrationHandle(
+                _dispose,
+                tag=f"workspace-stop-handler:{reg.name}",
+            ),
+        )
 
     # ================================================================
     # End Loop Engineering
