@@ -1,5 +1,3 @@
-import { Check, X } from "lucide-react";
-import { useToolDetail } from "../../stores/uiPrefs";
 import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { DataContent } from "../../lib/protocol/types";
@@ -85,7 +83,6 @@ export function ToolCard({
 function GenericToolCard({ pair }: { pair: ToolPair }) {
   const { t } = useTranslation();
   const { running, failed } = toolPairStatus(pair);
-  const debugStatus = useToolDetail();
   const summary = argumentSummary(pair.arguments, t);
   // 失败时退回中性名词,「读取了」这类完成时态只留给成功。
   const label = failed
@@ -126,11 +123,7 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
       )}
       <span
         className={`min-w-0 shrink-0 truncate font-medium ${
-          running
-            ? "text-ink"
-            : debugStatus && failed
-            ? "text-danger"
-            : "text-ink-tertiary"
+          running ? "text-ink" : failed ? "text-danger" : "text-ink-tertiary"
         }`}
       >
         {label}
@@ -142,14 +135,10 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
       )}
     </>
   );
-  // 行尾槽在两种状态下宽度都尽量小:运行中只有 13px 的 Spinner(不带
-  // 「运行中」文字)。逐条时长已整体移除——总时长归执行轨道头。
+  // 行尾槽只在运行中占 13px 的 Spinner。完成态零落墨——成功是预期,
+  // 对号是冗余;失败由整行 danger 色承担,不靠行尾图标。
   const after = running ? (
     <ToolStatus running={running} failed={failed} />
-  ) : debugStatus && failed ? (
-    <X size={13} className="shrink-0 text-danger" />
-  ) : debugStatus ? (
-    <Check size={13} className="shrink-0 text-ink-muted" />
   ) : null;
 
   return (
@@ -166,43 +155,19 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
   );
 }
 
+/**
+ * 运行中的行尾指示:13px Spinner,不带文字。完成/失败态零落墨——
+ * 成功是预期不配图标,失败由整行 danger 色承担(对号/叉号已整体移除)。
+ */
 export function ToolStatus({
   running,
-  failed,
-  quiet,
 }: {
   running: boolean;
-  failed: boolean;
+  failed?: boolean;
   quiet?: boolean;
 }) {
-  const { t } = useTranslation();
-  const detail = useToolDetail();
-  // 运行中只给 13px 的 Spinner:文字标签会让行尾宽度在收尾瞬间大幅回缩,
-  // 与完成态的时长标签宽度差越小,切换越安静。
-  if (running) {
-    return <Spinner size={13} className="shrink-0 text-ink-muted" />;
-  }
-  if (failed) {
-    if (!detail) return null;
-    return (
-      <span className="flex shrink-0 items-center gap-1 text-danger">
-        <X size={13} />
-        {quiet ? null : t("tool.statusFailed")}
-      </span>
-    );
-  }
-  if (quiet) {
-    return detail ? (
-      <Check size={13} className="shrink-0 text-ink-muted" />
-    ) : null;
-  }
-  if (!detail) return null;
-  return (
-    <span className="flex shrink-0 items-center gap-1 text-ok">
-      <Check size={13} />
-      {t("tool.statusComplete")}
-    </span>
-  );
+  if (!running) return null;
+  return <Spinner size={13} className="shrink-0 text-ink-muted" />;
 }
 
 export function toolData(message: StreamMessage | null) {

@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
   FileArchive,
   FileCode,
   FileImage,
+  FilePenLine,
   FileSpreadsheet,
   FileText,
   Presentation,
@@ -23,7 +24,7 @@ import {
   toolPairStatus,
   ToolStatus,
 } from "./ToolCard";
-import { useToolDetail } from "../../stores/uiPrefs";
+import { pairChangeStats } from "../../lib/fileChanges";
 
 const FILE_TOOL_TITLES: Record<string, TranslationKey> = {
   read_file: "tool.file.read",
@@ -32,6 +33,13 @@ const FILE_TOOL_TITLES: Record<string, TranslationKey> = {
   append_file: "tool.file.append",
   send_file_to_user: "tool.file.deliver",
 };
+
+/** 改动类工具:行内图标用笔形,并展示 ±行数;只读/发送保持素文件图标。 */
+const MODIFYING_FILE_TOOLS = new Set([
+  "write_file",
+  "edit_file",
+  "append_file",
+]);
 
 /** 产物 = 本轮真正落盘生成的文件；读取/改写不进入产物卡，保持安静行。 */
 const ARTIFACT_TOOLS = new Set([
@@ -71,10 +79,16 @@ export function FileToolCard({
   const path =
     typeof parameters.file_path === "string" ? parameters.file_path : "";
   const { running, failed } = toolPairStatus(pair);
-  const debugStatus = useToolDetail();
-  const titleKey = FILE_TOOL_TITLES[pair.name] ?? "tool.genericName";
-  // 失败退回中性名词,成功/运行中用时态标签(正在读取 / 读取了)。
-  const title = failed ? t(titleKey) : humanToolLabel(pair.name, running, t);
+  // 完成态不再显示「写入了/编辑了」动词:动作由图标承担(笔=改动、
+  // 素文件=只读),幅度由彩色 ± 承担。动词只在运行中作为进行时上下文
+  // (「正在写入」),收口后让位给文件名+数字。
+  const title = running ? humanToolLabel(pair.name, true, t) : "";
+  const modifies = MODIFYING_FILE_TOOLS.has(pair.name);
+  // ±行数与汇总卡同源(meta 真值优先,回落同一套本地估算)。
+  const stats = useMemo(
+    () => (running || failed ? null : pairChangeStats(pair)),
+    [running, failed, pair],
+  );
 
   const detail = (
     <div className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
@@ -117,6 +131,7 @@ export function FileToolCard({
     );
   }
 
+  const pathTone = failed ? "text-danger" : "text-ink-muted";
   const pathNode =
     path && onOpenFile ? (
       <button
@@ -125,48 +140,55 @@ export function FileToolCard({
           event.stopPropagation();
           onOpenFile(path);
         }}
-        className="min-w-0 flex-1 truncate text-left font-mono text-ink-muted underline decoration-dotted underline-offset-2 hover:text-ink-secondary"
+        className={`min-w-0 flex-1 truncate text-left font-mono ${pathTone} underline decoration-dotted underline-offset-2 hover:text-ink-secondary`}
         title={t("tool.file.open")}
       >
         {path}
       </button>
     ) : (
-      <span className="min-w-0 flex-1 truncate font-mono text-ink-muted">
+      <span className={`min-w-0 flex-1 truncate font-mono ${pathTone}`}>
         {path || t("tool.file.path")}
       </span>
     );
 
   // 图标与字号在两态完全一致(12px / 继承行的 text-xs),只换颜色。
+  // 失败不再躲在 debug 模式后:异常才是真正需要一眼看见的东西。
+  const RowIcon = modifies ? FilePenLine : FileText;
   const toggle = (
     <>
-      <FileText
+      <RowIcon
         size={12}
         className={`shrink-0 ${
-          running
-            ? "text-ink-secondary"
-            : debugStatus && failed
+          failed
             ? "text-danger"
+            : running
+            ? "text-ink-secondary"
             : "text-ink-muted"
         }`}
       />
-      <span
-        className={`shrink-0 font-medium ${
-          running
-            ? "text-ink"
-            : debugStatus && failed
-            ? "text-danger"
-            : "text-ink-tertiary"
-        }`}
-      >
-        {title}
-      </span>
+      {title && (
+        <span className="shrink-0 font-medium text-ink">{title}</span>
+      )}
     </>
   );
-  // 逐条时长已整体移除——总时长归执行轨道头,行内时长是逐条噪音。
   const after = (
     <>
       {pathNode}
-      <ToolStatus running={running} failed={failed} quiet />
+      {failed ? (
+        <span className="shrink-0 pl-2 text-[11px] text-danger">
+          {t("tool.file.failed")}
+        </span>
+      ) : (
+        stats && (
+          <span className="shrink-0 select-none pl-2 text-[11px] tabular-nums">
+            <span className="text-ok">+{stats.additions}</span>
+            {stats.deletions > 0 && (
+              <span className="pl-1 text-danger">−{stats.deletions}</span>
+            )}
+          </span>
+        )
+      )}
+      {running && <ToolStatus running failed={false} quiet />}
     </>
   );
 

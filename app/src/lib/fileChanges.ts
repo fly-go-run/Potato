@@ -46,6 +46,18 @@ const CHANGE_TOOLS = new Set<string>([
 ]);
 
 /**
+ * 单次调用的 ±行数,供工具行内联展示:qp meta 真值优先,历史会话回落
+ * 本地估算(与汇总卡同一套算法)。读取/发送等非改动工具返回 null。
+ */
+export function pairChangeStats(
+  pair: ToolPair,
+): { additions: number; deletions: number } | null {
+  if (!CHANGE_TOOLS.has(pair.name)) return null;
+  const edit = computeEdit("row-stats", pair);
+  return edit ? { additions: edit.additions, deletions: edit.deletions } : null;
+}
+
+/**
  * 从消息流聚合文件改动。传整个会话得到会话级列表(侧栏「改动」tab),
  * 传单轮消息得到该轮的列表(回合末汇总卡)。只统计成功终态的调用:
  * 运行中(汇总会随流式推进增长)、失败、被取消的都不算改动。

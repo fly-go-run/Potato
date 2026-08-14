@@ -1,9 +1,8 @@
-import { Check, Terminal, X } from "lucide-react";
+import { Terminal } from "lucide-react";
 import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
 import { richOutputText, toolPairStatus } from "./ToolCard";
-import { useToolDetail } from "../../stores/uiPrefs";
 import { useTranslation } from "../../lib/i18n";
 import { qpBool, qpInt } from "../../lib/toolMeta";
 
@@ -17,7 +16,6 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
   const { t } = useTranslation();
   const command = shellCommand(pair.arguments);
   const { running, failed } = toolPairStatus(pair);
-  const debugStatus = useToolDetail();
   const output = richOutputText(pair.result);
   // qp meta(有则展示,历史会话无 meta 时整段静默)。异常才落墨:
   // 干净退出(exit 0)不渲染任何东西——零是预期,只有非零/信号值得占
@@ -63,33 +61,26 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
       <Terminal
         size={12}
         className={`shrink-0 ${
-          running
-            ? "text-ink-secondary"
-            : debugStatus && failed
+          failed
             ? "text-danger"
+            : running
+            ? "text-ink-secondary"
             : "text-ink-muted"
         }`}
       />
       <code
         className={`min-w-0 flex-1 truncate font-mono ${
-          running
-            ? "text-ink"
-            : debugStatus && failed
-            ? "text-danger"
-            : "text-ink-tertiary"
+          failed ? "text-danger" : running ? "text-ink" : "text-ink-tertiary"
         }`}
       >
         {command || t("tool.shell")}
       </code>
     </>
   );
-  // 行尾不再放逐条时长:总时长归执行轨道头,行内时长是逐条噪音。
+  // 行尾槽只在运行中占 13px 的 Spinner。完成态零落墨——成功是预期,
+  // 失败由整行 danger 色承担,不靠行尾图标。
   const after = running ? (
     <Spinner size={13} className="text-ink-muted" />
-  ) : debugStatus && failed ? (
-    <X size={13} className="shrink-0 text-danger" />
-  ) : debugStatus ? (
-    <Check size={13} className="shrink-0 text-ink-muted" />
   ) : null;
 
   return (
