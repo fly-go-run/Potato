@@ -6,6 +6,7 @@ import { ToolDisclosure } from "./ToolDisclosure";
 import type { DataContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { t, useTranslation, type TranslationKey } from "../../lib/i18n";
+import { parseQpMeta, type QpMeta } from "../../lib/toolMeta";
 import { JsonView } from "./JsonView";
 import { ShellToolCard } from "./ShellToolCard";
 import { FileToolCard, isFileTool } from "./FileToolCard";
@@ -18,6 +19,10 @@ export interface ToolPair {
   arguments: string;
   result: string;
   state: string | null;
+  /** 结构化结果契约(qp meta);历史/取消/未迁移工具为 null。 */
+  meta: QpMeta | null;
+  /** 后端 ToolUISpec 声明的图标(TOOL_CALL_START 的 ui.icon);可缺。 */
+  uiIcon: string;
 }
 
 /**
@@ -114,6 +119,13 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
 
   const toggle = (
     <>
+      {pair.uiIcon && (
+        // 插件/MCP 等未注册时态文案的工具用后端 ToolUISpec 声明的图标；
+        // Shell/File 专用卡保持设计系统的 lucide 图标,不受此影响。
+        <span aria-hidden className="shrink-0 text-[13px] leading-none">
+          {pair.uiIcon}
+        </span>
+      )}
       <span
         className={`min-w-0 shrink-0 truncate font-medium ${
           running
@@ -231,6 +243,7 @@ export function buildToolPair(
 ): ToolPair {
   const callData = toolData(call);
   const outputData = toolData(output);
+  const callUi = callData.ui as Record<string, unknown> | undefined;
   return {
     call,
     output,
@@ -242,6 +255,11 @@ export function buildToolPair(
     arguments: stringValue(callData.arguments),
     result: stringValue(outputData.output),
     state: stringValue(outputData.state) || null,
+    meta: parseQpMeta(outputData.meta),
+    uiIcon:
+      callUi && typeof callUi === "object" && !Array.isArray(callUi)
+        ? stringValue(callUi.icon)
+        : "",
   };
 }
 

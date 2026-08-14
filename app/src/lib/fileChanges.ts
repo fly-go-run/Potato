@@ -5,6 +5,7 @@ import {
   type ToolPair,
 } from "../components/chat/ToolCard";
 import { lineDiff } from "./lineDiff";
+import { qpCount, recordLegacyParse } from "./toolMeta";
 import type { StreamMessage } from "./stream";
 
 export type FileChangeTool = "write_file" | "edit_file" | "append_file";
@@ -145,6 +146,15 @@ function successfulEdit(messageId: string, pair: ToolPair): FileEdit | null {
 function computeEdit(messageId: string, pair: ToolPair): FileEdit | null {
   const parameters = parseArguments(pair.arguments);
   const tool = pair.name as FileChangeTool;
+  // ±行数优先读后端 qp meta:那是对执行前后真实内容做的 diff,
+  // 覆盖全局多次替换与覆盖写这两个本地估算天生算不准的情形。
+  // before/after 仍取自参数——diff 面板展示的是模型提交的改动原文。
+  const metaAdditions = qpCount(pair.meta, "additions");
+  const metaDeletions = qpCount(pair.meta, "deletions");
+  const metaCounts =
+    metaAdditions !== null && metaDeletions !== null
+      ? { additions: metaAdditions, deletions: metaDeletions }
+      : null;
 
   if (tool === "edit_file") {
     const before =
@@ -152,6 +162,10 @@ function computeEdit(messageId: string, pair: ToolPair): FileEdit | null {
     const after =
       typeof parameters.new_text === "string" ? parameters.new_text : "";
     if (!before && !after) return null;
+    if (metaCounts) {
+      return { messageId, tool, before, after, ...metaCounts };
+    }
+    recordLegacyParse("F7:lcs-estimate");
     const beforeLines = lineCount(before);
     const afterLines = lineCount(after);
     // 注意:后端 edit_file 是全局替换,old_text 多次出现时实际改动
@@ -176,11 +190,15 @@ function computeEdit(messageId: string, pair: ToolPair): FileEdit | null {
     return { messageId, tool, before, after, additions, deletions };
   }
 
-  // write/append 没有旧文本可比,按"新增全部行"计(覆盖写会高估,
-  // 精确数字以 git diff 视图为准);不跑 LCS,避免大文件卡顿。
+  // write/append 没有旧文本可比。无 meta 时按"新增全部行"计
+  // (覆盖写会高估,精确数字以 git diff 视图为准);不跑 LCS。
   // content 缺失/非字符串视为畸形调用跳过;空字符串是合法的"清空写入"。
   const content = parameters.content;
   if (typeof content !== "string") return null;
+  if (metaCounts) {
+    return { messageId, tool, before: "", after: content, ...metaCounts };
+  }
+  recordLegacyParse("F7:write-full-count");
   return {
     messageId,
     tool,

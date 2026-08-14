@@ -12,6 +12,7 @@ import {
 import { filePreviewUrl } from "../../lib/api";
 import { handleSystemOpenClick } from "../../lib/desktop";
 import { lineDiff, type DiffLineKind } from "../../lib/lineDiff";
+import { qpCount, recordLegacyParse } from "../../lib/toolMeta";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { Collapse } from "./Collapse";
 import { ToolDisclosure } from "./ToolDisclosure";
@@ -50,6 +51,9 @@ export function isArtifactTool(name: string): boolean {
 
 /** 只有收到成功的终态输出，文件才算真正生成/交付。 */
 export function isSuccessfulArtifactPair(pair: ToolPair): boolean {
+  // qp meta 的 ok 是语义成败:执行完成(state=success)但语义失败
+  // (如 send_file 文件不存在)时不能当产物。无 meta 走原判定。
+  if (pair.meta && !pair.meta.ok) return false;
   return Boolean(isArtifactTool(pair.name) && toolPairStatus(pair).completed);
 }
 
@@ -207,7 +211,7 @@ function ArtifactCard({
   const [expanded, setExpanded] = useState(false);
   const Icon = fileIcon(path);
   const name = fileBaseName(path) || path;
-  const meta = fileSizeLabel(pair.result) || directoryOf(path);
+  const meta = fileSizeLabel(pair) || directoryOf(path);
 
   return (
     <div className="my-2 overflow-hidden rounded-[var(--radius-md)] bg-bubble-tool">
@@ -297,16 +301,26 @@ function directoryOf(path: string): string {
 }
 
 /**
- * write_file/append_file 返回 "Wrote 1234 bytes to …"；send_file_to_user
- * 返回 URL 数据块与 "File sent successfully." 文本块。发送结果当前不保证
- * 携带大小，因此只读取块上的可选字节元数据，缺失时由调用方回落到目录。
+ * 大小优先读 qp meta(file_write.bytes_written / file_sent.size_bytes)。
+ * 历史会话无 meta 时回落文本解析:write/append 的 "Wrote 1234 bytes to …"
+ * 正则与 send_file 的 "File sent successfully." 块匹配(legacy 路径,
+ * dev 构建计数以便验收断言新会话不再触发)。
  */
-function fileSizeLabel(result: string): string {
+function fileSizeLabel(pair: ToolPair): string {
+  const metaBytes =
+    qpCount(pair.meta, "bytes_written") ?? qpCount(pair.meta, "size_bytes");
+  if (metaBytes !== null) return formatBytes(metaBytes);
+  if (pair.meta) return ""; // 有 meta 但无大小字段(ok=false 等):不猜。
+
+  const result = pair.result;
   if (!result) return "";
   const text = richOutputText(result);
   if (typeof text === "string") {
     const match = /(\d+)\s*bytes/i.exec(text);
-    if (match) return formatBytes(Number(match[1]));
+    if (match) {
+      recordLegacyParse("F1:bytes-regex");
+      return formatBytes(Number(match[1]));
+    }
   }
   const sentFileBytes = sentFileSizeBytes(result);
   return sentFileBytes === null ? "" : formatBytes(sentFileBytes);
@@ -323,6 +337,7 @@ function sentFileSizeBytes(result: string): number | null {
         block.text === "File sent successfully.",
     );
     if (!delivered) return null;
+    recordLegacyParse("F2:sent-file-text");
 
     for (const block of blocks) {
       if (!isRecord(block) || !isRecord(block.source)) continue;

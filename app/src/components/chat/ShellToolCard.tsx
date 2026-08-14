@@ -5,6 +5,7 @@ import type { ToolPair } from "./ToolCard";
 import { pairDurationLabel, richOutputText, toolPairStatus } from "./ToolCard";
 import { useToolDetail } from "../../stores/uiPrefs";
 import { useTranslation } from "../../lib/i18n";
+import { qpBool, qpCount } from "../../lib/toolMeta";
 
 /**
  * 执行轨道里恒定是无填充的"安静行"(正文是版面主角,执行过程退居次要):
@@ -19,12 +20,33 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
   const debugStatus = useToolDetail();
   const durationLabel = running ? "" : pairDurationLabel(pair);
   const output = richOutputText(pair.result);
+  // qp meta(有则展示,历史会话无 meta 时整段静默):exit code 用终端
+  // 母语 "exit N" 不翻译,与 $ 提示符同一语域;非零才值得刺眼。
+  // 沙箱只在"没进沙箱"时提示——默认开沙箱的前提下,缺席才是信号。
+  const exitCode = qpCount(pair.meta, "exit_code");
+  const unsandboxed = qpBool(pair.meta, "sandboxed") === false;
 
   const detail = (
     <div className="font-mono text-xs leading-6">
       <div className="mb-2 flex gap-2 text-ink-secondary">
         <span className="select-none text-ink-muted">$</span>
         <span className="whitespace-pre-wrap break-all">{command}</span>
+        {(exitCode !== null || unsandboxed) && (
+          <span className="ml-auto flex shrink-0 select-none items-center gap-2 pl-3 text-[11px]">
+            {unsandboxed && (
+              <span className="text-warn">{t("tool.shell.noSandbox")}</span>
+            )}
+            {exitCode !== null && (
+              <span
+                className={`tabular-nums ${
+                  exitCode === 0 ? "text-ink-muted" : "text-danger"
+                }`}
+              >
+                exit {exitCode}
+              </span>
+            )}
+          </span>
+        )}
       </div>
       {output ? (
         <pre className="max-h-[min(18rem,34vh)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words text-ink">
