@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal, Optional, TYPE_CHECKING
 
@@ -220,6 +221,23 @@ class QwenPawAgent(CodingModeMixin, Agent):
             context_config,
             instructions=instructions,
         )
+
+    async def _split_tool_result_for_compression(
+        self,
+        tool_result: Any,
+    ) -> tuple[Any, Any | None]:
+        """Preserve block metadata across AgentScope's oversized split."""
+
+        reserved, offloaded = await Agent._split_tool_result_for_compression(
+            self,
+            tool_result,
+        )
+        metadata = getattr(tool_result, "metadata", None)
+        if isinstance(metadata, dict) and metadata:
+            reserved.metadata = deepcopy(metadata)
+            if offloaded is not None:
+                offloaded.metadata = deepcopy(metadata)
+        return reserved, offloaded
 
     def _save_to_context(self, blocks: Any, usage: Any = None) -> None:
         """Append blocks, then let the context manager write them through."""
