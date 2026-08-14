@@ -77,9 +77,9 @@ export const dictionaries = {
 
     "chat.closeNotice": "关闭提示",
     "chat.loading": "加载会话…",
-    "chat.greeting.morning": "早上好",
-    "chat.greeting.afternoon": "下午好",
-    "chat.greeting.evening": "晚上好",
+    "chat.greeting.morning": "早上好，从哪件事开始？",
+    "chat.greeting.afternoon": "下午好，从哪件事开始？",
+    "chat.greeting.evening": "晚上好，从哪件事开始？",
     "chat.emptyHint": "输入任务开始，或用 {shortcut} 检索历史会话",
     "chat.error.serviceUnavailable": "服务暂时不可用，请检查连接后重试。",
     "chat.contextUsed": "上下文已用 {ratio}%",
@@ -325,7 +325,7 @@ export const dictionaries = {
     "composer.openSettings": "前往设置",
     "composer.removeAttachment": "移除附件",
     "composer.generating": "正在生成回复…",
-    "composer.placeholder": "今天帮你做点什么？",
+    "composer.placeholder": "描述任务…",
     "composer.addAttachment": "添加附件",
     "composer.trigger.skills": "技能 ({count})",
     "composer.trigger.files": "会话文件 ({count})",
@@ -847,9 +847,9 @@ export const dictionaries = {
 
     "chat.closeNotice": "Dismiss notice",
     "chat.loading": "Loading chat…",
-    "chat.greeting.morning": "Good morning",
-    "chat.greeting.afternoon": "Good afternoon",
-    "chat.greeting.evening": "Good evening",
+    "chat.greeting.morning": "Good morning — what’s first?",
+    "chat.greeting.afternoon": "Good afternoon — what’s first?",
+    "chat.greeting.evening": "Good evening — what’s first?",
     "chat.emptyHint":
       "Enter a task to begin, or use {shortcut} to search past chats",
     "chat.error.serviceUnavailable":
@@ -1109,7 +1109,7 @@ export const dictionaries = {
     "composer.openSettings": "Open Settings",
     "composer.removeAttachment": "Remove attachment",
     "composer.generating": "Generating a response…",
-    "composer.placeholder": "What are we working on?",
+    "composer.placeholder": "Describe a task…",
     "composer.addAttachment": "Add attachment",
     "composer.trigger.skills": "Skills ({count})",
     "composer.trigger.files": "Conversation files ({count})",
