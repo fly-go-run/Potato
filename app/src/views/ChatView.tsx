@@ -2,7 +2,7 @@ import {
   ArrowDown,
   CloudUpload,
   FolderClosed,
-  PanelRightOpen,
+  PanelRight,
   Search,
   X,
 } from "lucide-react";
@@ -72,7 +72,6 @@ export function ChatView() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const messages = useChatStore((state) => state.stream.messages);
-  const responseStatus = useChatStore((state) => state.stream.responseStatus);
   const rateLimited = useChatStore((state) => state.stream.rateLimited);
   const historyLoading = useChatStore((state) => state.historyLoading);
   const error = useChatStore((state) => state.error);
@@ -482,7 +481,12 @@ export function ChatView() {
             data-tauri-drag-region
             onMouseDown={onTitlebarMouseDown}
             className={`qp-fade-in relative z-30 flex h-11 shrink-0 items-center border-b border-line bg-canvas pr-4 ${
-              isMacDesktopShell() && sidebarCollapsed ? "pl-40" : "pl-4"
+              // 收起态浮条占据左上角,标题让位:mac 壳含红绿灯更宽
+              sidebarCollapsed
+                ? isMacDesktopShell()
+                  ? "pl-40"
+                  : "pl-24"
+                : "pl-4"
             }`}
           >
             <div
@@ -522,7 +526,7 @@ export function ChatView() {
                 aria-expanded={searchOpen}
                 className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   searchOpen
-                    ? "bg-fill-active text-icon-strong"
+                    ? "bg-[rgba(0,0,0,0.08)] text-icon-strong dark:bg-[rgba(255,255,255,0.10)]"
                     : "text-icon hover:bg-fill-hover hover:text-icon-strong"
                 }`}
               >
@@ -536,20 +540,13 @@ export function ChatView() {
                 title={t("chat.panel.open")}
                 aria-label={t("chat.panel.open")}
                 aria-expanded={sidePanelOpen}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   sidePanelOpen
-                    ? "bg-fill-active text-icon-strong"
+                    ? "bg-[rgba(0,0,0,0.08)] text-icon-strong dark:bg-[rgba(255,255,255,0.10)]"
                     : "text-icon hover:bg-fill-hover hover:text-icon-strong"
                 }`}
               >
-                <PanelRightOpen size={16} strokeWidth={1.75} />
-                {artifacts.length + fileChanges.length > 0 && (
-                  <span className="absolute right-0.5 top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-btn-primary px-1 text-[9px] leading-3.5 text-btn-primary-ink">
-                    {artifacts.length + fileChanges.length > 9
-                      ? "9+"
-                      : artifacts.length + fileChanges.length}
-                  </span>
-                )}
+                <PanelRight size={16} strokeWidth={1.75} />
               </button>
             </div>
           </header>
@@ -581,12 +578,9 @@ export function ChatView() {
                   <X size={14} strokeWidth={1.8} />
                 </button>
               </div>
+              {searchQuery.trim() && (
               <div className="max-h-64 overflow-y-auto p-1.5">
-                {!searchQuery.trim() ? (
-                  <div className="px-3 py-5 text-center text-xs text-ink-tertiary">
-                    {t("chat.search.hint")}
-                  </div>
-                ) : searchMatches.length === 0 ? (
+                {searchMatches.length === 0 ? (
                   <div className="px-3 py-5 text-center text-xs text-ink-tertiary">
                     {t("chat.search.empty")}
                   </div>
@@ -614,6 +608,7 @@ export function ChatView() {
                   ))
                 )}
               </div>
+              )}
             </div>
           )}
           <div className="qp-fade-in flex min-h-0 flex-1">
@@ -656,10 +651,8 @@ export function ChatView() {
             {sidePanelOpen && (
               <Suspense fallback={null}>
                 <ConversationSidePanel
-                  messages={messages}
                   artifacts={artifacts}
                   changes={fileChanges}
-                  responseStatus={responseStatus}
                   selectedFilePath={selectedFilePath}
                   selectedChangePath={selectedChangePath}
                   onClose={closeSidePanel}

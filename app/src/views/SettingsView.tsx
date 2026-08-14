@@ -64,7 +64,6 @@ import {
   setDesktopWindowStatePreference,
 } from "../lib/desktop";
 import { skillDisplayName } from "../lib/skillPresentation";
-import { prettyModelName } from "../lib/modelPresentation";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 import {
   buildThemeTemplate,
@@ -177,6 +176,7 @@ export function SettingsView() {
   const [providerView, setProviderView] = useState<ProviderView>({
     kind: "list",
   });
+  const [addListOpen, setAddListOpen] = useState(false);
   const [keyDraft, setKeyDraft] = useState("");
   const [urlDraft, setUrlDraft] = useState("");
   const [protocolDraft, setProtocolDraft] =
@@ -875,9 +875,13 @@ export function SettingsView() {
     : "models";
 
   const activePair = activeModel?.active_llm;
-  const activeProvider = activePair
-    ? providers.find((item) => item.id === activePair.provider_id) ?? null
-    : null;
+  // 已配置(含本地)平铺;未配置折叠进「添加服务商」,发现职责交给那一行
+  const connectedProviders = sortProviders(providers).filter(
+    (item) => providerConfigured(item) || item.is_local,
+  );
+  const availableProviders = sortProviders(providers).filter(
+    (item) => !providerConfigured(item) && !item.is_local,
+  );
 
   return (
     <Dialog.Root
@@ -1043,36 +1047,6 @@ export function SettingsView() {
                   />
                 ) : (
                   <div className="space-y-3">
-                    <SettingsGroup>
-                      <SettingRow
-                        title={t("settings.models.current")}
-                      >
-                        <div className="text-right">
-                          <div
-                            title={activePair?.model}
-                            className="text-[13px] text-ink"
-                          >
-                            {activePair?.model
-                              ? prettyModelName(activePair.model)
-                              : t("settings.models.noActive")}
-                          </div>
-                          {activePair && (
-                            <div className="mt-0.5 text-xs text-ink-tertiary">
-                              {providerDisplayName(
-                                activeProvider?.name ?? activePair.provider_id,
-                              )}
-                              {activeModel?.effective_max_input_length
-                                ? ` · ${t("settings.models.contextWindow", {
-                                    count:
-                                      activeModel.effective_max_input_length.toLocaleString(),
-                                  })}`
-                                : ""}
-                            </div>
-                          )}
-                        </div>
-                      </SettingRow>
-                    </SettingsGroup>
-
                     <SettingsGroup className="p-2">
                       <div className="px-2 pb-2 pt-1">
                         <div className="text-[13px] font-medium text-ink">
@@ -1080,7 +1054,7 @@ export function SettingsView() {
                         </div>
                       </div>
                       <div className="space-y-1">
-                        {sortProviders(providers).map((item) => (
+                        {connectedProviders.map((item) => (
                           <ProviderListRow
                             key={item.id}
                             provider={item}
@@ -1091,15 +1065,44 @@ export function SettingsView() {
                       <div className="mt-1 border-t border-line pt-1.5">
                         <button
                           type="button"
-                          onClick={() => {
-                            setProviderView({ kind: "create" });
-                            clearBanners();
-                          }}
+                          onClick={() => setAddListOpen((value) => !value)}
+                          aria-expanded={addListOpen}
                           className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-[13px] text-ink-secondary transition-colors hover:bg-fill-hover hover:text-ink"
                         >
                           <Plus size={14} strokeWidth={1.8} />
-                          {t("settings.provider.addCustom")}
+                          <span className="flex-1 text-left">
+                            {t("settings.provider.addSection")}
+                          </span>
+                          <ChevronRight
+                            size={14}
+                            strokeWidth={1.8}
+                            className={`text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
+                              addListOpen ? "rotate-90" : ""
+                            }`}
+                          />
                         </button>
+                        {addListOpen && (
+                          <div className="mt-1 space-y-1">
+                            {availableProviders.map((item) => (
+                              <ProviderListRow
+                                key={item.id}
+                                provider={item}
+                                onOpen={() => openDetail(item)}
+                              />
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProviderView({ kind: "create" });
+                                clearBanners();
+                              }}
+                              className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-[13px] text-ink-secondary transition-colors hover:bg-fill-hover hover:text-ink"
+                            >
+                              <Plus size={14} strokeWidth={1.8} />
+                              {t("settings.provider.addCustom")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </SettingsGroup>
                   </div>
@@ -1526,39 +1529,22 @@ function ProviderListRow({
   onOpen: () => void;
 }) {
   const { t } = useTranslation();
-  const configured = providerConfigured(provider);
   const modelCount = providerModels(provider).length;
-  const summary = provider.is_local
-    ? t("settings.provider.localReady")
-    : configured
-    ? provider.api_key || provider.base_url
-    : provider.require_api_key
-    ? t("settings.provider.notConfigured")
-    : t("settings.provider.keyNotRequired");
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors hover:bg-fill-hover"
+      className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors hover:bg-fill-hover"
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[13px] text-ink">
-            {providerDisplayName(provider.name)}
-          </span>
-          {provider.is_local ? (
-            <Badge tone="neutral">{t("settings.provider.local")}</Badge>
-          ) : configured ? (
-            <Badge tone="ok">{t("settings.provider.configured")}</Badge>
-          ) : null}
-          {provider.is_custom && (
-            <Badge tone="neutral">{t("settings.provider.custom")}</Badge>
-          )}
-        </div>
-        <div className="mt-0.5 truncate text-xs text-ink-tertiary">
-          {summary}
-        </div>
-      </div>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+        {providerDisplayName(provider.name)}
+      </span>
+      {provider.is_local && (
+        <Badge tone="neutral">{t("settings.provider.local")}</Badge>
+      )}
+      {provider.is_custom && (
+        <Badge tone="neutral">{t("settings.provider.custom")}</Badge>
+      )}
       {modelCount > 0 && (
         <span className="shrink-0 text-xs tabular-nums text-ink-tertiary">
           {t("settings.provider.modelCount", { count: modelCount })}

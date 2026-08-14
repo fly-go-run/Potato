@@ -1,6 +1,5 @@
 import { isSuccessfulArtifactPair } from "../components/chat/FileToolCard";
 import { buildToolPair, toolData } from "../components/chat/ToolCard";
-import type { RunStatus } from "./protocol/types";
 import type { StreamMessage } from "./stream";
 
 export interface ConversationArtifact {
@@ -172,26 +171,6 @@ export function resolveConversationFileLink(
     );
   });
   return matches.length === 1 ? matches[0]!.path : null;
-}
-
-export function presentRunStatus(status: RunStatus | "idle"): {
-  label:
-    | "chat.panel.running"
-    | "chat.panel.completed"
-    | "chat.panel.failed"
-    | "chat.panel.cancelled";
-  dotClass: string;
-} {
-  if (status === "created" || status === "in_progress") {
-    return { label: "chat.panel.running", dotClass: "animate-pulse bg-ok" };
-  }
-  if (status === "failed") {
-    return { label: "chat.panel.failed", dotClass: "bg-danger" };
-  }
-  if (status === "cancelled") {
-    return { label: "chat.panel.cancelled", dotClass: "bg-warn" };
-  }
-  return { label: "chat.panel.completed", dotClass: "bg-ink-muted" };
 }
 
 function filePathFromArguments(argumentsValue: string): string {

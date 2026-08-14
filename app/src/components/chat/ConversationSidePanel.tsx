@@ -5,13 +5,12 @@ import {
   FileCode,
   FileDiff,
   FileImage,
-  Files,
   FolderOpen,
   FileSpreadsheet,
   FileText,
   GitBranch,
-  ListTree,
   LoaderCircle,
+  MessageSquare,
   Presentation,
   Undo2,
   type LucideIcon,
@@ -25,10 +24,7 @@ import {
   openLocalPathWithSystem,
   revealLocalPathInFileManager,
 } from "../../lib/desktop";
-import {
-  presentRunStatus,
-  type ConversationArtifact,
-} from "../../lib/conversationArtifacts";
+import { type ConversationArtifact } from "../../lib/conversationArtifacts";
 import {
   shortenPath,
   type FileChange,
@@ -44,16 +40,11 @@ import {
   type UnifiedFileDiff,
 } from "../../lib/unifiedDiff";
 import { useTranslation } from "../../lib/i18n";
-import type { RunStatus } from "../../lib/protocol/types";
-import type { StreamMessage } from "../../lib/stream";
 import { ChangeStat } from "./ChangeStat";
-import { isSuccessfulToolState, toolData } from "./ToolCard";
 
 interface ConversationSidePanelProps {
-  messages: StreamMessage[];
   artifacts: ConversationArtifact[];
   changes: FileChange[];
-  responseStatus: RunStatus | "idle";
   selectedFilePath?: string;
   selectedChangePath?: string;
   /** 面板的关闭统一走 ChatHeader 的开关;保留字段仅为兼容旧调用。 */
@@ -65,10 +56,8 @@ interface ConversationSidePanelProps {
 }
 
 export function ConversationSidePanel({
-  messages,
   artifacts,
   changes,
-  responseStatus,
   selectedFilePath,
   selectedChangePath,
   onFileClose,
@@ -77,21 +66,6 @@ export function ConversationSidePanel({
   onLocate,
 }: ConversationSidePanelProps) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<"overview" | "changes" | "artifacts">(
-    changes.length > 0
-      ? "changes"
-      : artifacts.length > 0
-      ? "artifacts"
-      : "overview",
-  );
-  const completedSteps = useMemo(
-    () => messages.filter((message) => isSuccessfulToolOutput(message)).length,
-    [messages],
-  );
-  const runPresentation = presentRunStatus(responseStatus);
-  const activeLlm = useChatStore(
-    (state) => state.activeModel?.active_llm ?? null,
-  );
 
   if (selectedFilePath) {
     return (
@@ -119,136 +93,33 @@ export function ConversationSidePanel({
 
   return (
     <aside className="flex min-h-0 w-[19rem] shrink-0 flex-col border-l border-line bg-bg/70">
-      <div className="flex h-11 shrink-0 items-center border-b border-line px-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-[var(--radius-sm)] bg-fill-hover px-0.5 py-0.5">
-          <PanelTab
-            active={tab === "overview"}
-            icon={ListTree}
-            label={t("chat.panel.overview")}
-            onClick={() => setTab("overview")}
-          />
-          <PanelTab
-            active={tab === "changes"}
-            icon={FileDiff}
-            label={t("chat.panel.changes", { count: changes.length })}
-            onClick={() => setTab("changes")}
-          />
-          <PanelTab
-            active={tab === "artifacts"}
-            icon={Files}
-            label={t("chat.panel.artifacts", { count: artifacts.length })}
-            onClick={() => setTab("artifacts")}
-          />
+      {changes.length === 0 && artifacts.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center px-5 text-center text-[13px] text-ink-tertiary">
+          {t("chat.panel.empty")}
         </div>
-      </div>
-
-      {tab === "overview" ? (
-        <div className="space-y-5 overflow-y-auto px-4 py-4">
-          <section>
-            <h2 className="text-[12px] font-medium text-ink-secondary">
-              {t("chat.panel.run")}
-            </h2>
-            <div className="mt-2 rounded-[var(--radius-md)] bg-surface px-3 py-3">
-              <div className="flex items-center gap-2 text-[13px] text-ink">
-                <span
-                  className={`h-2 w-2 rounded-full ${runPresentation.dotClass}`}
-                />
-                {t(runPresentation.label)}
-              </div>
-              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3 text-xs">
-                <div>
-                  <dt className="text-ink-tertiary">{t("chat.panel.messages")}</dt>
-                  <dd className="mt-1 tabular-nums text-ink-secondary">
-                    {messages.length}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-ink-tertiary">{t("chat.panel.steps")}</dt>
-                  <dd className="mt-1 tabular-nums text-ink-secondary">
-                    {completedSteps}
-                  </dd>
-                </div>
-                {activeLlm && (
-                  <div className="col-span-2 min-w-0">
-                    <dt className="text-ink-tertiary">{t("chat.panel.model")}</dt>
-                    <dd
-                      className="mt-1 truncate text-ink-secondary"
-                      title={`${activeLlm.provider_id} / ${activeLlm.model}`}
-                    >
-                      {activeLlm.model}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-          </section>
-          <section>
-            <div className="flex items-center justify-between">
-              <h2 className="text-[12px] font-medium text-ink-secondary">
-                {t("chat.panel.changesSummary")}
-              </h2>
-              {changes.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setTab("changes")}
-                  className="text-xs text-ink-secondary hover:text-ink"
-                >
-                  {t("chat.panel.viewAll")}
-                </button>
-              )}
-            </div>
-            <div className="mt-2 rounded-[var(--radius-md)] bg-surface px-3 py-3 text-[13px] text-ink-secondary">
-              {changes.length > 0
-                ? t("chat.panel.changeCount", { count: changes.length })
-                : t("chat.panel.noChanges")}
-            </div>
-          </section>
-          <section>
-            <div className="flex items-center justify-between">
-              <h2 className="text-[12px] font-medium text-ink-secondary">
-                {t("chat.panel.artifactSummary")}
-              </h2>
-              {artifacts.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setTab("artifacts")}
-                  className="text-xs text-ink-secondary hover:text-ink"
-                >
-                  {t("chat.panel.viewAll")}
-                </button>
-              )}
-            </div>
-            <div className="mt-2 rounded-[var(--radius-md)] bg-surface px-3 py-3 text-[13px] text-ink-secondary">
-              {artifacts.length > 0
-                ? t("chat.panel.artifactCount", { count: artifacts.length })
-                : t("chat.panel.noArtifacts")}
-            </div>
-          </section>
-        </div>
-      ) : tab === "changes" ? (
-        <ChangesList changes={changes} onOpen={onOpenChange} />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {artifacts.length === 0 ? (
-            <div className="flex h-full min-h-40 flex-col items-center justify-center px-5 text-center">
-              <Files size={22} strokeWidth={1.75} className="text-ink-muted" />
-              <div className="mt-2 text-[13px] text-ink-secondary">
-                {t("chat.panel.noArtifacts")}
-              </div>
-              <div className="mt-1 text-xs leading-5 text-ink-tertiary">
-                {t("chat.panel.noArtifactsHint")}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {artifacts.map((artifact) => {
-                const Icon = fileIcon(artifact.path);
-                return (
-                  <div
-                    key={artifact.id}
-                    className="group rounded-[var(--radius-md)] bg-surface px-2.5 py-2.5"
-                  >
-                    <div className="flex items-center gap-2.5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+          {changes.length > 0 && (
+            <section>
+              <h2 className="px-2.5 pb-1 text-[12px] font-medium text-ink-secondary">
+                {t("chat.panel.changes")}
+              </h2>
+              <ChangesList changes={changes} onOpen={onOpenChange} />
+            </section>
+          )}
+          {artifacts.length > 0 && (
+            <section className={changes.length > 0 ? "mt-5" : undefined}>
+              <h2 className="px-2.5 pb-1 text-[12px] font-medium text-ink-secondary">
+                {t("chat.panel.artifacts")}
+              </h2>
+              <div className="space-y-1">
+                {artifacts.map((artifact) => {
+                  const Icon = fileIcon(artifact.path);
+                  return (
+                    <div
+                      key={artifact.id}
+                      className="group flex items-center gap-2.5 rounded-[var(--radius-md)] bg-surface px-2.5 py-2.5"
+                    >
                       <Icon size={16} strokeWidth={1.75} className="shrink-0 text-ink-secondary" />
                       <button
                         type="button"
@@ -267,6 +138,15 @@ export function ConversationSidePanel({
                           {directoryOf(artifact.path)}
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => onLocate(artifact.sourceMessageId)}
+                        title={t("chat.panel.locate")}
+                        aria-label={t("chat.panel.locate")}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon opacity-0 transition-opacity hover:bg-fill-hover hover:text-icon-strong focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <MessageSquare size={14} strokeWidth={1.8} />
+                      </button>
                       <a
                         href={filePreviewUrl(artifact.path)}
                         target="_blank"
@@ -281,18 +161,10 @@ export function ConversationSidePanel({
                         <ArrowUpRight size={14} strokeWidth={1.8} />
                       </a>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => onLocate(artifact.sourceMessageId)}
-                      className="mt-2 flex items-center gap-1 text-[11px] text-ink-secondary hover:text-ink"
-                    >
-                      {t("chat.panel.locate")}
-                      <ChevronRight size={12} strokeWidth={1.8} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
         </div>
       )}
@@ -595,7 +467,7 @@ function CodeFileView({ text, language }: { text: string; language?: string }) {
   );
 }
 
-/** 「改动」tab:按文件一行,右侧 ± 行数,点击进入 diff 视图。 */
+/** 改动分区:按文件一行,右侧 ± 行数,点击进入 diff 视图。 */
 function ChangesList({
   changes,
   onOpen,
@@ -603,23 +475,9 @@ function ChangesList({
   changes: FileChange[];
   onOpen?: (path: string) => void;
 }) {
-  const { t } = useTranslation();
   const projectDir = useChatStore((state) => state.project?.path ?? null);
-  if (changes.length === 0) {
-    return (
-      <div className="flex h-full min-h-40 flex-col items-center justify-center px-5 text-center">
-        <FileDiff size={22} strokeWidth={1.75} className="text-ink-muted" />
-        <div className="mt-2 text-[13px] text-ink-secondary">
-          {t("chat.panel.noChanges")}
-        </div>
-        <div className="mt-1 text-xs leading-5 text-ink-tertiary">
-          {t("chat.panel.noChangesHint")}
-        </div>
-      </div>
-    );
-  }
   return (
-    <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
+    <div className="space-y-0.5">
       {changes.map((change) => {
         const shortDir = directoryOf(shortenPath(change.path, projectDir));
         return (
@@ -1102,53 +960,6 @@ function resolveMarkdownAsset(filePath: string, url: string): string {
     else segments.push(part);
   }
   return filePreviewUrl(segments.join("/"));
-}
-
-function PanelTab({
-  active,
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: LucideIcon;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[6px] border px-2 py-1 text-xs transition-[background-color,color,box-shadow,border-color] duration-[150ms] ease-out ${
-        active
-          ? "border-line bg-surface text-ink shadow-[var(--shadow-sm)] dark:border-line-highlight dark:shadow-none"
-          : "border-transparent text-ink-secondary hover:text-ink"
-      }`}
-    >
-      <Icon size={14} strokeWidth={1.8} />
-      <span className="truncate">{label}</span>
-    </button>
-  );
-}
-
-function isSuccessfulToolOutput(message: StreamMessage): boolean {
-  if (!isToolOutput(message.type) || message.status !== "completed") {
-    return false;
-  }
-  const state = stringValue(toolData(message).state).toLocaleLowerCase();
-  return isSuccessfulToolState(state);
-}
-
-function isToolOutput(type: StreamMessage["type"]): boolean {
-  return (
-    type === "plugin_call_output" ||
-    type === "function_call_output" ||
-    type === "mcp_tool_call_output"
-  );
-}
-
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
 }
 
 const ICON_BY_EXTENSION: Array<[readonly string[], LucideIcon]> = [
