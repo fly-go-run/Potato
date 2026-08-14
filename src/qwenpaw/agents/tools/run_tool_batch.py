@@ -20,6 +20,7 @@ from agentscope.tool import ToolChunk
 
 from ...config.context import get_current_agent_state, get_current_toolkit
 from ...runtime.tool_registry import tool_descriptor
+from ...runtime.tool_meta import build_batch_qp_meta
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,11 @@ _ARITHMETIC_EXPR_CHARS_PATTERN = re.compile(
 # --- Helpers --------------------------------------------------------------
 
 
-def _json_tool_response(payload: dict[str, Any]) -> ToolChunk:
+def _json_tool_response(
+    payload: dict[str, Any],
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> ToolChunk:
     """Wrap a JSON-serialisable dict in a single-TextBlock ToolChunk."""
     ok = payload.get("ok", True)
     return ToolChunk(
@@ -92,6 +97,7 @@ def _json_tool_response(payload: dict[str, Any]) -> ToolChunk:
                 text=json.dumps(payload, ensure_ascii=False),
             ),
         ],
+        metadata=metadata or {},
     )
 
 
@@ -927,6 +933,7 @@ def _build_batch_response(
 ) -> ToolChunk:
     """Build the final ToolChunk for a batch run."""
     completed = sum(1 for r in results if r.get("ok", False))
+    failed_count = sum(1 for r in results if not r.get("ok", False))
     failed = next((r for r in results if not r.get("ok", False)), None)
     all_ok = failed is None and completed == len(results)
 
@@ -953,17 +960,31 @@ def _build_batch_response(
         type="text",
         text=json.dumps(payload, ensure_ascii=False, default=str),
     )
+    qp = build_batch_qp_meta(
+        ok=all_ok,
+        total=len(actions),
+        completed=completed,
+        failed=failed_count,
+        steps=[
+            {
+                "tool": str(result.get("tool_name") or ""),
+                "ok": bool(result.get("ok", False)),
+            }
+            for result in results
+        ],
+    )
     if not last_only:
         return ToolChunk(
             state=state,
             content=[summary, *all_content_blocks],
+            metadata={"qp": qp},
         )
 
     content: list[Any] = [summary]
     if _should_include_last_text_block(last_text_block, results):
         content.append(last_text_block)
     content.extend(all_content_blocks)
-    return ToolChunk(state=state, content=content)
+    return ToolChunk(state=state, content=content, metadata={"qp": qp})
 
 
 def _should_include_last_text_block(
@@ -1242,7 +1263,19 @@ async def run_tool_batch(  # pylint: disable=too-many-return-statements
             maxstep,
         )
     except ValueError as exc:
-        return _json_tool_response({"ok": False, "error": str(exc)})
+        input_total = len(actions) if isinstance(actions, list) else 0
+        return _json_tool_response(
+            {"ok": False, "error": str(exc)},
+            metadata={
+                "qp": build_batch_qp_meta(
+                    ok=False,
+                    total=input_total,
+                    completed=0,
+                    failed=0,
+                    steps=[],
+                ),
+            },
+        )
 
     # --- Execute ---
     results, all_content_blocks, last_text_block = await _run_steps(

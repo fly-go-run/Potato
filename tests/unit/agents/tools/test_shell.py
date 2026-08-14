@@ -541,6 +541,12 @@ class TestExecuteShellCommand:
             assert result.content is not None
             text = result.content[0].text
             assert "hello" in text
+            assert result.metadata["qp"] == {
+                "v": 1,
+                "kind": "shell",
+                "ok": True,
+                "data": {"sandboxed": False, "exit_code": 0},
+            }
 
     @pytest.mark.asyncio
     @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
@@ -583,6 +589,24 @@ class TestExecuteShellCommand:
             result = await execute_shell_command("false")
             text = result.content[0].text
             assert "failed" in text.lower() or "error" in text.lower()
+            assert result.metadata["qp"]["ok"] is False
+            assert result.metadata["qp"]["data"] == {
+                "sandboxed": False,
+                "exit_code": 1,
+            }
+
+    @pytest.mark.asyncio
+    async def test_blocked_command_omits_unavailable_exit_code(self):
+        from qwenpaw.agents.tools.shell import execute_shell_command
+
+        result = await execute_shell_command(f"kill {os.getpid()}")
+
+        assert result.metadata["qp"] == {
+            "v": 1,
+            "kind": "shell",
+            "ok": False,
+            "data": {"sandboxed": False},
+        }
 
     @pytest.mark.asyncio
     @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")

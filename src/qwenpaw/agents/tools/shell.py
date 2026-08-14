@@ -27,7 +27,23 @@ from ...config.context import (
 )
 from ...constant import WORKING_DIR
 from ...runtime.tool_registry import tool_descriptor
+from ...runtime.tool_meta import build_qp_meta
 from ...sandbox import ExecutionResult
+
+
+def _shell_metadata(
+    *,
+    sandboxed: bool,
+    ok: bool,
+    exit_code: int | None = None,
+    violation: str | None = None,
+) -> dict:
+    data: dict[str, Any] = {"sandboxed": sandboxed}
+    if exit_code is not None:
+        data["exit_code"] = exit_code
+    if violation is not None:
+        data["violation"] = violation
+    return {"qp": build_qp_meta("shell", ok, data)}
 
 
 def _windows_taskkill_args(pid: int) -> list[str]:
@@ -600,6 +616,10 @@ async def execute_shell_command(
                     ),
                 ),
             ],
+            metadata=_shell_metadata(
+                sandboxed=sandbox_config is not None,
+                ok=False,
+            ),
         )
 
     if isinstance(timeout, str):
@@ -657,7 +677,14 @@ async def execute_shell_command(
                         f"Command was blocked by sandbox security policy.",
                     ),
                 ],
-                metadata={"sandbox_violation": result.sandbox_violation},
+                metadata={
+                    "sandbox_violation": result.sandbox_violation,
+                    **_shell_metadata(
+                        sandboxed=True,
+                        ok=False,
+                        violation=result.sandbox_violation,
+                    ),
+                },
             )
         if result.exit_code == 0:
             response_text = (
@@ -681,6 +708,11 @@ async def execute_shell_command(
                     text=response_text,
                 ),
             ],
+            metadata=_shell_metadata(
+                sandboxed=True,
+                ok=result.exit_code == 0,
+                exit_code=result.exit_code,
+            ),
         )
 
     import logging as _logging
@@ -811,6 +843,11 @@ async def execute_shell_command(
                     text=response_text,
                 ),
             ],
+            metadata=_shell_metadata(
+                sandboxed=False,
+                ok=returncode == 0,
+                exit_code=returncode,
+            ),
         )
 
     except Exception as e:
@@ -823,6 +860,7 @@ async def execute_shell_command(
                     text=f"Error: Shell command execution failed due to \n{e}",
                 ),
             ],
+            metadata=_shell_metadata(sandboxed=False, ok=False),
         )
 
 

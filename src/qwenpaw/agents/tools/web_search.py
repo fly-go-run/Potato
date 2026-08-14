@@ -28,6 +28,7 @@ from agentscope.tool import ToolChunk
 from agentscope.message import ToolResultState
 
 from ...runtime.tool_registry import tool_descriptor
+from ...runtime.tool_meta import build_qp_meta
 
 logger = logging.getLogger(__name__)
 
@@ -261,6 +262,7 @@ async def web_search(search_term: str) -> ToolChunk:
     Returns:
         `ToolChunk`: A researched answer plus the source URLs, or - when the fallback backend is in use - a list of result titles, URLs, and snippets.
     """
+    backend, settings = _resolve_backend()
     query = (search_term or "").strip()
     if not query:
         return ToolChunk(
@@ -272,9 +274,15 @@ async def web_search(search_term: str) -> ToolChunk:
                     text="Error: search_term is empty.",
                 ),
             ],
+            metadata={
+                "qp": build_qp_meta(
+                    "web_search",
+                    False,
+                    {"backend": backend},
+                ),
+            },
         )
 
-    backend, settings = _resolve_backend()
     if backend == "hosted":
         text, ok, quotes_remote = await _search_hosted(query, settings)
         if ok:
@@ -282,6 +290,13 @@ async def web_search(search_term: str) -> ToolChunk:
                 is_last=True,
                 state=ToolResultState.SUCCESS,
                 content=[TextBlock(type="text", text=_as_untrusted(text))],
+                metadata={
+                    "qp": build_qp_meta(
+                        "web_search",
+                        True,
+                        {"backend": "hosted"},
+                    ),
+                },
             )
         # An explicitly chosen backend reports its own failure; "auto" only
         # picked the hosted one because a key existed, so a transient outage
@@ -296,6 +311,13 @@ async def web_search(search_term: str) -> ToolChunk:
                         text=_error_text(text, quotes_remote),
                     ),
                 ],
+                metadata={
+                    "qp": build_qp_meta(
+                        "web_search",
+                        False,
+                        {"backend": "hosted"},
+                    ),
+                },
             )
         logger.warning(
             "web_search: hosted search failed, falling back to Tavily",
@@ -423,6 +445,16 @@ async def _search_tavily(query: str) -> ToolChunk:
             is_last=True,
             state=ToolResultState.SUCCESS,
             content=[TextBlock(type="text", text=text)],
+            metadata={
+                "qp": build_qp_meta(
+                    "web_search",
+                    True,
+                    {
+                        "backend": "tavily",
+                        "source_count": len(results),
+                    },
+                ),
+            },
         )
     except Exception as exc:
         # Tavily transport failure: a status line or a socket error, none of
@@ -434,6 +466,13 @@ async def _search_tavily(query: str) -> ToolChunk:
         is_last=True,
         state=ToolResultState.ERROR,
         content=[TextBlock(type="text", text=text)],
+        metadata={
+            "qp": build_qp_meta(
+                "web_search",
+                False,
+                {"backend": "tavily"},
+            ),
+        },
     )
 
 

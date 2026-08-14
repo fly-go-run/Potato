@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from difflib import SequenceMatcher
 from typing import Any, Literal, Mapping, TypedDict, cast
 
 QP_META_VERSION = 1
@@ -93,6 +94,64 @@ def build_qp_meta(
         "data": dict(data),
     }
     return validate_qp_meta(meta)
+
+
+def count_line_changes(before: str, after: str) -> tuple[int, int]:
+    """Return line additions/deletions for two text snapshots.
+
+    ``splitlines()`` makes a final line count as one whether or not it has a
+    trailing newline. A newline-only EOF change therefore does not invent a
+    line addition or deletion.
+    """
+
+    matcher = SequenceMatcher(
+        None,
+        before.splitlines(),
+        after.splitlines(),
+        autojunk=False,
+    )
+    additions = 0
+    deletions = 0
+    for tag, before_start, before_end, after_start, after_end in (
+        matcher.get_opcodes()
+    ):
+        if tag in {"replace", "delete"}:
+            deletions += before_end - before_start
+        if tag in {"replace", "insert"}:
+            additions += after_end - after_start
+    return additions, deletions
+
+
+def build_batch_qp_meta(
+    *,
+    ok: bool,
+    total: int,
+    completed: int,
+    failed: int,
+    steps: list[Mapping[str, Any]],
+) -> QpMeta:
+    """Build bounded batch metadata, retaining the earliest complete steps."""
+
+    retained = [dict(step) for step in steps[:50]]
+    truncated = len(retained) < len(steps)
+    while True:
+        try:
+            return build_qp_meta(
+                "batch",
+                ok,
+                {
+                    "total": total,
+                    "completed": completed,
+                    "failed": failed,
+                    "truncated": truncated,
+                    "steps": retained,
+                },
+            )
+        except ValueError as exc:
+            if "exceeds" not in str(exc) or not retained:
+                raise
+            retained.pop()
+            truncated = True
 
 
 def assert_qp_terminal_chunk(chunk: object) -> None:
