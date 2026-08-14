@@ -1,4 +1,4 @@
-import { MessageCirclePlus, PanelLeft } from "lucide-react";
+import { PanelLeft, SquarePen } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type MouseEvent } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "../../lib/i18n";
@@ -153,7 +153,7 @@ export function AppShell() {
             aria-label={t("sidebar.newChat")}
             onClick={startNewChat}
           >
-            <MessageCirclePlus size={17} />
+            <SquarePen size={16} />
           </IconButton>
         </div>
       )}
