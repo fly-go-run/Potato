@@ -8,6 +8,8 @@ import logging
 
 from fastapi import APIRouter
 
+from ..runtime.registration import RegistrationHandle
+
 logger = logging.getLogger(__name__)
 
 # Registered on the console SPA catch-all in ``_app.py`` so plugin HTTP
@@ -173,7 +175,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         plugin_id: str,
         factory: Callable,
         priority: int = 100,
-    ) -> None:
+    ) -> RegistrationHandle:
         """Register a middleware factory.
 
         The factory is invoked per request during agent assembly:
@@ -184,18 +186,24 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             factory: Callable returning a MiddlewareBase or None
             priority: Ordering priority (lower = outermost in onion model)
         """
-        self._middleware_registrations.append(
-            MiddlewareRegistration(
-                plugin_id=plugin_id,
-                factory=factory,
-                priority=priority,
-            ),
+        registration = MiddlewareRegistration(
+            plugin_id=plugin_id,
+            factory=factory,
+            priority=priority,
         )
+        self._middleware_registrations.append(registration)
         self._middleware_registrations.sort(key=lambda r: r.priority)
         logger.info(
             "Registered middleware factory from plugin '%s' (priority=%d)",
             plugin_id,
             priority,
+        )
+        return RegistrationHandle(
+            lambda: self._remove_identity(
+                self._middleware_registrations,
+                registration,
+            ),
+            tag=f"plugin:{plugin_id}:middleware",
         )
 
     def get_middleware_factories(self) -> List[MiddlewareRegistration]:
@@ -224,7 +232,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         *,
         prefix: str,
         tags: Optional[List[Any]] = None,
-    ) -> None:
+    ) -> RegistrationHandle:
         """Mount a plugin ``APIRouter`` at ``/api`` + *prefix*.
 
         Args:
@@ -277,18 +285,44 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             tags=effective_tags,
         )
 
-        self._http_router_registrations.append(
-            HttpRouterRegistration(
-                plugin_id=plugin_id,
-                prefix=normalized,
-                routes=added,
-            ),
+        registration = HttpRouterRegistration(
+            plugin_id=plugin_id,
+            prefix=normalized,
+            routes=added,
         )
+        self._http_router_registrations.append(registration)
         self._http_prefix_to_plugin[normalized] = plugin_id
         logger.info(
             "Registered HTTP routes for plugin '%s' at prefix '/api%s'",
             plugin_id,
             normalized,
+        )
+
+        def _dispose() -> None:
+            owned = self._remove_identity(
+                self._http_router_registrations,
+                registration,
+            )
+            if not owned:
+                return
+            if self._http_prefix_to_plugin.get(normalized) == plugin_id:
+                self._http_prefix_to_plugin.pop(normalized, None)
+            routes = http_app.router.routes
+            for route in added:
+                try:
+                    routes.remove(route)
+                except ValueError:
+                    logger.warning(
+                        "Could not remove plugin HTTP route %r for '%s' "
+                        "(already removed?)",
+                        getattr(route, "path", route),
+                        plugin_id,
+                    )
+            http_app.openapi_schema = None
+
+        return RegistrationHandle(
+            _dispose,
+            tag=f"plugin:{plugin_id}:http:{normalized}",
         )
 
     def get_http_router_registrations(self) -> List[HttpRouterRegistration]:
@@ -333,7 +367,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         label: str,
         base_url: str,
         metadata: Dict[str, Any],
-    ):
+    ) -> RegistrationHandle:
         """Register a provider.
 
         Args:
@@ -354,7 +388,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
                 f"by plugin '{existing.plugin_id}'",
             )
 
-        self._providers[provider_id] = ProviderRegistration(
+        registration = ProviderRegistration(
             plugin_id=plugin_id,
             provider_id=provider_id,
             provider_class=provider_class,
@@ -362,8 +396,17 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             base_url=base_url,
             metadata=metadata,
         )
+        self._providers[provider_id] = registration
         logger.info(
             f"Registered provider '{provider_id}' from plugin '{plugin_id}'",
+        )
+        return RegistrationHandle(
+            lambda: self._pop_identity(
+                self._providers,
+                provider_id,
+                registration,
+            ),
+            tag=f"plugin:{plugin_id}:provider:{provider_id}",
         )
 
     def get_provider(self, provider_id: str) -> Optional[ProviderRegistration]:
@@ -475,7 +518,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         hook_name: str,
         callback: Callable,
         priority: int = 100,
-    ):
+    ) -> RegistrationHandle:
         """Register a startup hook.
 
         Args:
@@ -497,6 +540,10 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered startup hook '{hook_name}' from plugin '{plugin_id}' "
             f"(priority={priority})",
         )
+        return RegistrationHandle(
+            lambda: self._remove_identity(self._startup_hooks, hook),
+            tag=f"plugin:{plugin_id}:startup:{hook_name}",
+        )
 
     def register_shutdown_hook(
         self,
@@ -504,7 +551,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         hook_name: str,
         callback: Callable,
         priority: int = 100,
-    ):
+    ) -> RegistrationHandle:
         """Register a shutdown hook.
 
         Args:
@@ -525,6 +572,10 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         logger.info(
             f"Registered shutdown hook '{hook_name}' from plugin "
             f"'{plugin_id}' (priority={priority})",
+        )
+        return RegistrationHandle(
+            lambda: self._remove_identity(self._shutdown_hooks, hook),
+            tag=f"plugin:{plugin_id}:shutdown:{hook_name}",
         )
 
     def get_startup_hooks(self) -> List[HookRegistration]:
@@ -549,7 +600,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         hook_name: str,
         callback: Callable,
         priority: int = 100,
-    ):
+    ) -> RegistrationHandle:
         """Register an uninstall hook.
 
         Unlike shutdown hooks (which run on every app shutdown),
@@ -578,6 +629,10 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f"Registered uninstall hook '{hook_name}' from plugin "
             f"'{plugin_id}' (priority={priority})",
         )
+        return RegistrationHandle(
+            lambda: self._remove_identity(self._uninstall_hooks, hook),
+            tag=f"plugin:{plugin_id}:uninstall:{hook_name}",
+        )
 
     def get_uninstall_hooks(self) -> List[HookRegistration]:
         """Get all uninstall hooks sorted by priority.
@@ -593,7 +648,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         hook_name: str,
         callback: Callable,
         priority: int = 100,
-    ):
+    ) -> RegistrationHandle:
         """Register a hook that fires when a new workspace is created.
 
         The callback receives a single ``workspace_info`` dict with at
@@ -617,6 +672,13 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         logger.info(
             f"Registered workspace_created hook '{hook_name}' from plugin "
             f"'{plugin_id}' (priority={priority})",
+        )
+        return RegistrationHandle(
+            lambda: self._remove_identity(
+                self._workspace_created_hooks,
+                hook,
+            ),
+            tag=f"plugin:{plugin_id}:workspace-created:{hook_name}",
         )
 
     def get_workspace_created_hooks(self) -> List[HookRegistration]:
@@ -667,7 +729,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         after: str,
         agent_id: Optional[str],
         provider: Callable[[Any], str],
-    ) -> None:
+    ) -> RegistrationHandle:
         """Register a plugin-contributed system prompt section.
 
         Args:
@@ -710,6 +772,15 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             f" '{plugin_id}' after '{normalized_after}'",
         )
 
+        def _dispose() -> None:
+            if self._remove_identity(self._prompt_sections, registration):
+                self._prompt_section_names.discard(normalized_name)
+
+        return RegistrationHandle(
+            _dispose,
+            tag=f"plugin:{plugin_id}:prompt:{normalized_name}",
+        )
+
     def get_prompt_sections(self) -> List[PromptSectionRegistration]:
         """Return a copy of registered prompt sections."""
         return list(self._prompt_sections)
@@ -719,7 +790,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         plugin_id: str,
         handler: Any,
         priority_level: int = 10,
-    ):
+    ) -> RegistrationHandle:
         """Register a control command handler.
 
         Args:
@@ -736,6 +807,13 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         logger.info(
             f"Registered control command '{handler.command_name}' "
             f"from plugin '{plugin_id}' (priority={priority_level})",
+        )
+        return RegistrationHandle(
+            lambda: self._remove_identity(self._control_commands, cmd_reg),
+            tag=(
+                f"plugin:{plugin_id}:control-command:"
+                f"{handler.command_name}"
+            ),
         )
 
     def get_control_commands(self) -> List[ControlCommandRegistration]:
@@ -756,7 +834,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         config_fields: Optional[List[Dict[str, Any]]] = None,
         icon: str = "",
         doc_url: Any = "",
-    ) -> None:
+    ) -> RegistrationHandle:
         """Register a custom channel from a plugin.
 
         Args:
@@ -838,7 +916,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
                 f"got {channel_class!r}",
             )
 
-        self._channels[normalized_key] = ChannelRegistration(
+        registration = ChannelRegistration(
             plugin_id=plugin_id,
             channel_key=normalized_key,
             channel_class=channel_class,
@@ -848,9 +926,18 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
             icon=(icon or "").strip(),
             doc_url=doc_url or "",
         )
+        self._channels[normalized_key] = registration
         logger.info(
             f"Registered channel '{normalized_key}' from plugin "
             f"'{plugin_id}'",
+        )
+        return RegistrationHandle(
+            lambda: self._pop_identity(
+                self._channels,
+                normalized_key,
+                registration,
+            ),
+            tag=f"plugin:{plugin_id}:channel:{normalized_key}",
         )
 
     def get_registered_channels(self) -> Dict[str, ChannelRegistration]:
@@ -899,7 +986,7 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         self,
         plugin_id: str,
         manifest: Dict[str, Any],
-    ):
+    ) -> RegistrationHandle:
         """Register plugin manifest.
 
         Args:
@@ -908,6 +995,31 @@ class PluginRegistry:  # pylint:disable=too-many-public-methods
         """
         self._plugin_manifests[plugin_id] = manifest
         logger.debug(f"Registered manifest for plugin '{plugin_id}'")
+        return RegistrationHandle(
+            lambda: self._pop_identity(
+                self._plugin_manifests,
+                plugin_id,
+                manifest,
+            ),
+            tag=f"plugin:{plugin_id}:manifest",
+        )
+
+    @staticmethod
+    def _remove_identity(items: list, target: Any) -> bool:
+        """Remove *target* from *items* using object identity."""
+        for index, item in enumerate(items):
+            if item is target:
+                del items[index]
+                return True
+        return False
+
+    @staticmethod
+    def _pop_identity(mapping: dict, key: Any, target: Any) -> bool:
+        """Pop *key* only while its value is the captured *target*."""
+        if mapping.get(key) is target:
+            mapping.pop(key, None)
+            return True
+        return False
 
     def get_all_plugin_manifests(self) -> Dict[str, Dict[str, Any]]:
         """Get all plugin manifests.
