@@ -89,7 +89,12 @@ class Envelope:
     ``stream_query`` produced.
     """
 
-    def __init__(self, session_id: str = "") -> None:
+    def __init__(
+        self,
+        session_id: str = "",
+        *,
+        tool_registry: Any = None,
+    ) -> None:
         from ..schemas import (
             AgentResponse,
             Message,
@@ -123,12 +128,20 @@ class Envelope:
         self._tool_calls: Dict[str, Dict[str, Any]] = {}
         self._data_blocks: Dict[str, Dict[str, Any]] = {}
         self._progress_events: Dict[str, Dict[str, Any]] = {}
+        self._tool_registry = tool_registry
 
         self._seq_counter = 0
 
         self._error_text: str | None = None
         self._error_code: str = "error"
         self._finalized = False
+
+    def _tool_call_ui(self, tool_name: str) -> dict[str, str] | None:
+        if self._tool_registry is None:
+            return None
+        descriptor = self._tool_registry.get(tool_name)
+        icon = getattr(getattr(descriptor, "ui", None), "icon", "")
+        return {"icon": icon} if icon else None
 
     # ------------------------------------------------------------------
     # Sequence number helper
@@ -437,13 +450,18 @@ class Envelope:
             plugin_call_message.name = "assistant"
             plugin_call_message.object = "message"
 
+            call_fields = {
+                "call_id": call_id,
+                "name": event.tool_call_name,
+                "arguments": "",
+            }
+            call_ui = self._tool_call_ui(event.tool_call_name)
+            if call_ui is not None:
+                call_fields["ui"] = call_ui
+
             stub_content = DataContent(
                 type=ContentType.DATA,
-                data=FunctionCall(
-                    call_id=call_id,
-                    name=event.tool_call_name,
-                    arguments="",
-                ).model_dump(),
+                data=FunctionCall(**call_fields).model_dump(),
                 delta=True,
                 index=0,
             )
@@ -458,6 +476,7 @@ class Envelope:
                 "message": plugin_call_message,
                 "output_text_acc": "",
                 "output_data_blocks": {},
+                "ui": call_ui,
             }
 
         elif evt_type == EventType.TOOL_CALL_DELTA.value:
@@ -489,13 +508,17 @@ class Envelope:
                 return
             arguments = "".join(state.pop("argument_fragments", []))
 
+            call_fields = {
+                "call_id": call_id,
+                "name": state["name"],
+                "arguments": arguments,
+            }
+            if state.get("ui") is not None:
+                call_fields["ui"] = state["ui"]
+
             final_content = DataContent(
                 type=ContentType.DATA,
-                data=FunctionCall(
-                    call_id=call_id,
-                    name=state["name"],
-                    arguments=arguments,
-                ).model_dump(),
+                data=FunctionCall(**call_fields).model_dump(),
                 delta=False,
             )
             state["message"].add_content(new_content=final_content)
@@ -626,6 +649,11 @@ class Envelope:
                 ContentType,
                 FunctionCallOutput,
                 tool_state=tool_state,
+                meta=(
+                    event.metadata.get("qp")
+                    if isinstance(event.metadata, dict)
+                    else None
+                ),
             )
 
             out_message = state.get("output_message")
@@ -780,6 +808,7 @@ class Envelope:
         ContentType: Any,
         FunctionCallOutput: Any,
         tool_state: Any = None,
+        meta: Any = None,
     ) -> Any:
         from ..schemas import DataContent
 
@@ -799,11 +828,14 @@ class Envelope:
         else:
             tool_output = text_acc
 
-        data_dict = FunctionCallOutput(
-            call_id=call_id,
-            name=state["name"],
-            output=tool_output,
-        ).model_dump()
+        output_fields = {
+            "call_id": call_id,
+            "name": state["name"],
+            "output": tool_output,
+        }
+        if meta is not None:
+            output_fields["meta"] = meta
+        data_dict = FunctionCallOutput(**output_fields).model_dump()
         if tool_state is not None:
             data_dict["state"] = tool_state
 

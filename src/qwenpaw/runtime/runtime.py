@@ -55,7 +55,14 @@ class Runtime:
         ctx = self._build_context(request)
         hooks = self.workspace.plugins.hook_registry
 
-        envelope = Envelope(session_id=ctx.session_id)
+        envelope = Envelope(
+            session_id=ctx.session_id,
+            tool_registry=getattr(
+                self.workspace.plugins,
+                "tool_registry",
+                None,
+            ),
+        )
         ctx._envelope = envelope  # pylint: disable=protected-access
         skip_agent = False
 
@@ -445,6 +452,8 @@ class Runtime:
                     name=block.name,
                     output=output,
                     state=ToolResultState.INTERRUPTED,
+                    # Cancellation has no observed terminal tool chunk, so it
+                    # intentionally carries no metadata["qp"].
                 ),
             )
             closed += 1

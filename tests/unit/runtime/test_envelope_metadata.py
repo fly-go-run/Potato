@@ -10,6 +10,11 @@ import pytest
 from agentscope.event import EventType
 
 from qwenpaw.runtime.envelope import Envelope, _propagate_event_metadata
+from qwenpaw.runtime.tool_registry import (
+    ToolDescriptor,
+    ToolRegistry,
+    ToolUISpec,
+)
 from qwenpaw.schemas import ContentType, MessageType, RunStatus, TextContent
 
 
@@ -320,3 +325,101 @@ async def test_empty_metadata_keeps_existing_content_shape():
 
     assert message["metadata"] is None
     assert "metadata" not in delta
+
+
+@pytest.mark.asyncio
+async def test_tool_result_intermediate_output_has_no_meta():
+    envelope = Envelope()
+    await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_START,
+            metadata={},
+            tool_call_id="call",
+            tool_call_name="read_file",
+        ),
+    )
+
+    [delta] = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_TEXT_DELTA,
+            metadata={},
+            tool_call_id="call",
+            delta="done",
+        ),
+    )
+    assert "meta" not in delta["data"]
+
+
+@pytest.mark.asyncio
+async def test_tool_result_final_output_has_qp_meta():
+    envelope = Envelope()
+    await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_START,
+            metadata={},
+            tool_call_id="call",
+            tool_call_name="read_file",
+        ),
+    )
+    await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_TEXT_DELTA,
+            metadata={},
+            tool_call_id="call",
+            delta="done",
+        ),
+    )
+    qp = {
+        "v": 1,
+        "kind": "file_read",
+        "ok": True,
+        "data": {"path": "/tmp/a"},
+    }
+    final, _message = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_END,
+            metadata={"qp": qp},
+            tool_call_id="call",
+            state="success",
+        ),
+    )
+    assert final["data"]["meta"] == qp
+
+
+@pytest.mark.asyncio
+async def test_tool_call_start_and_end_include_registry_icon():
+    registry = ToolRegistry()
+    registry.register(
+        ToolDescriptor(
+            name="read_file",
+            func=lambda: None,
+            ui=ToolUISpec(icon="📄"),
+        ),
+    )
+    envelope = Envelope(tool_registry=registry)
+
+    _message, start = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_CALL_START,
+            metadata={},
+            tool_call_id="call",
+            tool_call_name="read_file",
+        ),
+    )
+    assert start["data"]["ui"] == {"icon": "📄"}
+
+    final, _message = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_CALL_END,
+            metadata={},
+            tool_call_id="call",
+        ),
+    )
+    assert final["data"]["ui"] == {"icon": "📄"}

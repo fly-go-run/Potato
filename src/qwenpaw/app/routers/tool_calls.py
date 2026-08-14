@@ -225,12 +225,16 @@ async def get_output(
     if entry.final_response and entry.final_response.content:
         for block in entry.final_response.content:
             content_blocks.append(block.model_dump())
-    return {
+    output = {
         "tool_call_id": tool_call_id,
         "is_closed": entry.stream.is_closed,
         "final_state": entry.end_state,
         "content": content_blocks,
     }
+    final_metadata = getattr(entry.final_response, "metadata", None)
+    if isinstance(final_metadata, dict) and "qp" in final_metadata:
+        output["meta"] = final_metadata["qp"]
+    return output
 
 
 @router.get("/{session_id}/{tool_call_id}/stream")
