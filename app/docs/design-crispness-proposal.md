@@ -55,6 +55,29 @@ mechanical 工作包派 codex、C2 缩为 C2-lite(见 §C)。
   彩色"——三处全是状态信号。历史决议(45c81d09 去彩)以本方案为
   显式重开记录。
 
+## r3 增补：grok 4.6 评审吸收（owner 裁决后并入）
+
+grok 站队 C2-lite，核心论证被采纳记录："苹果质感来自换层、发丝边和
+态的可读，不来自彩；但 A+B 治淡不治灰——那是色相真空。Codex 能全灰
+是因为主舞台有语法高亮供彩，本产品侧栏没有这个锚。"
+
+采纳的修正：
+
+1. **tertiary 回调 #6d6d6d**：不让最差底(bubble-user)绑架全局值,
+   时间戳不该逼近正文重量;气泡内 tertiary 文本极少,4.38:1 可接受。
+2. **图标分两档**：`--icon`(#505050)只给导航/工具栏档;行内 chrome
+   (chevron、spinner、disclosure 箭头)走新 tertiary 档,避免"炭笔
+   点阵"。IconButton 原语需配套独立 hover/selected 态,不只加深图标。
+3. **锁死排版层级**（补"安静靠版式"的落地）：侧栏行=标题 13px/
+   medium + 时间 11px/regular——差一个字号加一档字重,不靠灰度分层。
+4. **侧栏-画布接缝**加 1px line（#f5f5f4 贴 #fbfbfb 仍糊）。
+5. **选中 pill 补全状态**：pressed、selected+hover、折叠态;深色不抄
+   白 pill,改抬升面+line-highlight;选中切换 150ms ease-out。
+6. **focus ring 只走 `:focus-visible`**,点击不得残留(实施时验证)。
+7. **图标 stroke 按尺寸配**:14px 配 2.0 会偏粗,归格时逐档定
+   (14→1.8 / 16→1.75~2 实测定),不做全局一刀切。
+8. C2-lite 加护栏:`--tint` 出现第四个消费点必须重新决议。
+
 ## codex 审查请求（不要审美判断，只要事实与风险）
 
 1. 全仓 grep `text-ink-muted`/`text-ink-tertiary` 使用点分类：哪些
