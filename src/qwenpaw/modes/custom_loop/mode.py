@@ -99,16 +99,19 @@ class DeclarativeLoopMode(AgentMode):
     def setup(self, workspace: object) -> None:
         """Register command and custom-scoped handler."""
         super().setup(workspace)
-        workspace.plugins.stop_handlers.append(
-            StopHandlerRegistration(
-                plugin_id="__custom_loop_mode__",
-                handler=self._handler,
-                priority=0,
-                name=f"custom-loop-{self.config.id}",
-                scope=f"custom:{self.config.id}",
-                is_active=self._is_current_session_active,
-            ),
+        registration = StopHandlerRegistration(
+            plugin_id="__custom_loop_mode__",
+            handler=self._handler,
+            priority=0,
+            name=f"custom-loop-{self.config.id}",
+            scope=f"custom:{self.config.id}",
+            is_active=self._is_current_session_active,
         )
+        register = getattr(workspace.plugins, "register_stop_handler", None)
+        if register is not None:
+            register(registration)
+        else:
+            workspace.plugins.stop_handlers.append(registration)
 
     def is_active(self, ctx: HookContext) -> bool:
         """Return whether this mode owns the current session."""

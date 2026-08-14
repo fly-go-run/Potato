@@ -157,7 +157,9 @@ class Workspace:
                 try:
                     desc = getattr(func, "_tool_descriptor", None)
                     if desc is not None:
-                        tr.register(desc)
+                        self.plugins.scope.add(
+                            self.plugins.register_tool(desc),
+                        )
                     else:
                         logger.debug(
                             "bootstrap: %s has no _tool_descriptor, skipped",
@@ -173,7 +175,9 @@ class Workspace:
         if builtin_contributor_clses:
             for cls in builtin_contributor_clses:
                 try:
-                    self.plugins.prompt_manager.register(cls())
+                    self.plugins.scope.add(
+                        self.plugins.register_prompt_contributor(cls()),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: contributor register failed for %s",
@@ -184,7 +188,9 @@ class Workspace:
         if builtin_hook_clses:
             for cls in builtin_hook_clses:
                 try:
-                    self.plugins.hook_registry.register(cls())
+                    self.plugins.scope.add(
+                        self.plugins.register_runtime_hook(cls()),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: hook register failed for %s",
@@ -195,7 +201,9 @@ class Workspace:
         if builtin_command_specs:
             for spec in builtin_command_specs:
                 try:
-                    self.plugins.slash_command_registry.register(spec)
+                    self.plugins.scope.add(
+                        self.plugins.register_slash_command(spec),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: command register failed for %s",
@@ -205,8 +213,10 @@ class Workspace:
 
         if builtin_fallback_handler is not None:
             try:
-                self.plugins.slash_command_registry.register_fallback(
-                    builtin_fallback_handler,
+                self.plugins.scope.add(
+                    self.plugins.register_fallback(
+                        builtin_fallback_handler,
+                    ),
                 )
             except Exception:
                 logger.debug(
@@ -218,7 +228,9 @@ class Workspace:
             for cls in builtin_mode_clses:
                 try:
                     mode = cls()
-                    self.plugins.register_mode(mode, self)
+                    self.plugins.scope.add(
+                        self.plugins.register_mode(mode, self),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: mode register failed for %s",

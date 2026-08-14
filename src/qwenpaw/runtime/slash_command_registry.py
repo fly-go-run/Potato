@@ -86,12 +86,23 @@ class SlashCommandRegistry:
             tag=f"slash-command:{spec.name}",
         )
 
-    def register_fallback(self, handler: FallbackHandler) -> None:
+    def register_fallback(
+        self,
+        handler: FallbackHandler,
+    ) -> RegistrationHandle:
         if self._fallback is not None:
             raise ValueError(
                 "fallback handler already registered; only one allowed",
             )
         self._fallback = handler
+        return RegistrationHandle(
+            lambda: self._unregister_fallback_identity(handler),
+            tag="slash-command:fallback",
+        )
+
+    def _unregister_fallback_identity(self, handler: FallbackHandler) -> None:
+        if self._fallback is handler:
+            self._fallback = None
 
     # ------------------------------------------------------------------ query
     def resolve(self, raw_text: str) -> tuple[CommandSpec, str] | None:

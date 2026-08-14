@@ -1299,7 +1299,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Register a CommandSpec to all existing workspaces."""
         for ws in self._get_all_workspaces():
             try:
-                self._own(ws.plugins.slash_command_registry.register(spec))
+                self._own(ws.plugins.register_slash_command(spec))
             except ValueError as exc:
                 logger.debug(
                     f"Slash cmd already registered: {exc}",
@@ -1315,7 +1315,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            self._own(ws.plugins.slash_command_registry.register(spec))
+            self._own(ws.plugins.register_slash_command(spec))
         except ValueError as exc:
             logger.debug(
                 f"Slash cmd already registered: {exc}",
@@ -1355,7 +1355,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Register a runtime hook to all workspaces."""
         for ws in self._get_all_workspaces():
             try:
-                self._own(ws.plugins.hook_registry.register(hook))
+                self._own(ws.plugins.register_runtime_hook(hook))
             except (TypeError, ValueError) as exc:
                 logger.debug(
                     f"Hook registration issue: {exc}",
@@ -1371,7 +1371,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            self._own(ws.plugins.hook_registry.register(hook))
+            self._own(ws.plugins.register_runtime_hook(hook))
         except (TypeError, ValueError) as exc:
             logger.debug(
                 f"Hook registration issue: {exc}",
@@ -1395,22 +1395,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
 
     def _attach_stop_handler(self, ws, reg):
         """Attach a stop handler registration to workspace."""
-        if not hasattr(ws.plugins, "stop_handlers"):
-            ws.plugins.stop_handlers = []
-        ws.plugins.stop_handlers.append(reg)
-
-        def _dispose() -> None:
-            for index, registered in enumerate(ws.plugins.stop_handlers):
-                if registered is reg:
-                    del ws.plugins.stop_handlers[index]
-                    break
-
-        self._own(
-            RegistrationHandle(
-                _dispose,
-                tag=f"workspace-stop-handler:{reg.name}",
-            ),
-        )
+        self._own(ws.plugins.register_stop_handler(reg))
 
     # ================================================================
     # End Loop Engineering

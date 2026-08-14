@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Ownership-handle tests for plugin and runtime registries."""
 
-from fastapi import APIRouter, FastAPI
 from types import SimpleNamespace
+
+import pytest
+from fastapi import APIRouter, FastAPI
 
 from qwenpaw.app.workspace.workspace_plugins import WorkspacePlugins
 from qwenpaw.app.channels.command_registry import CommandRegistry
@@ -10,6 +12,7 @@ from qwenpaw.plugins.api import PluginApi
 from qwenpaw.plugins.registry import PluginRegistry, ProviderRegistration
 from qwenpaw.runtime.hooks import HookBase, HookRegistry, HookResult
 from qwenpaw.runtime.phases import Phase
+from qwenpaw.runtime.slash_command_registry import CommandSpec
 
 
 def _fresh_plugin_registry() -> PluginRegistry:
@@ -160,3 +163,43 @@ def test_priority_command_handle_preserves_replacements() -> None:
     assert registry.get_registered_commands()["/owned"] == 10
     second.dispose_sync()
     assert "/owned" not in registry.get_registered_commands()
+
+
+def test_workspace_fallback_and_stop_handler_are_reversible() -> None:
+    plugins = WorkspacePlugins()
+
+    async def fallback(raw, ctx):  # noqa: ANN001, ARG001
+        return None
+
+    stop = SimpleNamespace(name="owned-stop")
+    fallback_handle = plugins.register_fallback(fallback)
+    stop_handle = plugins.register_stop_handler(stop)
+
+    fallback_handle.dispose_sync()
+    stop_handle.dispose_sync()
+
+    assert plugins.slash_command_registry._fallback is None
+    assert plugins.stop_handlers == []
+
+
+def test_register_mode_rolls_back_partial_setup() -> None:
+    plugins = WorkspacePlugins()
+    workspace = SimpleNamespace(plugins=plugins)
+
+    async def handler(ctx, args):  # noqa: ANN001, ARG001
+        return None
+
+    class FailingMode:
+        name = "failing"
+
+        def setup(self, target) -> None:  # noqa: ANN001
+            target.plugins.register_slash_command(
+                CommandSpec(name="partial", handler=handler),
+            )
+            raise RuntimeError("setup failed")
+
+    with pytest.raises(RuntimeError, match="setup failed"):
+        plugins.register_mode(FailingMode(), workspace)
+
+    assert plugins.modes == []
+    assert plugins.slash_command_registry.names() == []
