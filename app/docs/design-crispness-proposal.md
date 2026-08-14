@@ -1,4 +1,14 @@
-# 方案：清晰感重校准（去灰蒙蒙）— r1 讨论稿
+# 方案：清晰感重校准（去灰蒙蒙）— r2 定稿
+
+r2 说明：吸收 codex 事实审查（design-crispness-review.md）。外部多模型
+评审未成行（agy 地区不可用、grok CLI 无批处理模式），观点席由方案
+owner 承担。r2 变更：tertiary 定值 #696969（清 bubble-user 上 4.5:1）、
+muted #8f8f8f 维持（收紧语义后仅占位/禁用/装饰,3:1 豁免成立）、
+深色 tertiary #969696 / muted #787878、--icon 落点定为 IconButton
+原语+清单页逐处、B 项按 codex 盘点缩为「补一条 border-line + 深色
+shadow→line-highlight 切换 + 侧栏白底选中 pill(局部改,不动全局
+fill-active)」、奇数尺寸图标归格(13→14/15→16,67 处)独立成
+mechanical 工作包派 codex、C2 缩为 C2-lite(见 §C)。
 
 背景：用户反馈界面"过于淡、过于灰、不够精致"，点名侧栏按钮；要
 清晰感不要朦胧感，参照苹果的控件质感。诊断（已核实 file:line）：
@@ -18,6 +28,12 @@
 - tertiary 浅色 #747474→#6d6d6d，muted #9b9b9b→#8f8f8f（仍是四级,
   但底部两档不再跌穿可读线）;深色对应微调。
 - 时间戳/元信息统一 tertiary，不再混用 muted。
+- **原则（用户 r1 反馈补充）：「安静」靠版式与尺寸表达，不靠灰度。**
+  完成态的降级只允许发生在行高/边框/占位上,内容本体不降档:
+  - 工具行文件名 `text-ink-muted`→内容档(FileToolCard pathNode);
+    shell 命令完成态 tertiary→secondary;通用工具完成标签同理。
+  - 侧栏会话标题→ink;分组标题/时间戳统一 tertiary(加深后的);
+    折叠组入口不再用 tertiary 当常态。
 
 ## B. 控件质感（Apple 三件套）
 
@@ -30,9 +46,14 @@
 ## C. 一滴颜色（需用户拍板，二选一）
 
 - C1 全灰保守派：保持无彩，靠 A+B 拉满对比（Codex Desktop 路线）。
-- C2 克制 accent：恢复一个低饱和蓝（历史上用过 #2563e0），仅用于
-  四处——选中态图标、focus ring、主 CTA、开关 on 态。侧栏图标常态
-  仍中性，选中着色（Apple Notes 式）。
+- **C2-lite（owner 推荐,r2 缩窄）**：不动现有中性 `--accent`（它被
+  12 处装饰用途共用,重映射成本高——codex §5.3）,新增独立
+  `--tint`(低饱和蓝,基准 #3b6ef0 微调),只接三处:侧栏选中态的
+  图标+文字着色、focus ring、Switch 开启态。**主 CTA 保持近黑**
+  (Codex/WB 式黑按钮已是品牌感的一部分,不改)。这样 C2 从"半天
+  语义重映射"缩为"一个新 token + 三个消费点",且不违反"装饰零
+  彩色"——三处全是状态信号。历史决议(45c81d09 去彩)以本方案为
+  显式重开记录。
 
 ## codex 审查请求（不要审美判断，只要事实与风险）
 
