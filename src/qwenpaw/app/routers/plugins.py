@@ -162,6 +162,8 @@ async def _post_load_setup(  # pylint: disable=too-many-branches
         return
 
     registry = loader.registry
+    record = loader.get_loaded_plugin(plugin_id)
+    api = record.api if record is not None else None
 
     # Register any providers the plugin registered
     provider_manager = getattr(
@@ -174,13 +176,15 @@ async def _post_load_setup(  # pylint: disable=too-many-branches
             if reg.plugin_id != plugin_id:
                 continue
             try:
-                provider_manager.register_plugin_provider(
+                handle = provider_manager.register_plugin_provider(
                     provider_id=pid,
                     provider_class=reg.provider_class,
                     label=reg.label,
                     base_url=reg.base_url,
                     metadata=reg.metadata,
                 )
+                if api is not None:
+                    api.scope.add(handle)
             except Exception as exc:
                 logger.warning(
                     f"Could not register provider '{pid}': {exc}",
@@ -196,11 +200,15 @@ async def _post_load_setup(  # pylint: disable=too-many-branches
             if cmd_reg.plugin_id != plugin_id:
                 continue
             try:
-                register_command(cmd_reg.handler)
-                command_registry.register_command(
+                handler_handle = register_command(cmd_reg.handler)
+                if api is not None:
+                    api.scope.add(handler_handle)
+                priority_handle = command_registry.register_command(
                     f"/{cmd_reg.handler.command_name}",
                     priority_level=cmd_reg.priority_level,
                 )
+                if api is not None:
+                    api.scope.add(priority_handle)
             except Exception as exc:
                 logger.warning(
                     f"Could not register control command "

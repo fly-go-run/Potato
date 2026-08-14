@@ -21,6 +21,7 @@ import logging
 from typing import Any, Dict
 
 from ....exceptions import SystemCommandException
+from ...registration import RegistrationHandle
 from .base import BaseControlCommandHandler, ControlContext
 from .approval_handler import (
     ApprovalCommandHandler,
@@ -47,7 +48,7 @@ def _register_defaults() -> None:
     register_command(SkillsCommandHandler())
 
 
-def register_command(handler: BaseControlCommandHandler) -> None:
+def register_command(handler: BaseControlCommandHandler) -> RegistrationHandle:
     """Register a control command handler.
 
     Args:
@@ -73,6 +74,18 @@ def register_command(handler: BaseControlCommandHandler) -> None:
         f"Registered control command: {command} "
         f"-> {handler.__class__.__name__}",
     )
+    return RegistrationHandle(
+        lambda: _unregister_identity(command, handler),
+        tag=f"control-command:{command}",
+    )
+
+
+def _unregister_identity(
+    command: str,
+    handler: BaseControlCommandHandler,
+) -> None:
+    if _COMMAND_REGISTRY.get(command) is handler:
+        _COMMAND_REGISTRY.pop(command, None)
 
 
 def unregister_command(command_name: str) -> bool:

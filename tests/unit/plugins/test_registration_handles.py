@@ -5,6 +5,7 @@ from fastapi import APIRouter, FastAPI
 from types import SimpleNamespace
 
 from qwenpaw.app.workspace.workspace_plugins import WorkspacePlugins
+from qwenpaw.app.channels.command_registry import CommandRegistry
 from qwenpaw.plugins.api import PluginApi
 from qwenpaw.plugins.registry import PluginRegistry, ProviderRegistration
 from qwenpaw.runtime.hooks import HookBase, HookRegistry, HookResult
@@ -125,3 +126,37 @@ async def test_plugin_api_scope_owns_delayed_workspace_registrations() -> None:
     assert registry.get_startup_hooks() == []
     assert registry.get_workspace_created_hooks() == []
     assert disposed == ["custom"]
+
+
+def test_control_command_handles_preserve_replacements() -> None:
+    from qwenpaw.runtime.commands import control
+
+    first = SimpleNamespace(command_name="owned")
+    second = SimpleNamespace(command_name="owned")
+    original = control._COMMAND_REGISTRY.get("owned")
+    try:
+        first_handle = control.register_command(first)
+        second_handle = control.register_command(second)
+
+        first_handle.dispose_sync()
+
+        assert control._COMMAND_REGISTRY["owned"] is second
+        second_handle.dispose_sync()
+        assert "owned" not in control._COMMAND_REGISTRY
+    finally:
+        if original is None:
+            control._COMMAND_REGISTRY.pop("owned", None)
+        else:
+            control._COMMAND_REGISTRY["owned"] = original
+
+
+def test_priority_command_handle_preserves_replacements() -> None:
+    registry = CommandRegistry()
+    first = registry.register_command("/owned", priority_level=5)
+    second = registry.register_command("/owned", priority_level=10)
+
+    first.dispose_sync()
+
+    assert registry.get_registered_commands()["/owned"] == 10
+    second.dispose_sync()
+    assert "/owned" not in registry.get_registered_commands()

@@ -437,13 +437,16 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
                 provider_id,
                 provider_reg,
             ) in plugin_loader.registry.get_all_providers().items():
-                provider_manager.register_plugin_provider(
+                handle = provider_manager.register_plugin_provider(
                     provider_id=provider_id,
                     provider_class=provider_reg.provider_class,
                     label=provider_reg.label,
                     base_url=provider_reg.base_url,
                     metadata=provider_reg.metadata,
                 )
+                record = loaded_plugins.get(provider_reg.plugin_id)
+                if record is not None and record.api is not None:
+                    record.api.scope.add(handle)
                 logger.debug(
                     f"Registered plugin provider: {provider_id}",
                 )
@@ -462,12 +465,17 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             control_commands = plugin_loader.registry.get_control_commands()
             for cmd_reg in control_commands:
                 try:
-                    register_command(cmd_reg.handler)
+                    handler_handle = register_command(cmd_reg.handler)
+                    record = loaded_plugins.get(cmd_reg.plugin_id)
+                    if record is not None and record.api is not None:
+                        record.api.scope.add(handler_handle)
 
-                    command_registry.register_command(
+                    priority_handle = command_registry.register_command(
                         f"/{cmd_reg.handler.command_name}",
                         priority_level=cmd_reg.priority_level,
                     )
+                    if record is not None and record.api is not None:
+                        record.api.scope.add(priority_handle)
 
                     logger.debug(
                         f"Registered plugin control command: "

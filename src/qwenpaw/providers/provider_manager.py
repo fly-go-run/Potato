@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Dict, List
 
 from pydantic import BaseModel
 
+from ..runtime.registration import RegistrationHandle
+
 from qwenpaw.exceptions import ModelNotFoundException
 
 from ..config.config import ModelSlotConfig
@@ -2507,7 +2509,7 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
         label: str,
         base_url: str,
         metadata: Dict,
-    ):
+    ) -> RegistrationHandle:
         """Register a plugin provider.
 
         Args:
@@ -2587,15 +2589,31 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
                 )
 
         # Register to internal dict
-        self.plugin_providers[provider_id] = {
+        registration = {
             "info": provider_info,
             "class": provider_class,
         }
+        self.plugin_providers[provider_id] = registration
 
         logger.info(
             f"✓ Registered plugin provider: {provider_id} "
             f"with {len(default_models)} default model(s)",
         )
+        return RegistrationHandle(
+            lambda: self._unregister_plugin_provider_identity(
+                provider_id,
+                registration,
+            ),
+            tag=f"provider-manager:{provider_id}",
+        )
+
+    def _unregister_plugin_provider_identity(
+        self,
+        provider_id: str,
+        registration: dict,
+    ) -> None:
+        if self.plugin_providers.get(provider_id) is registration:
+            self.plugin_providers.pop(provider_id, None)
 
     def unregister_plugin_provider(self, provider_id: str) -> bool:
         """Remove a plugin provider from memory.

@@ -1345,6 +1345,9 @@ class PluginLoader:
             plugin_id: Plugin identifier (for logging)
             record: PluginRecord whose tools should be removed
         """
+        if record.api is not None:
+            record.api.close_tool_registrations()
+            return
         try:
             from .api import (
                 _TOOL_PLUGIN_OWNERS,
