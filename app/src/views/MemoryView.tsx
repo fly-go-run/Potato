@@ -3,7 +3,7 @@ import {
   ChevronRight,
   FileText,
   LoaderCircle,
-  NotebookPen,
+  Notebook,
   Pencil,
   Save,
   X,
@@ -131,7 +131,7 @@ export function MemoryView() {
         ) : error ? null : files.length === 0 ? (
           <div className="mt-6">
             <EmptyState
-              icon={<NotebookPen size={20} />}
+              icon={<Notebook size={20} />}
               title={t("memory.emptyTitle")}
               description={t("memory.emptyDescription")}
             />
@@ -343,7 +343,7 @@ function MemoryDetails({
           >
             <header className="flex items-start gap-3 border-b border-line px-5 py-4">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-line bg-bubble-tool text-icon">
-                <NotebookPen size={18} />
+                <Notebook size={18} />
               </span>
               <div className="min-w-0 flex-1">
                 <Dialog.Title className="truncate font-medium text-ink">

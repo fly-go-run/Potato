@@ -1,10 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Blocks,
+  LayoutGrid,
   Clock3,
   MessageSquare,
-  NotebookPen,
-  PenSquare,
+  Notebook,
+  SquarePen,
   Pin,
   Search,
   Settings,
@@ -68,7 +68,7 @@ export function ChatSearchDialog({
     const action: PaletteItem = {
       id: "action-new-chat",
       label: t("sidebar.newChat"),
-      icon: PenSquare,
+      icon: SquarePen,
       execute: () => {
         newChat();
         closeAndNavigate("/");
@@ -84,13 +84,13 @@ export function ChatSearchDialog({
       {
         id: "page-skills",
         label: t("sidebar.skills"),
-        icon: Blocks,
+        icon: LayoutGrid,
         execute: () => closeAndNavigate("/skills"),
       },
       {
         id: "page-memory",
         label: t("sidebar.memory"),
-        icon: NotebookPen,
+        icon: Notebook,
         execute: () => closeAndNavigate("/memory"),
       },
       {

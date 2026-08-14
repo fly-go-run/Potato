@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Blocks,
+  LayoutGrid,
   ChevronRight,
   Download,
   LoaderCircle,
@@ -394,7 +394,7 @@ function SkillRow({
             skill.enabled ? "text-icon" : "text-ink-muted"
           }`}
         >
-          {skill.emoji || <Blocks size={18} />}
+          {skill.emoji || <LayoutGrid size={18} />}
         </span>
         <div className="min-w-0 flex-1">
           <span
@@ -507,7 +507,7 @@ function SkillDetails({
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             {/* emoji 只在详情里出现；列表行统一线稿，保证整列图标一致。 */}
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base text-icon">
-              {skill?.emoji || <Blocks size={18} />}
+              {skill?.emoji || <LayoutGrid size={18} />}
             </span>
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
@@ -969,7 +969,7 @@ function AddCapabilityDialog({
               <SkeletonRows rows={5} />
             ) : mode === "skills" && skillTab === "pool" ? (
               <CapabilitySourceList
-                icon={<Blocks size={16} />}
+                icon={<LayoutGrid size={16} />}
                 items={pool.map((skill) => ({
                   key: skill.name,
                   name: skillDisplayName(skill.name, language),
@@ -1031,7 +1031,7 @@ function AddCapabilityDialog({
                 ) : (
                   <div className="mt-4">
                     <CapabilitySourceList
-                      icon={<Blocks size={16} />}
+                      icon={<LayoutGrid size={16} />}
                       items={hubResults.map((skill) => ({
                         key: skill.slug,
                         name: skill.name,

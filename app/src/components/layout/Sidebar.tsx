@@ -11,7 +11,6 @@ import {
   Notebook,
   PanelLeft,
   PenLine,
-  PenSquare,
   SquarePen,
   Pin,
   PinOff,
@@ -129,7 +128,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           aria-label={t("sidebar.collapse")}
           onClick={toggleSidebar}
         >
-          <PanelLeft size={16} />
+          <PanelLeft size={16} strokeWidth={1.75} />
         </IconButton>
         <IconButton
           size="sm"
@@ -137,7 +136,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           aria-label={t("sidebar.newChat")}
           onClick={startNewChat}
         >
-          <SquarePen size={16} />
+          <SquarePen size={16} strokeWidth={1.75} />
         </IconButton>
       </div>
 
@@ -155,7 +154,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           onClick={startNewChat}
           className={navItemClass(location.pathname === "/", "w-full text-left")}
         >
-          <PenSquare
+          <SquarePen
             size={16}
             strokeWidth={1.75}
             className={navIconClass(location.pathname === "/")}
@@ -416,7 +415,11 @@ function ThemeToggle() {
       aria-label={label}
       onClick={() => setThemePreference(dark ? "light" : "dark")}
     >
-      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      {dark ? (
+        <Sun size={16} strokeWidth={1.75} />
+      ) : (
+        <Moon size={16} strokeWidth={1.75} />
+      )}
     </IconButton>
   );
 }

@@ -5,7 +5,7 @@ import {
   ChevronRight,
   LoaderCircle,
   RotateCcw,
-  Settings2,
+  Settings,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -396,7 +396,7 @@ export function ModelPicker() {
             }
             className="flex cursor-default items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
           >
-            <Settings2 size={14} />
+            <Settings size={14} />
             {t("composer.manageModels")}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
