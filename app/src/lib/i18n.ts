@@ -80,7 +80,6 @@ export const dictionaries = {
     "chat.greeting.morning": "早上好",
     "chat.greeting.afternoon": "下午好",
     "chat.greeting.evening": "晚上好",
-    "chat.emptyTriggersHint": "输入 / 调用技能，@ 引用文件",
     "chat.emptyHint": "输入任务开始，或用 {shortcut} 检索历史会话",
     "chat.error.serviceUnavailable": "服务暂时不可用，请检查连接后重试。",
     "chat.contextUsed": "上下文已用 {ratio}%",
@@ -851,7 +850,6 @@ export const dictionaries = {
     "chat.greeting.morning": "Good morning",
     "chat.greeting.afternoon": "Good afternoon",
     "chat.greeting.evening": "Good evening",
-    "chat.emptyTriggersHint": "Type / for skills, @ for files",
     "chat.emptyHint":
       "Enter a task to begin, or use {shortcut} to search past chats",
     "chat.error.serviceUnavailable":

@@ -50,18 +50,6 @@ function timeGreeting(t: (key: TranslationKey) => string): string {
   return t("chat.greeting.evening");
 }
 
-/** 发现性提示只给前 5 次空态:学会之后它就是噪音。 */
-function showTriggerHint(): boolean {
-  try {
-    const key = "qwenpaw_home_hint_seen";
-    const seen = Number(window.localStorage.getItem(key) ?? "0");
-    if (seen >= 5) return false;
-    window.localStorage.setItem(key, String(seen + 1));
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export function ChatView() {
   const { t } = useTranslation();
@@ -72,7 +60,6 @@ export function ChatView() {
   /** 已锚定的最新用户消息 id;null = 本会话还没做过首次填充。 */
   const anchoredUserIdRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
-  const triggerHintVisible = useMemo(() => showTriggerHint(), []);
   const [atBottom, setAtBottom] = useState(true);
   const [hasNewContent, setHasNewContent] = useState(false);
   const [switchingModel, setSwitchingModel] = useState<string | null>(null);
@@ -479,11 +466,6 @@ export function ChatView() {
             <h1 className="font-display text-center text-[32px] font-semibold leading-[42px] tracking-[-0.025em] text-ink sm:text-[34px]">
               {timeGreeting(t)}
             </h1>
-            {triggerHintVisible && (
-              <p className="mt-3 text-center text-[12px] text-ink-tertiary">
-                {t("chat.emptyTriggersHint")}
-              </p>
-            )}
             <p className="sr-only">
               {t("chat.emptyHint", { shortcut: shortcutLabel("K") })}
             </p>
