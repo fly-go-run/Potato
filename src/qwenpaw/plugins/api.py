@@ -1295,10 +1295,11 @@ class PluginApi:  # pylint: disable=too-many-public-methods
     def _get_all_workspaces(self) -> list:
         """Get all workspace instances from the registry."""
         try:
-            from .registry import PluginRegistry
-
-            registry = PluginRegistry()
-            mgr = registry.get_workspace_manager()
+            mgr = (
+                self._registry.get_workspace_manager()
+                if self._registry is not None
+                else None
+            )
             if mgr is None:
                 return []
             return list(mgr.agents.values())
@@ -1314,13 +1315,14 @@ class PluginApi:  # pylint: disable=too-many-public-methods
     ):
         """Get workspace instance from workspace_info dict."""
         try:
-            from .registry import PluginRegistry
-
             agent_id = workspace_info.get("agent_id")
             if not agent_id:
                 return None
-            registry = PluginRegistry()
-            mgr = registry.get_workspace_manager()
+            mgr = (
+                self._registry.get_workspace_manager()
+                if self._registry is not None
+                else None
+            )
             if mgr is None:
                 return None
             return mgr.agents.get(agent_id)
