@@ -56,3 +56,20 @@ renderer 或渠道交付语义。无新依赖。
 
 每个 P1-a commit 前均执行 `uv run pytest tests/unit -q`。除任务说明允许
 忽略的 3 个 doubao ASR `.env` 污染失败外，其余单元测试通过。
+
+## P1-c 修复批
+
+- Commit 1（`30744a88`）在真实 coordinator chunk 聚合边界剥离非终态
+  `qp` 并记录 warning；终态 `qp` 保持原样。回归覆盖“中间有/终态无”与
+  “中间有/终态有”两种序列，并删除了无生产调用者的抛错 helper。
+- Commit 2（`03ce2e65`）在后端 `tool_meta.py` 单一源头加入七个 kind 的
+  always 与 `ok=true` 必填字段校验。未知字段仅 warning、不拒绝；七个 kind
+  各有一个拼错必填键的失败用例。
+- Commit 3 增加一条收敛整链路回归：stub 工具真实产出 `ToolChunk`，经
+  `ToolCoordinatorMiddleware` 和 AgentScope `_execute_tool_call()` 生成 END
+  事件，再通过 Envelope 写入 `FunctionCallOutput.meta`，最后从 AgentScope
+  context 经 `chats/utils` 历史转换读回并核对同一份 `qp`。
+
+本批未修改 `app/`，未引入依赖，也未触碰已由 `18ee8a72` 修复的 P1-1。
+每个 commit 前均运行 `uv run pytest tests/unit -q`；除任务说明允许忽略的
+3 个 doubao ASR `.env` 污染失败外，其余单元测试通过。
