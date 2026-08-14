@@ -32,7 +32,7 @@
   --ink-muted: #8f8f8f;      /* 弱化：仅占位符、禁用、装饰 */
 
   /* -- 图标两档：--icon 只给导航/工具栏；chevron/spinner/disclosure 走 tertiary -- */
-  --icon: #505050;           /* 常态导航 / 工具栏图标 = ink-secondary 档 */
+  --icon: #202020;           /* 常态导航 / 工具栏图标 = ink-secondary 档 */
   --icon-strong: #202020;    /* 选中 / 强调图标 = ink 档 */
 
   /* -- 描边与分隔 -- */
@@ -117,7 +117,7 @@
   --ink-secondary: #b0b0b0;
   --ink-tertiary: #969696;
   --ink-muted: #787878;
-  --icon: #b0b0b0;
+  --icon: #ececec;
   --icon-strong: #ececec;
 
   --line: #303030;
