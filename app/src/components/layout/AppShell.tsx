@@ -148,7 +148,6 @@ export function AppShell() {
           </IconButton>
           <IconButton
             size="sm"
-            selected={location.pathname === "/"}
             title={`${t("sidebar.newChat")} · ${shortcutLabel("N")}`}
             aria-label={t("sidebar.newChat")}
             onClick={startNewChat}
