@@ -1,13 +1,16 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   ArrowUp,
+  AtSign,
   Check,
   ChevronDown,
   FileText,
   Loader2,
   Mic,
+  Paperclip,
   Plus,
   ShieldCheck,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -340,6 +343,24 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
+
+
+  const insertTriggerSymbol = (symbol: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? text.length;
+    const end = textarea.selectionEnd ?? start;
+    const before = text.slice(0, start);
+    const inserted = (before && !/\s$/.test(before) ? " " : "") + symbol;
+    const next = before + inserted + text.slice(end);
+    setText(next);
+    const caret = start + inserted.length;
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(caret, caret);
+      syncTrigger(textarea);
+    });
+  };
 
   const submit = () => {
     if (!canSend) return;
@@ -719,14 +740,60 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   event.target.value = "";
                 }}
               />
-              <IconButton
-                size="sm"
-                disabled={busy}
-                title={t("composer.addAttachment")}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Plus size={20} strokeWidth={1.9} />
-              </IconButton>
+              {/* 「+」=「往对话里加东西」的家:附件、@ 引用、/ 技能。
+                  菜单项右侧的弱化符号就是教学——用几次自然改打快捷符。 */}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <IconButton
+                    size="sm"
+                    disabled={busy}
+                    title={t("composer.add")}
+                  >
+                    <Plus size={20} strokeWidth={1.9} />
+                  </IconButton>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    sideOffset={6}
+                    align="start"
+                    // 焦点必须回 textarea 而不是「+」:onBlur 会清 trigger 态
+                    onCloseAutoFocus={(event) => event.preventDefault()}
+                    className="qp-pop z-50 min-w-44 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
+                  >
+                    <DropdownMenu.Item
+                      onSelect={() => fileInputRef.current?.click()}
+                      className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
+                    >
+                      <Paperclip size={14} className="text-icon" />
+                      {t("composer.addMenu.upload")}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => insertTriggerSymbol("@")}
+                      className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
+                    >
+                      <AtSign size={14} className="text-icon" />
+                      <span className="flex-1">
+                        {t("composer.addMenu.reference")}
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-tertiary">
+                        @
+                      </span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => insertTriggerSymbol("/")}
+                      className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
+                    >
+                      <Sparkles size={14} className="text-icon" />
+                      <span className="flex-1">
+                        {t("composer.addMenu.skill")}
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-tertiary">
+                        /
+                      </span>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
 
               {wide && <ProjectPicker />}
               {renderApprovalControl(true)}
