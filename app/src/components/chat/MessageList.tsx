@@ -39,12 +39,12 @@ import {
   totalChangeStats,
   type FileChange,
 } from "../../lib/fileChanges";
-import { useTranslation, type Language, type TranslationKey } from "../../lib/i18n";
+import { useTranslation, type Language } from "../../lib/i18n";
 import {
   summarizeTrack,
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
-import { skillDisplayName } from "../../lib/skillPresentation";
+import { formatStepGroupObject } from "../../lib/stepGroupCopy";
 import {
   FOLD_WINDOW,
   focusFoldRowKey,
@@ -53,7 +53,6 @@ import {
   type FoldRow,
   type ProcessEntry,
   type ToolFamily,
-  type ToolGroupRow,
 } from "../../lib/stepGroups";
 import { buildTimeline } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
@@ -77,7 +76,6 @@ import { TrackRow, TrackSummary } from "./TrackRow";
 import {
   buildToolPair,
   humanToolLabel,
-  humanToolName,
   toolPairStatus,
   ToolCard,
   type ToolPair,
@@ -934,15 +932,13 @@ function FoldRowView({
     );
   }
   const Icon = FAMILY_ICONS[row.family];
-  const parts = groupSummaryParts(row, t, language);
+  const object = formatStepGroupObject(row, t, language);
   return (
     <StepGroupRow
       icon={
         <Icon size={14} strokeWidth={1.8} className="shrink-0 text-ink-muted" />
       }
-      summary={
-        <TrackSummary verb={parts.verb} object={parts.object} shimmer={shimmer} />
-      }
+      summary={<TrackSummary object={object} shimmer={shimmer} />}
       open={mode === "raw" || mode === "tail"}
       keepMounted={everRaw}
       onToggle={onToggle}
@@ -999,86 +995,6 @@ const FAMILY_ICONS: Record<ToolFamily, LucideIcon> = {
   skill: Sparkles,
   other: Wrench,
 };
-
-const STEP_COUNT_KEYS: Record<
-  Exclude<ToolGroupRow["family"], "other">,
-  TranslationKey
-> = {
-  search: "chat.step.search",
-  fetch: "chat.step.fetch",
-  grep: "chat.step.grep",
-  glob: "chat.step.glob",
-  read: "chat.step.read",
-  edit: "chat.step.edit",
-  shell: "chat.step.shell",
-  skill: "chat.step.skill",
-};
-
-const TENSE_DONE_KEYS: Record<
-  Exclude<ToolGroupRow["family"], "other">,
-  TranslationKey
-> = {
-  search: "tool.tense.webSearch.done",
-  fetch: "tool.tense.webFetch.done",
-  grep: "tool.tense.searchFiles.done",
-  glob: "tool.tense.matchFiles.done",
-  read: "tool.tense.fileRead.done",
-  edit: "tool.tense.fileEdit.done",
-  shell: "tool.tense.shell.done",
-  skill: "tool.tense.skill.done",
-};
-
-function groupSummaryParts(
-  row: ToolGroupRow,
-  translate: (
-    key: TranslationKey,
-    params?: Record<string, string | number>,
-  ) => string,
-  language: Language,
-): { verb: string; object: string } {
-  // read/edit 报去重文件数,与轮末改动卡同口径;其余家族报次数
-  const count =
-    row.family === "read" || row.family === "edit"
-      ? row.uniqueFiles
-      : row.pairs.length;
-  const object = formatGroupObject(row, translate, language);
-  if (row.family === "other") {
-    return {
-      verb: translate("chat.step.other", {
-        name: humanToolName(row.name, translate),
-        count,
-      }),
-      object,
-    };
-  }
-  const verb =
-    count === 1
-      ? translate(TENSE_DONE_KEYS[row.family])
-      : translate(STEP_COUNT_KEYS[row.family], { count });
-  return { verb, object };
-}
-
-function formatGroupObject(
-  row: ToolGroupRow,
-  translate: (key: TranslationKey) => string,
-  language: Language,
-): string {
-  let object = row.object;
-  if (row.family === "skill" && object) {
-    object = skillDisplayName(object, language);
-  }
-  if (row.family === "edit") {
-    const stats: string[] = [];
-    if (row.additions > 0) stats.push(`+${row.additions}`);
-    if (row.deletions > 0) stats.push(`-${row.deletions}`);
-    if (object && stats.length > 0) object = `${object} ${stats.join(" ")}`;
-    else if (!object && stats.length > 0) object = stats.join(" ");
-  }
-  if (object && row.objectVaried) {
-    object = `${object} ${translate("chat.step.andMore")}`;
-  }
-  return object;
-}
 
 function thinkingMessage(row: Extract<FoldRow, { type: "thinking" }>): StreamMessage {
   const first = row.messages[0]!;

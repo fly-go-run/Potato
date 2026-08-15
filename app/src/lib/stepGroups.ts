@@ -32,6 +32,8 @@ export type ToolGroupRow = {
   pairs: ToolPair[];
   object: string;
   objectVaried: boolean;
+  /** Unique objects in first-seen order, capped at 3 for the fold-row. */
+  objects: string[];
   additions: number;
   deletions: number;
   skillName: string;
@@ -81,6 +83,7 @@ const FAMILY_BY_NAME: Record<string, Exclude<ToolFamily, "other">> = {
 };
 
 const OBJECT_LIMIT = 32;
+export const OBJECT_LIST_LIMIT = 3;
 
 export function toolFamily(name: string): ToolFamily {
   const normalized = name.replace(/^mcp__/i, "").toLocaleLowerCase();
@@ -111,7 +114,7 @@ export function extractPairObject(family: ToolFamily, pair: ToolPair): string {
         stringField(args, "search_term") || stringField(args, "query"),
       );
     case "fetch":
-      return truncate32(stringField(args, "url"));
+      return compactFetchHost(stringField(args, "url"));
     case "grep":
     case "glob":
       return truncate32(stringField(args, "pattern"));
@@ -276,7 +279,7 @@ function makeToolGroup(
   const name = rawToolName(first.pair);
   const family = toolFamily(name);
   const pairs = entries.map((entry) => entry.pair);
-  const { object, varied } = firstNonEmptyObject(family, pairs);
+  const { object, varied, objects } = collectGroupObjects(family, pairs);
   const stats =
     family === "edit" ? sumEditStats(pairs) : { additions: 0, deletions: 0 };
   return {
@@ -287,6 +290,7 @@ function makeToolGroup(
     pairs,
     object,
     objectVaried: varied,
+    objects,
     additions: stats.additions,
     deletions: stats.deletions,
     skillName: family === "skill" ? skillNameOf(first.pair) : "",
@@ -323,22 +327,21 @@ function canMerge(first: ToolPair, next: ToolPair): boolean {
   return true;
 }
 
-function firstNonEmptyObject(
+function collectGroupObjects(
   family: ToolFamily,
   pairs: ToolPair[],
-): { object: string; varied: boolean } {
-  let first = "";
-  let varied = false;
+): { object: string; varied: boolean; objects: string[] } {
+  const unique: string[] = [];
   for (const pair of pairs) {
     const object = extractPairObject(family, pair);
-    if (!object) continue;
-    if (!first) {
-      first = object;
-      continue;
-    }
-    if (object !== first) varied = true;
+    if (!object || unique.includes(object)) continue;
+    unique.push(object);
   }
-  return { object: first, varied };
+  return {
+    object: unique[0] ?? "",
+    varied: unique.length > 1,
+    objects: unique.slice(0, OBJECT_LIST_LIMIT),
+  };
 }
 
 function sumEditStats(pairs: ToolPair[]): {
@@ -392,6 +395,23 @@ function stringValue(value: unknown): string {
 
 function truncate32(value: string): string {
   return value.length > OBJECT_LIMIT ? value.slice(0, OBJECT_LIMIT) : value;
+}
+
+/** Fetch rows show `host` or `host/…`, not the full URL. */
+function compactFetchHost(url: string): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url.includes("://") ? url : `https://${url}`);
+    const host = parsed.hostname || parsed.host;
+    if (!host) return truncate32(url);
+    const path = parsed.pathname;
+    if ((path && path !== "/") || parsed.search || parsed.hash) {
+      return `${host}/…`;
+    }
+    return host;
+  } catch {
+    return truncate32(url);
+  }
 }
 
 function basename(path: string): string {

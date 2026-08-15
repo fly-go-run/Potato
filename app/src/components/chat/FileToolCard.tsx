@@ -18,12 +18,7 @@ import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { Collapse } from "./Collapse";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
-import {
-  humanToolLabel,
-  richOutputText,
-  toolPairStatus,
-  ToolStatus,
-} from "./ToolCard";
+import { richOutputText, toolPairStatus, ToolStatus } from "./ToolCard";
 import {
   editDiffLines,
   pairChangeStats,
@@ -94,10 +89,7 @@ export function FileToolCard({
   const path =
     typeof parameters.file_path === "string" ? parameters.file_path : "";
   const { running, failed } = toolPairStatus(pair);
-  // 完成态不再显示「写入了/编辑了」动词:动作由图标承担(笔=改动、
-  // 素文件=只读),幅度由彩色 ± 承担。动词只在运行中作为进行时上下文
-  // (「正在写入」),收口后让位给文件名+数字。
-  const title = running ? humanToolLabel(pair.name, true, t) : "";
+  // 笔/文件图标承担动词,行上不再写「正在写入/读取」。
   const modifies = MODIFYING_FILE_TOOLS.has(pair.name);
   // ±行数与汇总卡同源(meta 真值优先,回落同一套本地估算)。
   const stats = useMemo(
@@ -165,7 +157,11 @@ export function FileToolCard({
   // 否则行的主区域被"跳侧栏"占据,展开反而只能点边缘。跳转统一走
   // 展开后的行尾 ArrowUpRight。
   const pathNode = (
-    <span className={`min-w-0 flex-1 truncate font-mono text-[12px] ${pathTone}`}>
+    <span
+      className={`min-w-0 flex-1 truncate font-mono text-[12px] ${pathTone} ${
+        shimmer ? "qp-shimmer" : ""
+      }`}
+    >
       {path || t("tool.file.path")}
     </span>
   );
@@ -178,13 +174,6 @@ export function FileToolCard({
         strokeWidth={1.8}
         className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
       />
-      {title && (
-        <span
-          className={`shrink-0 ${shimmer ? "qp-shimmer" : failed ? "text-danger" : ""}`}
-        >
-          {title}
-        </span>
-      )}
     </>
   );
   const after = (

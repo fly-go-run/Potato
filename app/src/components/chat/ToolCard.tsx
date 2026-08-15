@@ -1,8 +1,32 @@
+import {
+  FilePenLine,
+  FileSearch,
+  FileText,
+  Files,
+  Globe,
+  Search,
+  Sparkles,
+  Terminal,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { DataContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
-import { t, useTranslation, type TranslationKey } from "../../lib/i18n";
+import {
+  t,
+  useTranslation,
+  type Language,
+  type TranslationKey,
+} from "../../lib/i18n";
+import { skillDisplayName } from "../../lib/skillPresentation";
+import {
+  extractPairObject,
+  skillNameOf,
+  toolFamily,
+  type ToolFamily,
+} from "../../lib/stepGroups";
 import { parseQpMeta, qpString, type QpMeta } from "../../lib/toolMeta";
 import { JsonView } from "./JsonView";
 import { ShellToolCard } from "./ShellToolCard";
@@ -80,6 +104,31 @@ export function ToolCard({
   onToggle?: () => void;
 }) {
   if (toolPairStatus(pair).failed && !prominentArtifact) {
+    if (pair.name === "execute_shell_command") {
+      return (
+        <ShellToolCard
+          pair={pair}
+          embedded={embedded}
+          shimmer={shimmer}
+          tail={tail}
+          open={open}
+          onToggle={onToggle}
+        />
+      );
+    }
+    if (isFileTool(pair.name)) {
+      return (
+        <FileToolCard
+          pair={pair}
+          onOpenFile={onOpenFile}
+          onOpenChange={onOpenChange}
+          prominentArtifact={prominentArtifact}
+          shimmer={shimmer}
+          open={open}
+          onToggle={onToggle}
+        />
+      );
+    }
     return <FailedToolRow pair={pair} open={open} onToggle={onToggle} />;
   }
   if (pair.name === "execute_shell_command") {
@@ -131,12 +180,14 @@ function GenericToolCard({
   open?: boolean;
   onToggle?: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { running, failed } = toolPairStatus(pair);
-  const summary = argumentSummary(pair.arguments, t);
-  const label = failed
-    ? humanToolName(pair.name, t)
-    : humanToolLabel(pair.name, running, t);
+  const family = toolFamily(pair.name);
+  const Icon = FAMILY_ICONS[family];
+  const object = pairObjectLabel(pair, family, language, t);
+  const keepRunningVerb = family === "skill" || family === "other";
+  const verb =
+    running && keepRunningVerb ? t("tool.tense.skill.running") : "";
 
   const detail = (
     <div className="space-y-3">
@@ -171,15 +222,21 @@ function GenericToolCard({
 
   const toggle = (
     <>
-      {pair.uiIcon && (
+      {pair.uiIcon ? (
         <span aria-hidden className="shrink-0 text-[14px] leading-none text-ink-muted">
           {pair.uiIcon}
         </span>
+      ) : (
+        <Icon
+          size={14}
+          strokeWidth={1.8}
+          className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
+        />
       )}
       <span className={shimmer ? "qp-shimmer min-w-0 truncate" : "min-w-0 truncate"}>
         <TrackSummary
-          verb={label}
-          object={summary}
+          verb={verb}
+          object={object}
           shimmer={shimmer}
           failed={failed}
         />
@@ -214,7 +271,10 @@ function FailedToolRow({
   open?: boolean;
   onToggle?: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const family = toolFamily(pair.name);
+  const Icon = FAMILY_ICONS[family];
+  const object = pairObjectLabel(pair, family, language, t);
   const reason = toolFailureSummary(pair);
   const output = pair.result ? richOutputText(pair.result) : "";
   const detail = output ? (
@@ -228,11 +288,21 @@ function FailedToolRow({
   return (
     <ToolDisclosure
       toggle={
-        <TrackSummary
-          verb={humanToolName(pair.name, t)}
-          object={reason}
-          failed
-        />
+        <>
+          {pair.uiIcon ? (
+            <span aria-hidden className="shrink-0 text-[14px] leading-none text-danger">
+              {pair.uiIcon}
+            </span>
+          ) : (
+            <Icon size={14} strokeWidth={1.8} className="shrink-0 text-danger" />
+          )}
+          <TrackSummary object={object} failed />
+          {reason ? (
+            <span className="min-w-0 truncate pl-2 text-[11px] text-danger">
+              {reason}
+            </span>
+          ) : null}
+        </>
       }
       failed
       open={open}
@@ -372,58 +442,35 @@ export function richOutputText(output: string) {
   }
 }
 
-/** 每个已知工具的运行中/完成时态文案,未知工具回落到通用格式。 */
-const TOOL_TENSE_KEYS: Record<
-  string,
-  { running: TranslationKey; done: TranslationKey }
-> = {
-  execute_shell_command: {
-    running: "tool.tense.shell.running",
-    done: "tool.tense.shell.done",
-  },
-  skill: { running: "tool.tense.skill.running", done: "tool.tense.skill.done" },
-  web_search: {
-    running: "tool.tense.webSearch.running",
-    done: "tool.tense.webSearch.done",
-  },
-  web_fetch: {
-    running: "tool.tense.webFetch.running",
-    done: "tool.tense.webFetch.done",
-  },
-  grep_search: {
-    running: "tool.tense.searchFiles.running",
-    done: "tool.tense.searchFiles.done",
-  },
-  glob_search: {
-    running: "tool.tense.matchFiles.running",
-    done: "tool.tense.matchFiles.done",
-  },
-  read_file: {
-    running: "tool.tense.fileRead.running",
-    done: "tool.tense.fileRead.done",
-  },
-  write_file: {
-    running: "tool.tense.fileWrite.running",
-    done: "tool.tense.fileWrite.done",
-  },
-  edit_file: {
-    running: "tool.tense.fileEdit.running",
-    done: "tool.tense.fileEdit.done",
-  },
-  append_file: {
-    running: "tool.tense.fileAppend.running",
-    done: "tool.tense.fileAppend.done",
-  },
-  send_file_to_user: {
-    running: "tool.tense.fileDeliver.running",
-    done: "tool.tense.fileDeliver.done",
-  },
+/** 头上的进行时。行上不再用完成态动词。 */
+const TOOL_TENSE_RUNNING: Record<string, TranslationKey> = {
+  execute_shell_command: "tool.tense.shell.running",
+  skill: "tool.tense.skill.running",
+  web_search: "tool.tense.webSearch.running",
+  web_fetch: "tool.tense.webFetch.running",
+  grep_search: "tool.tense.searchFiles.running",
+  glob_search: "tool.tense.matchFiles.running",
+  read_file: "tool.tense.fileRead.running",
+  write_file: "tool.tense.fileWrite.running",
+  edit_file: "tool.tense.fileEdit.running",
+  append_file: "tool.tense.fileAppend.running",
+  send_file_to_user: "tool.tense.fileDeliver.running",
+};
+
+const FAMILY_ICONS: Record<ToolFamily, LucideIcon> = {
+  search: Search,
+  fetch: Globe,
+  grep: FileSearch,
+  glob: Files,
+  read: FileText,
+  edit: FilePenLine,
+  shell: Terminal,
+  skill: Sparkles,
+  other: Wrench,
 };
 
 /**
- * 时态化工具标签:运行中「正在读取」、完成后「读取了」。轨道叙事由
- * 它统一供给(卡片头部、摘要行、折叠态近况列表)。失败态请调用方
- * 自行退回 humanToolName 的中性名词。
+ * 直播头「正在…」。完成态返回空串——行上由图标承担动词。
  */
 export function humanToolLabel(
   name: string,
@@ -433,11 +480,30 @@ export function humanToolLabel(
     params?: Record<string, string | number>,
   ) => string,
 ): string {
+  if (!running) return "";
   const normalized = name.replace(/^mcp__/i, "").toLocaleLowerCase();
-  const tense = TOOL_TENSE_KEYS[normalized];
-  if (tense) return translate(running ? tense.running : tense.done);
-  const pretty = humanToolName(name, translate);
-  return running ? translate("tool.genericRunning", { name: pretty }) : pretty;
+  const tense = TOOL_TENSE_RUNNING[normalized];
+  if (tense) return translate(tense);
+  return translate("tool.genericRunning");
+}
+
+function pairObjectLabel(
+  pair: ToolPair,
+  family: ToolFamily,
+  language: Language,
+  translate: (
+    key: TranslationKey,
+    params?: Record<string, string | number>,
+  ) => string,
+): string {
+  if (family === "skill") {
+    const skill = skillNameOf(pair);
+    return skill ? skillDisplayName(skill, language) : "";
+  }
+  const extracted = extractPairObject(family, pair);
+  if (extracted) return extracted;
+  if (family === "other") return humanToolName(pair.name, translate);
+  return argumentSummary(pair.arguments, translate);
 }
 
 export function humanToolName(

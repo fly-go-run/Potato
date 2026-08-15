@@ -86,8 +86,7 @@ export function ShellToolCard({
             className="shrink-0 text-ink-muted"
           />
           <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
-            <span>{t("tool.tense.shell.running")}</span>
-            <code className="ml-1.5 font-mono text-[12px]">
+            <code className="font-mono text-[12px]">
               {command || t("tool.shell")}
             </code>
           </span>
@@ -118,11 +117,8 @@ export function ShellToolCard({
         className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
       />
       <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
-        <span className={failed && !shimmer ? "text-danger" : undefined}>
-          {t(running ? "tool.tense.shell.running" : "tool.tense.shell.done")}
-        </span>
         <code
-          className={`ml-1.5 font-mono text-[12px] ${
+          className={`font-mono text-[12px] ${
             failed && !shimmer
               ? "text-danger"
               : shimmer

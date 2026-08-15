@@ -225,6 +225,7 @@ describe("materializeRun merge", () => {
         direct: false,
         object: "alpha",
         objectVaried: true,
+        objects: ["alpha", "beta"],
       },
     });
     if (row.kind === "fold" && row.row.type === "group") {
@@ -400,7 +401,13 @@ describe("extractPairObject", () => {
         "fetch",
         successPair("f", "web_fetch", { url: "https://example.com/page" }).pair,
       ),
-    ).toBe("https://example.com/page");
+    ).toBe("example.com/…");
+    expect(
+      extractPairObject(
+        "fetch",
+        successPair("f", "web_fetch", { url: "https://example.com" }).pair,
+      ),
+    ).toBe("example.com");
     expect(
       extractPairObject(
         "grep",
@@ -481,6 +488,7 @@ describe("extractPairObject", () => {
         family: "edit",
         object: "a.ts",
         objectVaried: true,
+        objects: ["a.ts", "b.ts"],
       },
     });
     if (items[0]?.kind === "fold" && items[0].row.type === "group") {
@@ -505,6 +513,23 @@ describe("extractPairObject", () => {
     if (items[0]?.kind === "fold" && items[0].row.type === "group") {
       expect(items[0].row.pairs).toHaveLength(2);
       expect(items[0].row.uniqueFiles).toBe(1);
+      expect(items[0].row.objects).toEqual(["a.ts"]);
+    }
+  });
+
+  it("lists up to 3 unique basenames on a group and drops the rest", () => {
+    const items = materializeRun([
+      successPair("r1", "read_file", { file_path: "/workspace/a.ts" }),
+      successPair("r2", "read_file", { file_path: "/workspace/b.md" }),
+      successPair("r3", "read_file", { file_path: "/workspace/c.py" }),
+      successPair("r4", "read_file", { file_path: "/workspace/d.go" }),
+      successPair("r5", "read_file", { file_path: "/workspace/a.ts" }),
+    ]);
+    expect(items).toHaveLength(1);
+    if (items[0]?.kind === "fold" && items[0].row.type === "group") {
+      expect(items[0].row.objects).toEqual(["a.ts", "b.md", "c.py"]);
+      expect(items[0].row.objectVaried).toBe(true);
+      expect(items[0].row.uniqueFiles).toBe(4);
     }
   });
 });

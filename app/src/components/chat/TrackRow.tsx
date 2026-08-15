@@ -61,31 +61,32 @@ export function TrackRowChevron({
   );
 }
 
-/** 动词 13px secondary + 对象等宽 12px tertiary。shimmer 时去掉子级色以免裁剪失败。 */
+/** 动词 13px secondary + 对象等宽 12px tertiary。无动词时对象单独占行，避免空 span。 */
 export function TrackSummary({
   verb,
   object,
   shimmer,
   failed,
 }: {
-  verb: ReactNode;
+  verb?: ReactNode;
   object?: ReactNode;
   shimmer?: boolean;
   failed?: boolean;
 }) {
+  const tone = failed && !shimmer ? "text-danger" : undefined;
+  const objectClass = `font-mono text-[12px] ${
+    shimmer ? "" : failed ? "text-danger" : "text-ink-tertiary group-hover:text-ink"
+  }`;
   if (!object) {
-    return <span className={failed && !shimmer ? "text-danger" : undefined}>{verb}</span>;
+    return verb ? <span className={tone}>{verb}</span> : null;
+  }
+  if (!verb) {
+    return <span className={objectClass}>{object}</span>;
   }
   return (
     <>
-      <span className={failed && !shimmer ? "text-danger" : undefined}>{verb}</span>
-      <span
-        className={`ml-1.5 font-mono text-[12px] ${
-          shimmer ? "" : failed ? "text-danger" : "text-ink-tertiary group-hover:text-ink"
-        }`}
-      >
-        {object}
-      </span>
+      <span className={tone}>{verb}</span>
+      <span className={`ml-1.5 ${objectClass}`}>{object}</span>
     </>
   );
 }

@@ -21,5 +21,14 @@ describe("i18n dictionaries", () => {
     expect(
       translate("chat.diff.inlineTruncated", "en", { count: 12 }),
     ).toBe("Truncated 12 lines · View full change in sidebar");
+    expect(translate("chat.workedFor", "zh", { duration: "8.4s" })).toBe("8.4s");
+    expect(
+      translate("chat.workedForWithFailures", "en", {
+        duration: "8.4s",
+        failed: 2,
+      }),
+    ).toBe("8.4s · 2 failed");
+    expect(translate("chat.step.files", "zh", { count: 3 })).toBe("3 个");
+    expect(translate("chat.step.cmds", "en", { count: 3 })).toBe("3 cmds");
   });
 });
