@@ -26,13 +26,14 @@ import {
 } from "../../lib/desktop";
 import { type ConversationArtifact } from "../../lib/conversationArtifacts";
 import {
+  editDiffLines,
   shortenPath,
   type FileChange,
   type FileEdit,
 } from "../../lib/fileChanges";
 import { useChatStore } from "../../stores/chat";
 import { highlightCode, isSupportedLanguage } from "../../lib/highlight";
-import { lineDiff, type DiffLine } from "../../lib/lineDiff";
+import { type DiffLine } from "../../lib/lineDiff";
 import { Markdown, tokenClass } from "./Markdown";
 import {
   matchRepoRelativePath,
@@ -858,28 +859,7 @@ const MAX_DIFF_LINES = 600;
 
 function DiffBlock({ edit, ordinal }: { edit: FileEdit; ordinal: number }) {
   const { t } = useTranslation();
-  const lines = useMemo<DiffLine[]>(() => {
-    if (edit.tool !== "edit_file") {
-      return splitContentLines(edit.after).map((text) => ({
-        kind: "add" as const,
-        text,
-      }));
-    }
-    // 超预算的大编辑不做行级对齐:整块删 + 整块加(统计口径一致)。
-    if (edit.oversized) {
-      return [
-        ...splitContentLines(edit.before).map((text) => ({
-          kind: "remove" as const,
-          text,
-        })),
-        ...splitContentLines(edit.after).map((text) => ({
-          kind: "add" as const,
-          text,
-        })),
-      ];
-    }
-    return lineDiff(edit.before, edit.after);
-  }, [edit]);
+  const lines = useMemo<DiffLine[]>(() => editDiffLines(edit), [edit]);
   const visible = lines.slice(0, MAX_DIFF_LINES);
   const truncated = lines.length - visible.length;
   return (
@@ -933,10 +913,6 @@ function DiffBlock({ edit, ordinal }: { edit: FileEdit; ordinal: number }) {
       )}
     </section>
   );
-}
-
-function splitContentLines(value: string): string[] {
-  return value === "" ? [] : value.split("\n");
 }
 
 /**

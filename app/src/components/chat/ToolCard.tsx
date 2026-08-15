@@ -60,12 +60,14 @@ export function toolPairStatus(pair: ToolPair) {
 export function ToolCard({
   pair,
   onOpenFile,
+  onOpenChange,
   prominentArtifact = false,
   embedded = false,
   shimmer = false,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
   prominentArtifact?: boolean;
   /** 组内原始层:shell 直接出纯文本块,文件保留 ± 行。 */
   embedded?: boolean;
@@ -84,6 +86,7 @@ export function ToolCard({
       <FileToolCard
         pair={pair}
         onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
         prominentArtifact={prominentArtifact}
         shimmer={shimmer}
       />

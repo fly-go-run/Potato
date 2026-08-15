@@ -359,6 +359,7 @@ const AssistantTurn = memo(function AssistantTurn({
         pulsing={pulsing}
         live={streaming}
         onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
         userTimestamp={userTimestamp}
         assistantTimestamp={assistantTimestamp}
       />
@@ -555,6 +556,7 @@ function TurnFlow({
   pulsing,
   live,
   onOpenFile,
+  onOpenChange,
   userTimestamp,
   assistantTimestamp,
 }: {
@@ -566,6 +568,7 @@ function TurnFlow({
   /** 本轮仍在流式中。 */
   live: boolean;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
   userTimestamp?: unknown;
   assistantTimestamp?: unknown;
 }) {
@@ -751,6 +754,7 @@ function TurnFlow({
         shimmer={liveWindow && isRowActive(piece.row)}
         onToggle={() => toggleRow(piece.key)}
         onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
       />,
     );
     if (
@@ -851,6 +855,7 @@ function FoldRowView({
   shimmer,
   onToggle,
   onOpenFile,
+  onOpenChange,
 }: {
   row: FoldRow;
   mode: "summary" | "raw";
@@ -859,6 +864,7 @@ function FoldRowView({
   shimmer?: boolean;
   onToggle: () => void;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
 }) {
   const { t } = useTranslation();
   if (row.type === "thinking") {
@@ -878,6 +884,7 @@ function FoldRowView({
       <ToolCard
         pair={row.pairs[0]!}
         onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
         shimmer={shimmer}
       />
     );
@@ -902,6 +909,7 @@ function FoldRowView({
           key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
           pair={pair}
           onOpenFile={onOpenFile}
+          onOpenChange={onOpenChange}
           embedded
         />
       ))}

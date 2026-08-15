@@ -121,6 +121,7 @@ export const dictionaries = {
     "chat.diff.edit": "编辑",
     "chat.diff.append": "追加",
     "chat.diff.truncated": "内容较长，已省略 {count} 行",
+    "chat.diff.inlineTruncated": "已截断 {count} 行 · 在侧栏查看完整改动",
     "chat.diff.loading": "正在读取工作区改动…",
     "chat.diff.workingTree": "工作区改动",
     "chat.preview.loading": "正在读取文件…",
@@ -877,6 +878,8 @@ export const dictionaries = {
     "chat.diff.edit": "Edit",
     "chat.diff.append": "Append",
     "chat.diff.truncated": "{count} more lines truncated",
+    "chat.diff.inlineTruncated":
+      "Truncated {count} lines · View full change in sidebar",
     "chat.diff.loading": "Loading working-tree changes…",
     "chat.diff.workingTree": "Working tree",
     "chat.preview.loading": "Loading file…",

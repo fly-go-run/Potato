@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { filePreviewUrl } from "../../lib/api";
 import { handleSystemOpenClick } from "../../lib/desktop";
-import { lineDiff, type DiffLineKind } from "../../lib/lineDiff";
+import { type DiffLineKind } from "../../lib/lineDiff";
 import { qpCount, recordLegacyParse } from "../../lib/toolMeta";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { Collapse } from "./Collapse";
@@ -24,7 +24,13 @@ import {
   toolPairStatus,
   ToolStatus,
 } from "./ToolCard";
-import { pairChangeStats } from "../../lib/fileChanges";
+import {
+  editDiffLines,
+  pairChangeStats,
+  pairFileEdit,
+  visibleDiffLines,
+  type FileEdit,
+} from "../../lib/fileChanges";
 
 const FILE_TOOL_TITLES: Record<string, TranslationKey> = {
   read_file: "tool.file.read",
@@ -67,11 +73,14 @@ export function isSuccessfulArtifactPair(pair: ToolPair): boolean {
 export function FileToolCard({
   pair,
   onOpenFile,
+  onOpenChange,
   prominentArtifact = false,
   shimmer = false,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
+  /** 行内 diff 打开时的「在侧栏打开」;截断行也走这里。 */
+  onOpenChange?: (path: string) => void;
   /** 仅在文件被明确交付给用户时展示大号产物卡。 */
   prominentArtifact?: boolean;
   shimmer?: boolean;
@@ -91,8 +100,18 @@ export function FileToolCard({
     () => (running || failed ? null : pairChangeStats(pair)),
     [running, failed, pair],
   );
+  const inlineEdit = useMemo(
+    () => (modifies ? pairFileEdit(pair) : null),
+    [modifies, pair],
+  );
 
-  const detail = (
+  const detail = inlineEdit ? (
+    <InlineDiffBlock
+      edit={inlineEdit}
+      path={path}
+      onOpenSidebar={onOpenChange}
+    />
+  ) : (
     <div className="rounded-[var(--radius-md)] bg-surface px-3 py-2">
       <div className="mb-2 flex gap-3 text-xs">
         <span className="shrink-0 text-ink-tertiary">{t("tool.file.path")}</span>
@@ -199,6 +218,22 @@ export function FileToolCard({
     <ToolDisclosure
       toggle={toggle}
       after={after}
+      trailing={(open) =>
+        open && modifies && path && onOpenChange ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenChange(path);
+            }}
+            title={t("chat.panel.open")}
+            aria-label={t("chat.panel.open")}
+            className="shrink-0 rounded-[var(--radius-sm)] p-0.5 text-icon opacity-0 transition-opacity duration-[var(--dur-fast)] hover:text-icon-strong group-hover:opacity-100"
+          >
+            <ArrowUpRight size={12} strokeWidth={1.8} />
+          </button>
+        ) : null
+      }
       toggleGrow={false}
       failed={failed}
       detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
@@ -405,14 +440,6 @@ function FileToolContent({
   parameters: Record<string, unknown>;
 }) {
   const { t } = useTranslation();
-  if (pair.name === "edit_file") {
-    const before =
-      typeof parameters.old_text === "string" ? parameters.old_text : "";
-    const after =
-      typeof parameters.new_text === "string" ? parameters.new_text : "";
-    if (before || after) return <LineDiff before={before} after={after} />;
-  }
-
   const argumentContent =
     typeof parameters.content === "string" ? parameters.content : "";
   const rawContent =
@@ -442,38 +469,79 @@ function FileToolContent({
   );
 }
 
-/** 与侧栏 ChangeDiffPanel 同一套配色:整行底色 tint,符号列着色,正文保持 ink。 */
-function LineDiff({ before, after }: { before: string; after: string }) {
-  const lines = lineDiff(before, after);
+const DIFF_SIGN: Record<DiffLineKind, string> = {
+  add: "+",
+  remove: "-",
+  same: "",
+};
+
+/** 轨道内联 diff:与侧栏 DiffBlock 同色,无边框圆角 surface。 */
+function InlineDiffBlock({
+  edit,
+  path,
+  onOpenSidebar,
+}: {
+  edit: FileEdit;
+  path: string;
+  onOpenSidebar?: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { visible, truncated } = useMemo(
+    () => visibleDiffLines(editDiffLines(edit)),
+    [edit],
+  );
+  const truncatedLabel = t("chat.diff.inlineTruncated", { count: truncated });
+
   return (
-    <div className="max-h-80 overflow-auto font-mono text-xs leading-5">
-      {lines.map((line, index) => (
-        <div
-          key={`${index}-${line.kind}`}
-          className={`flex min-w-max ${
-            line.kind === "add"
-              ? "bg-ok/10"
-              : line.kind === "remove"
-              ? "bg-danger-soft"
-              : ""
-          }`}
-        >
-          <span
-            className={`w-5 shrink-0 select-none text-center ${diffSignClass(
-              line.kind,
-            )}`}
-          >
-            {line.kind === "remove" ? "-" : line.kind === "add" ? "+" : ""}
-          </span>
-          <span
-            className={`whitespace-pre pr-3 ${
-              line.kind === "same" ? "text-ink-tertiary" : "text-ink"
-            }`}
-          >
-            {line.text || " "}
-          </span>
+    <div
+      data-inline-diff
+      className="overflow-hidden rounded-[var(--radius-md)] bg-surface"
+    >
+      <div className="overflow-x-auto">
+        <div className="min-w-max font-mono text-[12px] leading-[1.7]">
+          {visible.map((line, index) => (
+            <div
+              key={`${index}-${line.kind}`}
+              className={`flex pr-4 ${
+                line.kind === "add"
+                  ? "bg-ok/10"
+                  : line.kind === "remove"
+                    ? "bg-danger-soft"
+                    : ""
+              }`}
+            >
+              <span
+                className={`w-7 shrink-0 select-none text-center ${diffSignClass(
+                  line.kind,
+                )}`}
+              >
+                {DIFF_SIGN[line.kind]}
+              </span>
+              <span
+                className={`whitespace-pre ${
+                  line.kind === "same" ? "text-ink-tertiary" : "text-ink"
+                }`}
+              >
+                {line.text || " "}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+      {truncated > 0 &&
+        (onOpenSidebar && path ? (
+          <button
+            type="button"
+            onClick={() => onOpenSidebar(path)}
+            className="flex w-full px-3 py-1.5 text-left text-[11px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink"
+          >
+            {truncatedLabel}
+          </button>
+        ) : (
+          <div className="px-3 py-1.5 text-[11px] text-ink-tertiary">
+            {truncatedLabel}
+          </div>
+        ))}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { TrackRowChevron } from "./TrackRow";
 export function ToolDisclosure({
   toggle,
   after,
+  trailing,
   toggleGrow = true,
   detailClassName = "",
   failed = false,
@@ -24,6 +25,8 @@ export function ToolDisclosure({
   toggle: ReactNode;
   /** 行内按钮之后的兄弟内容(路径按钮、时长、Spinner / 状态图标)。 */
   after?: ReactNode;
+  /** 依赖开合态的行尾控件(如「在侧栏打开」);放在 chevron 前。 */
+  trailing?: (open: boolean) => ReactNode;
   /** 展开按钮是否占据剩余宽度;after 里有 flex-1 内容时关掉。 */
   toggleGrow?: boolean;
   /**
@@ -60,6 +63,7 @@ export function ToolDisclosure({
           {toggle}
         </button>
         {after}
+        {trailing?.(open)}
         <TrackRowChevron open={open} failed={failed} />
       </div>
       <Collapse open={open}>

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { RunStatus } from "./protocol/types";
 import type { StreamMessage } from "./stream";
-import { collectFileChanges, totalChangeStats } from "./fileChanges";
+import { buildToolPair } from "../components/chat/ToolCard";
+import {
+  INLINE_DIFF_MAX_LINES,
+  collectFileChanges,
+  editDiffLines,
+  pairFileEdit,
+  totalChangeStats,
+  visibleDiffLines,
+} from "./fileChanges";
 
 type ToolMessageType =
   | "function_call"
@@ -534,6 +542,89 @@ describe("collectFileChanges", () => {
     ]);
     expect(changes[0].additions).toBe(2);
     expect(changes[0].deletions).toBe(0);
+  });
+});
+
+describe("editDiffLines", () => {
+  it("aligns edit_file with lineDiff and treats write/append as all adds", () => {
+    expect(
+      editDiffLines({
+        tool: "edit_file",
+        before: "keep\nold",
+        after: "keep\nnew",
+      }),
+    ).toEqual([
+      { kind: "same", text: "keep" },
+      { kind: "remove", text: "old" },
+      { kind: "add", text: "new" },
+    ]);
+    expect(
+      editDiffLines({
+        tool: "write_file",
+        before: "",
+        after: "one\ntwo",
+      }),
+    ).toEqual([
+      { kind: "add", text: "one" },
+      { kind: "add", text: "two" },
+    ]);
+    expect(
+      editDiffLines({
+        tool: "append_file",
+        before: "",
+        after: "tail",
+      }),
+    ).toEqual([{ kind: "add", text: "tail" }]);
+  });
+
+  it("skips line alignment for oversized edits", () => {
+    expect(
+      editDiffLines({
+        tool: "edit_file",
+        before: "a\nb",
+        after: "c",
+        oversized: true,
+      }),
+    ).toEqual([
+      { kind: "remove", text: "a" },
+      { kind: "remove", text: "b" },
+      { kind: "add", text: "c" },
+    ]);
+  });
+});
+
+describe("visibleDiffLines", () => {
+  it("keeps short diffs intact and reports the omitted tail", () => {
+    const short = ["a", "b", "c"];
+    expect(visibleDiffLines(short, 3)).toEqual({
+      visible: short,
+      truncated: 0,
+    });
+    const long = Array.from({ length: INLINE_DIFF_MAX_LINES + 7 }, (_, i) => i);
+    expect(visibleDiffLines(long)).toEqual({
+      visible: long.slice(0, INLINE_DIFF_MAX_LINES),
+      truncated: 7,
+    });
+  });
+});
+
+describe("pairFileEdit", () => {
+  it("returns an in-flight write so the raw row can preview before completion", () => {
+    const pair = buildToolPair(
+      toolCall(
+        "live-write",
+        "write_file",
+        JSON.stringify({ file_path: "/workspace/live.txt", content: "alpha" }),
+        "in_progress",
+      ),
+      null,
+    );
+    expect(pairFileEdit(pair)).toMatchObject({
+      tool: "write_file",
+      after: "alpha",
+      additions: 1,
+      deletions: 0,
+    });
   });
 });
 

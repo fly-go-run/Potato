@@ -15,5 +15,11 @@ describe("i18n dictionaries", () => {
     expect(translate("chat.contextUsed", "en", { ratio: "12.5" })).toBe(
       "Context used 12.5%",
     );
+    expect(
+      translate("chat.diff.inlineTruncated", "zh", { count: 12 }),
+    ).toBe("已截断 12 行 · 在侧栏查看完整改动");
+    expect(
+      translate("chat.diff.inlineTruncated", "en", { count: 12 }),
+    ).toBe("Truncated 12 lines · View full change in sidebar");
   });
 });
