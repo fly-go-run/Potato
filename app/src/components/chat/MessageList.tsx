@@ -886,7 +886,11 @@ function groupSummaryLabel(
   ) => string,
   language: Language,
 ): string {
-  const count = row.pairs.length;
+  // read/edit 报去重文件数,与轮末改动卡同口径;其余家族报次数
+  const count =
+    row.family === "read" || row.family === "edit"
+      ? row.uniqueFiles
+      : row.pairs.length;
   const object = formatGroupObject(row, translate, language);
   const suffix = object ? ` · ${object}` : "";
   if (row.family === "other") {

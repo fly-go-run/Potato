@@ -467,6 +467,25 @@ describe("extractPairObject", () => {
       expect(items[0].row.deletions).toBeGreaterThan(0);
     }
   });
+
+  it("counts unique files for read/edit so the label matches the changes card", () => {
+    const items = materializeRun([
+      successPair("w1", "write_file", {
+        file_path: "/workspace/a.ts",
+        content: "alpha\nbeta\ngamma",
+      }),
+      successPair("e1", "edit_file", {
+        file_path: "/workspace/a.ts",
+        old_text: "beta",
+        new_text: "CHANGED",
+      }),
+    ]);
+    expect(items).toHaveLength(1);
+    if (items[0]?.kind === "fold" && items[0].row.type === "group") {
+      expect(items[0].row.pairs).toHaveLength(2);
+      expect(items[0].row.uniqueFiles).toBe(1);
+    }
+  });
 });
 
 describe("focus and 8-row window", () => {

@@ -35,6 +35,12 @@ export type ToolGroupRow = {
   deletions: number;
   skillName: string;
   direct: boolean;
+  /**
+   * read/edit 家族的展示计数:file_path 去重后的文件数。同一文件被
+   * 连续改两次报「2 个文件」会和轮末改动卡的「1 个文件」自相矛盾。
+   * 有 pair 缺 file_path 时无法证明同一文件,回落 pairs.length。
+   */
+  uniqueFiles: number;
 };
 
 export type ThinkingRow = {
@@ -269,7 +275,19 @@ function makeToolGroup(
     deletions: stats.deletions,
     skillName: family === "skill" ? skillNameOf(first.pair) : "",
     direct: pairs.length === 1,
+    uniqueFiles: uniqueFileCount(family, pairs),
   };
+}
+
+function uniqueFileCount(family: ToolFamily, pairs: ToolPair[]): number {
+  if (family !== "read" && family !== "edit") return pairs.length;
+  const paths = new Set<string>();
+  for (const pair of pairs) {
+    const path = stringField(parseArgs(pair.arguments), "file_path");
+    if (!path) return pairs.length;
+    paths.add(path);
+  }
+  return paths.size;
 }
 
 function canMerge(first: ToolPair, next: ToolPair): boolean {
