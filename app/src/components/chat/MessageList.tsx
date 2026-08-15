@@ -14,7 +14,17 @@ import {
   ChevronRight,
   Copy,
   FileDiff,
+  FilePenLine,
+  FileSearch,
+  FileText,
+  Files,
+  Globe,
   RefreshCw,
+  Search,
+  Sparkles,
+  Terminal,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { APP_NAME } from "../../lib/appInfo";
 import {
@@ -41,6 +51,7 @@ import {
   windowFoldRows,
   type FoldRow,
   type ProcessEntry,
+  type ToolFamily,
   type ToolGroupRow,
 } from "../../lib/stepGroups";
 import { buildTimeline } from "../../lib/turnTimeline";
@@ -59,12 +70,14 @@ import { MessageContent } from "./MessageContent";
 import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
 import { StepGroupRow } from "./StepGroupRow";
+import { TrackRow, TrackSummary } from "./TrackRow";
 import {
   buildToolPair,
   humanToolLabel,
   humanToolName,
   toolPairStatus,
   ToolCard,
+  type ToolPair,
 } from "./ToolCard";
 
 interface MessageListProps {
@@ -190,6 +203,7 @@ const UserTurn = memo(function UserTurn({
  */
 type FlowPiece =
   | { type: "fold"; key: string; row: FoldRow }
+  | { type: "failed"; key: string; pair: ToolPair }
   | { type: "visible"; key: string; node: ReactNode };
 
 interface AssistantTurnProps {
@@ -248,15 +262,7 @@ const AssistantTurn = memo(function AssistantTurn({
     if (run.length === 0) return;
     for (const item of materializeRun(run)) {
       if (item.kind === "visible-failed") {
-        pieces.push({
-          type: "visible",
-          key: item.key,
-          node: (
-            <div id={`message-${item.key}`} key={item.key}>
-              <ToolCard pair={item.pair} onOpenFile={onOpenFile} />
-            </div>
-          ),
-        });
+        pieces.push({ type: "failed", key: item.key, pair: item.pair });
         continue;
       }
       pieces.push({ type: "fold", key: item.row.key, row: item.row });
@@ -662,12 +668,17 @@ function TurnFlow({
     setManualHeader(next);
     if (!next) setOverflowOpen(false);
   };
+  const inProgress = state.kind !== "done";
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
-      <span>{summary}</span>
+      <span className={inProgress ? "qp-shimmer" : undefined}>{summary}</span>
       {showDurationSuffix && (
-        <span className="shrink-0 tabular-nums">· {durationLabel}</span>
+        <span
+          className={`shrink-0 tabular-nums ${inProgress ? "qp-shimmer" : ""}`}
+        >
+          · {durationLabel}
+        </span>
       )}
       {toggleable && (
         <ChevronRight
@@ -682,14 +693,45 @@ function TurnFlow({
   );
   const rendered: ReactNode[] = [];
   let overflowPlaced = false;
+  let trackBuf: ReactNode[] = [];
+  let trackKey = "";
+  const flushTrack = () => {
+    if (trackBuf.length === 0) return;
+    rendered.push(
+      <div
+        key={trackKey || `track-${rendered.length}`}
+        data-execution-track
+        className="mb-3 mt-1 border-l border-line pl-4"
+      >
+        {trackBuf}
+      </div>,
+    );
+    trackBuf = [];
+    trackKey = "";
+  };
+  const pushTrack = (key: string, node: ReactNode) => {
+    if (!trackKey) trackKey = `track-${key}`;
+    trackBuf.push(node);
+  };
   for (const piece of pieces) {
     if (piece.type === "visible") {
+      flushTrack();
       rendered.push(<Fragment key={piece.key}>{piece.node}</Fragment>);
+      continue;
+    }
+    if (piece.type === "failed") {
+      pushTrack(
+        piece.key,
+        <div id={`message-${piece.key}`} key={piece.key}>
+          <ToolCard pair={piece.pair} onOpenFile={onOpenFile} />
+        </div>,
+      );
       continue;
     }
     if (!headerOpen || !shownKeys.has(piece.key)) continue;
     if (windowed.overflowAt === "start" && !overflowPlaced) {
-      rendered.push(
+      pushTrack(
+        "overflow",
         <OverflowRow
           key="fold-overflow"
           count={windowed.hiddenCount}
@@ -698,13 +740,15 @@ function TurnFlow({
       );
       overflowPlaced = true;
     }
-    rendered.push(
+    pushTrack(
+      piece.key,
       <FoldRowView
         key={piece.key}
         row={piece.row}
         mode={rowState(piece.key)}
         everRaw={Boolean(everRaw[piece.key] || rowState(piece.key) === "raw")}
         language={language}
+        shimmer={liveWindow && isRowActive(piece.row)}
         onToggle={() => toggleRow(piece.key)}
         onOpenFile={onOpenFile}
       />,
@@ -714,7 +758,8 @@ function TurnFlow({
       piece.key === lastShownKey &&
       !overflowPlaced
     ) {
-      rendered.push(
+      pushTrack(
+        "overflow",
         <OverflowRow
           key="fold-overflow"
           count={windowed.hiddenCount}
@@ -724,8 +769,9 @@ function TurnFlow({
       overflowPlaced = true;
     }
   }
+  flushTrack();
   return (
-    <div className="my-1.5">
+    <div className="my-3">
       {showHeader && (
         <div className="flex items-center gap-2">
           {toggleable ? (
@@ -733,7 +779,7 @@ function TurnFlow({
               type="button"
               onClick={toggleHeader}
               aria-expanded={headerOpen}
-              className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
+              className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:text-ink"
             >
               {summaryContent}
             </button>
@@ -782,11 +828,27 @@ function activeToolGroupKey(rows: FoldRow[]): string | null {
   return null;
 }
 
+function isRowActive(row: FoldRow): boolean {
+  if (row.type === "thinking") {
+    return row.messages.some(
+      (message) =>
+        message.status === "created" || message.status === "in_progress",
+    );
+  }
+  if (row.type === "progress") {
+    return (
+      row.message.status === "created" || row.message.status === "in_progress"
+    );
+  }
+  return row.pairs.some((pair) => toolPairStatus(pair).running);
+}
+
 function FoldRowView({
   row,
   mode,
   everRaw,
   language,
+  shimmer,
   onToggle,
   onOpenFile,
 }: {
@@ -794,6 +856,7 @@ function FoldRowView({
   mode: "summary" | "raw";
   everRaw: boolean;
   language: Language;
+  shimmer?: boolean;
   onToggle: () => void;
   onOpenFile?: (path: string) => void;
 }) {
@@ -808,23 +871,38 @@ function FoldRowView({
     );
   }
   if (row.type === "progress") {
-    return <ProgressCard message={row.message} />;
+    return <ProgressCard message={row.message} shimmer={shimmer} />;
   }
   if (row.direct) {
-    return <ToolCard pair={row.pairs[0]!} onOpenFile={onOpenFile} />;
+    return (
+      <ToolCard
+        pair={row.pairs[0]!}
+        onOpenFile={onOpenFile}
+        shimmer={shimmer}
+      />
+    );
   }
+  const Icon = FAMILY_ICONS[row.family];
+  const parts = groupSummaryParts(row, t, language);
   return (
     <StepGroupRow
-      summary={groupSummaryLabel(row, t, language)}
+      icon={
+        <Icon size={14} strokeWidth={1.8} className="shrink-0 text-ink-muted" />
+      }
+      summary={
+        <TrackSummary verb={parts.verb} object={parts.object} shimmer={shimmer} />
+      }
       open={mode === "raw"}
       keepMounted={everRaw}
       onToggle={onToggle}
+      shimmer={shimmer}
     >
       {row.pairs.map((pair, index) => (
         <ToolCard
           key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
           pair={pair}
           onOpenFile={onOpenFile}
+          embedded
         />
       ))}
     </StepGroupRow>
@@ -840,15 +918,23 @@ function OverflowRow({
 }) {
   const { t } = useTranslation();
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5 py-1 text-left text-xs text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
-    >
+    <TrackRow onToggle={onClick}>
       {t("chat.step.overflow", { n: count })}
-    </button>
+    </TrackRow>
   );
 }
+
+const FAMILY_ICONS: Record<ToolFamily, LucideIcon> = {
+  search: Search,
+  fetch: Globe,
+  grep: FileSearch,
+  glob: Files,
+  read: FileText,
+  edit: FilePenLine,
+  shell: Terminal,
+  skill: Sparkles,
+  other: Wrench,
+};
 
 const STEP_COUNT_KEYS: Record<
   Exclude<ToolGroupRow["family"], "other">,
@@ -878,34 +964,34 @@ const TENSE_DONE_KEYS: Record<
   skill: "tool.tense.skill.done",
 };
 
-function groupSummaryLabel(
+function groupSummaryParts(
   row: ToolGroupRow,
   translate: (
     key: TranslationKey,
     params?: Record<string, string | number>,
   ) => string,
   language: Language,
-): string {
+): { verb: string; object: string } {
   // read/edit 报去重文件数,与轮末改动卡同口径;其余家族报次数
   const count =
     row.family === "read" || row.family === "edit"
       ? row.uniqueFiles
       : row.pairs.length;
   const object = formatGroupObject(row, translate, language);
-  const suffix = object ? ` · ${object}` : "";
   if (row.family === "other") {
-    return (
-      translate("chat.step.other", {
+    return {
+      verb: translate("chat.step.other", {
         name: humanToolName(row.name, translate),
         count,
-      }) + suffix
-    );
+      }),
+      object,
+    };
   }
   const verb =
     count === 1
       ? translate(TENSE_DONE_KEYS[row.family])
       : translate(STEP_COUNT_KEYS[row.family], { count });
-  return verb + suffix;
+  return { verb, object };
 }
 
 function formatGroupObject(

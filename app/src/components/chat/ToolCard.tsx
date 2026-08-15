@@ -3,10 +3,11 @@ import { ToolDisclosure } from "./ToolDisclosure";
 import type { DataContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { t, useTranslation, type TranslationKey } from "../../lib/i18n";
-import { parseQpMeta, type QpMeta } from "../../lib/toolMeta";
+import { parseQpMeta, qpString, type QpMeta } from "../../lib/toolMeta";
 import { JsonView } from "./JsonView";
 import { ShellToolCard } from "./ShellToolCard";
 import { FileToolCard, isFileTool } from "./FileToolCard";
+import { TrackSummary } from "./TrackRow";
 
 export interface ToolPair {
   call: StreamMessage | null;
@@ -60,13 +61,23 @@ export function ToolCard({
   pair,
   onOpenFile,
   prominentArtifact = false,
+  embedded = false,
+  shimmer = false,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
   prominentArtifact?: boolean;
+  /** 组内原始层:shell 直接出纯文本块,文件保留 ± 行。 */
+  embedded?: boolean;
+  shimmer?: boolean;
 }) {
+  if (toolPairStatus(pair).failed && !prominentArtifact) {
+    return <FailedToolRow pair={pair} />;
+  }
   if (pair.name === "execute_shell_command") {
-    return <ShellToolCard pair={pair} />;
+    return (
+      <ShellToolCard pair={pair} embedded={embedded} shimmer={shimmer} />
+    );
   }
   if (isFileTool(pair.name)) {
     return (
@@ -74,17 +85,25 @@ export function ToolCard({
         pair={pair}
         onOpenFile={onOpenFile}
         prominentArtifact={prominentArtifact}
+        shimmer={shimmer}
       />
     );
   }
-  return <GenericToolCard pair={pair} />;
+  return <GenericToolCard pair={pair} embedded={embedded} shimmer={shimmer} />;
 }
 
-function GenericToolCard({ pair }: { pair: ToolPair }) {
+function GenericToolCard({
+  pair,
+  embedded = false,
+  shimmer = false,
+}: {
+  pair: ToolPair;
+  embedded?: boolean;
+  shimmer?: boolean;
+}) {
   const { t } = useTranslation();
   const { running, failed } = toolPairStatus(pair);
   const summary = argumentSummary(pair.arguments, t);
-  // 失败时退回中性名词,「读取了」这类完成时态只留给成功。
   const label = failed
     ? humanToolName(pair.name, t)
     : humanToolLabel(pair.name, running, t);
@@ -112,31 +131,31 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
     </div>
   );
 
+  if (embedded) {
+    return (
+      <div className="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-surface px-3 py-2">
+        {detail}
+      </div>
+    );
+  }
+
   const toggle = (
     <>
       {pair.uiIcon && (
-        // 插件/MCP 等未注册时态文案的工具用后端 ToolUISpec 声明的图标；
-        // Shell/File 专用卡保持设计系统的 lucide 图标,不受此影响。
-        <span aria-hidden className="shrink-0 text-[13px] leading-none">
+        <span aria-hidden className="shrink-0 text-[14px] leading-none text-ink-muted">
           {pair.uiIcon}
         </span>
       )}
-      <span
-        className={`min-w-0 shrink-0 truncate font-medium ${
-          running ? "text-ink" : failed ? "text-danger" : "text-ink-secondary"
-        }`}
-      >
-        {label}
+      <span className={shimmer ? "qp-shimmer min-w-0 truncate" : "min-w-0 truncate"}>
+        <TrackSummary
+          verb={label}
+          object={summary}
+          shimmer={shimmer}
+          failed={failed}
+        />
       </span>
-      {summary && (
-        <span className="min-w-0 flex-1 truncate text-ink-tertiary">
-          {summary}
-        </span>
-      )}
     </>
   );
-  // 行尾槽只在运行中占 13px 的 Spinner。完成态零落墨——成功是预期,
-  // 对号是冗余;失败由整行 danger 色承担,不靠行尾图标。
   const after = running ? (
     <ToolStatus running={running} failed={failed} />
   ) : null;
@@ -145,14 +164,58 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
     <ToolDisclosure
       toggle={toggle}
       after={after}
-      // 详情面板两态完全同形:描边卡片 + 恒定限高滚动。限高不随完成
-      // 取消——展开着的面板在收口那一刻从 20rem 弹到全高,正是要消灭
-      // 的那类几何突变;长输出在面板内滚动即可。
-      detailClassName="mb-2 mt-1 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] border border-line bg-bubble-tool px-4 py-3"
+      failed={failed}
+      detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-surface px-3 py-2"
     >
       {detail}
     </ToolDisclosure>
   );
+}
+
+/** 失败工具:红字安静行,点开才见完整错误。 */
+function FailedToolRow({ pair }: { pair: ToolPair }) {
+  const { t } = useTranslation();
+  const reason = toolFailureSummary(pair);
+  const output = pair.result ? richOutputText(pair.result) : "";
+  const detail = output ? (
+    <pre className="max-h-[min(18rem,34vh)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words font-mono text-xs leading-6 text-ink">
+      {typeof output === "string" ? output : JSON.stringify(output, null, 2)}
+    </pre>
+  ) : (
+    <div className="text-xs text-ink-tertiary">{t("tool.noResult")}</div>
+  );
+
+  return (
+    <ToolDisclosure
+      toggle={
+        <TrackSummary
+          verb={humanToolName(pair.name, t)}
+          object={reason}
+          failed
+        />
+      }
+      failed
+      detailClassName="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2"
+    >
+      {detail}
+    </ToolDisclosure>
+  );
+}
+
+function toolFailureSummary(pair: ToolPair): string {
+  const fromMeta =
+    qpString(pair.meta, "error") ||
+    qpString(pair.meta, "message") ||
+    qpString(pair.meta, "detail");
+  if (fromMeta) return firstLine(fromMeta);
+  const text = richOutputText(pair.result);
+  if (typeof text === "string" && text.trim()) return firstLine(text);
+  return "";
+}
+
+function firstLine(value: string, max = 80): string {
+  const line = value.trim().split(/\r?\n/, 1)[0] ?? "";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
 /**

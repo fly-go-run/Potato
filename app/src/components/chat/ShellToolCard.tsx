@@ -12,7 +12,16 @@ import { qpBool, qpInt } from "../../lib/toolMeta";
  * 收尾时整行一个像素都不动。长输出在展开的详情面板内滚动,失败以 danger
  * 色保持可见。
  */
-export function ShellToolCard({ pair }: { pair: ToolPair }) {
+export function ShellToolCard({
+  pair,
+  embedded = false,
+  shimmer = false,
+}: {
+  pair: ToolPair;
+  /** 组内原始层:只出命令+输出纯文本块,不再套一层摘要行。 */
+  embedded?: boolean;
+  shimmer?: boolean;
+}) {
   const { t } = useTranslation();
   const command = shellCommand(pair.arguments);
   const { running, failed } = toolPairStatus(pair);
@@ -55,27 +64,37 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
     </div>
   );
 
-  // 图标与字号在两态完全一致(12px / 继承行的 text-xs),只换颜色。
+  if (embedded) {
+    return (
+      <div className="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2">
+        {detail}
+      </div>
+    );
+  }
+
   const toggle = (
     <>
       <Terminal
-        size={12}
+        size={14}
         strokeWidth={1.8}
-        className={`shrink-0 ${
-          failed
-            ? "text-danger"
-            : running
-            ? "text-ink-secondary"
-            : "text-icon"
-        }`}
+        className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
       />
-      <code
-        className={`min-w-0 flex-1 truncate font-mono ${
-          failed ? "text-danger" : running ? "text-ink" : "text-ink-secondary"
-        }`}
-      >
-        {command || t("tool.shell")}
-      </code>
+      <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
+        <span className={failed && !shimmer ? "text-danger" : undefined}>
+          {t(running ? "tool.tense.shell.running" : "tool.tense.shell.done")}
+        </span>
+        <code
+          className={`ml-1.5 font-mono text-[12px] ${
+            failed && !shimmer
+              ? "text-danger"
+              : shimmer
+                ? ""
+                : "text-ink-tertiary group-hover:text-ink"
+          }`}
+        >
+          {command || t("tool.shell")}
+        </code>
+      </span>
     </>
   );
   // 行尾槽只在运行中占 13px 的 Spinner。完成态零落墨——成功是预期,
@@ -88,8 +107,8 @@ export function ShellToolCard({ pair }: { pair: ToolPair }) {
     <ToolDisclosure
       toggle={toggle}
       after={after}
-      // 详情面板两态同形;输出本身已在 <pre> 里限高滚动,面板不再另加上限。
-      detailClassName="mb-2 mt-1 rounded-[var(--radius-md)] border border-line bg-bubble-tool px-4 py-3"
+      failed={failed}
+      detailClassName="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2"
     >
       {detail}
     </ToolDisclosure>

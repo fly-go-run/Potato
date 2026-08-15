@@ -68,11 +68,13 @@ export function FileToolCard({
   pair,
   onOpenFile,
   prominentArtifact = false,
+  shimmer = false,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
   /** 仅在文件被明确交付给用户时展示大号产物卡。 */
   prominentArtifact?: boolean;
+  shimmer?: boolean;
 }) {
   const { t } = useTranslation();
   const parameters = parseArguments(pair.arguments);
@@ -91,8 +93,8 @@ export function FileToolCard({
   );
 
   const detail = (
-    <div className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
-      <div className="flex gap-3 border-b border-line px-4 py-2 text-xs">
+    <div className="rounded-[var(--radius-md)] bg-surface px-3 py-2">
+      <div className="mb-2 flex gap-3 text-xs">
         <span className="shrink-0 text-ink-tertiary">{t("tool.file.path")}</span>
         {path && onOpenFile ? (
           <button
@@ -109,7 +111,7 @@ export function FileToolCard({
           </code>
         )}
       </div>
-      <div className="px-4 py-3">
+      <div>
         <div className="mb-2 text-xs font-medium text-ink-tertiary">
           {pair.name === "edit_file"
             ? t("tool.file.changes")
@@ -131,7 +133,11 @@ export function FileToolCard({
     );
   }
 
-  const pathTone = failed ? "text-danger" : "text-ink-secondary";
+  const pathTone = failed
+    ? "text-danger"
+    : shimmer
+      ? ""
+      : "text-ink-tertiary group-hover:text-ink";
   const pathNode =
     path && onOpenFile ? (
       <button
@@ -140,35 +146,31 @@ export function FileToolCard({
           event.stopPropagation();
           onOpenFile(path);
         }}
-        className={`min-w-0 flex-1 truncate text-left font-mono ${pathTone} underline decoration-dotted underline-offset-2 hover:text-ink-secondary`}
+        className={`min-w-0 flex-1 truncate text-left font-mono text-[12px] ${pathTone} underline decoration-dotted underline-offset-2 hover:text-ink`}
         title={t("tool.file.open")}
       >
         {path}
       </button>
     ) : (
-      <span className={`min-w-0 flex-1 truncate font-mono ${pathTone}`}>
+      <span className={`min-w-0 flex-1 truncate font-mono text-[12px] ${pathTone}`}>
         {path || t("tool.file.path")}
       </span>
     );
 
-  // 图标与字号在两态完全一致(12px / 继承行的 text-xs),只换颜色。
-  // 失败不再躲在 debug 模式后:异常才是真正需要一眼看见的东西。
   const RowIcon = modifies ? FilePenLine : FileText;
   const toggle = (
     <>
       <RowIcon
-        size={12}
+        size={14}
         strokeWidth={1.8}
-        className={`shrink-0 ${
-          failed
-            ? "text-danger"
-            : running
-            ? "text-ink-secondary"
-            : "text-ink-muted"
-        }`}
+        className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
       />
       {title && (
-        <span className="shrink-0 font-medium text-ink">{title}</span>
+        <span
+          className={`shrink-0 ${shimmer ? "qp-shimmer" : failed ? "text-danger" : ""}`}
+        >
+          {title}
+        </span>
       )}
     </>
   );
@@ -198,10 +200,8 @@ export function FileToolCard({
       toggle={toggle}
       after={after}
       toggleGrow={false}
-      // 详情本身已是一张描边卡(见上面的 detail),外层只给上下留白,
-      // 避免嵌套双描边。限高滚动两态恒定——完成那一刻取消限高会让展开
-      // 着的面板从 20rem 弹到全高,正是要消灭的那类几何突变。
-      detailClassName="mb-2 mt-1 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
+      failed={failed}
+      detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
     >
       {detail}
     </ToolDisclosure>
@@ -446,7 +446,7 @@ function FileToolContent({
 function LineDiff({ before, after }: { before: string; after: string }) {
   const lines = lineDiff(before, after);
   return (
-    <div className="max-h-80 overflow-auto rounded-md border border-line font-mono text-xs leading-5">
+    <div className="max-h-80 overflow-auto font-mono text-xs leading-5">
       {lines.map((line, index) => (
         <div
           key={`${index}-${line.kind}`}
