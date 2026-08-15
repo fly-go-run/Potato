@@ -36,9 +36,9 @@ import {
 } from "../../lib/executionTrack";
 import { buildTimeline } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
+import { historyTurnDuration } from "../../lib/historyTurnDuration";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
 import { useNow } from "../../lib/useNow";
-import { useUiPrefs } from "../../stores/uiPrefs";
 import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
@@ -126,6 +126,8 @@ export function MessageList({
             }
             tail={index === lastIndex}
             activeMessageId={activeMessageId}
+            userTimestamp={previousUserTimestamp(turns, index)}
+            assistantTimestamp={messageTimestamp(turn.messages.at(-1))}
           />
         ),
       )}
@@ -199,6 +201,8 @@ interface AssistantTurnProps {
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
+  userTimestamp?: unknown;
+  assistantTimestamp?: unknown;
 }
 
 const AssistantTurn = memo(function AssistantTurn({
@@ -210,6 +214,8 @@ const AssistantTurn = memo(function AssistantTurn({
   activeMessageId,
   onOpenFile,
   onOpenChange,
+  userTimestamp,
+  assistantTimestamp,
 }: AssistantTurnProps) {
   // 入场动画已整体移除(设计裁决:内容直接出现,不做淡入)。
   // 流式出生的轮在它还是尾轮期间保持锚定空间(见 TAIL_MIN_HEIGHT);
@@ -332,6 +338,8 @@ const AssistantTurn = memo(function AssistantTurn({
         pulsing={pulsing}
         live={streaming}
         onOpenFile={onOpenFile}
+        userTimestamp={userTimestamp}
+        assistantTimestamp={assistantTimestamp}
       />
       {turnChanges.length > 0 && (
         <FileChangesCard changes={turnChanges} onOpenChange={onOpenChange} />
@@ -365,7 +373,9 @@ function areAssistantTurnPropsEqual(
     Object.is(previous.streaming, next.streaming) &&
     Object.is(previous.tail, next.tail) &&
     Object.is(previous.onOpenFile, next.onOpenFile) &&
-    Object.is(previous.onOpenChange, next.onOpenChange)
+    Object.is(previous.onOpenChange, next.onOpenChange) &&
+    Object.is(previous.userTimestamp, next.userTimestamp) &&
+    Object.is(previous.assistantTimestamp, next.assistantTimestamp)
   );
 }
 
@@ -495,7 +505,9 @@ function trackDurationLabel(
   if (!Number.isFinite(start)) return "";
   const stop = now ?? end;
   if (stop === null) return "";
-  return formatDuration(stop - start);
+  const elapsed = stop - start;
+  if (elapsed <= 0) return "";
+  return formatDuration(elapsed);
 }
 
 /** 运行中(含尚未收到 output 的间隙)的条目。 */
@@ -532,6 +544,8 @@ function TurnFlow({
   pulsing,
   live,
   onOpenFile,
+  userTimestamp,
+  assistantTimestamp,
 }: {
   pieces: FlowPiece[];
   /** 全部过程条目(时间序),驱动摘要行的状态与计数。 */
@@ -541,6 +555,8 @@ function TurnFlow({
   /** 本轮仍在流式中。 */
   live: boolean;
   onOpenFile?: (path: string) => void;
+  userTimestamp?: unknown;
+  assistantTimestamp?: unknown;
 }) {
   const { t } = useTranslation();
   // 用户手动点过开合就以他的选择为准,自动行为不再覆盖。
@@ -560,13 +576,13 @@ function TurnFlow({
   // 自动展开只给「活跃的最后一段」;被接替的段落已各自收拢。
   const autoOpenLast = (live || settling) && lastPiece?.type === "run";
   const headerOpen = manualOpen ?? autoOpenLast;
-  const detailedTools = useUiPrefs((state) => state.detailedTools);
-  const setDetailedTools = useUiPrefs((state) => state.setDetailedTools);
   const snapshots = foldEntries.map(entrySnapshot);
   const state = summarizeTrack(snapshots, { streaming: live, waiting });
   // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
   const now = useNow(live);
-  const durationLabel = trackDurationLabel(foldEntries, live ? now : null);
+  const durationLabel =
+    trackDurationLabel(foldEntries, live ? now : null) ||
+    historyTurnDuration(userTimestamp, assistantTimestamp);
   const compactionEntry =
     foldEntries.length === 1 &&
     foldEntries[0]?.kind === "progress" &&
@@ -587,6 +603,13 @@ function TurnFlow({
       compactionEntry.message.metadata?.phase === "fallback"
         ? t("chat.contextCompaction.fallback")
         : t("chat.contextCompaction.completed");
+  } else if (durationLabel) {
+    summary = state.failed
+      ? t("chat.workedForWithFailures", {
+          duration: durationLabel,
+          failed: state.failed,
+        })
+      : t("chat.workedFor", { duration: durationLabel });
   } else {
     summary = state.failed
       ? t("chat.toolGroupWithFailures", {
@@ -597,15 +620,18 @@ function TurnFlow({
   }
   const toggleable = foldEntries.length > 0;
   // 摘要头只在有过程可折(或等待首帧)时出现:纯文本回答不需要一行
-  // 「已完成 1 个步骤」的噪音。
+  // 「已完成 1 个步骤」的噪音。无过程条目且无失败工具则不画头。
   const showHeader = waiting || toggleable;
+  const showDurationSuffix =
+    Boolean(durationLabel) &&
+    (state.kind !== "done" || Boolean(compactionEntry));
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
       {/* 摘要文字直接替换,不做交叉淡化——状态变化本身就是信息,
           给它加动画反而把注意力引向动画。 */}
       <span>{summary}</span>
-      {durationLabel && (
+      {showDurationSuffix && (
         <span className="shrink-0 tabular-nums">· {durationLabel}</span>
       )}
       {toggleable && (
@@ -622,7 +648,7 @@ function TurnFlow({
   return (
     <div className="my-1.5">
       {showHeader && (
-        <div className="group flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {toggleable ? (
             <button
               type="button"
@@ -635,36 +661,6 @@ function TurnFlow({
           ) : (
             <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
               {summaryContent}
-            </div>
-          )}
-          {toggleable && headerOpen && (
-            // 密度切换是低频操作,常驻会给每条完成轨道多一块 chrome;
-            // 悬停/键盘聚焦时才显形,resting 状态只有摘要一行字。
-            <div className="inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px] opacity-0 transition-opacity duration-[var(--dur-fast)] focus-within:opacity-100 group-hover:opacity-100">
-              <button
-                type="button"
-                onClick={() => setDetailedTools(false)}
-                aria-pressed={!detailedTools}
-                className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                  detailedTools
-                    ? "text-ink-secondary hover:text-ink"
-                    : "bg-fill-hover text-ink-secondary"
-                }`}
-              >
-                {t("chat.density.summary")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDetailedTools(true)}
-                aria-pressed={detailedTools}
-                className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                  detailedTools
-                    ? "bg-fill-hover text-ink-secondary"
-                    : "text-ink-secondary hover:text-ink"
-                }`}
-              >
-                {t("chat.density.detailed")}
-              </button>
             </div>
           )}
         </div>
@@ -889,6 +885,16 @@ export function groupIntoTurns(messages: StreamMessage[]): Turn[] {
 function previousUserText(turns: Turn[], index: number): string {
   const previous = turns[index - 1];
   return previous?.role === "user" ? plainText(previous.messages) : "";
+}
+
+function previousUserTimestamp(turns: Turn[], index: number): unknown {
+  const previous = turns[index - 1];
+  if (previous?.role !== "user") return undefined;
+  return messageTimestamp(previous.messages[0]);
+}
+
+function messageTimestamp(message: StreamMessage | undefined): unknown {
+  return message?.metadata?.timestamp;
 }
 
 /** 取一轮里正文消息的纯文本（跳过推理、进度与工具卡）。 */
