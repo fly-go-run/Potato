@@ -9,7 +9,6 @@ import {
   Moon,
   MoreHorizontal,
   Notebook,
-  PanelLeft,
   PenLine,
   SquarePen,
   Pin,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { PotatoMark } from "../brand/PotatoMark";
+import { ChromeActions } from "./CollapsedRail";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { ChatSpec } from "../../lib/api";
 import { APP_NAME } from "../../lib/appInfo";
@@ -28,10 +28,8 @@ import { presentError } from "../../lib/errorPresentation";
 import { useTranslation } from "../../lib/i18n";
 import { relativeTime } from "../../lib/relativeTime";
 import { loadSessionProject } from "../../lib/projects";
-import { shortcutLabel } from "../../lib/shortcuts";
 import { setThemePreference } from "../../lib/theme";
 import { useChatStore } from "../../stores/chat";
-import { useUiStore } from "../../stores/ui";
 import { cn } from "../../lib/cn";
 import { Button, ConfirmDialog, IconButton, Input, SkeletonRows } from "../ui";
 
@@ -61,7 +59,6 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const chatsLoading = useChatStore((state) => state.chatsLoading);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const newChat = useChatStore((state) => state.newChat);
-  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   // 分组展开态只活在内存里：刷新后回到默认展开，不值得占一个持久化键。
   const [chatsExpanded, setChatsExpanded] = useState(true);
   const [projectsExpanded, setProjectsExpanded] = useState(true);
@@ -113,39 +110,16 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
     // 浅色 #f5f5f4 贴画布 #fbfbfb 仍糊，接缝用 line-strong。
     // 深色靠抬升分层，描边改 line-highlight，避免一条更亮的硬缝。
     <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line-strong bg-bg dark:border-line-highlight">
-      {/* macOS overlay 标题栏：两个常用入口与红绿灯同排；按钮之外的
-          空白仍是原生拖拽区。Web 端保持普通页面内工具栏的位置。 */}
+      {/* 品牌和折叠同一行；mac 壳给红绿灯留位，空白仍是拖拽区。 */}
       <div
         data-tauri-drag-region
         onMouseDown={onTitlebarMouseDown}
-        className={`flex h-11 shrink-0 items-center justify-end gap-3 pt-1 ${
-          isMacDesktopShell() ? "pl-[4.75rem] pr-3" : "px-3"
+        className={`flex h-11 shrink-0 items-center gap-0.5 ${
+          isMacDesktopShell() ? "pl-[4.75rem] pr-2" : "px-2"
         }`}
       >
-        <IconButton
-          size="sm"
-          title={`${t("sidebar.collapse")} · ${shortcutLabel("B")}`}
-          aria-label={t("sidebar.collapse")}
-          onClick={toggleSidebar}
-        >
-          <PanelLeft size={16} strokeWidth={1.75} />
-        </IconButton>
-        <IconButton
-          size="sm"
-          title={`${t("sidebar.newChat")} · ${shortcutLabel("N")}`}
-          aria-label={t("sidebar.newChat")}
-          onClick={startNewChat}
-        >
-          <SquarePen size={16} strokeWidth={1.75} />
-        </IconButton>
-      </div>
-
-      <div className="flex items-center px-6 pb-4 pt-3">
-        <div className="min-w-0 leading-none">
-          <div className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
-            {APP_NAME}
-          </div>
-        </div>
+        <ChromeActions sidebarCollapsed={false} onSearch={onSearch} />
+        <div data-tauri-drag-region className="min-w-2 flex-1 self-stretch" />
       </div>
 
       <div className="px-3 pb-4">
@@ -160,6 +134,14 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
             className={navIconClass(location.pathname === "/")}
           />
           <span className="flex-1">{t("sidebar.newChat")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onSearch}
+          className={navItemClass(false, "mt-0.5 w-full text-left")}
+        >
+          <Search size={16} strokeWidth={1.75} className={navIconClass(false)} />
+          <span className="flex-1">{t("sidebar.searchChats")}</span>
         </button>
         <NavLink
           to="/crons"
@@ -206,14 +188,6 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
             </>
           )}
         </NavLink>
-        <button
-          type="button"
-          onClick={onSearch}
-          className={navItemClass(false, "mt-0.5 w-full text-left")}
-        >
-          <Search size={16} strokeWidth={1.75} className={navIconClass(false)} />
-          <span className="flex-1">{t("sidebar.searchChats")}</span>
-        </button>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">

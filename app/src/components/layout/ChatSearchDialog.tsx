@@ -24,7 +24,6 @@ import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { loadSessionProject } from "../../lib/projects";
 import { relativeTime } from "../../lib/relativeTime";
 import { useChatStore } from "../../stores/chat";
-import { Input } from "../ui";
 
 interface PaletteItem {
   id: string;
@@ -184,7 +183,7 @@ export function ChatSearchDialog({
           </Dialog.Description>
           <div className="flex items-center gap-2 border-b border-line px-4">
             <Search size={16} strokeWidth={1.75} className="shrink-0 text-icon" />
-            <Input
+            <input
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -195,7 +194,7 @@ export function ChatSearchDialog({
                   ? `command-palette-${items[selectedIndex].id}`
                   : undefined
               }
-              className="h-12 min-w-0 flex-1 border-transparent bg-transparent px-0 shadow-none focus-visible:border-line-strong focus-visible:ring-0"
+              className="h-12 min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
             />
           </div>
           <div className="max-h-80 overflow-y-auto p-2">

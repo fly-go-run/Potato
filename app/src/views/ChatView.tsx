@@ -1,7 +1,6 @@
 import {
   ArrowDown,
   CloudUpload,
-  FolderClosed,
   PanelRight,
   Search,
   X,
@@ -16,10 +15,11 @@ import {
   useState,
   type DragEvent,
   type KeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { chromeIconClass } from "../components/layout/CollapsedRail";
 import { Composer } from "../components/chat/Composer";
+import { cn } from "../lib/cn";
 import { collectConversationArtifacts } from "../lib/conversationArtifacts";
 import { collectFileChanges } from "../lib/fileChanges";
 import { textFromContent } from "../lib/content";
@@ -27,13 +27,11 @@ import { MessageList } from "../components/chat/MessageList";
 import { Banner } from "../components/ui/Banner";
 import { Button, Card, SkeletonRows } from "../components/ui";
 import { getChatBanner } from "../lib/chatBanner";
-import { isMacDesktopShell, startDesktopWindowDrag } from "../lib/desktop";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 import { BOTTOM_THRESHOLD_PX } from "../lib/scroll";
 import type { StreamMessage } from "../lib/stream";
 import { shortcutLabel } from "../lib/shortcuts";
 import { useChatStore } from "../stores/chat";
-import { useUiStore } from "../stores/ui";
 
 const ConversationSidePanel = lazy(() =>
   import("../components/chat/ConversationSidePanel").then((module) => ({
@@ -55,7 +53,6 @@ export function ChatView() {
   const { t } = useTranslation();
   const { chatId } = useParams();
   const routerNavigate = useNavigate();
-  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const scrollRef = useRef<HTMLDivElement>(null);
   /** 已锚定的最新用户消息 id;null = 本会话还没做过首次填充。 */
   const anchoredUserIdRef = useRef<string | null>(null);
@@ -86,10 +83,6 @@ export function ChatView() {
   const sendMessage = useChatStore((state) => state.sendMessage);
   const clearError = useChatStore((state) => state.clearError);
   const addImages = useChatStore((state) => state.addImages);
-  const chats = useChatStore((state) => state.chats);
-  const activeProject = useChatStore((state) => state.project);
-  const activeChatName =
-    chats.find((chat) => chat.id === activeChatId)?.name ?? "";
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const artifacts = useMemo(
@@ -341,19 +334,6 @@ export function ChatView() {
     setSidePanelOpen(false);
   };
 
-  const onTitlebarMouseDown = (event: ReactMouseEvent<HTMLElement>) => {
-    if (!isMacDesktopShell() || event.button !== 0) return;
-    const target = event.target as HTMLElement;
-    if (
-      target.closest(
-        "button, a, input, textarea, select, [role=button], [data-radix-popper-content-wrapper]",
-      )
-    ) {
-      return;
-    }
-    startDesktopWindowDrag();
-  };
-
   const locateMessage = (messageId: string) => {
     const element = document.getElementById(`message-${messageId}`);
     if (!element) return;
@@ -474,149 +454,109 @@ export function ChatView() {
           </div>
         </div>
       ) : (
-        <>
-          {/* 会话页头(对标 WB 44px 任务栏):滚动不带走任务身份。
-              macOS 壳下同时充当可拖拽区。 */}
-          <header
-            data-tauri-drag-region
-            onMouseDown={onTitlebarMouseDown}
-            className={`qp-fade-in relative z-30 flex h-11 shrink-0 items-center border-b border-line bg-canvas pr-4 ${
-              // 收起态浮条占据左上角,标题让位:mac 壳含红绿灯更宽
-              sidebarCollapsed
-                ? isMacDesktopShell()
-                  ? "pl-40"
-                  : "pl-24"
-                : "pl-4"
-            }`}
-          >
-            <div
-              data-tauri-drag-region
-              className="flex min-w-0 flex-1 items-center gap-2"
-            >
-              <span
-                data-tauri-drag-region
-                className="min-w-0 truncate text-[13px] font-medium text-ink"
-              >
-                {activeChatName || t("sidebar.untitled")}
-              </span>
-              {activeProject && (
-                <span
-                  data-tauri-drag-region
-                  className="flex min-w-0 max-w-[13rem] items-center gap-1 border-l border-line pl-2 text-[11px] text-ink-tertiary"
-                  title={activeProject.path}
-                >
-                  <FolderClosed
-                    data-tauri-drag-region
-                    size={12}
-                    strokeWidth={1.8}
-                    className="shrink-0"
-                  />
-                  <span data-tauri-drag-region className="truncate">
-                    {activeProject.name}
-                  </span>
-                </span>
-              )}
-            </div>
-            <div className="ml-2 flex shrink-0 items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => setSearchOpen((value) => !value)}
-                title={t("chat.search.title")}
-                aria-label={t("chat.search.title")}
-                aria-expanded={searchOpen}
-                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
-                  searchOpen
-                    ? "bg-[rgba(0,0,0,0.08)] text-icon-strong dark:bg-[rgba(255,255,255,0.10)]"
-                    : "text-icon hover:bg-fill-hover hover:text-icon-strong"
-                }`}
-              >
-                <Search size={16} strokeWidth={1.75} />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  sidePanelOpen ? closeSidePanel() : setSidePanelOpen(true)
-                }
-                title={t("chat.panel.open")}
-                aria-label={t("chat.panel.open")}
-                aria-expanded={sidePanelOpen}
-                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
-                  sidePanelOpen
-                    ? "bg-[rgba(0,0,0,0.08)] text-icon-strong dark:bg-[rgba(255,255,255,0.10)]"
-                    : "text-icon hover:bg-fill-hover hover:text-icon-strong"
-                }`}
-              >
-                <PanelRight size={16} strokeWidth={1.75} />
-              </button>
-            </div>
-          </header>
-          {searchOpen && (
-            <div className="absolute right-3 top-12 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
-              <div className="flex h-11 items-center gap-2 border-b border-line px-3">
-                <Search size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
-                <input
-                  ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder={t("chat.search.placeholder")}
-                  aria-label={t("chat.search.title")}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
-                />
-                {searchQuery && (
-                  <span className="shrink-0 text-[11px] tabular-nums text-ink-tertiary">
-                    {t("chat.search.count", { count: searchMatches.length })}
-                  </span>
-                )}
+        <div className="qp-fade-in flex min-h-0 flex-1">
+          <section className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-center justify-end px-2 pt-1.5">
+              <div className="pointer-events-auto flex items-center gap-0.5 rounded-[var(--radius-md)] bg-canvas/80 p-0.5 backdrop-blur-md">
                 <button
                   type="button"
-                  onClick={() => setSearchOpen(false)}
-                  title={t("chat.search.close")}
-                  aria-label={t("chat.search.close")}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
+                  onClick={() => setSearchOpen((value) => !value)}
+                  title={t("chat.search.title")}
+                  aria-label={t("chat.search.title")}
+                  aria-expanded={searchOpen}
+                  className={cn(
+                    chromeIconClass,
+                    searchOpen && "bg-fill-hover text-icon-strong",
+                  )}
                 >
-                  <X size={14} strokeWidth={1.8} />
+                  <Search size={16} strokeWidth={1.75} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    sidePanelOpen ? closeSidePanel() : setSidePanelOpen(true)
+                  }
+                  title={t("chat.panel.open")}
+                  aria-label={t("chat.panel.open")}
+                  aria-expanded={sidePanelOpen}
+                  className={cn(
+                    chromeIconClass,
+                    sidePanelOpen && "bg-fill-hover text-icon-strong",
+                  )}
+                >
+                  <PanelRight size={16} strokeWidth={1.75} />
                 </button>
               </div>
-              {searchQuery.trim() && (
-              <div className="max-h-64 overflow-y-auto p-1.5">
-                {searchMatches.length === 0 ? (
-                  <div className="px-3 py-5 text-center text-xs text-ink-tertiary">
-                    {t("chat.search.empty")}
+            </div>
+            {searchOpen && (
+              <div className="absolute right-2 top-10 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
+                <div className="flex h-11 items-center gap-2 border-b border-line px-3">
+                  <Search
+                    size={14}
+                    strokeWidth={1.8}
+                    className="shrink-0 text-icon"
+                  />
+                  <input
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder={t("chat.search.placeholder")}
+                    aria-label={t("chat.search.title")}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
+                  />
+                  {searchQuery && (
+                    <span className="shrink-0 text-[11px] tabular-nums text-ink-tertiary">
+                      {t("chat.search.count", { count: searchMatches.length })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSearchOpen(false)}
+                    title={t("chat.search.close")}
+                    aria-label={t("chat.search.close")}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
+                  >
+                    <X size={14} strokeWidth={1.8} />
+                  </button>
+                </div>
+                {searchQuery.trim() && (
+                  <div className="max-h-64 overflow-y-auto p-1.5">
+                    {searchMatches.length === 0 ? (
+                      <div className="px-3 py-5 text-center text-xs text-ink-tertiary">
+                        {t("chat.search.empty")}
+                      </div>
+                    ) : (
+                      searchMatches.map((match) => (
+                        <button
+                          key={match.id}
+                          type="button"
+                          onClick={() => locateMessage(match.id)}
+                          className={`block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors ${
+                            activeSearchMessageId === match.id
+                              ? "bg-fill-active"
+                              : "hover:bg-fill-hover"
+                          }`}
+                        >
+                          <span className="block text-[11px] text-ink-tertiary">
+                            {match.role === "user"
+                              ? t("chat.search.you")
+                              : t("chat.search.assistant")}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[13px] text-ink-secondary">
+                            {match.text}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
-                ) : (
-                  searchMatches.map((match) => (
-                    <button
-                      key={match.id}
-                      type="button"
-                      onClick={() => locateMessage(match.id)}
-                      className={`block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors ${
-                        activeSearchMessageId === match.id
-                          ? "bg-fill-active"
-                          : "hover:bg-fill-hover"
-                      }`}
-                    >
-                      <span className="block text-[11px] text-ink-tertiary">
-                        {match.role === "user"
-                          ? t("chat.search.you")
-                          : t("chat.search.assistant")}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[13px] text-ink-secondary">
-                        {match.text}
-                      </span>
-                    </button>
-                  ))
                 )}
               </div>
-              )}
-            </div>
-          )}
-          <div className="qp-fade-in flex min-h-0 flex-1">
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div
-                ref={scrollRef}
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-              >
+            )}
+            <div
+              ref={scrollRef}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            >
                 {historyLoading ? (
                   <div className="mx-auto w-full max-w-[48rem] px-8 py-10">
                     <Card className="p-4">
@@ -664,7 +604,6 @@ export function ChatView() {
               </Suspense>
             )}
           </div>
-        </>
       )}
     </div>
   );

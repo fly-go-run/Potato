@@ -897,10 +897,10 @@ export function SettingsView() {
           onOpenAutoFocus={(event) => event.preventDefault()}
           className={cn(
             "qp-pop fixed inset-3 z-50 flex flex-col overflow-hidden outline-none",
-            "rounded-[var(--radius-lg)] border border-line bg-surface shadow-[var(--shadow-lg)]",
+            "rounded-[var(--radius-lg)] border border-line bg-canvas shadow-[var(--shadow-lg)]",
             "sm:bottom-auto sm:right-auto sm:left-1/2 sm:top-1/2",
-            // 随内容收缩：固定 85vh 会让短分区留下大片空腔
-            "sm:h-auto sm:max-h-[85vh] sm:min-h-[30rem] sm:w-[min(56rem,calc(100vw-3rem))]",
+            // 分区切换只换内容、不改窗框。短页在右侧滚动区留白，避免跳尺寸。
+            "sm:h-[min(40rem,85vh)] sm:w-[min(56rem,calc(100vw-3rem))]",
             "sm:-translate-x-1/2 sm:-translate-y-1/2 sm:flex-row",
           )}
         >
@@ -911,8 +911,7 @@ export function SettingsView() {
           <nav
             aria-label={t("settings.title")}
             className={cn(
-              // 导航面用 bg-bg，与右侧 bg-surface 形成表面分层（不再只靠 1px 竖线）
-              "flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-bg p-2",
+              "flex shrink-0 gap-1 overflow-x-auto border-b border-line p-2",
               "sm:w-48 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto",
               "sm:border-b-0 sm:border-r sm:p-3",
             )}
@@ -930,7 +929,7 @@ export function SettingsView() {
                     "transition-colors duration-[var(--dur-fast)]",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     selected
-                      ? "bg-fill-active font-medium text-ink"
+                      ? "bg-surface font-medium text-ink shadow-[var(--shadow-sm)]"
                       : "text-ink-secondary hover:bg-fill-hover hover:text-ink",
                   )}
                 >
@@ -2082,7 +2081,7 @@ function SettingsGroup({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[var(--radius-md)] bg-bg",
+        "overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface",
         className,
       )}
     >

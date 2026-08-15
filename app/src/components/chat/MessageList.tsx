@@ -98,7 +98,7 @@ export function MessageList({
   return (
     <div
       data-chat-content
-      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-8 sm:px-8"
+      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-5 sm:px-8"
     >
       {turns.map((turn, index) =>
         turn.role === "user" ? (
