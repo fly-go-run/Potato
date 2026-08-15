@@ -7,6 +7,7 @@ import {
   type ContentBlock,
   type DataContent,
   type MessageFrame,
+  type MessageMetadata,
   type RateLimitedFrame,
   type ResponseFrame,
   type RunStatus,
@@ -33,7 +34,8 @@ export interface StreamMessage {
   role: MessageFrame["role"];
   status: RunStatus;
   content: ContentBlock[];
-  metadata: Record<string, unknown> | null;
+  /** Optional answer phase. Missing / null = unknown. */
+  metadata: MessageMetadata | null;
   name?: string;
   usage?: MessageFrame["usage"];
 }

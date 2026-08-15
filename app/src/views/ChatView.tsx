@@ -1,26 +1,8 @@
 import {
   ArrowDown,
-  Bug,
-  CalendarClock,
   CloudUpload,
-  CodeXml,
-  Coffee,
-  FileCode2,
-  FolderClosed,
-  FileText,
-  Gauge,
-  Image,
-  LayoutTemplate,
-  MousePointer2,
-  NotebookPen,
-  Palette,
-  PanelRightOpen,
-  Presentation,
+  PanelRight,
   Search,
-  ScanSearch,
-  SwatchBook,
-  Table2,
-  TestTube2,
   X,
 } from "lucide-react";
 import {
@@ -33,10 +15,11 @@ import {
   useState,
   type DragEvent,
   type KeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { chromeIconClass } from "../components/layout/CollapsedRail";
 import { Composer } from "../components/chat/Composer";
+import { cn } from "../lib/cn";
 import { collectConversationArtifacts } from "../lib/conversationArtifacts";
 import { collectFileChanges } from "../lib/fileChanges";
 import { textFromContent } from "../lib/content";
@@ -44,13 +27,11 @@ import { MessageList } from "../components/chat/MessageList";
 import { Banner } from "../components/ui/Banner";
 import { Button, Card, SkeletonRows } from "../components/ui";
 import { getChatBanner } from "../lib/chatBanner";
-import { isMacDesktopShell, startDesktopWindowDrag } from "../lib/desktop";
-import { useTranslation } from "../lib/i18n";
+import { useTranslation, type TranslationKey } from "../lib/i18n";
 import { BOTTOM_THRESHOLD_PX } from "../lib/scroll";
 import type { StreamMessage } from "../lib/stream";
 import { shortcutLabel } from "../lib/shortcuts";
 import { useChatStore } from "../stores/chat";
-import { useUiStore } from "../stores/ui";
 
 const ConversationSidePanel = lazy(() =>
   import("../components/chat/ConversationSidePanel").then((module) => ({
@@ -58,192 +39,20 @@ const ConversationSidePanel = lazy(() =>
   })),
 );
 
-function CapabilityChips({ wide = false }: { wide?: boolean }) {
-  const { t } = useTranslation();
-  const [category, setCategory] = useState<"office" | "code" | "design">(
-    "office",
-  );
-  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(
-    null,
-  );
-  const setComposerDraft = useChatStore((state) => state.setComposerDraft);
-  const busy = useChatStore((state) => state.isSubmitting || state.isStreaming);
-  // key 是胶囊上的短标签,prompt 是点击后填入的完整任务指令(部分留白等用户补充)
-  const groups = {
-    office: [
-      {
-        key: "chat.suggest.report",
-        prompt: "chat.suggest.report.prompt",
-        icon: NotebookPen,
-      },
-      {
-        key: "chat.suggest.doc",
-        prompt: "chat.suggest.doc.prompt",
-        icon: FileText,
-      },
-      {
-        key: "chat.suggest.sheet",
-        prompt: "chat.suggest.sheet.prompt",
-        icon: Table2,
-      },
-      {
-        key: "chat.suggest.slides",
-        prompt: "chat.suggest.slides.prompt",
-        icon: Presentation,
-      },
-      {
-        key: "chat.suggest.cron",
-        prompt: "chat.suggest.cron.prompt",
-        icon: CalendarClock,
-      },
-    ],
-    code: [
-      {
-        key: "chat.suggest.code.explain",
-        prompt: "chat.suggest.code.explain.prompt",
-        icon: FileCode2,
-      },
-      {
-        key: "chat.suggest.code.fix",
-        prompt: "chat.suggest.code.fix.prompt",
-        icon: Bug,
-      },
-      {
-        key: "chat.suggest.code.test",
-        prompt: "chat.suggest.code.test.prompt",
-        icon: TestTube2,
-      },
-      {
-        key: "chat.suggest.code.review",
-        prompt: "chat.suggest.code.review.prompt",
-        icon: ScanSearch,
-      },
-      {
-        key: "chat.suggest.code.refactor",
-        prompt: "chat.suggest.code.refactor.prompt",
-        icon: Gauge,
-      },
-      {
-        key: "chat.suggest.code.project",
-        prompt: "chat.suggest.code.project.prompt",
-        icon: CodeXml,
-      },
-    ],
-    design: [
-      {
-        key: "chat.suggest.design.ui",
-        prompt: "chat.suggest.design.ui.prompt",
-        icon: LayoutTemplate,
-      },
-      {
-        key: "chat.suggest.design.image",
-        prompt: "chat.suggest.design.image.prompt",
-        icon: Image,
-      },
-      {
-        key: "chat.suggest.design.interaction",
-        prompt: "chat.suggest.design.interaction.prompt",
-        icon: MousePointer2,
-      },
-      {
-        key: "chat.suggest.design.prototype",
-        prompt: "chat.suggest.design.prototype.prompt",
-        icon: Palette,
-      },
-      {
-        key: "chat.suggest.design.review",
-        prompt: "chat.suggest.design.review.prompt",
-        icon: ScanSearch,
-      },
-      {
-        key: "chat.suggest.design.system",
-        prompt: "chat.suggest.design.system.prompt",
-        icon: SwatchBook,
-      },
-    ],
-  } as const;
-  const categories = [
-    { value: "office", label: "chat.category.office", icon: Coffee },
-    { value: "code", label: "chat.category.code", icon: CodeXml },
-    { value: "design", label: "chat.category.design", icon: Palette },
-  ] as const;
-  const suggestions = groups[category];
-  return (
-    // padding 在 max-w 外层，与 Composer 同构，胶囊行才能与输入卡左右对齐
-    <div className="px-4 sm:px-6">
-      <div className="flex justify-center">
-        <div
-          role="tablist"
-          aria-label={t("chat.category.label")}
-          className="inline-flex items-center rounded-full bg-fill-hover p-0.5"
-        >
-          {categories.map(({ value, label, icon: Icon }) => {
-            const selected = category === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => {
-                  setCategory(value);
-                  setSelectedSuggestion(null);
-                }}
-                className={`flex h-9 items-center gap-2 rounded-full px-5 text-[14px] font-medium transition-[background-color,color,box-shadow] duration-[var(--dur-fast)] ${
-                  selected
-                    ? "bg-btn-primary text-btn-primary-ink shadow-[var(--shadow-control)]"
-                    : "text-ink-secondary hover:bg-fill-active hover:text-ink"
-                }`}
-              >
-                <Icon size={16} strokeWidth={1.8} />
-                {t(label)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div
-        className={`mx-auto mt-14 flex flex-wrap justify-center gap-2 ${
-          wide ? "w-full sm:w-[91%] sm:max-w-[90rem]" : "w-full max-w-[48rem]"
-        }`}
-      >
-        {suggestions.map(({ key, prompt, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            disabled={busy}
-            aria-pressed={selectedSuggestion === key}
-            onClick={() => {
-              setSelectedSuggestion(key);
-              setComposerDraft(t(prompt));
-            }}
-            className={`group flex h-9 items-center gap-1.5 rounded-full border border-transparent px-4 text-[13px] leading-5 shadow-[var(--shadow-control)] transition-[background-color,color,box-shadow,opacity] duration-[var(--dur-fast)] disabled:pointer-events-none disabled:opacity-40 ${
-              selectedSuggestion === key
-                ? "bg-fill-active text-ink"
-                : "bg-surface text-ink-secondary hover:bg-fill-hover hover:text-ink active:bg-fill-active"
-            }`}
-          >
-            <Icon
-              size={16}
-              className={`shrink-0 transition-colors duration-[var(--dur-fast)] ${
-                selectedSuggestion === key
-                  ? "text-ink-secondary"
-                  : "text-ink-tertiary group-hover:text-ink-secondary"
-              }`}
-            />
-            {t(key)}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+
+/** 时段问候:口号退役,首页对人不对市场说话。 */
+function timeGreeting(t: (key: TranslationKey) => string): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return t("chat.greeting.morning");
+  if (hour >= 12 && hour < 18) return t("chat.greeting.afternoon");
+  return t("chat.greeting.evening");
 }
+
 
 export function ChatView() {
   const { t } = useTranslation();
   const { chatId } = useParams();
   const routerNavigate = useNavigate();
-  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const scrollRef = useRef<HTMLDivElement>(null);
   /** 已锚定的最新用户消息 id;null = 本会话还没做过首次填充。 */
   const anchoredUserIdRef = useRef<string | null>(null);
@@ -260,7 +69,6 @@ export function ChatView() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const messages = useChatStore((state) => state.stream.messages);
-  const responseStatus = useChatStore((state) => state.stream.responseStatus);
   const rateLimited = useChatStore((state) => state.stream.rateLimited);
   const historyLoading = useChatStore((state) => state.historyLoading);
   const error = useChatStore((state) => state.error);
@@ -275,10 +83,6 @@ export function ChatView() {
   const sendMessage = useChatStore((state) => state.sendMessage);
   const clearError = useChatStore((state) => state.clearError);
   const addImages = useChatStore((state) => state.addImages);
-  const chats = useChatStore((state) => state.chats);
-  const activeProject = useChatStore((state) => state.project);
-  const activeChatName =
-    chats.find((chat) => chat.id === activeChatId)?.name ?? "";
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const artifacts = useMemo(
@@ -530,19 +334,6 @@ export function ChatView() {
     setSidePanelOpen(false);
   };
 
-  const onTitlebarMouseDown = (event: ReactMouseEvent<HTMLElement>) => {
-    if (!isMacDesktopShell() || event.button !== 0) return;
-    const target = event.target as HTMLElement;
-    if (
-      target.closest(
-        "button, a, input, textarea, select, [role=button], [data-radix-popper-content-wrapper]",
-      )
-    ) {
-      return;
-    }
-    startDesktopWindowDrag();
-  };
-
   const locateMessage = (messageId: string) => {
     const element = document.getElementById(`message-${messageId}`);
     if (!element) return;
@@ -582,7 +373,7 @@ export function ChatView() {
     >
       {dragging && (
         <div className="pointer-events-none absolute inset-3 z-50 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-accent bg-accent-soft/60">
-          <CloudUpload size={28} className="text-accent" />
+          <CloudUpload size={28} strokeWidth={1.75} className="text-accent" />
           <span className="text-sm font-medium text-accent">
             {t("chat.dropFiles")}
           </span>
@@ -646,170 +437,125 @@ export function ChatView() {
       )}
 
       {!historyLoading && isEmpty ? (
-        // WorkBuddy 的空态从视口上方约 15% 开始；固定上边距比靠
-        // 大块 padding-bottom 挤压居中更稳定，矮窗口也不会顶到标题栏。
-        // 能力胶囊 → composer;胶囊贴着 composer(其自带 pt-2)形成一组输入区
-        <div className="qp-fade-in flex min-h-0 flex-1 flex-col justify-start pb-10 pt-[13vh]">
+        // 目标是输入框光学中心落在 45-48%(对标 ChatGPT),不是锁问候位:
+        // justify-center 自适应视口,pb 上偏让中心从 50%+ 回到目标带
+        <div className="qp-fade-in flex min-h-0 flex-1 flex-col justify-center pb-[16vh]">
           <div className="px-4 sm:px-6">
             <h1 className="font-display text-center text-[32px] font-semibold leading-[42px] tracking-[-0.025em] text-ink sm:text-[34px]">
-              {t("chat.emptyTitle")}
+              {timeGreeting(t)}
             </h1>
             <p className="sr-only">
               {t("chat.emptyHint", { shortcut: shortcutLabel("K") })}
             </p>
           </div>
-          <div className="mt-12">
-            <CapabilityChips wide />
+          <div className="mt-16">
+            <Composer wide />
           </div>
-          <Composer wide />
         </div>
       ) : (
-        <>
-          {/* 会话页头(对标 WB 44px 任务栏):滚动不带走任务身份。
-              macOS 壳下同时充当可拖拽区。 */}
-          <header
-            data-tauri-drag-region
-            onMouseDown={onTitlebarMouseDown}
-            className={`qp-fade-in relative z-30 flex h-11 shrink-0 items-center border-b border-line bg-canvas pr-4 ${
-              isMacDesktopShell() && sidebarCollapsed ? "pl-40" : "pl-4"
-            }`}
-          >
-            <div
-              data-tauri-drag-region
-              className="flex min-w-0 flex-1 items-center gap-2"
-            >
-              <span
-                data-tauri-drag-region
-                className="min-w-0 truncate text-[13px] font-medium text-ink"
-              >
-                {activeChatName || t("sidebar.untitled")}
-              </span>
-              {activeProject && (
-                <span
-                  data-tauri-drag-region
-                  className="flex min-w-0 max-w-[13rem] items-center gap-1 border-l border-line pl-2 text-[11px] text-ink-tertiary"
-                  title={activeProject.path}
-                >
-                  <FolderClosed
-                    data-tauri-drag-region
-                    size={12}
-                    className="shrink-0"
-                  />
-                  <span data-tauri-drag-region className="truncate">
-                    {activeProject.name}
-                  </span>
-                </span>
-              )}
-            </div>
-            <div className="ml-2 flex shrink-0 items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => setSearchOpen((value) => !value)}
-                title={t("chat.search.title")}
-                aria-label={t("chat.search.title")}
-                aria-expanded={searchOpen}
-                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
-                  searchOpen
-                    ? "bg-fill-active text-ink"
-                    : "text-ink-muted hover:bg-fill-hover hover:text-ink"
-                }`}
-              >
-                <Search size={15} />
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  sidePanelOpen ? closeSidePanel() : setSidePanelOpen(true)
-                }
-                title={t("chat.panel.open")}
-                aria-label={t("chat.panel.open")}
-                aria-expanded={sidePanelOpen}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
-                  sidePanelOpen
-                    ? "bg-fill-active text-ink"
-                    : "text-ink-muted hover:bg-fill-hover hover:text-ink"
-                }`}
-              >
-                <PanelRightOpen size={15} />
-                {artifacts.length + fileChanges.length > 0 && (
-                  <span className="absolute right-0.5 top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-btn-primary px-1 text-[9px] leading-3.5 text-btn-primary-ink">
-                    {artifacts.length + fileChanges.length > 9
-                      ? "9+"
-                      : artifacts.length + fileChanges.length}
-                  </span>
-                )}
-              </button>
-            </div>
-          </header>
-          {searchOpen && (
-            <div className="absolute right-3 top-12 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
-              <div className="flex h-11 items-center gap-2 border-b border-line px-3">
-                <Search size={14} className="shrink-0 text-ink-muted" />
-                <input
-                  ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder={t("chat.search.placeholder")}
-                  aria-label={t("chat.search.title")}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
-                />
-                {searchQuery && (
-                  <span className="shrink-0 text-[11px] tabular-nums text-ink-muted">
-                    {t("chat.search.count", { count: searchMatches.length })}
-                  </span>
-                )}
+        <div className="qp-fade-in flex min-h-0 flex-1">
+          <section className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-center justify-end px-2 pt-1.5">
+              <div className="pointer-events-auto flex items-center gap-0.5 rounded-[var(--radius-md)] bg-canvas/80 p-0.5 backdrop-blur-md">
                 <button
                   type="button"
-                  onClick={() => setSearchOpen(false)}
-                  title={t("chat.search.close")}
-                  aria-label={t("chat.search.close")}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:bg-fill-hover hover:text-ink"
+                  onClick={() => setSearchOpen((value) => !value)}
+                  title={t("chat.search.title")}
+                  aria-label={t("chat.search.title")}
+                  aria-expanded={searchOpen}
+                  className={cn(
+                    chromeIconClass,
+                    searchOpen && "bg-fill-hover text-icon-strong",
+                  )}
                 >
-                  <X size={14} />
+                  <Search size={16} strokeWidth={1.75} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    sidePanelOpen ? closeSidePanel() : setSidePanelOpen(true)
+                  }
+                  title={t("chat.panel.open")}
+                  aria-label={t("chat.panel.open")}
+                  aria-expanded={sidePanelOpen}
+                  className={cn(
+                    chromeIconClass,
+                    sidePanelOpen && "bg-fill-hover text-icon-strong",
+                  )}
+                >
+                  <PanelRight size={16} strokeWidth={1.75} />
                 </button>
               </div>
-              <div className="max-h-64 overflow-y-auto p-1.5">
-                {!searchQuery.trim() ? (
-                  <div className="px-3 py-5 text-center text-xs text-ink-muted">
-                    {t("chat.search.hint")}
+            </div>
+            {searchOpen && (
+              <div className="absolute right-2 top-10 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
+                <div className="flex h-11 items-center gap-2 border-b border-line px-3">
+                  <Search
+                    size={14}
+                    strokeWidth={1.8}
+                    className="shrink-0 text-icon"
+                  />
+                  <input
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder={t("chat.search.placeholder")}
+                    aria-label={t("chat.search.title")}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
+                  />
+                  {searchQuery && (
+                    <span className="shrink-0 text-[11px] tabular-nums text-ink-tertiary">
+                      {t("chat.search.count", { count: searchMatches.length })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSearchOpen(false)}
+                    title={t("chat.search.close")}
+                    aria-label={t("chat.search.close")}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-icon hover:bg-fill-hover hover:text-icon-strong"
+                  >
+                    <X size={14} strokeWidth={1.8} />
+                  </button>
+                </div>
+                {searchQuery.trim() && (
+                  <div className="max-h-64 overflow-y-auto p-1.5">
+                    {searchMatches.length === 0 ? (
+                      <div className="px-3 py-5 text-center text-xs text-ink-tertiary">
+                        {t("chat.search.empty")}
+                      </div>
+                    ) : (
+                      searchMatches.map((match) => (
+                        <button
+                          key={match.id}
+                          type="button"
+                          onClick={() => locateMessage(match.id)}
+                          className={`block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors ${
+                            activeSearchMessageId === match.id
+                              ? "bg-fill-active"
+                              : "hover:bg-fill-hover"
+                          }`}
+                        >
+                          <span className="block text-[11px] text-ink-tertiary">
+                            {match.role === "user"
+                              ? t("chat.search.you")
+                              : t("chat.search.assistant")}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[13px] text-ink-secondary">
+                            {match.text}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
-                ) : searchMatches.length === 0 ? (
-                  <div className="px-3 py-5 text-center text-xs text-ink-muted">
-                    {t("chat.search.empty")}
-                  </div>
-                ) : (
-                  searchMatches.map((match) => (
-                    <button
-                      key={match.id}
-                      type="button"
-                      onClick={() => locateMessage(match.id)}
-                      className={`block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors ${
-                        activeSearchMessageId === match.id
-                          ? "bg-fill-active"
-                          : "hover:bg-fill-hover"
-                      }`}
-                    >
-                      <span className="block text-[11px] text-ink-muted">
-                        {match.role === "user"
-                          ? t("chat.search.you")
-                          : t("chat.search.assistant")}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[13px] text-ink-secondary">
-                        {match.text}
-                      </span>
-                    </button>
-                  ))
                 )}
               </div>
-            </div>
-          )}
-          <div className="qp-fade-in flex min-h-0 flex-1">
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div
-                ref={scrollRef}
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-              >
+            )}
+            <div
+              ref={scrollRef}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            >
                 {historyLoading ? (
                   <div className="mx-auto w-full max-w-[48rem] px-8 py-10">
                     <Card className="p-4">
@@ -833,7 +579,7 @@ export function ChatView() {
                       onClick={scrollToBottom}
                       className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-raised px-3 py-1.5 text-xs text-ink-secondary shadow-[var(--shadow-md)] transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
                     >
-                      <ArrowDown size={13} />
+                      <ArrowDown size={14} strokeWidth={1.8} />
                       {t("chat.backToBottom")}
                     </button>
                   </div>
@@ -844,10 +590,8 @@ export function ChatView() {
             {sidePanelOpen && (
               <Suspense fallback={null}>
                 <ConversationSidePanel
-                  messages={messages}
                   artifacts={artifacts}
                   changes={fileChanges}
-                  responseStatus={responseStatus}
                   selectedFilePath={selectedFilePath}
                   selectedChangePath={selectedChangePath}
                   onClose={closeSidePanel}
@@ -859,7 +603,6 @@ export function ChatView() {
               </Suspense>
             )}
           </div>
-        </>
       )}
     </div>
   );

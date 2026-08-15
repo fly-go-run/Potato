@@ -245,9 +245,9 @@ export function ProjectPicker() {
             variant="ghost"
             size="sm"
             title={project?.path ?? t("projects.defaultWorkspace")}
-            className="max-w-40 px-2 data-[state=open]:bg-fill-hover data-[state=open]:text-ink"
+            className="max-w-40 px-2 data-[state=open]:bg-fill-hover"
           >
-            <Folder size={14} className="shrink-0" />
+            <Folder size={14} strokeWidth={1.8} className="shrink-0" />
             <span className="truncate">
               {project?.name ?? t("projects.defaultWorkspace")}
             </span>
@@ -270,8 +270,9 @@ export function ProjectPicker() {
             <div className="relative border-b border-line p-1.5">
               <Search
                 size={14}
+                strokeWidth={1.8}
                 aria-hidden
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-tertiary"
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-icon"
               />
               <input
                 ref={searchRef}
@@ -298,7 +299,7 @@ export function ProjectPicker() {
                 <SkeletonRows rows={3} />
               </div>
             ) : entries.length === 0 ? (
-              <div className="px-3 py-6 text-center text-[13px] text-ink-muted">
+              <div className="px-3 py-6 text-center text-[13px] text-ink-tertiary">
                 {t("projects.noMatches")}
               </div>
             ) : (
@@ -321,10 +322,11 @@ export function ProjectPicker() {
                       )}
                     >
                       <Icon
-                        size={15}
+                        size={14}
+                        strokeWidth={1.8}
                         className={cn(
                           "shrink-0",
-                          entry.isGit ? "text-accent" : "text-ink-tertiary",
+                          entry.isGit ? "text-accent" : "text-icon",
                         )}
                       />
                       <span className="min-w-0 flex-1">
@@ -343,7 +345,7 @@ export function ProjectPicker() {
                         )}
                       </span>
                       {selected && (
-                        <Check size={14} className="shrink-0 text-accent" />
+                        <Check size={14} strokeWidth={1.8} className="shrink-0 text-accent" />
                       )}
                     </button>
                   );
@@ -353,12 +355,12 @@ export function ProjectPicker() {
 
             <div className="border-t border-line p-1">
               <ActionRow
-                icon={<FolderOpen size={14} className="text-ink-tertiary" />}
+                icon={<FolderOpen size={14} strokeWidth={1.8} className="text-icon" />}
                 label={t("projects.browse")}
                 onClick={() => void startBrowse()}
               />
               <ActionRow
-                icon={<Plus size={14} className="text-ink-tertiary" />}
+                icon={<Plus size={14} strokeWidth={1.8} className="text-icon" />}
                 label={t("projects.create")}
                 onClick={() => startFlow("create")}
               />
@@ -385,7 +387,7 @@ export function ProjectPicker() {
             }}
             title={t("projects.parent")}
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={16} strokeWidth={1.75} />
           </IconButton>
           <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-secondary">
             {listing?.current ?? t("projects.loading")}
@@ -408,16 +410,16 @@ export function ProjectPicker() {
                   onClick={() => void browse(directory.path)}
                   className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink-secondary hover:bg-fill-hover hover:text-ink"
                 >
-                  <Folder size={15} className="shrink-0 text-ink-muted" />
+                  <Folder size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
                   <span className="min-w-0 flex-1 truncate">
                     {directory.name}
                   </span>
-                  <ChevronRight size={14} className="text-ink-muted" />
+                  <ChevronRight size={14} strokeWidth={1.8} className="text-ink-tertiary" />
                 </button>
               ))}
             </div>
           ) : (
-            <div className="px-3 py-8 text-center text-sm text-ink-muted">
+            <div className="px-3 py-8 text-center text-sm text-ink-tertiary">
               {t("projects.noSubdirectories")}
             </div>
           )}
@@ -531,13 +533,13 @@ function FlowDialog({
               <Dialog.Title className="font-medium text-ink">
                 {title}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-ink-muted">
+              <Dialog.Description className="mt-0.5 text-xs text-ink-tertiary">
                 {description}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={closeLabel}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>

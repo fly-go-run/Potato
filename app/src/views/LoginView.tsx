@@ -55,7 +55,7 @@ export function LoginView() {
         <h1 className="font-display text-center text-lg font-medium text-ink">
           {APP_NAME}
         </h1>
-        <p className="mt-1 text-center text-sm text-ink-muted">
+        <p className="mt-1 text-center text-sm text-ink-tertiary">
           {status?.has_users === false
             ? t("login.createLocalAccount")
             : t("login.signInWorkspace")}

@@ -5,7 +5,13 @@ import type { StreamMessage } from "../../lib/stream";
 import { useTranslation } from "../../lib/i18n";
 import { useToolDetail } from "../../stores/uiPrefs";
 
-export function ProgressCard({ message }: { message: StreamMessage }) {
+export function ProgressCard({
+  message,
+  shimmer = false,
+}: {
+  message: StreamMessage;
+  shimmer?: boolean;
+}) {
   const { t } = useTranslation();
   // hook 必须在压缩卡的提前 return 之前调用。
   const debugStatus = useToolDetail();
@@ -18,9 +24,13 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
         ? t("chat.contextCompaction.completed")
         : t("chat.contextCompaction.running");
     return (
-      <div className="my-2 flex items-center gap-2 text-xs text-ink-muted">
+      <div className="flex items-center gap-1.5 py-1 text-[13px] text-ink-secondary">
         {phase === "in_progress" && <Spinner size={13} />}
-        <span className="min-w-0 truncate font-medium text-ink-secondary">
+        <span
+          className={`min-w-0 truncate ${
+            phase === "in_progress" || shimmer ? "qp-shimmer" : ""
+          }`}
+        >
           {label}
         </span>
       </div>
@@ -38,11 +48,9 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
   // 失败终态不分环境,必须始终可见:静默吞掉失败比暴露内部字段更伤。
   if (failed) {
     return (
-      <div className="my-2 flex items-center gap-2 text-xs text-danger">
-        <Icon size={14} className="shrink-0" />
-        <span className="min-w-0 truncate font-medium">
-          {t("progress.failedTitle")}
-        </span>
+      <div className="flex items-center gap-1.5 py-1 text-[13px] text-danger">
+        <Icon size={14} strokeWidth={1.8} className="shrink-0" />
+        <span className="min-w-0 truncate">{t("progress.failedTitle")}</span>
         {status && (
           <span className="min-w-0 truncate" title={status}>
             · {status}
@@ -54,27 +62,25 @@ export function ProgressCard({ message }: { message: StreamMessage }) {
 
   if (completed) {
     return (
-      <div className="my-2 flex items-center gap-2 text-xs text-ink-muted">
-        {debugStatus && <Icon size={14} className="shrink-0" />}
-        <span className="min-w-0 truncate font-medium text-ink-secondary">
-          {title}
-        </span>
+      <div className="flex items-center gap-1.5 py-1 text-[13px] text-ink-secondary">
+        {debugStatus && <Icon size={14} strokeWidth={1.8} className="shrink-0 text-ink-muted" />}
+        <span className="min-w-0 truncate">{title}</span>
         {debugStatus && status && status !== title && (
-          <span className="min-w-0 truncate">· {status}</span>
+          <span className="min-w-0 truncate text-ink-tertiary">· {status}</span>
         )}
       </div>
     );
   }
 
   return (
-    <div className="my-2 rounded-md bg-bubble-tool px-3 py-2 text-xs">
-      <div className="flex items-center gap-2">
-        <Spinner size={13} className="text-ink-tertiary" />
-        <span className="min-w-0 truncate font-medium text-ink">{title}</span>
-      </div>
-      <div className="mt-1 pl-[22px] text-ink-muted">
-        {status || t("tool.progressWaiting")}
-      </div>
+    <div className="flex items-center gap-1.5 py-1 text-[13px] text-ink-secondary">
+      <Spinner size={13} className="text-ink-tertiary" />
+      <span className="min-w-0 truncate qp-shimmer">{title}</span>
+      {status && (
+        <span className="min-w-0 truncate text-ink-tertiary">
+          {status}
+        </span>
+      )}
     </div>
   );
 }

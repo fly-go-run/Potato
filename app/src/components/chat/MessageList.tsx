@@ -14,7 +14,17 @@ import {
   ChevronRight,
   Copy,
   FileDiff,
+  FilePenLine,
+  FileSearch,
+  FileText,
+  Files,
+  Globe,
   RefreshCw,
+  Search,
+  Sparkles,
+  Terminal,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { APP_NAME } from "../../lib/appInfo";
 import {
@@ -29,16 +39,28 @@ import {
   totalChangeStats,
   type FileChange,
 } from "../../lib/fileChanges";
-import { useTranslation } from "../../lib/i18n";
+import { useTranslation, type Language } from "../../lib/i18n";
 import {
   summarizeTrack,
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
+import { formatStepGroupObject } from "../../lib/stepGroupCopy";
+import {
+  FOLD_WINDOW,
+  focusFoldRowKey,
+  materializeRun,
+  windowFoldRows,
+  type FoldRow,
+  type ProcessEntry,
+  type ToolFamily,
+} from "../../lib/stepGroups";
 import { buildTimeline } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
+import { historyTurnElapsedMs } from "../../lib/historyTurnDuration";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
+import { extractFirstBold } from "../../lib/reasoningTitle";
+import { textFromContent } from "../../lib/content";
 import { useNow } from "../../lib/useNow";
-import { useUiPrefs } from "../../stores/uiPrefs";
 import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
@@ -46,10 +68,11 @@ import { PotatoMark } from "../brand/PotatoMark";
 import { Spinner } from "../ui/Spinner";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ChangeStat";
-import { Collapse } from "./Collapse";
 import { MessageContent } from "./MessageContent";
 import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
+import { StepGroupRow } from "./StepGroupRow";
+import { TrackRow, TrackSummary } from "./TrackRow";
 import {
   buildToolPair,
   humanToolLabel,
@@ -98,7 +121,7 @@ export function MessageList({
   return (
     <div
       data-chat-content
-      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-8 sm:px-8"
+      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-5 sm:px-8"
     >
       {turns.map((turn, index) =>
         turn.role === "user" ? (
@@ -126,6 +149,8 @@ export function MessageList({
             }
             tail={index === lastIndex}
             activeMessageId={activeMessageId}
+            userTimestamp={previousUserTimestamp(turns, index)}
+            assistantTimestamp={messageTimestamp(turn.messages.at(-1))}
           />
         ),
       )}
@@ -173,19 +198,13 @@ const UserTurn = memo(function UserTurn({
   );
 }, areUserTurnPropsEqual);
 
-type ProcessEntry =
-  | { kind: "reasoning"; key: string; message: StreamMessage }
-  | { kind: "progress"; key: string; message: StreamMessage }
-  | { kind: "pair"; key: string; pair: ToolPair };
-
 /**
- * 一轮回复按时间序渲染的片段:连续的工具/思考槽位合成一个可折叠工作
- * 段(run);叙述、答案与突出卡是恒可见节点(visible),同时天然充当
- * run 的分隔符。时间线严格 append-only,每个 run 在被后续内容接替时
- * 各自收拢一次(渐进收口),此后不再变。
+ * 一轮回复按时间序渲染的片段:连续过程条目经 materializeRun 收成
+ * fold-row;叙述、产物、失败卡是恒可见节点,同时充当 run 分隔符。
  */
 type FlowPiece =
-  | { type: "run"; key: string; entries: ProcessEntry[] }
+  | { type: "fold"; key: string; row: FoldRow }
+  | { type: "failed"; key: string; pair: ToolPair }
   | { type: "visible"; key: string; node: ReactNode };
 
 interface AssistantTurnProps {
@@ -199,6 +218,8 @@ interface AssistantTurnProps {
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
+  userTimestamp?: unknown;
+  assistantTimestamp?: unknown;
 }
 
 const AssistantTurn = memo(function AssistantTurn({
@@ -210,6 +231,8 @@ const AssistantTurn = memo(function AssistantTurn({
   activeMessageId,
   onOpenFile,
   onOpenChange,
+  userTimestamp,
+  assistantTimestamp,
 }: AssistantTurnProps) {
   // 入场动画已整体移除(设计裁决:内容直接出现,不做淡入)。
   // 流式出生的轮在它还是尾轮期间保持锚定空间(见 TAIL_MIN_HEIGHT);
@@ -237,8 +260,13 @@ const AssistantTurn = memo(function AssistantTurn({
   const pieces: FlowPiece[] = [];
   let run: ProcessEntry[] = [];
   const flushRun = () => {
-    if (run.length > 0) {
-      pieces.push({ type: "run", key: `run-${run[0]!.key}`, entries: run });
+    if (run.length === 0) return;
+    for (const item of materializeRun(run)) {
+      if (item.kind === "visible-failed") {
+        pieces.push({ type: "failed", key: item.key, pair: item.pair });
+        continue;
+      }
+      pieces.push({ type: "fold", key: item.row.key, row: item.row });
     }
     run = [];
   };
@@ -332,6 +360,9 @@ const AssistantTurn = memo(function AssistantTurn({
         pulsing={pulsing}
         live={streaming}
         onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
+        userTimestamp={userTimestamp}
+        assistantTimestamp={assistantTimestamp}
       />
       {turnChanges.length > 0 && (
         <FileChangesCard changes={turnChanges} onOpenChange={onOpenChange} />
@@ -365,7 +396,9 @@ function areAssistantTurnPropsEqual(
     Object.is(previous.streaming, next.streaming) &&
     Object.is(previous.tail, next.tail) &&
     Object.is(previous.onOpenFile, next.onOpenFile) &&
-    Object.is(previous.onOpenChange, next.onOpenChange)
+    Object.is(previous.onOpenChange, next.onOpenChange) &&
+    Object.is(previous.userTimestamp, next.userTimestamp) &&
+    Object.is(previous.assistantTimestamp, next.assistantTimestamp)
   );
 }
 
@@ -413,7 +446,7 @@ function FileChangesCard({
     <div className="my-3 overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
       <div className="flex items-center gap-2.5 px-3.5 py-2.5">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-fill-hover text-ink-secondary">
-          <FileDiff size={15} />
+          <FileDiff size={14} strokeWidth={1.8} />
         </span>
         <span className="text-[13px] font-medium text-ink">
           {t("chat.changes.title", { count: stats.files })}
@@ -450,13 +483,14 @@ function FileChangesCard({
           type="button"
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
-          className="flex w-full items-center gap-1 border-t border-line px-3.5 py-2 text-left text-[12px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+          className="flex w-full items-center gap-1 border-t border-line px-3.5 py-2 text-left text-[12px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
         >
           {expanded
             ? t("chat.changes.showLess")
             : t("chat.changes.showMore", { count: hiddenCount })}
           <ChevronDown
-            size={13}
+            size={14}
+            strokeWidth={1.8}
             className={`transition-transform duration-[var(--dur-fast)] ${
               expanded ? "rotate-180" : ""
             }`}
@@ -471,10 +505,10 @@ function FileChangesCard({
  * 轨道总耗时:首个有计时的条目开始 → 最后一个收口;now 非空(仍有
  * 条目运行)时用它实时计。历史加载的会话没有计时,返回空串即隐藏。
  */
-function trackDurationLabel(
+function trackElapsedMs(
   entries: ProcessEntry[],
   now: number | null,
-): string {
+): number | null {
   let start = Number.POSITIVE_INFINITY;
   let end: number | null = null;
   for (const entry of entries) {
@@ -491,10 +525,11 @@ function trackDurationLabel(
       if (timing.endedAt !== null) end = Math.max(end ?? 0, timing.endedAt);
     }
   }
-  if (!Number.isFinite(start)) return "";
+  if (!Number.isFinite(start)) return null;
   const stop = now ?? end;
-  if (stop === null) return "";
-  return formatDuration(stop - start);
+  if (stop === null) return null;
+  const elapsed = stop - start;
+  return elapsed > 0 ? elapsed : null;
 }
 
 /** 运行中(含尚未收到 output 的间隙)的条目。 */
@@ -510,19 +545,10 @@ function isActiveEntry(entry: ProcessEntry): boolean {
 }
 
 /**
- * 一轮回复的执行流:摘要头 + append-only 时间线,收口是**渐进式**的。
- *
- * 每个工作段(连续的工具/思考)只在它还是「活跃的最后一段」时展开;
- * 一旦被接替——模型开口说话、交付产物、或开始下一段工作前的叙述——
- * 它就地收拢(一次 280ms 结构过渡)。于是答案开始流式时,它上方的
- * 过程已经让位;流结束的时刻**没有任何结构变动**,用户正读到的答案
- * 纹丝不动。这是问题锚顶滚动模型的前提:结尾若再来一次大折叠,会把
- * 正在读的答案往上拽。
- *
- * 尾段没有后继(纯行动收尾)时,流结束后静置 600ms 再收——读作
- * 「整理」而不是「抽走」。用户手动点过开合,以他的选择为准,自动
- * 行为不再覆盖(展开 = 全部段落展开)。
- * 摘要状态机在 lib/executionTrack.ts,槽位与折叠边界在 lib/turnTimeline.ts。
+ * 一轮回复的执行流:头 + fold-row 摘要 + 恒可见节点。
+ * 头默认 summary;rowByKey / everRaw 提在这里,关头卸子树后再打开按表恢复。
+ * focus ≠ row:live 钉窗口。自动展开只给活跃 shell,且是 5 行尾巴。
+ * 静息头仅 ≥60s / 失败 / fold-row>8 才出现。
  */
 function TurnFlow({
   pieces,
@@ -531,6 +557,9 @@ function TurnFlow({
   pulsing,
   live,
   onOpenFile,
+  onOpenChange,
+  userTimestamp,
+  assistantTimestamp,
 }: {
   pieces: FlowPiece[];
   /** 全部过程条目(时间序),驱动摘要行的状态与计数。 */
@@ -540,11 +569,17 @@ function TurnFlow({
   /** 本轮仍在流式中。 */
   live: boolean;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
+  userTimestamp?: unknown;
+  assistantTimestamp?: unknown;
 }) {
-  const { t } = useTranslation();
-  // 用户手动点过开合就以他的选择为准,自动行为不再覆盖。
-  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
-  // 尾段收口延迟:live 结束后静置 600ms 再收拢仍展开的最后一段。
+  const { t, language } = useTranslation();
+  const [manualHeader, setManualHeader] = useState<boolean | null>(null);
+  const [rowByKey, setRowByKey] = useState<Record<string, "summary" | "raw">>(
+    {},
+  );
+  const [everRaw, setEverRaw] = useState<Record<string, boolean>>({});
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const [settling, setSettling] = useState(live);
   useEffect(() => {
     if (live) {
@@ -555,17 +590,20 @@ function TurnFlow({
     const timer = window.setTimeout(() => setSettling(false), 600);
     return () => window.clearTimeout(timer);
   }, [live, settling]);
-  const lastPiece = pieces.length > 0 ? pieces[pieces.length - 1] : undefined;
-  // 自动展开只给「活跃的最后一段」;被接替的段落已各自收拢。
-  const autoOpenLast = (live || settling) && lastPiece?.type === "run";
-  const headerOpen = manualOpen ?? autoOpenLast;
-  const detailedTools = useUiPrefs((state) => state.detailedTools);
-  const setDetailedTools = useUiPrefs((state) => state.setDetailedTools);
+  const headerOpen = manualHeader ?? true;
+  const foldRows = pieces.flatMap((piece) =>
+    piece.type === "fold" ? [piece.row] : [],
+  );
+  const failedTools = foldEntries.filter(
+    (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
+  ).length;
   const snapshots = foldEntries.map(entrySnapshot);
   const state = summarizeTrack(snapshots, { streaming: live, waiting });
-  // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
   const now = useNow(live);
-  const durationLabel = trackDurationLabel(foldEntries, live ? now : null);
+  const elapsedMs =
+    trackElapsedMs(foldEntries, live ? now : null) ??
+    historyTurnElapsedMs(userTimestamp, assistantTimestamp);
+  const durationLabel = elapsedMs !== null ? formatDuration(elapsedMs) : "";
   const compactionEntry =
     foldEntries.length === 1 &&
     foldEntries[0]?.kind === "progress" &&
@@ -574,18 +612,30 @@ function TurnFlow({
       : null;
   let summary: string;
   if (state.kind === "waiting") {
-    summary = t("chat.waitingModel");
+    summary = t("chat.waitingReply");
   } else if (state.kind === "runningTool") {
-    summary = humanToolLabel(state.toolName, true, t);
+    summary =
+      state.running > 1
+        ? t("chat.toolsRunning", { count: state.running })
+        : humanToolLabel(state.toolName, true, t);
   } else if (state.kind === "progress") {
     summary = t("progress.working");
   } else if (state.kind === "thinking") {
-    summary = t("reasoning.thinking");
+    summary =
+      extractFirstBold(inFlightReasoningText(foldEntries)) ??
+      t("reasoning.thinking");
   } else if (compactionEntry) {
     summary =
       compactionEntry.message.metadata?.phase === "fallback"
         ? t("chat.contextCompaction.fallback")
         : t("chat.contextCompaction.completed");
+  } else if (durationLabel) {
+    summary = state.failed
+      ? t("chat.workedForWithFailures", {
+          duration: durationLabel,
+          failed: state.failed,
+        })
+      : t("chat.workedFor", { duration: durationLabel });
   } else {
     summary = state.failed
       ? t("chat.toolGroupWithFailures", {
@@ -594,22 +644,72 @@ function TurnFlow({
         })
       : t("chat.toolGroup", { count: state.steps });
   }
-  const toggleable = foldEntries.length > 0;
-  // 摘要头只在有过程可折(或等待首帧)时出现:纯文本回答不需要一行
-  // 「已完成 1 个步骤」的噪音。
-  const showHeader = waiting || toggleable;
+  const hasProcess =
+    waiting ||
+    foldEntries.length > 0 ||
+    foldRows.length > 0 ||
+    failedTools > 0;
+  const liveWindow = live || settling;
+  const settledFailed = state.kind === "done" ? state.failed : 0;
+  const showSettledHeader =
+    (elapsedMs !== null && elapsedMs >= 60_000) ||
+    settledFailed > 0 ||
+    failedTools > 0 ||
+    foldRows.length > FOLD_WINDOW;
+  const showHeader =
+    hasProcess && (waiting || liveWindow || showSettledHeader);
+  const toggleable = foldRows.length > 0 || failedTools > 0;
+  const showDurationSuffix =
+    Boolean(durationLabel) &&
+    (state.kind !== "done" || Boolean(compactionEntry));
+  const focusKey = focusFoldRowKey(foldRows, liveWindow);
+  const autoTailKey = liveWindow ? activeShellGroupKey(foldRows) : null;
+  useEffect(() => {
+    if (!autoTailKey) return;
+    setEverRaw((prev) =>
+      prev[autoTailKey] ? prev : { ...prev, [autoTailKey]: true },
+    );
+  }, [autoTailKey]);
+  const windowed = windowFoldRows(foldRows, {
+    settled: !liveWindow,
+    focusKey,
+    overflowOpen,
+  });
+  const shownKeys = new Set(windowed.shownKeys);
+  const lastShownKey = windowed.shownKeys.at(-1);
+  const rowState = (key: string): "summary" | "raw" | "tail" => {
+    if (rowByKey[key]) return rowByKey[key];
+    if (key === autoTailKey) return "tail";
+    return "summary";
+  };
+  const toggleRow = (key: string) => {
+    const next = rowState(key) === "raw" ? "summary" : "raw";
+    setRowByKey((prev) => ({ ...prev, [key]: next }));
+    if (next === "raw") {
+      setEverRaw((prev) => ({ ...prev, [key]: true }));
+    }
+  };
+  const toggleHeader = () => {
+    const next = !headerOpen;
+    setManualHeader(next);
+    if (!next) setOverflowOpen(false);
+  };
+  const inProgress = state.kind !== "done";
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
-      {/* 摘要文字直接替换,不做交叉淡化——状态变化本身就是信息,
-          给它加动画反而把注意力引向动画。 */}
-      <span>{summary}</span>
-      {durationLabel && (
-        <span className="shrink-0 tabular-nums">· {durationLabel}</span>
+      <span className={inProgress ? "qp-shimmer" : undefined}>{summary}</span>
+      {showDurationSuffix && (
+        <span
+          className={`shrink-0 tabular-nums ${inProgress ? "qp-shimmer" : ""}`}
+        >
+          · {durationLabel}
+        </span>
       )}
       {toggleable && (
         <ChevronRight
-          size={13}
+          size={14}
+          strokeWidth={1.8}
           className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
             headerOpen ? "rotate-90" : ""
           }`}
@@ -617,16 +717,100 @@ function TurnFlow({
       )}
     </>
   );
+  const rendered: ReactNode[] = [];
+  let overflowPlaced = false;
+  let trackBuf: ReactNode[] = [];
+  let trackKey = "";
+  const flushTrack = () => {
+    if (trackBuf.length === 0) return;
+    rendered.push(
+      <div
+        key={trackKey || `track-${rendered.length}`}
+        data-execution-track
+        className="mb-3 mt-1 border-l border-line pl-4"
+      >
+        {trackBuf}
+      </div>,
+    );
+    trackBuf = [];
+    trackKey = "";
+  };
+  const pushTrack = (key: string, node: ReactNode) => {
+    if (!trackKey) trackKey = `track-${key}`;
+    trackBuf.push(node);
+  };
+  for (const piece of pieces) {
+    if (piece.type === "visible") {
+      flushTrack();
+      rendered.push(<Fragment key={piece.key}>{piece.node}</Fragment>);
+      continue;
+    }
+    if (piece.type === "failed") {
+      pushTrack(
+        piece.key,
+        <div id={`message-${piece.key}`} key={piece.key}>
+          <ToolCard pair={piece.pair} onOpenFile={onOpenFile} />
+        </div>,
+      );
+      continue;
+    }
+    if (!headerOpen || !shownKeys.has(piece.key)) continue;
+    if (windowed.overflowAt === "start" && !overflowPlaced) {
+      pushTrack(
+        "overflow",
+        <OverflowRow
+          key="fold-overflow"
+          count={windowed.hiddenCount}
+          onClick={() => setOverflowOpen(true)}
+        />,
+      );
+      overflowPlaced = true;
+    }
+    pushTrack(
+      piece.key,
+      <FoldRowView
+        key={piece.key}
+        row={piece.row}
+        mode={rowState(piece.key)}
+        everRaw={Boolean(
+          everRaw[piece.key] ||
+            rowState(piece.key) === "raw" ||
+            rowState(piece.key) === "tail",
+        )}
+        language={language}
+        shimmer={liveWindow && isRowActive(piece.row)}
+        onToggle={() => toggleRow(piece.key)}
+        onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
+      />,
+    );
+    if (
+      windowed.overflowAt === "end" &&
+      piece.key === lastShownKey &&
+      !overflowPlaced
+    ) {
+      pushTrack(
+        "overflow",
+        <OverflowRow
+          key="fold-overflow"
+          count={windowed.hiddenCount}
+          onClick={() => setOverflowOpen(true)}
+        />,
+      );
+      overflowPlaced = true;
+    }
+  }
+  flushTrack();
   return (
-    <div className="my-1.5">
+    <div className="my-3">
       {showHeader && (
-        <div className="group flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {toggleable ? (
             <button
               type="button"
-              onClick={() => setManualOpen(!headerOpen)}
+              onClick={toggleHeader}
               aria-expanded={headerOpen}
-              className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+              className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:text-ink"
             >
               {summaryContent}
             </button>
@@ -635,62 +819,9 @@ function TurnFlow({
               {summaryContent}
             </div>
           )}
-          {toggleable && headerOpen && (
-            // 密度切换是低频操作,常驻会给每条完成轨道多一块 chrome;
-            // 悬停/键盘聚焦时才显形,resting 状态只有摘要一行字。
-            <div className="inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px] opacity-0 transition-opacity duration-[var(--dur-fast)] focus-within:opacity-100 group-hover:opacity-100">
-              <button
-                type="button"
-                onClick={() => setDetailedTools(false)}
-                aria-pressed={!detailedTools}
-                className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                  detailedTools
-                    ? "text-ink-muted hover:text-ink-secondary"
-                    : "bg-fill-hover text-ink-secondary"
-                }`}
-              >
-                {t("chat.density.summary")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDetailedTools(true)}
-                aria-pressed={detailedTools}
-                className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                  detailedTools
-                    ? "bg-fill-hover text-ink-secondary"
-                    : "text-ink-muted hover:text-ink-secondary"
-                }`}
-              >
-                {t("chat.density.detailed")}
-              </button>
-            </div>
-          )}
         </div>
       )}
-      {pieces.map((piece) =>
-        piece.type === "run" ? (
-          // 每段 run 一个 Collapse:自动态只有「活跃的最后一段」展开,
-          // 被接替的段落各自收拢过一次,不再重开。keepMounted 保住条目
-          // 内部展开状态;struct 档 = 280ms 高度过渡 + 内容淡出。
-          <Collapse
-            key={piece.key}
-            open={manualOpen ?? (autoOpenLast && piece === lastPiece)}
-            keepMounted
-            struct
-            className="pl-1"
-          >
-            {piece.entries.map((entry) => (
-              <TrackEntry
-                key={entry.key}
-                entry={entry}
-                onOpenFile={onOpenFile}
-              />
-            ))}
-          </Collapse>
-        ) : (
-          <Fragment key={piece.key}>{piece.node}</Fragment>
-        ),
-      )}
+      {rendered}
     </div>
   );
 }
@@ -715,22 +846,173 @@ function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
   };
 }
 
-/** memo:useNow 每秒心跳只该刷新摘要行的计时文案,条目行引用不变直接跳过。 */
-const TrackEntry = memo(function TrackEntry({
-  entry,
+function activeShellGroupKey(rows: FoldRow[]): string | null {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index]!;
+    if (
+      row.type === "group" &&
+      row.family === "shell" &&
+      row.pairs.some((pair) => toolPairStatus(pair).running)
+    ) {
+      return row.key;
+    }
+  }
+  return null;
+}
+
+function inFlightReasoningText(entries: ProcessEntry[]): string {
+  const parts: string[] = [];
+  for (const entry of entries) {
+    if (entry.kind !== "reasoning" || !isActiveEntry(entry)) continue;
+    const text = textFromContent(entry.message.content);
+    if (text) parts.push(text);
+  }
+  return parts.join("\n\n");
+}
+
+function isRowActive(row: FoldRow): boolean {
+  if (row.type === "thinking") {
+    return row.messages.some(
+      (message) =>
+        message.status === "created" || message.status === "in_progress",
+    );
+  }
+  if (row.type === "progress") {
+    return (
+      row.message.status === "created" || row.message.status === "in_progress"
+    );
+  }
+  return row.pairs.some((pair) => toolPairStatus(pair).running);
+}
+
+function FoldRowView({
+  row,
+  mode,
+  everRaw,
+  language,
+  shimmer,
+  onToggle,
   onOpenFile,
+  onOpenChange,
 }: {
-  entry: ProcessEntry;
+  row: FoldRow;
+  mode: "summary" | "raw" | "tail";
+  everRaw: boolean;
+  language: Language;
+  shimmer?: boolean;
+  onToggle: () => void;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
 }) {
-  if (entry.kind === "reasoning") {
-    return <ReasoningBlock message={entry.message} />;
+  const { t } = useTranslation();
+  if (row.type === "thinking") {
+    return (
+      <ReasoningBlock
+        message={thinkingMessage(row)}
+        open={mode === "raw"}
+        onToggle={onToggle}
+        title={row.title}
+      />
+    );
   }
-  if (entry.kind === "progress") {
-    return <ProgressCard message={entry.message} />;
+  if (row.type === "progress") {
+    return <ProgressCard message={row.message} shimmer={shimmer} />;
   }
-  return <ToolCard pair={entry.pair} onOpenFile={onOpenFile} />;
-});
+  if (row.direct) {
+    return (
+      <ToolCard
+        pair={row.pairs[0]!}
+        onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
+        shimmer={shimmer}
+        tail={mode === "tail"}
+        open={mode === "raw"}
+        onToggle={onToggle}
+      />
+    );
+  }
+  const Icon = FAMILY_ICONS[row.family];
+  const object = formatStepGroupObject(row, t, language);
+  return (
+    <StepGroupRow
+      icon={
+        <Icon size={14} strokeWidth={1.8} className="shrink-0 text-ink-muted" />
+      }
+      summary={<TrackSummary object={object} shimmer={shimmer} />}
+      open={mode === "raw" || mode === "tail"}
+      keepMounted={everRaw}
+      onToggle={onToggle}
+      shimmer={shimmer}
+    >
+      {mode === "tail"
+        ? row.pairs
+            .filter((pair) => toolPairStatus(pair).running)
+            .map((pair, index) => (
+              <ToolCard
+                key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
+                pair={pair}
+                tail
+                shimmer
+                onToggle={onToggle}
+              />
+            ))
+        : row.pairs.map((pair, index) => (
+            <ToolCard
+              key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
+              pair={pair}
+              onOpenFile={onOpenFile}
+              onOpenChange={onOpenChange}
+              embedded
+            />
+          ))}
+    </StepGroupRow>
+  );
+}
+
+function OverflowRow({
+  count,
+  onClick,
+}: {
+  count: number;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <TrackRow onToggle={onClick}>
+      {t("chat.step.overflow", { n: count })}
+    </TrackRow>
+  );
+}
+
+const FAMILY_ICONS: Record<ToolFamily, LucideIcon> = {
+  search: Search,
+  fetch: Globe,
+  grep: FileSearch,
+  glob: Files,
+  read: FileText,
+  edit: FilePenLine,
+  shell: Terminal,
+  skill: Sparkles,
+  other: Wrench,
+};
+
+function thinkingMessage(row: Extract<FoldRow, { type: "thinking" }>): StreamMessage {
+  const first = row.messages[0]!;
+  const inFlight = row.messages.some(
+    (message) =>
+      message.status === "created" || message.status === "in_progress",
+  );
+  return {
+    ...first,
+    status: inFlight ? "in_progress" : first.status,
+    content: [
+      {
+        type: "text",
+        text: row.text,
+      } as TextContent,
+    ],
+  };
+}
 
 /**
  * 内联 `<thinking>` 标签的模型不走结构化 reasoning 通道。展示层把
@@ -823,7 +1105,7 @@ function MessageActions({
         label={copied ? t("message.copied") : t("message.copy")}
         onClick={() => void copy()}
       >
-        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {copied ? <Check size={14} strokeWidth={1.8} /> : <Copy size={14} strokeWidth={1.8} />}
       </ActionButton>
       {regeneratePrompt && (
         <ActionButton
@@ -831,7 +1113,7 @@ function MessageActions({
           disabled={busy}
           onClick={() => void sendMessage(regeneratePrompt, navigate)}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} strokeWidth={1.8} />
         </ActionButton>
       )}
     </div>
@@ -856,7 +1138,7 @@ function ActionButton({
       disabled={disabled}
       title={label}
       aria-label={label}
-      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary disabled:pointer-events-none disabled:opacity-40"
+      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-icon transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-icon-strong disabled:pointer-events-none disabled:opacity-40"
     >
       {children}
     </button>
@@ -887,6 +1169,16 @@ export function groupIntoTurns(messages: StreamMessage[]): Turn[] {
 function previousUserText(turns: Turn[], index: number): string {
   const previous = turns[index - 1];
   return previous?.role === "user" ? plainText(previous.messages) : "";
+}
+
+function previousUserTimestamp(turns: Turn[], index: number): unknown {
+  const previous = turns[index - 1];
+  if (previous?.role !== "user") return undefined;
+  return messageTimestamp(previous.messages[0]);
+}
+
+function messageTimestamp(message: StreamMessage | undefined): unknown {
+  return message?.metadata?.timestamp;
 }
 
 /** 取一轮里正文消息的纯文本（跳过推理、进度与工具卡）。 */

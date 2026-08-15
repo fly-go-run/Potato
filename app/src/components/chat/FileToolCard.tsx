@@ -12,19 +12,20 @@ import {
 } from "lucide-react";
 import { filePreviewUrl } from "../../lib/api";
 import { handleSystemOpenClick } from "../../lib/desktop";
-import { lineDiff, type DiffLineKind } from "../../lib/lineDiff";
+import { type DiffLineKind } from "../../lib/lineDiff";
 import { qpCount, recordLegacyParse } from "../../lib/toolMeta";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { Collapse } from "./Collapse";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
+import { richOutputText, toolPairStatus, ToolStatus } from "./ToolCard";
 import {
-  humanToolLabel,
-  richOutputText,
-  toolPairStatus,
-  ToolStatus,
-} from "./ToolCard";
-import { pairChangeStats } from "../../lib/fileChanges";
+  editDiffLines,
+  pairChangeStats,
+  pairFileEdit,
+  visibleDiffLines,
+  type FileEdit,
+} from "../../lib/fileChanges";
 
 const FILE_TOOL_TITLES: Record<string, TranslationKey> = {
   read_file: "tool.file.read",
@@ -67,33 +68,49 @@ export function isSuccessfulArtifactPair(pair: ToolPair): boolean {
 export function FileToolCard({
   pair,
   onOpenFile,
+  onOpenChange,
   prominentArtifact = false,
+  shimmer = false,
+  open,
+  onToggle,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
+  /** 行内 diff 打开时的「在侧栏打开」;截断行也走这里。 */
+  onOpenChange?: (path: string) => void;
   /** 仅在文件被明确交付给用户时展示大号产物卡。 */
   prominentArtifact?: boolean;
+  shimmer?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const { t } = useTranslation();
   const parameters = parseArguments(pair.arguments);
   const path =
     typeof parameters.file_path === "string" ? parameters.file_path : "";
   const { running, failed } = toolPairStatus(pair);
-  // 完成态不再显示「写入了/编辑了」动词:动作由图标承担(笔=改动、
-  // 素文件=只读),幅度由彩色 ± 承担。动词只在运行中作为进行时上下文
-  // (「正在写入」),收口后让位给文件名+数字。
-  const title = running ? humanToolLabel(pair.name, true, t) : "";
+  // 笔/文件图标承担动词,行上不再写「正在写入/读取」。
   const modifies = MODIFYING_FILE_TOOLS.has(pair.name);
   // ±行数与汇总卡同源(meta 真值优先,回落同一套本地估算)。
   const stats = useMemo(
     () => (running || failed ? null : pairChangeStats(pair)),
     [running, failed, pair],
   );
+  const inlineEdit = useMemo(
+    () => (modifies ? pairFileEdit(pair) : null),
+    [modifies, pair],
+  );
 
-  const detail = (
-    <div className="overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
-      <div className="flex gap-3 border-b border-line px-4 py-2 text-xs">
-        <span className="shrink-0 text-ink-muted">{t("tool.file.path")}</span>
+  const detail = inlineEdit ? (
+    <InlineDiffBlock
+      edit={inlineEdit}
+      path={path}
+      onOpenSidebar={onOpenChange}
+    />
+  ) : (
+    <div className="rounded-[var(--radius-md)] bg-surface px-3 py-2">
+      <div className="mb-2 flex gap-3 text-xs">
+        <span className="shrink-0 text-ink-tertiary">{t("tool.file.path")}</span>
         {path && onOpenFile ? (
           <button
             type="button"
@@ -109,8 +126,8 @@ export function FileToolCard({
           </code>
         )}
       </div>
-      <div className="px-4 py-3">
-        <div className="mb-2 text-xs font-medium text-ink-muted">
+      <div>
+        <div className="mb-2 text-xs font-medium text-ink-tertiary">
           {pair.name === "edit_file"
             ? t("tool.file.changes")
             : t("tool.file.content")}
@@ -131,44 +148,32 @@ export function FileToolCard({
     );
   }
 
-  const pathTone = failed ? "text-danger" : "text-ink-muted";
-  const pathNode =
-    path && onOpenFile ? (
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenFile(path);
-        }}
-        className={`min-w-0 flex-1 truncate text-left font-mono ${pathTone} underline decoration-dotted underline-offset-2 hover:text-ink-secondary`}
-        title={t("tool.file.open")}
-      >
-        {path}
-      </button>
-    ) : (
-      <span className={`min-w-0 flex-1 truncate font-mono ${pathTone}`}>
-        {path || t("tool.file.path")}
-      </span>
-    );
+  const pathTone = failed
+    ? "text-danger"
+    : shimmer
+      ? ""
+      : "text-ink-tertiary group-hover:text-ink";
+  // 行的整个点击面都归展开(行内 diff/内容)——文件名不再是独立链接,
+  // 否则行的主区域被"跳侧栏"占据,展开反而只能点边缘。跳转统一走
+  // 展开后的行尾 ArrowUpRight。
+  const pathNode = (
+    <span
+      className={`min-w-0 flex-1 truncate font-mono text-[12px] ${pathTone} ${
+        shimmer ? "qp-shimmer" : ""
+      }`}
+    >
+      {path || t("tool.file.path")}
+    </span>
+  );
 
-  // 图标与字号在两态完全一致(12px / 继承行的 text-xs),只换颜色。
-  // 失败不再躲在 debug 模式后:异常才是真正需要一眼看见的东西。
   const RowIcon = modifies ? FilePenLine : FileText;
   const toggle = (
     <>
       <RowIcon
-        size={12}
-        className={`shrink-0 ${
-          failed
-            ? "text-danger"
-            : running
-            ? "text-ink-secondary"
-            : "text-ink-muted"
-        }`}
+        size={14}
+        strokeWidth={1.8}
+        className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
       />
-      {title && (
-        <span className="shrink-0 font-medium text-ink">{title}</span>
-      )}
     </>
   );
   const after = (
@@ -196,11 +201,29 @@ export function FileToolCard({
     <ToolDisclosure
       toggle={toggle}
       after={after}
+      trailing={(open) => {
+        // 改动行去侧栏 diff,只读行去文件预览——同一颗行尾按钮分流
+        const jump = modifies ? onOpenChange : onOpenFile;
+        return open && path && jump ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              jump(path);
+            }}
+            title={modifies ? t("chat.panel.open") : t("tool.file.open")}
+            aria-label={modifies ? t("chat.panel.open") : t("tool.file.open")}
+            className="shrink-0 rounded-[var(--radius-sm)] p-0.5 text-icon opacity-0 transition-opacity duration-[var(--dur-fast)] hover:text-icon-strong group-hover:opacity-100"
+          >
+            <ArrowUpRight size={12} strokeWidth={1.8} />
+          </button>
+        ) : null;
+      }}
       toggleGrow={false}
-      // 详情本身已是一张描边卡(见上面的 detail),外层只给上下留白,
-      // 避免嵌套双描边。限高滚动两态恒定——完成那一刻取消限高会让展开
-      // 着的面板从 20rem 弹到全高,正是要消灭的那类几何突变。
-      detailClassName="mb-2 mt-1 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
+      failed={failed}
+      open={open}
+      onToggle={onToggle}
+      detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
     >
       {detail}
     </ToolDisclosure>
@@ -241,7 +264,7 @@ function ArtifactCard({
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
           title={path}
         >
-          <Icon size={20} className="shrink-0 text-ink-secondary" />
+          <Icon size={20} strokeWidth={1.75} className="shrink-0 text-ink-secondary" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium text-ink">
               {name}
@@ -260,9 +283,9 @@ function ArtifactCard({
           title={t("tool.file.open")}
           aria-label={t("tool.file.open")}
           onClick={(event) => handleSystemOpenClick(event, path)}
-          className="shrink-0 rounded-[var(--radius-sm)] p-1.5 text-ink-muted transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+          className="shrink-0 rounded-[var(--radius-sm)] p-1.5 text-icon transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-icon-strong"
         >
-          <ArrowUpRight size={15} />
+          <ArrowUpRight size={14} strokeWidth={1.8} />
         </a>
       </div>
       <Collapse open={expanded}>
@@ -404,14 +427,6 @@ function FileToolContent({
   parameters: Record<string, unknown>;
 }) {
   const { t } = useTranslation();
-  if (pair.name === "edit_file") {
-    const before =
-      typeof parameters.old_text === "string" ? parameters.old_text : "";
-    const after =
-      typeof parameters.new_text === "string" ? parameters.new_text : "";
-    if (before || after) return <LineDiff before={before} after={after} />;
-  }
-
   const argumentContent =
     typeof parameters.content === "string" ? parameters.content : "";
   const rawContent =
@@ -427,7 +442,7 @@ function FileToolContent({
 
   if (!content) {
     return (
-      <div className="text-xs text-ink-muted">
+      <div className="text-xs text-ink-tertiary">
         {!pair.output && pair.call?.status === "in_progress"
           ? t("tool.running")
           : t("tool.noResult")}
@@ -441,38 +456,79 @@ function FileToolContent({
   );
 }
 
-/** 与侧栏 ChangeDiffPanel 同一套配色:整行底色 tint,符号列着色,正文保持 ink。 */
-function LineDiff({ before, after }: { before: string; after: string }) {
-  const lines = lineDiff(before, after);
+const DIFF_SIGN: Record<DiffLineKind, string> = {
+  add: "+",
+  remove: "-",
+  same: "",
+};
+
+/** 轨道内联 diff:与侧栏 DiffBlock 同色,无边框圆角 surface。 */
+function InlineDiffBlock({
+  edit,
+  path,
+  onOpenSidebar,
+}: {
+  edit: FileEdit;
+  path: string;
+  onOpenSidebar?: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { visible, truncated } = useMemo(
+    () => visibleDiffLines(editDiffLines(edit)),
+    [edit],
+  );
+  const truncatedLabel = t("chat.diff.inlineTruncated", { count: truncated });
+
   return (
-    <div className="max-h-80 overflow-auto rounded-md border border-line font-mono text-xs leading-5">
-      {lines.map((line, index) => (
-        <div
-          key={`${index}-${line.kind}`}
-          className={`flex min-w-max ${
-            line.kind === "add"
-              ? "bg-ok/10"
-              : line.kind === "remove"
-              ? "bg-danger-soft"
-              : ""
-          }`}
-        >
-          <span
-            className={`w-5 shrink-0 select-none text-center ${diffSignClass(
-              line.kind,
-            )}`}
-          >
-            {line.kind === "remove" ? "-" : line.kind === "add" ? "+" : ""}
-          </span>
-          <span
-            className={`whitespace-pre pr-3 ${
-              line.kind === "same" ? "text-ink-tertiary" : "text-ink"
-            }`}
-          >
-            {line.text || " "}
-          </span>
+    <div
+      data-inline-diff
+      className="overflow-hidden rounded-[var(--radius-md)] bg-surface"
+    >
+      <div className="overflow-x-auto">
+        <div className="min-w-max font-mono text-[12px] leading-[1.7]">
+          {visible.map((line, index) => (
+            <div
+              key={`${index}-${line.kind}`}
+              className={`flex pr-4 ${
+                line.kind === "add"
+                  ? "bg-ok/10"
+                  : line.kind === "remove"
+                    ? "bg-danger-soft"
+                    : ""
+              }`}
+            >
+              <span
+                className={`w-7 shrink-0 select-none text-center ${diffSignClass(
+                  line.kind,
+                )}`}
+              >
+                {DIFF_SIGN[line.kind]}
+              </span>
+              <span
+                className={`whitespace-pre ${
+                  line.kind === "same" ? "text-ink-tertiary" : "text-ink"
+                }`}
+              >
+                {line.text || " "}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+      {truncated > 0 &&
+        (onOpenSidebar && path ? (
+          <button
+            type="button"
+            onClick={() => onOpenSidebar(path)}
+            className="flex w-full px-3 py-1.5 text-left text-[11px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink"
+          >
+            {truncatedLabel}
+          </button>
+        ) : (
+          <div className="px-3 py-1.5 text-[11px] text-ink-tertiary">
+            {truncatedLabel}
+          </div>
+        ))}
     </div>
   );
 }

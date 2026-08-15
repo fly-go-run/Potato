@@ -5,7 +5,8 @@
  * 轮次收口后给出「一共做了几步」。这条线只需要一个不回摆的口径:
  *   - streaming 期间绝不返回 done——工具与工具之间的间隙没有活动条目,
  *     若此时就报「已完成 N 步」,下一个工具一到又变回「正在…」,摘要行
- *     会在两种语气之间来回跳;间隙统一归入 thinking。
+ *     会在两种语气之间来回跳。
+ *   - 流式空档:有 in-flight reasoning 才是 thinking;否则 waiting。
  *   - done 只在轮次真正结束时出现一次,那时全部条目已知,计数才算准。
  *
  * 折叠边界与槽位序列(哪些内容属于执行过程)不在这里,见 lib/turnTimeline.ts。
@@ -29,45 +30,44 @@ export interface TrackEntrySnapshot {
 
 export type SummaryState =
   | { kind: "waiting" }
-  | { kind: "runningTool"; toolName: string }
+  | { kind: "runningTool"; toolName: string; running: number }
   | { kind: "progress" }
   | { kind: "thinking" }
   | { kind: "done"; steps: number; failed: number };
 
 /**
  * 摘要状态机。streaming 期间绝不返回 done:没有活动条目的工具间隙
- * 归入 thinking,消除「正在… ↔ 已完成 N 步」的回摆。
+ * 归入 waiting(无 reasoning)或 thinking(有 in-flight reasoning),
+ * 消除「正在… ↔ 已完成 N 步」的回摆。
  */
 export function summarizeTrack(
   entries: TrackEntrySnapshot[],
   opts: { streaming: boolean; waiting: boolean },
 ): SummaryState {
   if (opts.waiting) return { kind: "waiting" };
-  const runningTool = findLast(
-    entries,
+  const runningTools = entries.filter(
     (entry) => entry.kind === "tool" && entry.active,
   );
-  if (runningTool) {
-    return { kind: "runningTool", toolName: runningTool.toolName ?? "" };
+  if (runningTools.length > 0) {
+    const latest = runningTools[runningTools.length - 1]!;
+    return {
+      kind: "runningTool",
+      toolName: latest.toolName ?? "",
+      running: runningTools.length,
+    };
   }
   if (entries.some((entry) => entry.kind === "progress" && entry.active)) {
     return { kind: "progress" };
   }
-  if (opts.streaming) return { kind: "thinking" };
+  if (opts.streaming) {
+    const reasoningInFlight = entries.some(
+      (entry) => entry.kind === "reasoning" && entry.active,
+    );
+    return reasoningInFlight ? { kind: "thinking" } : { kind: "waiting" };
+  }
   const steps = entries.filter((entry) => entry.kind !== "message").length;
   const failed = entries.filter(
     (entry) => entry.kind === "tool" && entry.failed,
   ).length;
   return { kind: "done", steps: Math.max(1, steps), failed };
-}
-
-/** 目标 lib 未含 ES2023,自实现 findLast。 */
-function findLast<T>(
-  items: T[],
-  predicate: (item: T) => boolean,
-): T | undefined {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    if (predicate(items[index]!)) return items[index];
-  }
-  return undefined;
 }

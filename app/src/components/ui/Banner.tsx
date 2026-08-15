@@ -25,7 +25,7 @@ export function Banner({
           : "bg-warn/10 text-warn"
       }`}
     >
-      <Icon size={15} className="mt-0.5 shrink-0" />
+      <Icon size={14} strokeWidth={1.8} className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="break-words">{children}</div>
         {actions && <div className="mt-2 flex flex-wrap gap-2">{actions}</div>}
@@ -36,7 +36,7 @@ export function Banner({
         onClick={onDismiss}
         className="shrink-0 rounded-sm p-0.5 transition-colors hover:bg-surface/50"
       >
-        <X size={14} />
+        <X size={14} strokeWidth={1.8} />
       </button>
     </section>
   );

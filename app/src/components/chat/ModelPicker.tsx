@@ -5,7 +5,7 @@ import {
   ChevronRight,
   LoaderCircle,
   RotateCcw,
-  Settings2,
+  Settings,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -16,6 +16,7 @@ import {
   type ProviderInfo,
 } from "../../lib/api";
 import { useTranslation } from "../../lib/i18n";
+import { prettyModelName } from "../../lib/modelPresentation";
 import { useChatStore } from "../../stores/chat";
 
 const DEFAULT_REASONING_EFFORTS = [
@@ -213,14 +214,16 @@ export function ModelPicker() {
           <span className="truncate">
             {modelLoading
               ? t("composer.loadingModel")
-              : model?.model || t("composer.noModel")}
+              : model?.model
+              ? prettyModelName(model.model)
+              : t("composer.noModel")}
           </span>
           {activeEffortLabel ? (
-            <span className="shrink-0 text-[13px] text-ink-muted">
+            <span className="shrink-0 text-[13px] text-ink-tertiary">
               {activeEffortLabel}
             </span>
           ) : null}
-          <ChevronDown size={14} className="shrink-0 text-ink-muted" />
+          <ChevronDown size={14} strokeWidth={1.8} className="shrink-0 text-ink-tertiary" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -233,13 +236,15 @@ export function ModelPicker() {
           <DropdownMenu.Sub>
             <DropdownMenu.SubTrigger className={TOP_ROW_CLASS}>
               <span>{t("composer.menu.model")}</span>
-              <span className="flex min-w-0 items-center gap-1 text-ink-muted">
+              <span className="flex min-w-0 items-center gap-1 text-ink-tertiary">
                 <span className="max-w-36 truncate">
                   {modelLoading
                     ? t("composer.loadingModel")
-                    : model?.model || t("composer.noModel")}
+                    : model?.model
+              ? prettyModelName(model.model)
+              : t("composer.noModel")}
                 </span>
-                <ChevronRight size={14} className="shrink-0" />
+                <ChevronRight size={14} strokeWidth={1.8} className="shrink-0" />
               </span>
             </DropdownMenu.SubTrigger>
             <DropdownMenu.Portal>
@@ -249,12 +254,12 @@ export function ModelPicker() {
                 className={`${MENU_PANEL_CLASS} max-h-96 min-w-56 overflow-y-auto`}
               >
                 {listLoading && providers === null ? (
-                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-ink-muted">
-                    <LoaderCircle size={14} className="animate-spin" />
+                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-ink-tertiary">
+                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     {t("composer.modelListLoading")}
                   </div>
                 ) : !providers || providers.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-ink-muted">
+                  <div className="px-3 py-2 text-sm text-ink-tertiary">
                     {t("composer.modelListEmpty")}
                   </div>
                 ) : (
@@ -266,7 +271,7 @@ export function ModelPicker() {
                     if (models.length === 0) return null;
                     return (
                       <DropdownMenu.Group key={provider.id}>
-                        <DropdownMenu.Label className="px-3 pb-1 pt-2 text-xs text-ink-muted">
+                        <DropdownMenu.Label className="px-3 pb-1 pt-2 text-xs text-ink-tertiary">
                           {provider.name || provider.id}
                         </DropdownMenu.Label>
                         {models.map((item) => {
@@ -285,16 +290,20 @@ export function ModelPicker() {
                               className={SUB_ITEM_CLASS}
                             >
                               <span className="truncate">
-                                {item.name || item.id}
+                                {item.name && item.name !== item.id
+                                  ? item.name
+                                  : prettyModelName(item.id)}
                               </span>
                               {switching === key ? (
                                 <LoaderCircle
                                   size={14}
-                                  className="shrink-0 animate-spin text-ink-muted"
+                                  strokeWidth={1.8}
+                                  className="shrink-0 animate-spin text-ink-tertiary"
                                 />
                               ) : active ? (
                                 <Check
-                                  size={13}
+                                  size={14}
+                                  strokeWidth={1.8}
                                   className="shrink-0 text-accent"
                                 />
                               ) : null}
@@ -314,9 +323,9 @@ export function ModelPicker() {
             <DropdownMenu.Sub>
               <DropdownMenu.SubTrigger className={TOP_ROW_CLASS}>
                 <span>{t("composer.effort.title")}</span>
-                <span className="flex items-center gap-1 text-ink-muted">
+                <span className="flex items-center gap-1 text-ink-tertiary">
                   <span>{effortText(activeEffort)}</span>
-                  <ChevronRight size={14} className="shrink-0" />
+                  <ChevronRight size={14} strokeWidth={1.8} className="shrink-0" />
                 </span>
               </DropdownMenu.SubTrigger>
               <DropdownMenu.Portal>
@@ -325,7 +334,7 @@ export function ModelPicker() {
                   alignOffset={-4}
                   className={`${MENU_PANEL_CLASS} min-w-44`}
                 >
-                  <DropdownMenu.Label className="px-3 pb-1 pt-1.5 text-xs text-ink-muted">
+                  <DropdownMenu.Label className="px-3 pb-1 pt-1.5 text-xs text-ink-tertiary">
                     {t("composer.effort.title")}
                   </DropdownMenu.Label>
                   {activeEffortOptions.map((option) => {
@@ -344,10 +353,11 @@ export function ModelPicker() {
                         {effortSaving === option ? (
                           <LoaderCircle
                             size={14}
-                            className="shrink-0 animate-spin text-ink-muted"
+                            strokeWidth={1.8}
+                            className="shrink-0 animate-spin text-ink-tertiary"
                           />
                         ) : selected ? (
-                          <Check size={15} className="shrink-0 text-ink" />
+                          <Check size={14} strokeWidth={1.8} className="shrink-0 text-ink" />
                         ) : null}
                       </DropdownMenu.Item>
                     );
@@ -372,11 +382,12 @@ export function ModelPicker() {
                 <span>{t("composer.effort.reset")}</span>
                 {effortSaving === "__default__" ? (
                   <LoaderCircle
-                    size={13}
-                    className="shrink-0 animate-spin text-ink-muted"
+                    size={14}
+                    strokeWidth={1.8}
+                    className="shrink-0 animate-spin text-ink-tertiary"
                   />
                 ) : (
-                  <RotateCcw size={14} className="shrink-0 text-ink-muted" />
+                  <RotateCcw size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
                 )}
               </DropdownMenu.Item>
             </>
@@ -389,7 +400,7 @@ export function ModelPicker() {
             }
             className="flex cursor-default items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
           >
-            <Settings2 size={14} />
+            <Settings size={14} strokeWidth={1.8} />
             {t("composer.manageModels")}
           </DropdownMenu.Item>
         </DropdownMenu.Content>

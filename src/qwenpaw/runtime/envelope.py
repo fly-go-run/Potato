@@ -33,6 +33,56 @@ class _EventMetadataExcludedOutput:
     output: Any
 
 
+_ANSWER_PHASES = frozenset({"commentary", "final_answer"})
+
+
+def _answer_phase_from(source: Any) -> str | None:
+    """Return commentary/final_answer from a metadata dict, else None.
+
+    AgentScope does not yet emit this field; PR3 prompt/backend work
+    is the intended source. Missing or any other value is unknown.
+    """
+    if source is None:
+        return None
+    metadata = (
+        source if isinstance(source, dict) else getattr(source, "metadata", None)
+    )
+    if not isinstance(metadata, dict):
+        return None
+    phase = metadata.get("phase")
+    return phase if phase in _ANSWER_PHASES else None
+
+
+def _source_answer_phase(event: Any) -> str | None:
+    phase = _answer_phase_from(event)
+    if phase:
+        return phase
+    for attr in ("message", "msg"):
+        phase = _answer_phase_from(getattr(event, attr, None))
+        if phase:
+            return phase
+    return None
+
+
+def _stamp_answer_phase(message: Any, event: Any) -> None:
+    """Copy optional answer phase onto a durable SSE Message.
+
+    Absence leaves metadata untouched — do not write the field.
+    """
+    phase = _source_answer_phase(event)
+    if phase is None:
+        return
+    current = getattr(message, "metadata", None)
+    if isinstance(current, dict):
+        if current.get("phase") == phase:
+            return
+        updated = dict(current)
+        updated["phase"] = phase
+        message.metadata = updated
+        return
+    message.metadata = {"phase": phase}
+
+
 def _with_event_metadata(obj: Any, event: Any) -> Any:
     """Return a real-time output carrying its source event metadata.
 
@@ -288,6 +338,7 @@ class Envelope:
         # === TEXT BLOCK ===
         elif evt_type == EventType.TEXT_BLOCK_START.value:
             if not self._message_started:
+                _stamp_answer_phase(self._completed_message, event)
                 yield self._tag_seq(self._completed_message)
                 self._message_started = True
             block_id = event.block_id
@@ -295,6 +346,7 @@ class Envelope:
             self._text_blocks[block_id] = {"index": index, "text": ""}
 
         elif evt_type == EventType.TEXT_BLOCK_DELTA.value:
+            _stamp_answer_phase(self._completed_message, event)
             if not self._message_started:
                 yield self._tag_seq(self._completed_message)
                 self._message_started = True

@@ -4,7 +4,7 @@ import {
   toolPairStatus,
   type ToolPair,
 } from "../components/chat/ToolCard";
-import { lineDiff } from "./lineDiff";
+import { lineDiff, type DiffLine } from "./lineDiff";
 import { qpCount, recordLegacyParse } from "./toolMeta";
 import type { StreamMessage } from "./stream";
 
@@ -120,6 +120,57 @@ export function totalChangeStats(changes: FileChange[]): {
     deletions += change.deletions;
   }
   return { files: changes.length, additions, deletions };
+}
+
+/** 轨道内联 diff 最多渲染这么多行;超出点截断行进侧栏。 */
+export const INLINE_DIFF_MAX_LINES = 120;
+
+/**
+ * 单次改动的展示行:edit 走 lineDiff;write/append 全是 add;
+ * oversized 与侧栏一致,整块删 + 整块加,不跑行级对齐。
+ */
+export function editDiffLines(
+  edit: Pick<FileEdit, "tool" | "before" | "after" | "oversized">,
+): DiffLine[] {
+  if (edit.tool !== "edit_file") {
+    return splitContentLines(edit.after).map((text) => ({
+      kind: "add" as const,
+      text,
+    }));
+  }
+  if (edit.oversized) {
+    return [
+      ...splitContentLines(edit.before).map((text) => ({
+        kind: "remove" as const,
+        text,
+      })),
+      ...splitContentLines(edit.after).map((text) => ({
+        kind: "add" as const,
+        text,
+      })),
+    ];
+  }
+  return lineDiff(edit.before, edit.after);
+}
+
+export function visibleDiffLines<T>(
+  lines: readonly T[],
+  max = INLINE_DIFF_MAX_LINES,
+): { visible: T[]; truncated: number } {
+  if (lines.length <= max) return { visible: [...lines], truncated: 0 };
+  return { visible: lines.slice(0, max), truncated: lines.length - max };
+}
+
+/** 行内 ± / diff 块共用:完成态走缓存,流式中按当前参数现算。 */
+export function pairFileEdit(pair: ToolPair): FileEdit | null {
+  const messageId = pair.call?.id ?? pair.callId ?? "inline";
+  const cached = successfulEdit(messageId, pair);
+  if (cached || toolPairStatus(pair).completed) return cached;
+  return computeEdit(messageId, pair);
+}
+
+function splitContentLines(value: string): string[] {
+  return value === "" ? [] : value.split("\n");
 }
 
 /** write 覆盖 edit/append;edit 覆盖 append。表达"这个文件本会话被整写过"。 */

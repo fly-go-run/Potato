@@ -99,6 +99,17 @@ export type ContentBlock =
   | FileContent
   | DataContent;
 
+/**
+ * Optional stream-message phase. Missing / null = unknown.
+ * Answer values are "commentary" | "final_answer"; compaction and other
+ * host uses keep their own strings. Not consumed by fold/render this round.
+ */
+export type AnswerPhase = "commentary" | "final_answer";
+
+export type MessageMetadata = Record<string, unknown> & {
+  phase?: AnswerPhase | string;
+};
+
 /** object === "message"：消息信封帧 */
 export interface MessageFrame {
   object: "message";
@@ -108,7 +119,7 @@ export interface MessageFrame {
   /** in_progress 首帧为 []；completed 帧含最终内容块 */
   content: unknown[];
   status: RunStatus;
-  metadata: Record<string, unknown> | null;
+  metadata: MessageMetadata | null;
   name?: string;
   usage?: TokenUsage;
   sequence_number?: number;

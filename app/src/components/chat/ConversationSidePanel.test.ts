@@ -3,7 +3,6 @@ import type { RunStatus } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import {
   collectConversationArtifacts,
-  presentRunStatus,
   resolveConversationFileLink,
   shouldPresentArtifactPair,
 } from "../../lib/conversationArtifacts";
@@ -492,19 +491,6 @@ describe("resolveConversationFileLink", () => {
         [],
       ),
     ).toBe("/Users/example/workspace/清单.txt");
-  });
-});
-
-describe("presentRunStatus", () => {
-  it.each([
-    ["created", "chat.panel.running"],
-    ["in_progress", "chat.panel.running"],
-    ["completed", "chat.panel.completed"],
-    ["idle", "chat.panel.completed"],
-    ["failed", "chat.panel.failed"],
-    ["cancelled", "chat.panel.cancelled"],
-  ] as const)("maps %s without flattening terminal states", (status, label) => {
-    expect(presentRunStatus(status).label).toBe(label);
   });
 });
 

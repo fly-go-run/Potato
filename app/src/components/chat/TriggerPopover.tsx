@@ -6,6 +6,8 @@ import type { TriggerKind } from "../../lib/composerTrigger";
 export interface TriggerItem {
   /** 选中后写回输入框的值(技能名 / 文件名) */
   value: string;
+  /** 面向人的展示名;缺省时直接展示 value */
+  label?: string;
   /** 次要说明(技能描述 / 文件来源),可空 */
   description?: string;
   icon?: "file" | "image" | "skill";
@@ -76,7 +78,7 @@ export function TriggerPopover({
         </div>
       )}
       {!loading && !errorText && items.length === 0 && (
-        <div className="px-3.5 pb-3 pt-1 text-[13px] text-ink-muted">
+        <div className="px-3.5 pb-3 pt-1 text-[13px] text-ink-tertiary">
           {kind === "slash"
             ? t("composer.trigger.noSkills")
             : t("composer.trigger.noFiles")}
@@ -110,12 +112,13 @@ export function TriggerPopover({
                 </span>
               ) : (
                 <Icon
-                  size={13}
-                  className="relative top-px shrink-0 self-center text-ink-tertiary"
+                  size={14}
+                  strokeWidth={1.8}
+                  className="relative top-px shrink-0 self-center text-icon"
                 />
               )}
               <span className="shrink-0 text-[13px] font-medium text-ink">
-                {item.value}
+                {item.label ?? item.value}
               </span>
               {item.description && (
                 <span className="min-w-0 truncate text-xs text-ink-tertiary">

@@ -106,7 +106,7 @@ export function MessageContent({
               className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-bubble-tool px-3 py-2 text-xs text-ink-secondary transition-colors hover:border-line-strong hover:text-ink"
               title={t("attachment.preview", { name: filename })}
             >
-              <FileText size={15} className="shrink-0" />
+              <FileText size={14} strokeWidth={1.8} className="shrink-0" />
               <span className="truncate">{filename}</span>
             </a>
           );
