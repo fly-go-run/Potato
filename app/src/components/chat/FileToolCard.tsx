@@ -157,24 +157,14 @@ export function FileToolCard({
     : shimmer
       ? ""
       : "text-ink-tertiary group-hover:text-ink";
-  const pathNode =
-    path && onOpenFile ? (
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenFile(path);
-        }}
-        className={`min-w-0 flex-1 truncate text-left font-mono text-[12px] ${pathTone} underline decoration-dotted underline-offset-2 hover:text-ink`}
-        title={t("tool.file.open")}
-      >
-        {path}
-      </button>
-    ) : (
-      <span className={`min-w-0 flex-1 truncate font-mono text-[12px] ${pathTone}`}>
-        {path || t("tool.file.path")}
-      </span>
-    );
+  // 行的整个点击面都归展开(行内 diff/内容)——文件名不再是独立链接,
+  // 否则行的主区域被"跳侧栏"占据,展开反而只能点边缘。跳转统一走
+  // 展开后的行尾 ArrowUpRight。
+  const pathNode = (
+    <span className={`min-w-0 flex-1 truncate font-mono text-[12px] ${pathTone}`}>
+      {path || t("tool.file.path")}
+    </span>
+  );
 
   const RowIcon = modifies ? FilePenLine : FileText;
   const toggle = (
@@ -218,22 +208,24 @@ export function FileToolCard({
     <ToolDisclosure
       toggle={toggle}
       after={after}
-      trailing={(open) =>
-        open && modifies && path && onOpenChange ? (
+      trailing={(open) => {
+        // 改动行去侧栏 diff,只读行去文件预览——同一颗行尾按钮分流
+        const jump = modifies ? onOpenChange : onOpenFile;
+        return open && path && jump ? (
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onOpenChange(path);
+              jump(path);
             }}
-            title={t("chat.panel.open")}
-            aria-label={t("chat.panel.open")}
+            title={modifies ? t("chat.panel.open") : t("tool.file.open")}
+            aria-label={modifies ? t("chat.panel.open") : t("tool.file.open")}
             className="shrink-0 rounded-[var(--radius-sm)] p-0.5 text-icon opacity-0 transition-opacity duration-[var(--dur-fast)] hover:text-icon-strong group-hover:opacity-100"
           >
             <ArrowUpRight size={12} strokeWidth={1.8} />
           </button>
-        ) : null
-      }
+        ) : null;
+      }}
       toggleGrow={false}
       failed={failed}
       detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
