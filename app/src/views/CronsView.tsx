@@ -279,7 +279,7 @@ export function CronsView() {
           actions={
             view === "runs" || jobs.length === 0 ? undefined : (
               <Button variant="primary" size="sm" onClick={() => openNew()}>
-                <Plus size={15} />
+                <Plus size={16} strokeWidth={1.75} />
                 {t("crons.new")}
               </Button>
             )
@@ -337,12 +337,12 @@ export function CronsView() {
           </Card>
         ) : jobs.length === 0 ? (
           <EmptyState
-            icon={<CalendarClock size={20} />}
+            icon={<CalendarClock size={20} strokeWidth={1.75} />}
             title={t("crons.emptyTitle")}
             description={t("crons.emptyDescription")}
             action={
               <Button variant="primary" size="sm" onClick={() => openNew()}>
-                <Plus size={15} />
+                <Plus size={16} strokeWidth={1.75} />
                 {t("crons.new")}
               </Button>
             }
@@ -350,7 +350,7 @@ export function CronsView() {
         ) : (
           <Card className="overflow-x-auto">
             <table className="w-full min-w-[56rem] border-collapse text-left">
-              <thead className="bg-bubble-tool text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+              <thead className="bg-bubble-tool text-[11px] font-medium uppercase tracking-wide text-ink-tertiary">
                 <tr>
                   <th className="px-4 py-3">{t("crons.nameColumn")}</th>
                   <th className="px-4 py-3">{t("crons.scheduleColumn")}</th>
@@ -435,21 +435,21 @@ export function CronsView() {
                             disabled={busy || !isCronJobEditable(spec)}
                             onClick={() => setEditing(spec)}
                           >
-                            <Pencil size={15} />
+                            <Pencil size={14} strokeWidth={1.8} />
                           </ActionButton>
                           <ActionButton
                             title={t("crons.runNow")}
                             disabled={busy}
                             onClick={() => void act(spec, "run")}
                           >
-                            <Play size={15} />
+                            <Play size={14} strokeWidth={1.8} />
                           </ActionButton>
                           <ActionButton
                             title={t("crons.history")}
                             disabled={busy}
                             onClick={() => setHistoryJob(spec)}
                           >
-                            <History size={15} />
+                            <History size={14} strokeWidth={1.8} />
                           </ActionButton>
                           <ActionButton
                             title={t("crons.delete")}
@@ -457,7 +457,7 @@ export function CronsView() {
                             danger
                             onClick={() => setPendingDelete(spec)}
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} strokeWidth={1.8} />
                           </ActionButton>
                         </div>
                       </td>
@@ -499,7 +499,8 @@ export function CronsView() {
                   >
                     <Icon
                       size={16}
-                      className="mt-0.5 shrink-0 text-ink-tertiary"
+                      strokeWidth={1.75}
+                      className="mt-0.5 shrink-0 text-icon"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-ink">
@@ -676,13 +677,13 @@ function CronFormDialog({
                   ? t("crons.form.editTitle")
                   : t("crons.form.newTitle")}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-ink-muted">
+              <Dialog.Description className="mt-0.5 text-xs text-ink-tertiary">
                 {t("crons.form.description")}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("common.cancel")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -855,7 +856,7 @@ function GlobalRunHistory({
           </div>
         )}
         <EmptyState
-          icon={<History size={20} />}
+          icon={<History size={20} strokeWidth={1.75} />}
           title={t("crons.runs.emptyTitle")}
           description={
             jobs.length === 0
@@ -876,7 +877,7 @@ function GlobalRunHistory({
       )}
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[42rem] border-collapse text-left">
-          <thead className="bg-bubble-tool text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+          <thead className="bg-bubble-tool text-[11px] font-medium uppercase tracking-wide text-ink-tertiary">
             <tr>
               <th className="px-4 py-3">{t("crons.runs.taskColumn")}</th>
               <th className="px-4 py-3">{t("crons.runs.timeColumn")}</th>
@@ -956,13 +957,13 @@ function HistoryDrawer({
               <Dialog.Title className="font-medium text-ink">
                 {t("crons.historyTitle")}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 truncate text-xs text-ink-muted">
+              <Dialog.Description className="mt-0.5 truncate text-xs text-ink-tertiary">
                 {t("crons.historyDescription", { name: job?.name ?? "" })}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("common.cancel")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -976,7 +977,7 @@ function HistoryDrawer({
                 {error}
               </div>
             ) : records.length === 0 ? (
-              <div className="py-12 text-center text-sm text-ink-muted">
+              <div className="py-12 text-center text-sm text-ink-tertiary">
                 {t("crons.historyEmpty")}
               </div>
             ) : (
@@ -988,8 +989,9 @@ function HistoryDrawer({
                   >
                     <div className="flex items-start gap-3">
                       <Clock3
-                        size={15}
-                        className="mt-0.5 shrink-0 text-ink-muted"
+                        size={14}
+                        strokeWidth={1.8}
+                        className="mt-0.5 shrink-0 text-icon"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1072,7 +1074,7 @@ function Field({
       {label}
       {children}
       {hint && (
-        <span className="mt-1 block font-normal text-ink-muted">{hint}</span>
+        <span className="mt-1 block font-normal text-ink-tertiary">{hint}</span>
       )}
     </label>
   );

@@ -652,6 +652,56 @@ def test_context_config_keeps_agentscope_cap_when_pruning_is_disabled():
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pruning_enabled", [True, False])
+async def test_oversized_agentscope_split_preserves_qp_metadata(
+    pruning_enabled,
+):
+    agent_config = types.SimpleNamespace(
+        running=types.SimpleNamespace(
+            light_context_config=LightContextConfig(
+                strategy="scroll",
+                tool_result_pruning_config=ToolResultPruningConfig(
+                    enabled=pruning_enabled,
+                ),
+            ),
+        ),
+    )
+    context_config = AgentBuilder._build_context_config(agent_config)
+
+    class _OverLimitModel:
+        async def count_tokens(self, *_args, **_kwargs):
+            return context_config.tool_result_limit + 1
+
+    shim = types.SimpleNamespace(
+        name="agent",
+        model=_OverLimitModel(),
+        context_config=context_config,
+    )
+    qp = {
+        "v": 1,
+        "kind": "shell",
+        "ok": True,
+        "data": {"sandboxed": False, "exit_code": 0},
+    }
+    result = ToolResultBlock(
+        id="call-large",
+        name="execute_shell_command",
+        output=[TextBlock(text="x" * 100)],
+        metadata={"qp": qp, "another_key": {"kept": True}},
+    )
+
+    reserved, offloaded = (
+        await QwenPawAgent._split_tool_result_for_compression(shim, result)
+    )
+
+    assert offloaded is not None
+    assert reserved.metadata == result.metadata
+    assert offloaded.metadata == result.metadata
+    assert reserved.metadata is not result.metadata
+    assert offloaded.metadata is not result.metadata
+
+
 def test_explicit_legacy_scroll_tool_cap_warns_once_and_is_not_saved(
     caplog,
     monkeypatch,

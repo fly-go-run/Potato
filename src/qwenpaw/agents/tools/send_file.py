@@ -11,7 +11,12 @@ from agentscope.message import ToolResultState
 from agentscope.message import TextBlock, DataBlock, URLSource
 
 from ...runtime.tool_registry import tool_descriptor
+from ...runtime.tool_meta import build_qp_meta
 from .file_io import _resolve_file_path, _path_to_file_url
+
+
+def _file_sent_metadata(path: str, ok: bool, **data) -> dict:
+    return {"qp": build_qp_meta("file_sent", ok, {"path": path, **data})}
 
 
 @tool_descriptor(
@@ -56,6 +61,7 @@ async def send_file_to_user(
                     text=f"Error: The file {file_path} does not exist.",
                 ),
             ],
+            metadata=_file_sent_metadata(file_path, False),
         )
 
     if not os.path.isfile(file_path):
@@ -67,6 +73,7 @@ async def send_file_to_user(
                     text=f"Error: The path {file_path} is not a file.",
                 ),
             ],
+            metadata=_file_sent_metadata(file_path, False),
         )
 
     # Detect MIME type
@@ -91,6 +98,12 @@ async def send_file_to_user(
                 ),
                 TextBlock(text="File sent successfully."),
             ],
+            metadata=_file_sent_metadata(
+                file_path,
+                True,
+                size_bytes=os.path.getsize(file_path),
+                attached=True,
+            ),
         )
 
     except Exception as e:
@@ -102,4 +115,5 @@ async def send_file_to_user(
                     text=f"Error: Send file failed due to \n{e}",
                 ),
             ],
+            metadata=_file_sent_metadata(file_path, False),
         )

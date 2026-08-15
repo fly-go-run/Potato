@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
+from .registration import RegistrationHandle
+
 
 @dataclass(frozen=True)
 class ToolGovernanceSpec:
@@ -93,7 +95,7 @@ class ToolRegistry:
         self._descs: dict[str, ToolDescriptor] = {}
 
     # ---------------------------------------------------------------- register
-    def register(self, desc: ToolDescriptor) -> None:
+    def register(self, desc: ToolDescriptor) -> RegistrationHandle:
         if not isinstance(desc, ToolDescriptor):
             raise TypeError(
                 "register() requires a ToolDescriptor,"
@@ -102,6 +104,14 @@ class ToolRegistry:
         if desc.name in self._descs:
             raise ValueError(f"tool {desc.name!r} already registered")
         self._descs[desc.name] = desc
+        return RegistrationHandle(
+            lambda: self._pop_identity(desc),
+            tag=f"tool:{desc.name}",
+        )
+
+    def _pop_identity(self, desc: ToolDescriptor) -> None:
+        if self._descs.get(desc.name) is desc:
+            self._descs.pop(desc.name, None)
 
     def register_many(self, descs: Iterable[ToolDescriptor]) -> None:
         for d in descs:

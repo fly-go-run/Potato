@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..exceptions import HookCycleError
 from .phases import Phase
+from .registration import RegistrationHandle
 
 if TYPE_CHECKING:
     from agentscope.agent import Agent
@@ -266,7 +267,7 @@ class HookRegistry:
         self._by_phase: dict[Phase, list[HookBase]] = defaultdict(list)
         self._sorted_cache: dict[Phase, list[HookBase]] = {}
 
-    def register(self, hook: HookBase) -> None:
+    def register(self, hook: HookBase) -> RegistrationHandle:
         if not isinstance(hook, HookBase):
             raise TypeError(
                 "register() requires a HookBase instance,"
@@ -280,6 +281,20 @@ class HookRegistry:
             )
         self._by_phase[hook.phase].append(hook)
         self._sorted_cache.pop(hook.phase, None)
+        phase = hook.phase
+
+        def _dispose() -> None:
+            hooks = self._by_phase[phase]
+            for index, registered in enumerate(hooks):
+                if registered is hook:
+                    del hooks[index]
+                    self._sorted_cache.pop(phase, None)
+                    break
+
+        return RegistrationHandle(
+            _dispose,
+            tag=f"runtime-hook:{hook.name}",
+        )
 
     def hooks_for(self, phase: Phase) -> list[HookBase]:
         """Return the topologically sorted hooks registered for ``phase``."""

@@ -1,11 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Blocks,
+  LayoutGrid,
   Clock3,
-  Inbox,
   MessageSquare,
-  NotebookPen,
-  PenSquare,
+  Notebook,
+  SquarePen,
   Pin,
   Search,
   Settings,
@@ -25,7 +24,6 @@ import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { loadSessionProject } from "../../lib/projects";
 import { relativeTime } from "../../lib/relativeTime";
 import { useChatStore } from "../../stores/chat";
-import { Input } from "../ui";
 
 interface PaletteItem {
   id: string;
@@ -69,7 +67,7 @@ export function ChatSearchDialog({
     const action: PaletteItem = {
       id: "action-new-chat",
       label: t("sidebar.newChat"),
-      icon: PenSquare,
+      icon: SquarePen,
       execute: () => {
         newChat();
         closeAndNavigate("/");
@@ -83,21 +81,15 @@ export function ChatSearchDialog({
         execute: () => closeAndNavigate("/crons"),
       },
       {
-        id: "page-inbox",
-        label: t("sidebar.inbox"),
-        icon: Inbox,
-        execute: () => closeAndNavigate("/inbox"),
-      },
-      {
         id: "page-skills",
         label: t("sidebar.skills"),
-        icon: Blocks,
+        icon: LayoutGrid,
         execute: () => closeAndNavigate("/skills"),
       },
       {
         id: "page-memory",
         label: t("sidebar.memory"),
-        icon: NotebookPen,
+        icon: Notebook,
         execute: () => closeAndNavigate("/memory"),
       },
       {
@@ -190,8 +182,8 @@ export function ChatSearchDialog({
             {t("search.description")}
           </Dialog.Description>
           <div className="flex items-center gap-2 border-b border-line px-4">
-            <Search size={16} className="shrink-0 text-ink-muted" />
-            <Input
+            <Search size={16} strokeWidth={1.75} className="shrink-0 text-icon" />
+            <input
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -202,12 +194,12 @@ export function ChatSearchDialog({
                   ? `command-palette-${items[selectedIndex].id}`
                   : undefined
               }
-              className="h-12 min-w-0 flex-1 border-transparent bg-transparent px-0 shadow-none focus-visible:border-line-strong focus-visible:ring-0"
+              className="h-12 min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
             />
           </div>
           <div className="max-h-80 overflow-y-auto p-2">
             {items.length === 0 ? (
-              <div className="px-3 py-8 text-center text-sm text-ink-muted">
+              <div className="px-3 py-8 text-center text-sm text-ink-tertiary">
                 {t("search.empty")}
               </div>
             ) : (
@@ -215,7 +207,7 @@ export function ChatSearchDialog({
                 if (section.items.length === 0) return null;
                 return (
                   <section key={section.id}>
-                    <h2 className="px-3 pb-1 pt-2 text-[11px] text-ink-muted">
+                    <h2 className="px-3 pb-1 pt-2 text-[11px] text-ink-tertiary">
                       {t(section.title)}
                     </h2>
                     {section.items.map((item) => {
@@ -243,17 +235,18 @@ export function ChatSearchDialog({
                               : "text-ink-secondary hover:bg-fill-hover"
                           }`}
                         >
-                          <Icon size={15} className="shrink-0 text-ink-muted" />
+                          <Icon size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
                           {item.chat?.pinned && (
                             <Pin
                               size={12}
-                              className="shrink-0 text-ink-muted"
+                              strokeWidth={1.8}
+                              className="shrink-0 text-icon"
                             />
                           )}
                           <span className="min-w-0 flex-1">
                             <span className="block truncate">{item.label}</span>
                             {item.chat && (
-                              <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] font-normal text-ink-muted">
+                              <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] font-normal text-ink-tertiary">
                                 {project && (
                                   <span className="min-w-0 truncate">
                                     {project.name}

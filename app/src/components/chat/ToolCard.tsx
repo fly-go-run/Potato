@@ -1,14 +1,37 @@
-import { Check, X } from "lucide-react";
-import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
-import { useToolDetail } from "../../stores/uiPrefs";
+import {
+  FilePenLine,
+  FileSearch,
+  FileText,
+  Files,
+  Globe,
+  Search,
+  Sparkles,
+  Terminal,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { DataContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
-import { t, useTranslation, type TranslationKey } from "../../lib/i18n";
+import {
+  t,
+  useTranslation,
+  type Language,
+  type TranslationKey,
+} from "../../lib/i18n";
+import { skillDisplayName } from "../../lib/skillPresentation";
+import {
+  extractPairObject,
+  skillNameOf,
+  toolFamily,
+  type ToolFamily,
+} from "../../lib/stepGroups";
+import { parseQpMeta, qpString, type QpMeta } from "../../lib/toolMeta";
 import { JsonView } from "./JsonView";
 import { ShellToolCard } from "./ShellToolCard";
 import { FileToolCard, isFileTool } from "./FileToolCard";
+import { TrackSummary } from "./TrackRow";
 
 export interface ToolPair {
   call: StreamMessage | null;
@@ -18,6 +41,10 @@ export interface ToolPair {
   arguments: string;
   result: string;
   state: string | null;
+  /** 结构化结果契约(qp meta);历史/取消/未迁移工具为 null。 */
+  meta: QpMeta | null;
+  /** 后端 ToolUISpec 声明的图标(TOOL_CALL_START 的 ui.icon);可缺。 */
+  uiIcon: string;
 }
 
 /**
@@ -57,54 +84,127 @@ export function toolPairStatus(pair: ToolPair) {
 export function ToolCard({
   pair,
   onOpenFile,
+  onOpenChange,
   prominentArtifact = false,
+  embedded = false,
+  shimmer = false,
+  tail = false,
+  open,
+  onToggle,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
   prominentArtifact?: boolean;
+  /** 组内原始层:shell 直接出纯文本块,文件保留 ± 行。 */
+  embedded?: boolean;
+  shimmer?: boolean;
+  tail?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
+  if (toolPairStatus(pair).failed && !prominentArtifact) {
+    if (pair.name === "execute_shell_command") {
+      return (
+        <ShellToolCard
+          pair={pair}
+          embedded={embedded}
+          shimmer={shimmer}
+          tail={tail}
+          open={open}
+          onToggle={onToggle}
+        />
+      );
+    }
+    if (isFileTool(pair.name)) {
+      return (
+        <FileToolCard
+          pair={pair}
+          onOpenFile={onOpenFile}
+          onOpenChange={onOpenChange}
+          prominentArtifact={prominentArtifact}
+          shimmer={shimmer}
+          open={open}
+          onToggle={onToggle}
+        />
+      );
+    }
+    return <FailedToolRow pair={pair} open={open} onToggle={onToggle} />;
+  }
   if (pair.name === "execute_shell_command") {
-    return <ShellToolCard pair={pair} />;
+    return (
+      <ShellToolCard
+        pair={pair}
+        embedded={embedded}
+        shimmer={shimmer}
+        tail={tail}
+        open={open}
+        onToggle={onToggle}
+      />
+    );
   }
   if (isFileTool(pair.name)) {
     return (
       <FileToolCard
         pair={pair}
         onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
         prominentArtifact={prominentArtifact}
+        shimmer={shimmer}
+        open={open}
+        onToggle={onToggle}
       />
     );
   }
-  return <GenericToolCard pair={pair} />;
+  return (
+    <GenericToolCard
+      pair={pair}
+      embedded={embedded}
+      shimmer={shimmer}
+      open={open}
+      onToggle={onToggle}
+    />
+  );
 }
 
-function GenericToolCard({ pair }: { pair: ToolPair }) {
-  const { t } = useTranslation();
+function GenericToolCard({
+  pair,
+  embedded = false,
+  shimmer = false,
+  open,
+  onToggle,
+}: {
+  pair: ToolPair;
+  embedded?: boolean;
+  shimmer?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
+  const { t, language } = useTranslation();
   const { running, failed } = toolPairStatus(pair);
-  const debugStatus = useToolDetail();
-  const summary = argumentSummary(pair.arguments, t);
-  const durationLabel = running ? "" : pairDurationLabel(pair);
-  // 失败时退回中性名词,「读取了」这类完成时态只留给成功。
-  const label = failed
-    ? humanToolName(pair.name, t)
-    : humanToolLabel(pair.name, running, t);
+  const family = toolFamily(pair.name);
+  const Icon = FAMILY_ICONS[family];
+  const object = pairObjectLabel(pair, family, language, t);
+  const keepRunningVerb = family === "skill" || family === "other";
+  const verb =
+    running && keepRunningVerb ? t("tool.tense.skill.running") : "";
 
   const detail = (
     <div className="space-y-3">
       <section>
-        <div className="mb-1 text-xs font-medium text-ink-muted">
+        <div className="mb-1 text-xs font-medium text-ink-tertiary">
           {t("tool.parameters")}
         </div>
         <JsonView value={pair.arguments || {}} />
       </section>
       <section>
-        <div className="mb-1 text-xs font-medium text-ink-muted">
+        <div className="mb-1 text-xs font-medium text-ink-tertiary">
           {t("tool.result")}
         </div>
         {pair.result ? (
           <JsonView value={richOutputText(pair.result)} />
         ) : (
-          <div className="text-xs text-ink-muted">
+          <div className="text-xs text-ink-tertiary">
             {running ? t("tool.running") : t("tool.noResult")}
           </div>
         )}
@@ -112,113 +212,137 @@ function GenericToolCard({ pair }: { pair: ToolPair }) {
     </div>
   );
 
+  if (embedded) {
+    return (
+      <div className="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-surface px-3 py-2">
+        {detail}
+      </div>
+    );
+  }
+
   const toggle = (
     <>
-      <span
-        className={`min-w-0 shrink-0 truncate font-medium ${
-          running
-            ? "text-ink"
-            : debugStatus && failed
-            ? "text-danger"
-            : "text-ink-tertiary"
-        }`}
-      >
-        {label}
-      </span>
-      {summary && (
-        <span className="min-w-0 flex-1 truncate text-ink-muted">
-          {summary}
+      {pair.uiIcon ? (
+        <span aria-hidden className="shrink-0 text-[14px] leading-none text-ink-muted">
+          {pair.uiIcon}
         </span>
+      ) : (
+        <Icon
+          size={14}
+          strokeWidth={1.8}
+          className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
+        />
       )}
+      <span className={shimmer ? "qp-shimmer min-w-0 truncate" : "min-w-0 truncate"}>
+        <TrackSummary
+          verb={verb}
+          object={object}
+          shimmer={shimmer}
+          failed={failed}
+        />
+      </span>
     </>
   );
   const after = running ? (
     <ToolStatus running={running} failed={failed} />
-  ) : (
-    <>
-      {durationLabel && (
-        <span className="ml-auto shrink-0 pl-2 text-[11px] tabular-nums text-ink-muted">
-          {durationLabel}
-        </span>
-      )}
-      {debugStatus && failed ? (
-        <X size={13} className="shrink-0 text-danger" />
-      ) : debugStatus ? (
-        <Check size={13} className="shrink-0 text-ink-muted" />
-      ) : null}
-    </>
-  );
+  ) : null;
 
   return (
     <ToolDisclosure
-      card={running}
       toggle={toggle}
       after={after}
-      detailClassName={
-        running
-          ? "max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain px-4 py-3"
-          : "mb-2 mt-1 rounded-[var(--radius-md)] border border-line bg-bubble-tool px-4 py-3"
-      }
+      failed={failed}
+      open={open}
+      onToggle={onToggle}
+      detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-surface px-3 py-2"
     >
       {detail}
     </ToolDisclosure>
   );
 }
 
-export function ToolStatus({
-  running,
-  failed,
-  quiet,
+/** 失败工具:红字安静行,点开才见完整错误。 */
+function FailedToolRow({
+  pair,
+  open,
+  onToggle,
 }: {
-  running: boolean;
-  failed: boolean;
-  quiet?: boolean;
+  pair: ToolPair;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
-  const { t } = useTranslation();
-  const detail = useToolDetail();
-  if (running) {
-    return (
-      <span className="flex shrink-0 items-center gap-1.5 text-ink-muted">
-        <Spinner size={13} />
-        {t("tool.statusRunning")}
-      </span>
-    );
-  }
-  if (failed) {
-    if (!detail) return null;
-    return (
-      <span className="flex shrink-0 items-center gap-1 text-danger">
-        <X size={13} />
-        {quiet ? null : t("tool.statusFailed")}
-      </span>
-    );
-  }
-  if (quiet) {
-    return detail ? (
-      <Check size={13} className="shrink-0 text-ink-muted" />
-    ) : null;
-  }
-  if (!detail) return null;
+  const { t, language } = useTranslation();
+  const family = toolFamily(pair.name);
+  const Icon = FAMILY_ICONS[family];
+  const object = pairObjectLabel(pair, family, language, t);
+  const reason = toolFailureSummary(pair);
+  const output = pair.result ? richOutputText(pair.result) : "";
+  const detail = output ? (
+    <pre className="max-h-[min(18rem,34vh)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words font-mono text-xs leading-6 text-ink">
+      {typeof output === "string" ? output : JSON.stringify(output, null, 2)}
+    </pre>
+  ) : (
+    <div className="text-xs text-ink-tertiary">{t("tool.noResult")}</div>
+  );
+
   return (
-    <span className="flex shrink-0 items-center gap-1 text-ok">
-      <Check size={13} />
-      {t("tool.statusComplete")}
-    </span>
+    <ToolDisclosure
+      toggle={
+        <>
+          {pair.uiIcon ? (
+            <span aria-hidden className="shrink-0 text-[14px] leading-none text-danger">
+              {pair.uiIcon}
+            </span>
+          ) : (
+            <Icon size={14} strokeWidth={1.8} className="shrink-0 text-danger" />
+          )}
+          <TrackSummary object={object} failed />
+          {reason ? (
+            <span className="min-w-0 truncate pl-2 text-[11px] text-danger">
+              {reason}
+            </span>
+          ) : null}
+        </>
+      }
+      failed
+      open={open}
+      onToggle={onToggle}
+      detailClassName="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2"
+    >
+      {detail}
+    </ToolDisclosure>
   );
 }
 
+function toolFailureSummary(pair: ToolPair): string {
+  const fromMeta =
+    qpString(pair.meta, "error") ||
+    qpString(pair.meta, "message") ||
+    qpString(pair.meta, "detail");
+  if (fromMeta) return firstLine(fromMeta);
+  const text = richOutputText(pair.result);
+  if (typeof text === "string" && text.trim()) return firstLine(text);
+  return "";
+}
+
+function firstLine(value: string, max = 80): string {
+  const line = value.trim().split(/\r?\n/, 1)[0] ?? "";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
 /**
- * 单次工具调用耗时:call 首见 → output 收口(无 output 时退回 call
- * 自身收口)。历史加载的会话没有实时计时,返回空串即隐藏。
+ * 运行中的行尾指示:13px Spinner,不带文字。完成/失败态零落墨——
+ * 成功是预期不配图标,失败由整行 danger 色承担(对号/叉号已整体移除)。
  */
-export function pairDurationLabel(pair: ToolPair): string {
-  const start = pair.call ? getMessageTiming(pair.call.id)?.startedAt : null;
-  if (start == null) return "";
-  const end =
-    (pair.output ? getMessageTiming(pair.output.id)?.endedAt : null) ??
-    (pair.call ? getMessageTiming(pair.call.id)?.endedAt : null);
-  if (end == null) return "";
-  return formatDuration(end - start);
+export function ToolStatus({
+  running,
+}: {
+  running: boolean;
+  failed?: boolean;
+  quiet?: boolean;
+}) {
+  if (!running) return null;
+  return <Spinner size={13} className="shrink-0 text-ink-tertiary" />;
 }
 
 export function toolData(message: StreamMessage | null) {
@@ -234,6 +358,7 @@ export function buildToolPair(
 ): ToolPair {
   const callData = toolData(call);
   const outputData = toolData(output);
+  const callUi = callData.ui as Record<string, unknown> | undefined;
   return {
     call,
     output,
@@ -245,6 +370,11 @@ export function buildToolPair(
     arguments: stringValue(callData.arguments),
     result: stringValue(outputData.output),
     state: stringValue(outputData.state) || null,
+    meta: parseQpMeta(outputData.meta),
+    uiIcon:
+      callUi && typeof callUi === "object" && !Array.isArray(callUi)
+        ? stringValue(callUi.icon)
+        : "",
   };
 }
 
@@ -312,58 +442,35 @@ export function richOutputText(output: string) {
   }
 }
 
-/** 每个已知工具的运行中/完成时态文案,未知工具回落到通用格式。 */
-const TOOL_TENSE_KEYS: Record<
-  string,
-  { running: TranslationKey; done: TranslationKey }
-> = {
-  execute_shell_command: {
-    running: "tool.tense.shell.running",
-    done: "tool.tense.shell.done",
-  },
-  skill: { running: "tool.tense.skill.running", done: "tool.tense.skill.done" },
-  web_search: {
-    running: "tool.tense.webSearch.running",
-    done: "tool.tense.webSearch.done",
-  },
-  web_fetch: {
-    running: "tool.tense.webFetch.running",
-    done: "tool.tense.webFetch.done",
-  },
-  grep_search: {
-    running: "tool.tense.searchFiles.running",
-    done: "tool.tense.searchFiles.done",
-  },
-  glob_search: {
-    running: "tool.tense.matchFiles.running",
-    done: "tool.tense.matchFiles.done",
-  },
-  read_file: {
-    running: "tool.tense.fileRead.running",
-    done: "tool.tense.fileRead.done",
-  },
-  write_file: {
-    running: "tool.tense.fileWrite.running",
-    done: "tool.tense.fileWrite.done",
-  },
-  edit_file: {
-    running: "tool.tense.fileEdit.running",
-    done: "tool.tense.fileEdit.done",
-  },
-  append_file: {
-    running: "tool.tense.fileAppend.running",
-    done: "tool.tense.fileAppend.done",
-  },
-  send_file_to_user: {
-    running: "tool.tense.fileDeliver.running",
-    done: "tool.tense.fileDeliver.done",
-  },
+/** 头上的进行时。行上不再用完成态动词。 */
+const TOOL_TENSE_RUNNING: Record<string, TranslationKey> = {
+  execute_shell_command: "tool.tense.shell.running",
+  skill: "tool.tense.skill.running",
+  web_search: "tool.tense.webSearch.running",
+  web_fetch: "tool.tense.webFetch.running",
+  grep_search: "tool.tense.searchFiles.running",
+  glob_search: "tool.tense.matchFiles.running",
+  read_file: "tool.tense.fileRead.running",
+  write_file: "tool.tense.fileWrite.running",
+  edit_file: "tool.tense.fileEdit.running",
+  append_file: "tool.tense.fileAppend.running",
+  send_file_to_user: "tool.tense.fileDeliver.running",
+};
+
+const FAMILY_ICONS: Record<ToolFamily, LucideIcon> = {
+  search: Search,
+  fetch: Globe,
+  grep: FileSearch,
+  glob: Files,
+  read: FileText,
+  edit: FilePenLine,
+  shell: Terminal,
+  skill: Sparkles,
+  other: Wrench,
 };
 
 /**
- * 时态化工具标签:运行中「正在读取」、完成后「读取了」。轨道叙事由
- * 它统一供给(卡片头部、摘要行、折叠态近况列表)。失败态请调用方
- * 自行退回 humanToolName 的中性名词。
+ * 直播头「正在…」。完成态返回空串——行上由图标承担动词。
  */
 export function humanToolLabel(
   name: string,
@@ -373,11 +480,30 @@ export function humanToolLabel(
     params?: Record<string, string | number>,
   ) => string,
 ): string {
+  if (!running) return "";
   const normalized = name.replace(/^mcp__/i, "").toLocaleLowerCase();
-  const tense = TOOL_TENSE_KEYS[normalized];
-  if (tense) return translate(running ? tense.running : tense.done);
-  const pretty = humanToolName(name, translate);
-  return running ? translate("tool.genericRunning", { name: pretty }) : pretty;
+  const tense = TOOL_TENSE_RUNNING[normalized];
+  if (tense) return translate(tense);
+  return translate("tool.genericRunning");
+}
+
+function pairObjectLabel(
+  pair: ToolPair,
+  family: ToolFamily,
+  language: Language,
+  translate: (
+    key: TranslationKey,
+    params?: Record<string, string | number>,
+  ) => string,
+): string {
+  if (family === "skill") {
+    const skill = skillNameOf(pair);
+    return skill ? skillDisplayName(skill, language) : "";
+  }
+  const extracted = extractPairObject(family, pair);
+  if (extracted) return extracted;
+  if (family === "other") return humanToolName(pair.name, translate);
+  return argumentSummary(pair.arguments, translate);
 }
 
 export function humanToolName(

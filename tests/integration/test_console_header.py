@@ -3,10 +3,9 @@
 
 These cover ``/api/console/*`` endpoints that resolve the active agent
 via ``get_agent_for_request`` (header variant) rather than the
-``/api/agents/{agentId}/console/*`` scoped variant. The inbox subset
-of the same prefix is exercised separately in ``test_inbox.py``; this
-module focuses on the remaining 4 header endpoints (chat/stop,
-push-messages, debug/backend-logs, upload).
+``/api/agents/{agentId}/console/*`` scoped variant. This module
+focuses on 4 header endpoints (chat/stop, push-messages,
+debug/backend-logs, upload).
 
 POST ``/api/console/chat`` (the main conversation submit) is
 intentionally NOT covered here — it requires an LLM round-trip and

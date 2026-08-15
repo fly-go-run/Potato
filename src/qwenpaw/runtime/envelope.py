@@ -33,6 +33,56 @@ class _EventMetadataExcludedOutput:
     output: Any
 
 
+_ANSWER_PHASES = frozenset({"commentary", "final_answer"})
+
+
+def _answer_phase_from(source: Any) -> str | None:
+    """Return commentary/final_answer from a metadata dict, else None.
+
+    AgentScope does not yet emit this field; PR3 prompt/backend work
+    is the intended source. Missing or any other value is unknown.
+    """
+    if source is None:
+        return None
+    metadata = (
+        source if isinstance(source, dict) else getattr(source, "metadata", None)
+    )
+    if not isinstance(metadata, dict):
+        return None
+    phase = metadata.get("phase")
+    return phase if phase in _ANSWER_PHASES else None
+
+
+def _source_answer_phase(event: Any) -> str | None:
+    phase = _answer_phase_from(event)
+    if phase:
+        return phase
+    for attr in ("message", "msg"):
+        phase = _answer_phase_from(getattr(event, attr, None))
+        if phase:
+            return phase
+    return None
+
+
+def _stamp_answer_phase(message: Any, event: Any) -> None:
+    """Copy optional answer phase onto a durable SSE Message.
+
+    Absence leaves metadata untouched — do not write the field.
+    """
+    phase = _source_answer_phase(event)
+    if phase is None:
+        return
+    current = getattr(message, "metadata", None)
+    if isinstance(current, dict):
+        if current.get("phase") == phase:
+            return
+        updated = dict(current)
+        updated["phase"] = phase
+        message.metadata = updated
+        return
+    message.metadata = {"phase": phase}
+
+
 def _with_event_metadata(obj: Any, event: Any) -> Any:
     """Return a real-time output carrying its source event metadata.
 
@@ -89,7 +139,12 @@ class Envelope:
     ``stream_query`` produced.
     """
 
-    def __init__(self, session_id: str = "") -> None:
+    def __init__(
+        self,
+        session_id: str = "",
+        *,
+        tool_registry: Any = None,
+    ) -> None:
         from ..schemas import (
             AgentResponse,
             Message,
@@ -123,12 +178,20 @@ class Envelope:
         self._tool_calls: Dict[str, Dict[str, Any]] = {}
         self._data_blocks: Dict[str, Dict[str, Any]] = {}
         self._progress_events: Dict[str, Dict[str, Any]] = {}
+        self._tool_registry = tool_registry
 
         self._seq_counter = 0
 
         self._error_text: str | None = None
         self._error_code: str = "error"
         self._finalized = False
+
+    def _tool_call_ui(self, tool_name: str) -> dict[str, str] | None:
+        if self._tool_registry is None:
+            return None
+        descriptor = self._tool_registry.get(tool_name)
+        icon = getattr(getattr(descriptor, "ui", None), "icon", "")
+        return {"icon": icon} if icon else None
 
     # ------------------------------------------------------------------
     # Sequence number helper
@@ -275,6 +338,7 @@ class Envelope:
         # === TEXT BLOCK ===
         elif evt_type == EventType.TEXT_BLOCK_START.value:
             if not self._message_started:
+                _stamp_answer_phase(self._completed_message, event)
                 yield self._tag_seq(self._completed_message)
                 self._message_started = True
             block_id = event.block_id
@@ -282,6 +346,7 @@ class Envelope:
             self._text_blocks[block_id] = {"index": index, "text": ""}
 
         elif evt_type == EventType.TEXT_BLOCK_DELTA.value:
+            _stamp_answer_phase(self._completed_message, event)
             if not self._message_started:
                 yield self._tag_seq(self._completed_message)
                 self._message_started = True
@@ -437,13 +502,18 @@ class Envelope:
             plugin_call_message.name = "assistant"
             plugin_call_message.object = "message"
 
+            call_fields = {
+                "call_id": call_id,
+                "name": event.tool_call_name,
+                "arguments": "",
+            }
+            call_ui = self._tool_call_ui(event.tool_call_name)
+            if call_ui is not None:
+                call_fields["ui"] = call_ui
+
             stub_content = DataContent(
                 type=ContentType.DATA,
-                data=FunctionCall(
-                    call_id=call_id,
-                    name=event.tool_call_name,
-                    arguments="",
-                ).model_dump(),
+                data=FunctionCall(**call_fields).model_dump(),
                 delta=True,
                 index=0,
             )
@@ -458,6 +528,7 @@ class Envelope:
                 "message": plugin_call_message,
                 "output_text_acc": "",
                 "output_data_blocks": {},
+                "ui": call_ui,
             }
 
         elif evt_type == EventType.TOOL_CALL_DELTA.value:
@@ -489,13 +560,17 @@ class Envelope:
                 return
             arguments = "".join(state.pop("argument_fragments", []))
 
+            call_fields = {
+                "call_id": call_id,
+                "name": state["name"],
+                "arguments": arguments,
+            }
+            if state.get("ui") is not None:
+                call_fields["ui"] = state["ui"]
+
             final_content = DataContent(
                 type=ContentType.DATA,
-                data=FunctionCall(
-                    call_id=call_id,
-                    name=state["name"],
-                    arguments=arguments,
-                ).model_dump(),
+                data=FunctionCall(**call_fields).model_dump(),
                 delta=False,
             )
             state["message"].add_content(new_content=final_content)
@@ -626,6 +701,11 @@ class Envelope:
                 ContentType,
                 FunctionCallOutput,
                 tool_state=tool_state,
+                meta=(
+                    event.metadata.get("qp")
+                    if isinstance(event.metadata, dict)
+                    else None
+                ),
             )
 
             out_message = state.get("output_message")
@@ -780,6 +860,7 @@ class Envelope:
         ContentType: Any,
         FunctionCallOutput: Any,
         tool_state: Any = None,
+        meta: Any = None,
     ) -> Any:
         from ..schemas import DataContent
 
@@ -799,11 +880,14 @@ class Envelope:
         else:
             tool_output = text_acc
 
-        data_dict = FunctionCallOutput(
-            call_id=call_id,
-            name=state["name"],
-            output=tool_output,
-        ).model_dump()
+        output_fields = {
+            "call_id": call_id,
+            "name": state["name"],
+            "output": tool_output,
+        }
+        if meta is not None:
+            output_fields["meta"] = meta
+        data_dict = FunctionCallOutput(**output_fields).model_dump()
         if tool_state is not None:
             data_dict["state"] = tool_state
 

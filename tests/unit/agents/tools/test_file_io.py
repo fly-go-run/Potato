@@ -115,6 +115,18 @@ class TestReadFile:
         f.write_text("hello world", encoding="utf-8")
         result = await read_file(str(f))
         assert "hello world" in result.content[0].text
+        assert result.metadata["qp"] == {
+            "v": 1,
+            "kind": "file_read",
+            "ok": True,
+            "data": {
+                "path": str(f),
+                "bytes_read": 11,
+                "line_start": 1,
+                "line_end": 1,
+                "total_lines": 1,
+            },
+        }
 
     @pytest.mark.asyncio
     async def test_safe_read_uses_one_binary_snapshot(self, tmp_path):
@@ -134,8 +146,11 @@ class TestReadFile:
 
     @pytest.mark.asyncio
     async def test_read_nonexistent_file(self, tmp_path):
-        result = await read_file(str(tmp_path / "missing.txt"))
+        path = str(tmp_path / "missing.txt")
+        result = await read_file(path)
         assert "does not exist" in result.content[0].text
+        assert result.metadata["qp"]["ok"] is False
+        assert result.metadata["qp"]["data"] == {"path": path}
 
     @pytest.mark.asyncio
     async def test_read_directory_error(self, tmp_path):
@@ -202,6 +217,13 @@ class TestWriteFile:
         assert "Wrote" in result.content[0].text
         # .txt uses utf-8-sig which adds BOM
         assert f.read_text(encoding="utf-8-sig") == "hello"
+        assert result.metadata["qp"]["data"] == {
+            "path": str(f),
+            "bytes_written": 8,
+            "additions": 1,
+            "deletions": 0,
+            "created": True,
+        }
         if os.name != "nt":
             assert stat.S_IMODE(f.stat().st_mode) == 0o644
 
@@ -211,6 +233,30 @@ class TestWriteFile:
         f.write_text("old", encoding="utf-8")
         await write_file(str(f), "new")
         assert f.read_text(encoding="utf-8-sig") == "new"
+
+    @pytest.mark.asyncio
+    async def test_write_line_diff_overwrite_and_no_trailing_newline(
+        self,
+        tmp_path,
+    ):
+        f = tmp_path / "existing.md"
+        f.write_text("one\ntwo\nthree\n", encoding="utf-8")
+
+        result = await write_file(str(f), "one\nchanged")
+
+        data = result.metadata["qp"]["data"]
+        assert data["created"] is False
+        assert (data["additions"], data["deletions"]) == (1, 2)
+
+    @pytest.mark.asyncio
+    async def test_write_error_has_only_always_fields(self):
+        result = await write_file("", "content")
+        assert result.metadata["qp"] == {
+            "v": 1,
+            "kind": "file_write",
+            "ok": False,
+            "data": {"path": ""},
+        }
 
     @pytest.mark.asyncio
     async def test_write_empty_path(self):
@@ -253,11 +299,35 @@ class TestEditFile:
         assert f.read_text(encoding="utf-8-sig") == "goodbye world"
 
     @pytest.mark.asyncio
+    async def test_edit_global_replacements_use_snapshot_line_diff(
+        self,
+        tmp_path,
+    ):
+        f = tmp_path / "global.md"
+        f.write_text("old\nkeep\nold", encoding="utf-8")
+
+        result = await edit_file(str(f), "old", "new\nextra")
+
+        assert result.metadata["qp"] == {
+            "v": 1,
+            "kind": "file_edit",
+            "ok": True,
+            "data": {
+                "path": str(f),
+                "replacements": 2,
+                "additions": 4,
+                "deletions": 2,
+            },
+        }
+
+    @pytest.mark.asyncio
     async def test_edit_text_not_found(self, tmp_path):
         f = tmp_path / "edit.txt"
         f.write_text("hello world", encoding="utf-8")
         result = await edit_file(str(f), "missing", "replacement")
         assert "not found" in result.content[0].text
+        assert result.metadata["qp"]["ok"] is False
+        assert result.metadata["qp"]["data"] == {"path": str(f)}
 
     @pytest.mark.asyncio
     async def test_edit_nonexistent_file(self, tmp_path):
@@ -295,6 +365,13 @@ class TestAppendFile:
         result = await append_file(str(f), "line2\n")
         assert "Appended" in result.content[0].text
         assert f.read_text(encoding="utf-8") == "line1\nline2\n"
+        assert result.metadata["qp"]["data"] == {
+            "path": str(f),
+            "bytes_written": 6,
+            "additions": 1,
+            "deletions": 0,
+            "created": False,
+        }
 
     @pytest.mark.asyncio
     async def test_append_creates_new_file(self, tmp_path):
@@ -302,6 +379,8 @@ class TestAppendFile:
         result = await append_file(str(f), "first line")
         assert "Appended" in result.content[0].text
         assert f.read_text(encoding="utf-8-sig") == "first line"
+        assert result.metadata["qp"]["data"]["created"] is True
+        assert result.metadata["qp"]["data"]["additions"] == 1
 
     @pytest.mark.asyncio
     async def test_append_empty_path(self):
@@ -310,6 +389,8 @@ class TestAppendFile:
             "No" in result.content[0].text
             and "file_path" in result.content[0].text
         )
+        assert result.metadata["qp"]["ok"] is False
+        assert result.metadata["qp"]["data"] == {"path": ""}
 
     @pytest.mark.asyncio
     async def test_concurrent_appends_are_serialized_per_path(self, tmp_path):
@@ -330,7 +411,7 @@ class TestAppendFile:
                 active -= 1
 
         with patch(
-            "qwenpaw.utils.io_utils._append_text",
+            "qwenpaw.agents.tools.file_io._append_text_locked",
             delayed_append,
         ):
             await asyncio.gather(

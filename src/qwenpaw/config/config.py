@@ -744,14 +744,6 @@ class ReMeLightMemoryConfig(BaseModel):
         description="Whether to enable memory summarization during compaction",
     )
 
-    inbox_push_enabled: bool = Field(
-        default=True,
-        description=(
-            "Whether to push ReMe auto-memory, auto-dream, and "
-            "auto-resource job results to the inbox"
-        ),
-    )
-
     auto_memory_interval: int | None = Field(
         default=5,
         description="Auto memory every N user queries. 1 means auto "
@@ -1863,6 +1855,47 @@ class AgentsConfig(BaseModel):
             "OpenSpeech resource id for Doubao flash ASR. "
             'Default "volc.bigasr.auc_turbo" (录音文件极速版). '
             'Only used when transcription_provider_type is "doubao_asr".'
+        ),
+    )
+
+    web_search_backend: Literal["auto", "hosted", "tavily"] = Field(
+        default="auto",
+        description=(
+            "Backend for the web_search tool. "
+            '"hosted": the model host runs the search on its own servers '
+            "and answers from the pages it read, via the Responses API "
+            "(needs an API key for that host; works no matter which model "
+            "the session itself uses); "
+            '"tavily": keyless Tavily, snippets only; '
+            '"auto": hosted when a key is configured, else Tavily.'
+        ),
+    )
+    web_search_provider_id: str = Field(
+        default="",
+        description=(
+            "Provider ID supplying credentials for hosted search. Empty = "
+            "try the built-in DeepSeek providers in order. Name another "
+            "provider here to run the search through it instead — any host "
+            "whose Responses API offers a server-side web_search tool, "
+            "including OpenAI-compatible gateways."
+        ),
+    )
+    web_search_model: str = Field(
+        default="deepseek-v4-flash",
+        description=(
+            "Model that performs hosted search. Must be one its host serves "
+            "with a server-side web_search tool over the Responses API. "
+            "Change this together with web_search_provider_id."
+        ),
+    )
+    web_search_timeout_seconds: int = Field(
+        default=120,
+        ge=10,
+        le=600,
+        description=(
+            "Wall-clock budget for one hosted search. A single call fans "
+            "out into several searches and page reads, so this is well "
+            "above a plain HTTP request."
         ),
     )
 

@@ -43,7 +43,7 @@ export function ShortcutList() {
     <div className="space-y-4">
       {shortcutGroups().map((group) => (
         <section key={group.title}>
-          <h2 className="mb-1 px-1 text-[11px] text-ink-muted">
+          <h2 className="mb-1 px-1 text-[11px] text-ink-tertiary">
             {t(group.title)}
           </h2>
           <div className="divide-y divide-line">

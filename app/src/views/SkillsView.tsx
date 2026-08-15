@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Blocks,
+  LayoutGrid,
   ChevronRight,
   Download,
   LoaderCircle,
@@ -46,7 +46,11 @@ import {
 } from "../lib/capabilities";
 import { presentError, type ErrorPresentation } from "../lib/errorPresentation";
 import { useTranslation } from "../lib/i18n";
-import { skillDescription } from "../lib/skillPresentation";
+import {
+  skillDescription,
+  skillDisplayName,
+  skillSearchHaystack,
+} from "../lib/skillPresentation";
 
 type MainTab = "skills" | "plugins";
 type SkillSourceTab = "pool" | "hub" | "upload";
@@ -99,7 +103,7 @@ export function SkillsView() {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return skills;
     return skills.filter((skill) =>
-      `${skill.name} ${humanSkillName(skill.name)} ${skill.description} ${(
+      `${skillSearchHaystack(skill.name)} ${(
         skill.tags ?? []
       ).join(" ")}`
         .toLocaleLowerCase()
@@ -191,7 +195,7 @@ export function SkillsView() {
               size="sm"
               onClick={() => setAddOpen(true)}
             >
-              <Plus size={15} />
+              <Plus size={16} strokeWidth={1.75} />
               {t("skills.add")}
             </Button>
           }
@@ -270,7 +274,7 @@ export function SkillsView() {
           <section className="mt-5">
             {filteredSkills.length === 0 ? (
               <EmptyState
-                icon={<PackageOpen size={20} />}
+                icon={<PackageOpen size={20} strokeWidth={1.75} />}
                 title={t(query ? "skills.noResults" : "skills.empty")}
                 description={t(
                   query
@@ -295,7 +299,7 @@ export function SkillsView() {
         ) : plugins.length === 0 ? (
           <div className="mt-5">
             <EmptyState
-              icon={<Puzzle size={20} />}
+              icon={<Puzzle size={20} strokeWidth={1.75} />}
               title={t("plugins.empty")}
               description={t("plugins.emptyDescription")}
             />
@@ -374,7 +378,7 @@ function SkillRow({
   onOpen: () => void;
   onToggle: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   return (
     // 行主体是原生 button；Switch 作为兄弟节点浮在其上（而非嵌套 button），
     // 既保住语义又避免 switch 的点击冒泡到行展开。
@@ -387,10 +391,10 @@ function SkillRow({
       >
         <span
           className={`grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool ${
-            skill.enabled ? "text-ink-tertiary" : "text-ink-muted"
+            skill.enabled ? "text-icon" : "text-ink-muted"
           }`}
         >
-          {skill.emoji || <Blocks size={18} />}
+          {skill.emoji || <LayoutGrid size={14} strokeWidth={1.8} />}
         </span>
         <div className="min-w-0 flex-1">
           <span
@@ -398,10 +402,10 @@ function SkillRow({
               skill.enabled ? "text-ink" : "text-ink-secondary"
             }`}
           >
-            {humanSkillName(skill.name)}
+            {skillDisplayName(skill.name, language)}
           </span>
           <p className="line-clamp-2 text-[13px] leading-5 text-ink-tertiary">
-            {skillDescription(skill.name, skill.description) ||
+            {skillDescription(skill.name, language) ||
               t("skills.noDescription")}
           </p>
         </div>
@@ -413,14 +417,15 @@ function SkillRow({
             disabled={busy}
             onChange={onToggle}
             aria-label={t("skills.toggleLabel", {
-              name: humanSkillName(skill.name),
+              name: skillDisplayName(skill.name, language),
             })}
           />
         </span>
         <ChevronRight
           size={14}
+          strokeWidth={1.8}
           aria-hidden
-          className="text-ink-muted transition-colors duration-[var(--dur-fast)] group-hover:text-ink-secondary"
+          className="text-icon transition-colors duration-[var(--dur-fast)] group-hover:text-icon-strong"
         />
       </div>
     </div>
@@ -441,8 +446,8 @@ function PluginRow({
   const source = plugin.installed_from || plugin.source;
   return (
     <div className="flex items-center gap-3.5 px-4 py-3 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-tertiary">
-        <Puzzle size={18} />
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-icon">
+        <Puzzle size={14} strokeWidth={1.8} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
@@ -460,7 +465,7 @@ function PluginRow({
             </Badge>
           )}
           {toolCount !== null && (
-            <span className="text-[11px] text-ink-muted">
+            <span className="text-[11px] text-ink-tertiary">
               · {t("plugins.tools", { count: toolCount })}
             </span>
           )}
@@ -471,9 +476,9 @@ function PluginRow({
       </div>
       <Button variant="danger" size="sm" disabled={busy} onClick={onDelete}>
         {busy ? (
-          <LoaderCircle size={14} className="animate-spin" />
+          <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
         ) : (
-          <Trash2 size={14} />
+          <Trash2 size={14} strokeWidth={1.8} />
         )}
         {t("plugins.uninstall")}
       </Button>
@@ -494,7 +499,7 @@ function SkillDetails({
   onDelete: (skill: SkillInfo) => void;
   onToggle: (skill: SkillInfo) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   return (
     <Dialog.Root open={skill !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -502,20 +507,20 @@ function SkillDetails({
         <Dialog.Content className="qp-drawer fixed inset-y-0 right-0 z-50 flex w-[min(29rem,calc(100%-2rem))] flex-col border-l border-line bg-raised shadow-[var(--shadow-lg)] outline-none">
           <header className="flex items-start gap-3 border-b border-line px-5 py-4">
             {/* emoji 只在详情里出现；列表行统一线稿，保证整列图标一致。 */}
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base text-ink-tertiary">
-              {skill?.emoji || <Blocks size={18} />}
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-base text-icon">
+              {skill?.emoji || <LayoutGrid size={16} strokeWidth={1.75} />}
             </span>
             <div className="min-w-0 flex-1">
               <Dialog.Title className="font-medium text-ink">
-                {skill ? humanSkillName(skill.name) : ""}
+                {skill ? skillDisplayName(skill.name, language) : ""}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-ink-muted">
+              <Dialog.Description className="mt-0.5 text-xs text-ink-tertiary">
                 {t("skills.detailsDescription")}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("skills.close")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -528,7 +533,8 @@ function SkillDetails({
                 {busy && (
                   <LoaderCircle
                     size={14}
-                    className="animate-spin text-ink-muted"
+                    strokeWidth={1.8}
+                    className="animate-spin text-ink-tertiary"
                   />
                 )}
                 <Switch
@@ -538,7 +544,7 @@ function SkillDetails({
                   aria-label={
                     skill
                       ? t("skills.toggleLabel", {
-                          name: humanSkillName(skill.name),
+                          name: skillDisplayName(skill.name, language),
                         })
                       : t("skills.enableLabel")
                   }
@@ -548,7 +554,7 @@ function SkillDetails({
             <Detail label={t("skills.description")}>
               <p className="whitespace-pre-wrap text-sm leading-6 text-ink-secondary">
                 {skill
-                  ? skillDescription(skill.name, skill.description) ||
+                  ? skillDescription(skill.name, language) ||
                     t("skills.noDescription")
                   : t("skills.noDescription")}
               </p>
@@ -573,13 +579,13 @@ function SkillDetails({
                   <div className="flex flex-wrap gap-1.5">
                     {skill.tags.map((tag) => (
                       <Badge key={tag} tone="neutral">
-                        <Tags size={11} />
+                        <Tags size={12} strokeWidth={1.8} />
                         {tag}
                       </Badge>
                     ))}
                   </div>
                 ) : (
-                  <span className="text-sm text-ink-muted">
+                  <span className="text-sm text-ink-tertiary">
                     {t("skills.noTags")}
                   </span>
                 )}
@@ -602,9 +608,9 @@ function SkillDetails({
               onClick={() => skill && onDelete(skill)}
             >
               {busy ? (
-                <LoaderCircle size={14} className="animate-spin" />
+                <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
               ) : (
-                <Trash2 size={14} />
+                <Trash2 size={14} strokeWidth={1.8} />
               )}
               {t("skills.delete")}
             </Button>
@@ -864,7 +870,7 @@ function AddCapabilityDialog({
                   ? t("skills.add.title")
                   : t("plugins.add.title")}
               </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-ink-muted">
+              <Dialog.Description className="mt-0.5 text-xs text-ink-tertiary">
                 {mode === "skills"
                   ? t("skills.add.description")
                   : t("plugins.add.description")}
@@ -872,7 +878,7 @@ function AddCapabilityDialog({
             </div>
             <Dialog.Close asChild>
               <IconButton size="sm" title={t("skills.close")}>
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </Dialog.Close>
           </header>
@@ -896,11 +902,11 @@ function AddCapabilityDialog({
                   <h3 className="text-sm font-medium text-ink">
                     {t("skills.import.workspace")}
                   </h3>
-                  <p className="mt-1 text-xs leading-5 text-ink-muted">
+                  <p className="mt-1 text-xs leading-5 text-ink-tertiary">
                     {t("skills.import.workspaceHint")}
                   </p>
                   <p className="mt-3 text-xs text-ink-secondary">
-                    {humanSkillName(pendingPoolSkill.name)}
+                    {skillDisplayName(pendingPoolSkill.name, language)}
                   </p>
                   <div
                     role="radiogroup"
@@ -965,13 +971,13 @@ function AddCapabilityDialog({
               <SkeletonRows rows={5} />
             ) : mode === "skills" && skillTab === "pool" ? (
               <CapabilitySourceList
-                icon={<Blocks size={16} />}
+                icon={<LayoutGrid size={16} strokeWidth={1.75} />}
                 items={pool.map((skill) => ({
                   key: skill.name,
-                  name: humanSkillName(skill.name),
+                  name: skillDisplayName(skill.name, language),
                   title: skill.name,
                   emoji: skill.emoji,
-                  description: skillDescription(skill.name, skill.description),
+                  description: skillDescription(skill.name, language),
                   version: skill.version_text,
                   installed: installedSkills.some(
                     (installed) => installed.name === skill.name,
@@ -1005,7 +1011,7 @@ function AddCapabilityDialog({
                   (hubTask.status === "pending" ||
                     hubTask.status === "importing") && (
                     <div className="mt-3 flex items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-xs text-accent">
-                      <LoaderCircle size={14} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                       <span className="min-w-0 flex-1">
                         {t("skills.add.installing", {
                           name: hubTask.skillName,
@@ -1021,20 +1027,17 @@ function AddCapabilityDialog({
                     </div>
                   )}
                 {hubResults.length === 0 ? (
-                  <p className="py-12 text-center text-sm text-ink-muted">
+                  <p className="py-12 text-center text-sm text-ink-tertiary">
                     {t("skills.add.hubHint")}
                   </p>
                 ) : (
                   <div className="mt-4">
                     <CapabilitySourceList
-                      icon={<Blocks size={16} />}
+                      icon={<LayoutGrid size={16} strokeWidth={1.75} />}
                       items={hubResults.map((skill) => ({
                         key: skill.slug,
                         name: skill.name,
-                        description: skillDescription(
-                          skill.name,
-                          skill.description,
-                        ),
+                        description: skillDescription(skill.name, language),
                         version: skill.version,
                         installed: installedSkills.some(
                           (installed) =>
@@ -1061,7 +1064,7 @@ function AddCapabilityDialog({
               />
             ) : pluginTab === "catalog" ? (
               <CapabilitySourceList
-                icon={<Puzzle size={16} />}
+                icon={<Puzzle size={16} strokeWidth={1.75} />}
                 items={catalog.map((plugin) => ({
                   key: plugin.plugin_id,
                   name: plugin.name,
@@ -1105,7 +1108,7 @@ function AddCapabilityDialog({
                     disabled={!url.trim() || busy !== null}
                   >
                     {busy === url.trim() && (
-                      <LoaderCircle size={14} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     )}
                     {t("plugins.add.install")}
                   </Button>
@@ -1147,7 +1150,7 @@ function CapabilitySourceList({
   const { t } = useTranslation();
   if (items.length === 0) {
     return (
-      <p className="py-12 text-center text-sm text-ink-muted">
+      <p className="py-12 text-center text-sm text-ink-tertiary">
         {t("skills.add.none")}
       </p>
     );
@@ -1156,7 +1159,7 @@ function CapabilitySourceList({
     <Card className="divide-y divide-line overflow-hidden rounded-[var(--radius-md)]">
       {items.map((item) => (
         <div key={item.key} className="flex items-center gap-3 px-4 py-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-ink-tertiary">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-bubble-tool text-icon">
             {item.emoji || icon}
           </span>
           <div className="min-w-0 flex-1">
@@ -1187,9 +1190,9 @@ function CapabilitySourceList({
               onClick={() => onInstall(item.key)}
             >
               {busy === item.key ? (
-                <LoaderCircle size={13} className="animate-spin" />
+                <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
               ) : (
-                <Download size={13} />
+                <Download size={14} strokeWidth={1.8} />
               )}
               {t("skills.add.import")}
             </Button>
@@ -1213,14 +1216,14 @@ function ZipUpload({
   return (
     <label className="flex cursor-pointer flex-col items-center rounded-lg border border-dashed border-line px-6 py-12 text-center transition-colors hover:border-line-strong focus-within:border-line-strong focus-within:shadow-[0_0_0_3px_var(--ring)]">
       {busy ? (
-        <LoaderCircle size={24} className="animate-spin text-accent" />
+        <LoaderCircle size={24} strokeWidth={1.75} className="animate-spin text-accent" />
       ) : (
-        <Upload size={24} className="text-accent" />
+        <Upload size={24} strokeWidth={1.75} className="text-accent" />
       )}
       <span className="mt-3 text-sm font-medium text-ink">
         {busy ? t("skills.add.uploading") : t("skills.add.chooseZip")}
       </span>
-      <span className="mt-1 text-xs text-ink-muted">
+      <span className="mt-1 text-xs text-ink-tertiary">
         {t("skills.add.zipHint")}
       </span>
       <input
@@ -1249,8 +1252,9 @@ function SearchField({
   return (
     <label className="relative block w-full max-w-xs">
       <Search
-        size={15}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+        size={14}
+        strokeWidth={1.8}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon"
       />
       <Input
         value={value}
@@ -1271,7 +1275,7 @@ function Detail({
 }) {
   return (
     <section>
-      <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+      <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-tertiary">
         {label}
       </h3>
       {children}
@@ -1283,12 +1287,6 @@ function Detail({
  * snake_case 内部标识 → 可读名称（与 ToolCard 的 humanToolName 同一套规则；
  * 该函数未导出，此处内联等价实现，避免为复用去改动工具卡片）。
  */
-function humanSkillName(name: string) {
-  return name
-    .replace(/^mcp__/, "")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
 
 function workspaceLabel(workspace: WorkspaceSkillSummary, fallback: string) {
   const agentName = workspace.agent_name?.trim();

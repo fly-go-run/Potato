@@ -250,6 +250,64 @@ class WorkspacePromptFilesContributor(SyncPromptContributor):
         return content
 
 
+PROGRESS_NARRATION_HINT_ZH = """\
+## 过程叙述
+
+非简单任务里，在同一轮工具调用之间写几句短叙述。
+这是用户跟上进度的方式，不是多发请求。
+
+- 首次工具前：一句话说明打算（「我先…」）。
+- 阶段切换时：一句话过渡（「X 已确认，接下来 Y」）。
+- 不要逐条复述常规工具。
+- 结论写在最终回答里，不要写在这些过程句里。
+"""
+
+PROGRESS_NARRATION_HINT_EN = """\
+## Progress narration
+
+On non-trivial tasks, write a few short progress sentences in the same \
+turn as your tool calls. This is how the user follows along, not extra \
+requests.
+
+- Before the first tool: one sentence of intent ("I'll start by…").
+- When the phase changes: one sentence of transition \
+("X is confirmed; next I'll Y").
+- Do not recap routine tool calls one by one.
+- Put the conclusion in the final answer, not in these progress lines.
+"""
+
+
+def _progress_narration_language(ctx: "HookContext") -> str:
+    extras = getattr(ctx, "extras", {}) or {}
+    language = extras.get("language")
+    if not language:
+        agent_config = extras.get("agent_config")
+        if agent_config is not None:
+            language = getattr(agent_config, "language", None)
+    return str(language or "zh")
+
+
+def build_progress_narration_hint(language: str = "zh") -> str:
+    """Return the host-owned progress-narration constraint block."""
+    if str(language).lower().startswith("zh"):
+        return PROGRESS_NARRATION_HINT_ZH.strip()
+    return PROGRESS_NARRATION_HINT_EN.strip()
+
+
+class ProgressNarrationContributor(SyncPromptContributor):
+    """Ask the model to speak short plan/phase sentences during work.
+
+    Front-end narration is already visible; this only changes how the
+    model talks inside the current request.
+    """
+
+    name = "progress_narration"
+    priority = 82
+
+    def contribute_sync(self, ctx: "HookContext") -> str | None:
+        return build_progress_narration_hint(_progress_narration_language(ctx))
+
+
 class MultimodalHintContributor(SyncPromptContributor):
     """Inject multimodal capability awareness hint."""
 
@@ -367,6 +425,7 @@ _ALL_CONTRIBUTORS = (
     AgentIdentityContributor,
     WorkspacePromptFilesContributor,
     MultimodalHintContributor,
+    ProgressNarrationContributor,
     CodingModeContributor,
     ScrollContextContributor,
     DriverPolicyHintContributor,
@@ -388,6 +447,10 @@ __all__ = [
     "SoulMdContributor",
     "ProfileMdContributor",
     "WorkspacePromptFilesContributor",
+    "PROGRESS_NARRATION_HINT_EN",
+    "PROGRESS_NARRATION_HINT_ZH",
+    "ProgressNarrationContributor",
+    "build_progress_narration_hint",
     "MultimodalHintContributor",
     "CodingModeContributor",
     "ScrollContextContributor",

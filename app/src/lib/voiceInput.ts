@@ -184,12 +184,15 @@ export class VoiceRecorder {
     }
 
     try {
-      // 直接要 16k;浏览器不一定采纳,采纳不了就按实际速率采、停止时重采样。
-      try {
-        this.context = new Ctor({ sampleRate: TARGET_SAMPLE_RATE });
-      } catch {
-        this.context = new Ctor();
-      }
+      // 按设备原生速率建 AudioContext,采完在 finish() 里重采样到 16k。
+      //
+      // 不要在这里指定 sampleRate: 16000。WebKit 的 MediaStreamAudioSourceNode
+      // 不会替你把轨道重采样到 context 的速率,速率对不上时它既不报错也不
+      // 抛异常,onaudioprocess 照常回调,但送出来的每个采样都是 0——录出来
+      // 是一段完美的静音,一路上传到 ASR 才被告知 "no valid speech in audio"。
+      // 麦克风轨道普遍是 44.1k/48k,于是打包后的 macOS 版必然踩中;Chromium
+      // 会自动重采样,所以浏览器里调试永远看不到这个问题。
+      this.context = new Ctor();
       this.source = this.context.createMediaStreamSource(this.stream);
       // AudioWorklet 需要额外的模块 URL,在 Tauri 的 CSP 下容易踩坑;
       // 一段两分钟的语音用 ScriptProcessor 足够,且各端都支持。

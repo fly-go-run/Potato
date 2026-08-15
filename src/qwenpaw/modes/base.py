@@ -44,14 +44,27 @@ class AgentMode:
         ``Workspace`` class is defined in a higher layer — by duck-typing
         on ``workspace.plugins`` subclasses stay stable.
         """
+        plugins = workspace.plugins
         for spec in self.commands():
-            workspace.plugins.slash_command_registry.register(spec)
+            if hasattr(plugins, "register_slash_command"):
+                plugins.register_slash_command(spec)
+            else:
+                plugins.slash_command_registry.register(spec)
         for desc in self.tools():
-            workspace.plugins.tool_registry.register(desc)
+            if hasattr(plugins, "register_tool"):
+                plugins.register_tool(desc)
+            else:
+                plugins.tool_registry.register(desc)
         for hook in self.hooks():
-            workspace.plugins.hook_registry.register(hook)
+            if hasattr(plugins, "register_runtime_hook"):
+                plugins.register_runtime_hook(hook)
+            else:
+                plugins.hook_registry.register(hook)
         for contributor in self.prompt_contributors():
-            workspace.plugins.prompt_manager.register(contributor)
+            if hasattr(plugins, "register_prompt_contributor"):
+                plugins.register_prompt_contributor(contributor)
+            else:
+                plugins.prompt_manager.register(contributor)
 
     def commands(self) -> list["CommandSpec"]:
         return []

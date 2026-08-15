@@ -2,18 +2,15 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { isMacDesktopShell, startDesktopWindowDrag } from "../../lib/desktop";
 import {
-  Blocks,
+  LayoutGrid,
   ChevronDown,
   Clock3,
   FolderClosed,
-  Inbox,
-  MessageCirclePlus,
   Moon,
   MoreHorizontal,
-  NotebookPen,
-  PanelLeft,
+  Notebook,
   PenLine,
-  PenSquare,
+  SquarePen,
   Pin,
   PinOff,
   Search,
@@ -23,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { PotatoMark } from "../brand/PotatoMark";
+import { ChromeActions } from "./CollapsedRail";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { ChatSpec } from "../../lib/api";
 import { APP_NAME } from "../../lib/appInfo";
@@ -30,19 +28,28 @@ import { presentError } from "../../lib/errorPresentation";
 import { useTranslation } from "../../lib/i18n";
 import { relativeTime } from "../../lib/relativeTime";
 import { loadSessionProject } from "../../lib/projects";
-import { shortcutLabel } from "../../lib/shortcuts";
 import { setThemePreference } from "../../lib/theme";
 import { useChatStore } from "../../stores/chat";
-import { useInboxStore } from "../../stores/inbox";
-import { useUiStore } from "../../stores/ui";
-import {
-  Button,
-  ConfirmDialog,
-  CountBadge,
-  IconButton,
-  Input,
-  SkeletonRows,
-} from "../ui";
+import { cn } from "../../lib/cn";
+import { Button, ConfirmDialog, IconButton, Input, SkeletonRows } from "../ui";
+
+const NAV_TRANSITION =
+  "transition-[background-color] duration-[150ms] ease-out";
+
+function navItemClass(active: boolean, extra?: string) {
+  return cn(
+    "flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5",
+    NAV_TRANSITION,
+    active
+      ? "bg-[rgba(0,0,0,0.08)] text-ink hover:bg-[rgba(0,0,0,0.12)] active:bg-[rgba(0,0,0,0.12)] dark:bg-[rgba(255,255,255,0.10)] dark:hover:bg-[rgba(255,255,255,0.14)] dark:active:bg-[rgba(255,255,255,0.14)]"
+      : "text-ink hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+    extra,
+  );
+}
+
+function navIconClass(active: boolean) {
+  return cn("shrink-0", active ? "text-tint" : "text-icon");
+}
 
 export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const { t } = useTranslation();
@@ -52,8 +59,6 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const chatsLoading = useChatStore((state) => state.chatsLoading);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const newChat = useChatStore((state) => state.newChat);
-  const unreadCount = useInboxStore((state) => state.unreadCount);
-  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   // 分组展开态只活在内存里：刷新后回到默认展开，不值得占一个持久化键。
   const [chatsExpanded, setChatsExpanded] = useState(true);
   const [projectsExpanded, setProjectsExpanded] = useState(true);
@@ -102,111 +107,67 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   };
 
   return (
-    // 深色下侧栏（bg）比画布（canvas）更亮，抬升本身已经分层，
-    // 再加一条比两者都亮的描边会变成刺眼的接缝 → 深色去掉右边框。
-    <aside className="flex w-[16.5rem] shrink-0 flex-col border-r border-line bg-bg dark:border-r-transparent">
-      {/* macOS overlay 标题栏：两个常用入口与红绿灯同排；按钮之外的
-          空白仍是原生拖拽区。Web 端保持普通页面内工具栏的位置。 */}
+    // 浅色 #f5f5f4 贴画布 #fbfbfb 仍糊，接缝用 line-strong。
+    // 深色靠抬升分层，描边改 line-highlight，避免一条更亮的硬缝。
+    <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line-strong bg-bg dark:border-line-highlight">
+      {/* 品牌和折叠同一行；mac 壳给红绿灯留位，空白仍是拖拽区。 */}
       <div
         data-tauri-drag-region
         onMouseDown={onTitlebarMouseDown}
-        className={`flex h-11 shrink-0 items-center justify-end gap-3 pt-1 ${
-          isMacDesktopShell() ? "pl-[4.75rem] pr-3" : "px-3"
+        className={`flex h-11 shrink-0 items-center gap-0.5 ${
+          isMacDesktopShell() ? "pl-[4.75rem] pr-2" : "px-2"
         }`}
       >
-        <IconButton
-          size="sm"
-          title={`${t("sidebar.collapse")} · ${shortcutLabel("B")}`}
-          aria-label={t("sidebar.collapse")}
-          onClick={toggleSidebar}
-        >
-          <PanelLeft size={16} />
-        </IconButton>
-        <IconButton
-          size="sm"
-          title={`${t("sidebar.newChat")} · ${shortcutLabel("N")}`}
-          aria-label={t("sidebar.newChat")}
-          onClick={startNewChat}
-        >
-          <MessageCirclePlus size={17} />
-        </IconButton>
-      </div>
-
-      <div className="flex items-center px-6 pb-4 pt-3">
-        <div className="min-w-0 leading-none">
-          <div className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
-            {APP_NAME}
-          </div>
-        </div>
+        <ChromeActions sidebarCollapsed={false} />
+        <div data-tauri-drag-region className="min-w-2 flex-1 self-stretch" />
       </div>
 
       <div className="px-3 pb-4">
         <button
           type="button"
           onClick={startNewChat}
-          className={`flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm leading-5 text-ink transition-colors duration-[var(--dur-fast)] ${
-            location.pathname === "/" ? "bg-fill-active" : "hover:bg-fill-hover"
-          }`}
+          className={navItemClass(location.pathname === "/", "w-full text-left")}
         >
-          <PenSquare size={16} className="text-ink-muted" />
+          <SquarePen
+            size={16}
+            strokeWidth={1.75}
+            className={navIconClass(location.pathname === "/")}
+          />
           <span className="flex-1">{t("sidebar.newChat")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onSearch}
+          className={navItemClass(false, "mt-0.5 w-full text-left")}
+        >
+          <Search size={16} strokeWidth={1.75} className={navIconClass(false)} />
+          <span className="flex-1">{t("sidebar.searchChats")}</span>
         </button>
         <NavLink
           to="/crons"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
+          className={({ isActive }) => navItemClass(isActive, "mt-0.5")}
         >
           {({ isActive }) => (
             <>
               <Clock3
                 size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+                strokeWidth={1.75}
+                className={navIconClass(isActive)}
               />
               <span className="flex-1">{t("sidebar.crons")}</span>
             </>
           )}
         </NavLink>
         <NavLink
-          to="/inbox"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <Inbox
-                size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
-              />
-              <span className="flex-1">{t("sidebar.inbox")}</span>
-              <CountBadge count={unreadCount} />
-            </>
-          )}
-        </NavLink>
-        <NavLink
           to="/skills"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
+          className={({ isActive }) => navItemClass(isActive, "mt-0.5")}
         >
           {({ isActive }) => (
             <>
-              <Blocks
+              <LayoutGrid
                 size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+                strokeWidth={1.75}
+                className={navIconClass(isActive)}
               />
               <span className="flex-1">{t("sidebar.skills")}</span>
             </>
@@ -214,32 +175,19 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         </NavLink>
         <NavLink
           to="/memory"
-          className={({ isActive }) =>
-            `mt-0.5 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5 transition-colors duration-[var(--dur-fast)] ${
-              isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink hover:bg-fill-hover"
-            }`
-          }
+          className={({ isActive }) => navItemClass(isActive, "mt-0.5")}
         >
           {({ isActive }) => (
             <>
-              <NotebookPen
+              <Notebook
                 size={16}
-                className={isActive ? "text-ink-secondary" : "text-ink-muted"}
+                strokeWidth={1.75}
+                className={navIconClass(isActive)}
               />
               <span className="flex-1">{t("sidebar.memory")}</span>
             </>
           )}
         </NavLink>
-        <button
-          type="button"
-          onClick={onSearch}
-          className="mt-0.5 flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm leading-5 text-ink transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
-        >
-          <Search size={16} className="text-ink-muted" />
-          <span className="flex-1">{t("sidebar.searchChats")}</span>
-        </button>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
@@ -255,7 +203,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                   ? t("sidebar.collapseGroup")
                   : t("sidebar.expandGroup")
               }
-              className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors hover:text-ink-secondary"
+              className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink transition-colors"
             >
               <span className="truncate">
                 {t("sidebar.projectsGroup", {
@@ -263,8 +211,9 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 })}
               </span>
               <ChevronDown
-                size={13}
-                className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+                size={14}
+                strokeWidth={1.8}
+                className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
                   projectsExpanded ? "" : "-rotate-90"
                 }`}
               />
@@ -285,21 +234,23 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                         }
                         aria-expanded={open}
                         title={project.path}
-                        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[12px] text-ink-secondary hover:bg-fill-hover"
+                        className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[12px] text-ink hover:bg-fill-hover"
                       >
                         <FolderClosed
                           size={14}
-                          className="shrink-0 text-ink-muted"
+                          strokeWidth={1.8}
+                          className="shrink-0 text-icon"
                         />
                         <span className="min-w-0 flex-1 truncate">
                           {project.name}
                         </span>
-                        <span className="text-[10px] tabular-nums text-ink-muted">
+                        <span className="text-[10px] tabular-nums text-ink-tertiary">
                           {project.chats.length}
                         </span>
                         <ChevronDown
                           size={12}
-                          className={`shrink-0 text-ink-muted transition-transform ${
+                          strokeWidth={1.8}
+                          className={`shrink-0 text-ink-tertiary transition-transform ${
                             open ? "" : "-rotate-90"
                           }`}
                         />
@@ -334,14 +285,15 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 ? t("sidebar.collapseGroup")
                 : t("sidebar.expandGroup")
             }
-            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink-secondary"
+            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink transition-colors duration-[var(--dur-fast)]"
           >
             <span className="truncate">
               {t("sidebar.chatsGroup", { count: groupedChats.unbound.length })}
             </span>
             <ChevronDown
-              size={13}
-              className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+              size={14}
+              strokeWidth={1.8}
+              className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
                 chatsExpanded ? "" : "-rotate-90"
               }`}
             />
@@ -352,7 +304,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 <SkeletonRows rows={4} />
               </div>
             ) : groupedChats.unbound.length === 0 ? (
-              <div className="px-3 py-2 text-[13px] leading-5 text-ink-muted">
+              <div className="px-3 py-2 text-[13px] leading-5 text-ink-tertiary">
                 {groupedChats.workspaces.length === 0
                   ? t("sidebar.empty")
                   : t("sidebar.unboundEmpty")}
@@ -389,14 +341,16 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           title={t("sidebar.settings")}
           aria-label={t("sidebar.settings")}
           className={({ isActive }) =>
-            `inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-[var(--dur-fast)] ${
+            cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+              NAV_TRANSITION,
               isActive
-                ? "bg-fill-active text-ink"
-                : "text-ink-muted hover:bg-fill-hover hover:text-ink"
-            }`
+                ? "bg-[rgba(0,0,0,0.08)] text-tint dark:bg-[rgba(255,255,255,0.10)]"
+                : "text-icon hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+            )
           }
         >
-          <Settings size={16} />
+          <Settings size={16} strokeWidth={1.75} />
         </NavLink>
       </div>
     </aside>
@@ -438,7 +392,11 @@ function ThemeToggle() {
       aria-label={label}
       onClick={() => setThemePreference(dark ? "light" : "dark")}
     >
-      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      {dark ? (
+        <Sun size={16} strokeWidth={1.75} />
+      ) : (
+        <Moon size={16} strokeWidth={1.75} />
+      )}
     </IconButton>
   );
 }
@@ -553,32 +511,43 @@ function ChatRow({
       <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
         <div
           onContextMenu={openContextMenu}
-          className={`group relative flex items-center rounded-md transition-colors duration-[var(--dur-fast)] ${
-            active ? "bg-fill-active" : "hover:bg-fill-hover"
-          }`}
+          className={cn(
+            "group relative flex items-center rounded-[var(--radius-sm)]",
+            NAV_TRANSITION,
+            active
+              ? "bg-[rgba(0,0,0,0.08)] hover:bg-[rgba(0,0,0,0.12)] active:bg-[rgba(0,0,0,0.12)] dark:bg-[rgba(255,255,255,0.10)] dark:hover:bg-[rgba(255,255,255,0.14)] dark:active:bg-[rgba(255,255,255,0.14)]"
+              : "hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+          )}
         >
           <button
             type="button"
             onClick={() => navigate(`/chat/${chat.id}`)}
-            className={`flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-sm leading-5 ${
-              nested ? "pl-2" : "pl-3"
-            } ${active ? "text-ink" : "text-ink-secondary"}`}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-[13px] font-medium leading-5",
+              nested ? "pl-2" : "pl-3",
+              "text-ink",
+            )}
           >
             {chat.pinned && (
-              <Pin size={12} className={`shrink-0 text-ink-muted`} />
+              <Pin
+                size={12}
+                strokeWidth={1.8}
+                className={cn("shrink-0", active ? "text-tint" : "text-icon")}
+              />
             )}
             <span className="min-w-0 flex-1 truncate">
               {chat.name || t("sidebar.untitled")}
             </span>
           </button>
           {/*
-          时间与操作按钮共用行尾这块空间：时间占流内宽度（给按钮预留位置），
-          hover / 菜单打开时淡出让位，绝对定位的「…」按钮淡入覆盖上来。
+          行尾(2026-08-14 终版):静息态只有标题;整行 hover 同时浮现
+          时间与「…」——时间槽 pr-9 给按钮让出右端,两者并存不重叠,
+          菜单可发现性与基线一致(整行 hover,不缩热区)。
         */}
           <span
             aria-hidden={menuOpen ? true : undefined}
-            className={`pointer-events-none min-w-9 shrink-0 pr-2.5 text-right text-[11px] tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
-              menuOpen ? "opacity-0" : "group-hover:opacity-0"
+            className={`pointer-events-none shrink-0 pr-9 text-right text-[11px] font-normal tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
+              menuOpen ? "opacity-0" : "opacity-0 group-hover:opacity-100"
             }`}
           >
             {updatedAt ? t(updatedAt.key, updatedAt.params) : ""}
@@ -587,9 +556,9 @@ function ChatRow({
             <IconButton
               size="sm"
               title={t("sidebar.chatActions")}
-              className="absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+              className="absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
             >
-              <MoreHorizontal size={15} />
+              <MoreHorizontal size={14} strokeWidth={1.8} />
             </IconButton>
           </DropdownMenu.Trigger>
         </div>
@@ -600,7 +569,7 @@ function ChatRow({
             className="qp-pop z-50 min-w-32 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
           >
             <MenuItem
-              icon={<PenLine size={14} />}
+              icon={<PenLine size={14} strokeWidth={1.8} />}
               label={t("sidebar.rename")}
               onSelect={() => {
                 setRenameValue(chat.name);
@@ -609,7 +578,7 @@ function ChatRow({
               }}
             />
             <MenuItem
-              icon={chat.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              icon={chat.pinned ? <PinOff size={14} strokeWidth={1.8} /> : <Pin size={14} strokeWidth={1.8} />}
               label={chat.pinned ? t("sidebar.unpin") : t("sidebar.pin")}
               onSelect={() => void togglePin()}
             />
@@ -621,7 +590,7 @@ function ChatRow({
               }}
               className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-danger outline-none hover:bg-danger-soft focus:bg-danger-soft"
             >
-              <Trash2 size={14} />
+              <Trash2 size={14} strokeWidth={1.8} />
               {t("sidebar.delete")}
             </DropdownMenu.Item>
           </DropdownMenu.Content>
@@ -731,7 +700,7 @@ function MenuItem({
   return (
     <DropdownMenu.Item
       onSelect={onSelect}
-      className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
+      className="flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
     >
       {icon}
       {label}

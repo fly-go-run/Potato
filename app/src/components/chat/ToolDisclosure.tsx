@@ -1,85 +1,82 @@
 import { useState, type MouseEvent, type ReactNode } from "react";
-import { ChevronRight } from "lucide-react";
 import { Collapse } from "./Collapse";
+import { TrackRowChevron } from "./TrackRow";
 
 /**
  * 工具卡统一的受控折叠壳:替代原生 <details>(瞬间开合、无过渡),
  * 开合与执行轨道行共用同一套 qp-collapse 动画。展开语义由行内真实
- * <button>(箭头 + 主内容)承担;「打开文件」等其他交互控件作为兄弟
+ * <button>(主内容)承担;「打开文件」等其他交互控件作为兄弟
  * 节点放在 after 里,不嵌套在按钮内。容器整行可点只是指针便利,不带
- * 按钮语义。运行中(card)与完成态(quiet)共用同一实例,状态切换时
- * 展开状态原位保留。
+ * 按钮语义。
+ *
+ * 行是安静文本行:无静息 chevron、无 hover 灰底。卡片感只留在
+ * 展开后的详情(由 detailClassName 给),行本身永远是扁平行。
  */
 export function ToolDisclosure({
-  card,
   toggle,
   after,
+  trailing,
   toggleGrow = true,
   detailClassName = "",
+  failed = false,
+  open: openProp,
+  onToggle,
   children,
 }: {
-  /** true = 运行中的描边卡片;false = 完成后的安静行。 */
-  card: boolean;
   /** 展开按钮内的主内容(工具名、命令等,不含交互控件)。 */
   toggle: ReactNode;
-  /** 行内按钮之后的兄弟内容(路径按钮、时长、状态图标)。 */
+  /** 行内按钮之后的兄弟内容(路径按钮、时长、Spinner / 状态图标)。 */
   after?: ReactNode;
+  /** 依赖开合态的行尾控件(如「在侧栏打开」);放在 chevron 前。 */
+  trailing?: (open: boolean) => ReactNode;
   /** 展开按钮是否占据剩余宽度;after 里有 flex-1 内容时关掉。 */
   toggleGrow?: boolean;
-  /** 详情容器的补充样式(滚动、内边距等),按 card/quiet 由调用方给。 */
+  /**
+   * 详情面板的样式(描边、内边距、滚动上限),由调用方给。这是唯一
+   * 允许随状态变化的部分——它只影响展开后的面板,不碰行几何。
+   */
   detailClassName?: string;
+  failed?: boolean;
+  /** 受控开合;与 onToggle 成对,给 fold-row 的 raw/summary。 */
+  open?: boolean;
+  onToggle?: () => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const toggleOpen = () => setOpen((value) => !value);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = onToggle ? Boolean(openProp) : internalOpen;
+  const toggleOpen = () => {
+    if (onToggle) onToggle();
+    else setInternalOpen((value) => !value);
+  };
   const onButtonClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     toggleOpen();
   };
-  const gap = card ? "gap-2" : "gap-1.5";
 
   return (
-    <div
-      className={
-        card
-          ? "my-2 overflow-hidden rounded-[var(--radius-md)] border border-line bg-bubble-tool"
-          : "my-0.5"
-      }
-    >
+    <div>
       <div
         onClick={toggleOpen}
-        className={`flex cursor-pointer items-center ${gap} ${
-          card
-            ? "min-h-9 px-3 py-2 text-xs"
-            : "min-h-7 rounded-[var(--radius-sm)] px-1.5 py-1 text-xs transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
+        className={`group flex cursor-pointer items-center gap-1.5 py-1 text-[13px] transition-colors duration-[var(--dur-fast)] ${
+          failed ? "text-danger" : "text-ink-secondary hover:text-ink"
         }`}
       >
         <button
           type="button"
           aria-expanded={open}
           onClick={onButtonClick}
-          className={`flex min-w-0 items-center ${gap} text-left ${
+          className={`flex min-w-0 items-center gap-1.5 text-left ${
             toggleGrow ? "flex-1" : "shrink-0"
           }`}
         >
-          <ChevronRight
-            size={card ? 14 : 12}
-            className={`shrink-0 text-ink-muted transition-transform duration-[var(--dur-fast)] ${
-              open ? "rotate-90" : ""
-            }`}
-          />
           {toggle}
         </button>
         {after}
+        {trailing?.(open)}
+        <TrackRowChevron open={open} failed={failed} />
       </div>
       <Collapse open={open}>
-        <div
-          className={
-            card ? `border-t border-line ${detailClassName}` : detailClassName
-          }
-        >
-          {children}
-        </div>
+        <div className={detailClassName}>{children}</div>
       </Collapse>
     </div>
   );

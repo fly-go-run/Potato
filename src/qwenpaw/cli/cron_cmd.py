@@ -233,7 +233,6 @@ def _build_spec_from_cli(
     enabled: bool,
     mode: str,
     silent: bool,
-    save_result_to_inbox: Optional[bool] = None,
     share_session: bool = True,
     timeout_seconds: int = 120,
     tool_safety: bool = False,
@@ -284,8 +283,6 @@ def _build_spec_from_cli(
             "runtime": runtime,
             "meta": {},
         }
-        if save_result_to_inbox is not None:
-            payload["save_result_to_inbox"] = save_result_to_inbox
         return payload
     if task_type == "agent":
         if not (text and text.strip()):
@@ -312,8 +309,6 @@ def _build_spec_from_cli(
             "runtime": runtime,
             "meta": {},
         }
-        if save_result_to_inbox is not None:
-            payload["save_result_to_inbox"] = save_result_to_inbox
         return payload
     raise click.UsageError(f"Unsupported task type: {task_type}")
 
@@ -471,15 +466,7 @@ def _build_spec_from_cli(
     default=False,
     help=(
         "Run an agent task without delivering its response to the channel. "
-        "Session, trace, and optional Inbox records are still preserved."
-    ),
-)
-@click.option(
-    "--save-result-to-inbox/--no-save-result-to-inbox",
-    default=None,
-    help=(
-        "Whether to save execution results to Inbox. "
-        "If omitted, server-side defaults are applied."
+        "Session records are still preserved."
     ),
 )
 @click.option(
@@ -543,7 +530,6 @@ def create_job(
     enabled: bool,
     mode: str,
     silent: bool,
-    save_result_to_inbox: Optional[bool],
     share_session: bool,
     timeout_seconds: int,
     tool_safety: bool,
@@ -602,7 +588,6 @@ def create_job(
             enabled=enabled,
             mode=mode,
             silent=silent,
-            save_result_to_inbox=save_result_to_inbox,
             share_session=share_session,
             timeout_seconds=timeout_seconds,
             tool_safety=tool_safety,
@@ -633,7 +618,6 @@ def _resolve_update_spec(
     enabled: Optional[bool],
     mode: Optional[str],
     silent: Optional[bool],
-    save_result_to_inbox: Optional[bool],
     share_session: Optional[bool],
     timeout_seconds: Optional[int],
     tool_safety: Optional[bool] = None,
@@ -718,9 +702,6 @@ def _resolve_update_spec(
                 ]
         else:
             payload["text"] = text.strip()
-
-    if save_result_to_inbox is not None:
-        payload["save_result_to_inbox"] = save_result_to_inbox
 
     return payload
 
@@ -831,11 +812,6 @@ def _resolve_update_spec(
     help="Run an agent task without channel delivery.",
 )
 @click.option(
-    "--save-result-to-inbox/--no-save-result-to-inbox",
-    default=None,
-    help="Save execution results to Inbox.",
-)
-@click.option(
     "--share-session/--no-share-session",
     default=None,
     help="Share session with target user.",
@@ -887,7 +863,6 @@ def update_job(
     enabled: Optional[bool],
     mode: Optional[str],
     silent: Optional[bool],
-    save_result_to_inbox: Optional[bool],
     share_session: Optional[bool],
     timeout_seconds: Optional[int],
     tool_safety: Optional[bool],
@@ -933,7 +908,6 @@ def update_job(
             enabled=enabled,
             mode=mode,
             silent=silent,
-            save_result_to_inbox=save_result_to_inbox,
             share_session=share_session,
             timeout_seconds=timeout_seconds,
             tool_safety=tool_safety,

@@ -8,11 +8,9 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import time
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from typing import Any
 
 import httpx
 
@@ -199,93 +197,6 @@ def delete_plugin_quietly(
         )
     except Exception:
         pass
-
-
-# ------------------------------------------------------------------ #
-# inbox helpers
-# ------------------------------------------------------------------ #
-
-
-def inbox_path(working_dir: Path) -> Path:
-    return working_dir / "inbox_events.json"
-
-
-def trace_dir(working_dir: Path) -> Path:
-    return working_dir / "inbox_traces"
-
-
-def seed_inbox_events(
-    working_dir: Path,
-    events: list[dict[str, Any]],
-) -> None:
-    """Write the events list to inbox_events.json."""
-    path = inbox_path(working_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            events,
-            ensure_ascii=False,
-            indent=2,
-            sort_keys=True,
-        ),
-        encoding="utf-8",
-    )
-
-
-def seed_inbox_trace(
-    working_dir: Path,
-    run_id: str,
-    payload: dict[str, Any],
-) -> None:
-    """Write one trace file under inbox_traces/<run_id>.json."""
-    directory = trace_dir(working_dir)
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / f"{run_id}.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-
-def clean_inbox(working_dir: Path) -> None:
-    """Remove inbox file + trace dir so the next test starts clean."""
-    path = inbox_path(working_dir)
-    if path.exists():
-        path.unlink()
-    directory = trace_dir(working_dir)
-    if directory.exists():
-        shutil.rmtree(directory)
-
-
-def make_event(
-    *,
-    event_id: str,
-    agent_id: str = "default",
-    source_type: str = "cron",
-    source_id: str = "",
-    event_type: str = "cron_executed",
-    status: str = "completed",
-    severity: str = "info",
-    title: str = "seeded event",
-    body: str = "",
-    payload: dict[str, Any] | None = None,
-    read: bool = False,
-    created_at: float | None = None,
-) -> dict[str, Any]:
-    """Mirror the shape produced by ``inbox_store.append_event``."""
-    return {
-        "id": event_id,
-        "agent_id": agent_id,
-        "source_type": source_type,
-        "source_id": source_id,
-        "event_type": event_type,
-        "status": status,
-        "severity": severity,
-        "title": title,
-        "body": body,
-        "payload": payload or {},
-        "read": read,
-        "created_at": (created_at if created_at is not None else time.time()),
-    }
 
 
 # ------------------------------------------------------------------ #

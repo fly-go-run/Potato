@@ -6,6 +6,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type
 
+from ..runtime.registration import Disposer, RegistrationHandle, Scope
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,10 +56,15 @@ def get_tool_config(tool_name: str) -> Optional[Dict[str, Any]]:
 # tool_name → owning plugin_id. Same plugin may re-register idempotently;
 # a different plugin claiming the same name fails closed.
 _TOOL_PLUGIN_OWNERS: Dict[str, str] = {}
+_TOOL_PLUGIN_TOKENS: Dict[str, object] = {}
+_TOOL_RUNTIME_SCOPES: Dict[str, Scope] = {}
 _TOOL_PLUGIN_OWNERS_LOCK = threading.Lock()
 
 
-def _claim_tool_ownership(tool_name: str, plugin_id: str) -> None:
+def _claim_tool_ownership(
+    tool_name: str,
+    plugin_id: str,
+) -> RegistrationHandle:
     """Record plugin ownership for *tool_name* or raise on conflict."""
     from ..governance.tool_registry import GovernanceRegistrationConflict
 
@@ -68,7 +75,20 @@ def _claim_tool_ownership(tool_name: str, plugin_id: str) -> None:
                 f"Tool {tool_name!r} is already owned by plugin "
                 f"{owner!r}; plugin {plugin_id!r} cannot re-register it",
             )
+        token = object()
         _TOOL_PLUGIN_OWNERS[tool_name] = plugin_id
+        _TOOL_PLUGIN_TOKENS[tool_name] = token
+
+    def _dispose() -> None:
+        with _TOOL_PLUGIN_OWNERS_LOCK:
+            if _TOOL_PLUGIN_TOKENS.get(tool_name) is token:
+                _TOOL_PLUGIN_TOKENS.pop(tool_name, None)
+                _TOOL_PLUGIN_OWNERS.pop(tool_name, None)
+
+    return RegistrationHandle(
+        _dispose,
+        tag=f"tool-ownership:{plugin_id}:{tool_name}",
+    )
 
 
 def release_tool_ownership_for_plugin(plugin_id: str) -> None:
@@ -81,6 +101,7 @@ def release_tool_ownership_for_plugin(plugin_id: str) -> None:
         ]
         for name in stale:
             del _TOOL_PLUGIN_OWNERS[name]
+            _TOOL_PLUGIN_TOKENS.pop(name, None)
 
     from ..governance.tool_registry import DEFAULT_REGISTRY
 
@@ -98,6 +119,7 @@ def _release_tool_registration(tool_name: str, plugin_id: str) -> None:
     with _TOOL_PLUGIN_OWNERS_LOCK:
         if _TOOL_PLUGIN_OWNERS.get(tool_name) == plugin_id:
             del _TOOL_PLUGIN_OWNERS[tool_name]
+            _TOOL_PLUGIN_TOKENS.pop(tool_name, None)
 
     from ..governance.tool_registry import DEFAULT_REGISTRY
 
@@ -110,7 +132,7 @@ def _register_to_governance(
     tool_type: str = "network",
     target_param: str = "",
     owner: str = "",
-) -> None:
+) -> RegistrationHandle:
     """Register a plugin tool into the governance whitelist.
 
     Fixes issue #6114: tools visible to the agent were denied at Phase 0
@@ -128,6 +150,17 @@ def _register_to_governance(
         target_param=target_param,
         owner=owner,
     )
+    return RegistrationHandle(
+        lambda: _release_governance_registration(tool_name, owner),
+        tag=f"tool-governance:{owner}:{tool_name}",
+    )
+
+
+def _release_governance_registration(tool_name: str, owner: str) -> None:
+    from ..governance.tool_registry import DEFAULT_REGISTRY
+
+    if DEFAULT_REGISTRY.get_owner(tool_name) == owner:
+        DEFAULT_REGISTRY.unregister_python_tool(tool_name)
 
 
 def _tool_func_matches_name(tool_func: Callable, tool_name: str) -> bool:
@@ -144,6 +177,7 @@ def _bridge_to_runtime(
     enabled: bool,
     description: str,
     registry,
+    scope: Scope | None = None,
 ) -> None:
     """Attach ToolDescriptor and inject into runtime ToolRegistries.
 
@@ -153,6 +187,13 @@ def _bridge_to_runtime(
     import inspect
 
     from ..runtime.tool_registry import ToolDescriptor
+
+    owned_scope = scope
+    if owned_scope is None:
+        previous = _TOOL_RUNTIME_SCOPES.pop(tool_name, None)
+        if previous is not None:
+            previous.close()
+        owned_scope = Scope(tag=f"legacy-tool:{tool_name}")
 
     desc = getattr(tool_func, "_tool_descriptor", None)
     if desc is None:
@@ -188,7 +229,8 @@ def _bridge_to_runtime(
         try:
             if tool_name in tr and hasattr(tr, "unregister"):
                 tr.unregister(tool_name)
-            tr.register(desc)
+            handle = tr.register(desc)
+            owned_scope.add(handle)
             logger.info(
                 "Injected '%s' into workspace '%s' ToolRegistry",
                 tool_name,
@@ -207,6 +249,43 @@ def _bridge_to_runtime(
                 if not _tool_func_matches_name(fn, tool_name)
             ]
             funcs.append(tool_func)
+            owned_scope.add(
+                RegistrationHandle(
+                    lambda: _remove_bootstrap_func(funcs, tool_func),
+                    tag=f"tool-bootstrap:{tool_name}",
+                ),
+            )
+
+    if scope is None:
+        _TOOL_RUNTIME_SCOPES[tool_name] = owned_scope
+
+
+def _remove_bootstrap_func(funcs: list, tool_func: Callable) -> None:
+    for index in range(len(funcs) - 1, -1, -1):
+        if funcs[index] is tool_func:
+            del funcs[index]
+
+
+def _register_tool_module(
+    tools_module: Any,
+    tool_name: str,
+    tool_func: Callable,
+) -> RegistrationHandle:
+    setattr(tools_module, tool_name, tool_func)
+    appended_to_all = tool_name not in tools_module.__all__
+    if appended_to_all:
+        tools_module.__all__.append(tool_name)
+
+    def _dispose() -> None:
+        if getattr(tools_module, tool_name, None) is tool_func:
+            delattr(tools_module, tool_name)
+        if appended_to_all and tool_name in tools_module.__all__:
+            tools_module.__all__.remove(tool_name)
+
+    return RegistrationHandle(
+        _dispose,
+        tag=f"tool-module:{tool_name}",
+    )
 
 
 def _unbridge_from_runtime(
@@ -215,6 +294,10 @@ def _unbridge_from_runtime(
     registry,
 ) -> None:
     """Undo :func:`_bridge_to_runtime` for failed expose or plugin unload."""
+    tracked = _TOOL_RUNTIME_SCOPES.pop(tool_name, None)
+    if tracked is not None:
+        tracked.close()
+        return
     if registry is None:
         return
     wm = registry.get_workspace_manager()
@@ -251,6 +334,21 @@ def _unbridge_from_runtime(
                 for fn in funcs
                 if not _tool_func_matches_name(fn, tool_name)
             ]
+
+
+def close_legacy_tool_registrations(plugin_id: str) -> None:
+    """Close handle-tracked tool effects created outside a PluginApi."""
+    with _TOOL_PLUGIN_OWNERS_LOCK:
+        names = [
+            name
+            for name, owner in _TOOL_PLUGIN_OWNERS.items()
+            if owner == plugin_id
+        ]
+    for name in names:
+        scope = _TOOL_RUNTIME_SCOPES.pop(name, None)
+        if scope is not None:
+            scope.close()
+    release_tool_ownership_for_plugin(plugin_id)
 
 
 def _write_tool_config(
@@ -335,6 +433,8 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         self.config = config
         self.manifest = manifest or {}
         self._registry = None
+        self.scope = Scope(tag=f"plugin:{plugin_id}")
+        self._tool_scopes: list[Scope] = []
 
     def set_registry(self, registry):
         """Set registry reference (called by loader).
@@ -343,6 +443,27 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             registry: PluginRegistry instance
         """
         self._registry = registry
+        self.scope.add(
+            RegistrationHandle(
+                lambda: registry.discard_registration_handles(
+                    self.plugin_id,
+                ),
+                tag=f"plugin:{self.plugin_id}:registry-aliases",
+            ),
+        )
+
+    def _own(self, handle: RegistrationHandle) -> RegistrationHandle:
+        """Attach a host registration handle to this plugin's scope."""
+        return self.scope.add(handle)
+
+    def add_disposer(self, fn: Disposer, *, tag: str) -> None:
+        """Register cleanup for a plugin-managed custom side effect."""
+        self._own(RegistrationHandle(fn, tag=tag))
+
+    def close_tool_registrations(self) -> None:
+        """Synchronously release tool effects for the legacy unload bridge."""
+        for scope in reversed(self._tool_scopes):
+            scope.close()
 
     def register_provider(
         self,
@@ -377,13 +498,15 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             if "meta" in self.manifest:
                 merged_metadata["meta"] = self.manifest["meta"]
 
-            self._registry.register_provider(
-                plugin_id=self.plugin_id,
-                provider_id=provider_id,
-                provider_class=provider_class,
-                label=label or provider_id,
-                base_url=base_url,
-                metadata=merged_metadata,
+            self._own(
+                self._registry.register_provider(
+                    plugin_id=self.plugin_id,
+                    provider_id=provider_id,
+                    provider_class=provider_class,
+                    label=label or provider_id,
+                    base_url=base_url,
+                    metadata=merged_metadata,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered provider "
@@ -411,11 +534,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_startup_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_startup_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered startup hook "
@@ -443,11 +568,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_shutdown_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_shutdown_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered shutdown hook "
@@ -486,11 +613,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_uninstall_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_uninstall_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered uninstall hook "
@@ -521,11 +650,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ... )
         """
         if self._registry:
-            self._registry.register_workspace_created_hook(
-                plugin_id=self.plugin_id,
-                hook_name=hook_name,
-                callback=callback,
-                priority=priority,
+            self._own(
+                self._registry.register_workspace_created_hook(
+                    plugin_id=self.plugin_id,
+                    hook_name=hook_name,
+                    callback=callback,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered "
@@ -557,11 +688,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ValueError: If *prefix* is invalid or already taken.
         """
         if self._registry:
-            self._registry.register_http_router(
-                self.plugin_id,
-                router,
-                prefix=prefix,
-                tags=tags,
+            self._own(
+                self._registry.register_http_router(
+                    self.plugin_id,
+                    router,
+                    prefix=prefix,
+                    tags=tags,
+                ),
             )
 
     def register_control_command(
@@ -577,10 +710,12 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             priority_level: Command priority (default: 10 = high)
         """
         if self._registry:
-            self._registry.register_control_command(
-                plugin_id=self.plugin_id,
-                handler=handler,
-                priority_level=priority_level,
+            self._own(
+                self._registry.register_control_command(
+                    plugin_id=self.plugin_id,
+                    handler=handler,
+                    priority_level=priority_level,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered control command "
@@ -612,10 +747,12 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             >>> api.register_middleware(my_factory, priority=50)
         """
         if self._registry:
-            self._registry.register_middleware(
-                plugin_id=self.plugin_id,
-                factory=middleware_factory,
-                priority=priority,
+            self._own(
+                self._registry.register_middleware(
+                    plugin_id=self.plugin_id,
+                    factory=middleware_factory,
+                    priority=priority,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered middleware "
@@ -696,15 +833,17 @@ class PluginApi:  # pylint: disable=too-many-public-methods
                 f"channel_class {channel_class!r} must have a "
                 f"'channel' class attribute as the channel key",
             )
-        self._registry.register_channel(
-            plugin_id=self.plugin_id,
-            channel_key=channel_key,
-            channel_class=channel_class,
-            label=label,
-            description=description,
-            config_fields=config_fields,
-            icon=icon,
-            doc_url=doc_url,
+        self._own(
+            self._registry.register_channel(
+                plugin_id=self.plugin_id,
+                channel_key=channel_key,
+                channel_class=channel_class,
+                label=label,
+                description=description,
+                config_fields=config_fields,
+                icon=icon,
+                doc_url=doc_url,
+            ),
         )
         logger.info(
             f"Plugin '{self.plugin_id}' registered channel "
@@ -807,6 +946,8 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             ...         tool_type="network",
             ...     )
         """
+        tool_scope = self.scope.child(f"tool:{tool_name}")
+        self._tool_scopes.append(tool_scope)
 
         def _startup_register():
             # Ownership + governance first: fail closed before exposing
@@ -814,21 +955,23 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             # visible-but-denied, and cross-plugin name collisions).
             # Any mid-flight failure must roll back claimed ownership /
             # governance so other plugins can reuse the name.
-            claimed = False
-            tools_module = None
-            appended_to_all = False
             try:
-                _claim_tool_ownership(tool_name, self.plugin_id)
-                claimed = True
-                _register_to_governance(
-                    tool_name,
-                    tool_type=tool_type,
-                    target_param=target_param,
-                    owner=self.plugin_id,
+                tool_scope.add(
+                    _claim_tool_ownership(tool_name, self.plugin_id),
+                )
+                tool_scope.add(
+                    _register_to_governance(
+                        tool_name,
+                        tool_type=tool_type,
+                        target_param=target_param,
+                        owner=self.plugin_id,
+                    ),
                 )
             except Exception as exc:
-                if claimed:
-                    _release_tool_registration(tool_name, self.plugin_id)
+                try:
+                    tool_scope.close()
+                except Exception:  # noqa: BLE001
+                    logger.debug("Tool rollback failed", exc_info=True)
                 logger.error(
                     f"Failed to register tool '{tool_name}' into "
                     f"governance (not exposing tool): {exc}",
@@ -839,10 +982,13 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             try:
                 from ..agents import tools as tools_module
 
-                setattr(tools_module, tool_name, tool_func)
-                if tool_name not in tools_module.__all__:
-                    tools_module.__all__.append(tool_name)
-                    appended_to_all = True
+                tool_scope.add(
+                    _register_tool_module(
+                        tools_module,
+                        tool_name,
+                        tool_func,
+                    ),
+                )
                 logger.info(
                     f"Registered tool function '{tool_name}' "
                     f"to tools module",
@@ -854,6 +1000,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
                     enabled,
                     description,
                     self._registry,
+                    scope=tool_scope,
                 )
                 _write_tool_config(
                     tool_name,
@@ -863,24 +1010,14 @@ class PluginApi:  # pylint: disable=too-many-public-methods
                 )
 
             except Exception as exc:
-                if tools_module is not None:
-                    if hasattr(tools_module, tool_name):
-                        delattr(tools_module, tool_name)
-                    if appended_to_all and tool_name in tools_module.__all__:
-                        tools_module.__all__.remove(tool_name)
                 try:
-                    _unbridge_from_runtime(
-                        tool_name,
-                        tool_func,
-                        self._registry,
-                    )
+                    tool_scope.close()
                 except Exception:  # noqa: BLE001
                     logger.debug(
-                        "Runtime unbridge failed for '%s'",
+                        "Tool rollback failed for '%s'",
                         tool_name,
                         exc_info=True,
                     )
-                _release_tool_registration(tool_name, self.plugin_id)
                 logger.error(
                     f"Failed to register tool '{tool_name}' after "
                     f"governance sync (rolled back): {exc}",
@@ -1136,12 +1273,14 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             provider = _gated_provider
 
         if self._registry:
-            self._registry.register_prompt_section(
-                plugin_id=self.plugin_id,
-                name=name,
-                after=after,
-                agent_id=agent_id,
-                provider=provider,
+            self._own(
+                self._registry.register_prompt_section(
+                    plugin_id=self.plugin_id,
+                    name=name,
+                    after=after,
+                    agent_id=agent_id,
+                    provider=provider,
+                ),
             )
             logger.info(
                 f"Plugin '{self.plugin_id}' registered prompt "
@@ -1156,10 +1295,11 @@ class PluginApi:  # pylint: disable=too-many-public-methods
     def _get_all_workspaces(self) -> list:
         """Get all workspace instances from the registry."""
         try:
-            from .registry import PluginRegistry
-
-            registry = PluginRegistry()
-            mgr = registry.get_workspace_manager()
+            mgr = (
+                self._registry.get_workspace_manager()
+                if self._registry is not None
+                else None
+            )
             if mgr is None:
                 return []
             return list(mgr.agents.values())
@@ -1175,13 +1315,14 @@ class PluginApi:  # pylint: disable=too-many-public-methods
     ):
         """Get workspace instance from workspace_info dict."""
         try:
-            from .registry import PluginRegistry
-
             agent_id = workspace_info.get("agent_id")
             if not agent_id:
                 return None
-            registry = PluginRegistry()
-            mgr = registry.get_workspace_manager()
+            mgr = (
+                self._registry.get_workspace_manager()
+                if self._registry is not None
+                else None
+            )
             if mgr is None:
                 return None
             return mgr.agents.get(agent_id)
@@ -1196,7 +1337,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Register a CommandSpec to all existing workspaces."""
         for ws in self._get_all_workspaces():
             try:
-                ws.plugins.slash_command_registry.register(spec)
+                self._own(ws.plugins.register_slash_command(spec))
             except ValueError as exc:
                 logger.debug(
                     f"Slash cmd already registered: {exc}",
@@ -1212,7 +1353,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            ws.plugins.slash_command_registry.register(spec)
+            self._own(ws.plugins.register_slash_command(spec))
         except ValueError as exc:
             logger.debug(
                 f"Slash cmd already registered: {exc}",
@@ -1222,7 +1363,9 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Instantiate and register *mode_cls* on every workspace."""
         for ws in self._get_all_workspaces():
             try:
-                ws.plugins.register_mode(mode_cls(), ws)
+                handle = ws.plugins.register_mode(mode_cls(), ws)
+                if isinstance(handle, RegistrationHandle):
+                    self._own(handle)
             except ValueError as exc:
                 logger.debug(
                     f"Mode already registered: {exc}",
@@ -1238,7 +1381,9 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            ws.plugins.register_mode(mode_cls(), ws)
+            handle = ws.plugins.register_mode(mode_cls(), ws)
+            if isinstance(handle, RegistrationHandle):
+                self._own(handle)
         except ValueError as exc:
             logger.debug(
                 f"Mode already registered: {exc}",
@@ -1248,7 +1393,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         """Register a runtime hook to all workspaces."""
         for ws in self._get_all_workspaces():
             try:
-                ws.plugins.hook_registry.register(hook)
+                self._own(ws.plugins.register_runtime_hook(hook))
             except (TypeError, ValueError) as exc:
                 logger.debug(
                     f"Hook registration issue: {exc}",
@@ -1264,7 +1409,7 @@ class PluginApi:  # pylint: disable=too-many-public-methods
         if ws is None:
             return
         try:
-            ws.plugins.hook_registry.register(hook)
+            self._own(ws.plugins.register_runtime_hook(hook))
         except (TypeError, ValueError) as exc:
             logger.debug(
                 f"Hook registration issue: {exc}",
@@ -1286,12 +1431,9 @@ class PluginApi:  # pylint: disable=too-many-public-methods
             return
         self._attach_stop_handler(ws, reg)
 
-    @staticmethod
-    def _attach_stop_handler(ws, reg):
+    def _attach_stop_handler(self, ws, reg):
         """Attach a stop handler registration to workspace."""
-        if not hasattr(ws.plugins, "stop_handlers"):
-            ws.plugins.stop_handlers = []
-        ws.plugins.stop_handlers.append(reg)
+        self._own(ws.plugins.register_stop_handler(reg))
 
     # ================================================================
     # End Loop Engineering

@@ -6,8 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 from qwenpaw.runtime.prompt_contributors import (
+    PROGRESS_NARRATION_HINT_EN,
+    PROGRESS_NARRATION_HINT_ZH,
+    ProgressNarrationContributor,
     WorkspacePromptFilesContributor,
     build_default_prompt_manager,
+    build_progress_narration_hint,
 )
 
 
@@ -108,3 +112,35 @@ def test_workspace_prompt_files_skips_symlink_escape(tmp_path):
     )
 
     assert fragment is None
+
+
+def test_default_prompt_includes_progress_narration_constraints(tmp_path):
+    """Assembled system prompt always carries the plan/phase constraints."""
+    prompt = build_default_prompt_manager().build_sync(
+        _ctx(tmp_path, []),
+    )
+
+    assert "progress_narration" in build_default_prompt_manager().names()
+    assert PROGRESS_NARRATION_HINT_EN.strip() in prompt
+    assert "Do not recap routine tool calls one by one." in prompt
+    assert "Put the conclusion in the final answer" in prompt
+    assert "Before the first tool" in prompt
+    assert "When the phase changes" in prompt
+
+
+def test_progress_narration_hint_follows_agent_language(tmp_path):
+    """Chinese agents get the zh constraint block; others get English."""
+    zh_ctx = _ctx(tmp_path, [])
+    zh_ctx.extras["language"] = "zh"
+    zh_ctx.extras["agent_config"].language = "zh"
+
+    fragment = ProgressNarrationContributor().contribute_sync(zh_ctx)
+
+    assert fragment == PROGRESS_NARRATION_HINT_ZH.strip()
+    assert "不要逐条复述常规工具" in fragment
+    assert "结论写在最终回答里" in fragment
+    assert build_progress_narration_hint("zh-CN") == fragment
+    assert (
+        build_progress_narration_hint("en")
+        == PROGRESS_NARRATION_HINT_EN.strip()
+    )

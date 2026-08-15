@@ -106,18 +106,21 @@ class MissionMode(AgentMode):
 
         plugins = getattr(workspace, "plugins", None)
         if plugins is not None:
-            if not hasattr(plugins, "stop_handlers"):
-                plugins.stop_handlers = []
-            plugins.stop_handlers.append(
-                StopHandlerRegistration(
-                    plugin_id="__mission__",
-                    handler=handler,
-                    priority=0,
-                    name="mission-stop-handler",
-                    scope="mission",
-                    is_active=self._is_gate_active,
-                ),
+            registration = StopHandlerRegistration(
+                plugin_id="__mission__",
+                handler=handler,
+                priority=0,
+                name="mission-stop-handler",
+                scope="mission",
+                is_active=self._is_gate_active,
             )
+            register = getattr(plugins, "register_stop_handler", None)
+            if register is not None:
+                register(registration)
+            else:
+                if not hasattr(plugins, "stop_handlers"):
+                    plugins.stop_handlers = []
+                plugins.stop_handlers.append(registration)
 
     async def on_turn_start(self, ctx: HookContext) -> None:
         """Restore persisted mission state before handler scope selection."""

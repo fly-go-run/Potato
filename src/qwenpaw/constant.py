@@ -216,7 +216,6 @@ HEARTBEAT_DEFAULT_TARGET = "main"
 HEARTBEAT_DEFAULT_TIMEOUT_SECONDS = 300
 HEARTBEAT_MAX_TIMEOUT_SECONDS = 3600
 HEARTBEAT_TARGET_LAST = "last"
-HEARTBEAT_TARGET_INBOX = "inbox"
 
 # Debug history file for /dump_history and /load_history commands
 DEBUG_HISTORY_FILE = EnvVarLoader.get_str(
@@ -294,7 +293,10 @@ MEMORY_COMPACT_RATIO = EnvVarLoader.get_float(
 # When unset, CORS middleware is not applied.
 CORS_ORIGINS = EnvVarLoader.get_str("QWENPAW_CORS_ORIGINS", "").strip()
 
-# Upload size limit (MB).  None = no limit.
+# Default finite limit used by upload endpoints when no override is configured.
+DEFAULT_UPLOAD_MAX_SIZE_MB = 200
+
+# Optional upload size override (MB).  None = use the endpoint default.
 UPLOAD_MAX_SIZE_MB: int | None = (
     int(v)
     if (v := EnvVarLoader.get_str("QWENPAW_UPLOAD_MAX_SIZE_MB", ""))

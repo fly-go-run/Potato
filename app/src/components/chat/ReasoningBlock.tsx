@@ -3,7 +3,6 @@ import { lazy, Suspense, useState } from "react";
 import type { StreamMessage } from "../../lib/stream";
 import { textFromContent } from "../../lib/content";
 import { useTranslation } from "../../lib/i18n";
-import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
 import { Collapse } from "./Collapse";
 
 const Markdown = lazy(() =>
@@ -15,33 +14,53 @@ const Markdown = lazy(() =>
  * 这里只保留稳定身份(思考过程)与可展开的正文,开合动效与轨道行
  * 共用同一套 qp-collapse 过渡。
  */
-export function ReasoningBlock({ message }: { message: StreamMessage }) {
+export function ReasoningBlock({
+  message,
+  open: openProp,
+  onToggle,
+  title,
+}: {
+  message: StreamMessage;
+  open?: boolean;
+  onToggle?: () => void;
+  /** Settled titled thought: dim `• title` instead of「思考过程」. */
+  title?: string | null;
+}) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = onToggle ? Boolean(openProp) : internalOpen;
   const text = textFromContent(message.content);
-  const timing = getMessageTiming(message.id);
-  const durationLabel =
-    timing && timing.endedAt !== null
-      ? formatDuration(timing.endedAt - timing.startedAt)
-      : "";
+  const toggle = () => {
+    if (onToggle) onToggle();
+    else setInternalOpen((value) => !value);
+  };
+  const labeled = Boolean(title);
 
   return (
     <div className="my-1 text-ink-secondary">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-xs font-medium text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+        className={`flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-xs transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink ${
+          labeled
+            ? "font-normal text-ink-muted"
+            : "font-medium text-ink-secondary"
+        }`}
       >
-        <ChevronRight
-          size={12}
-          className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
-            open ? "rotate-90" : ""
-          }`}
-        />
-        <span>{t("reasoning.process")}</span>
-        {durationLabel && (
-          <span className="shrink-0 tabular-nums">· {durationLabel}</span>
+        {labeled ? (
+          <span>• {title}</span>
+        ) : (
+          <>
+            <ChevronRight
+              size={12}
+              strokeWidth={1.8}
+              className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+                open ? "rotate-90" : ""
+              }`}
+            />
+            <span>{t("reasoning.process")}</span>
+          </>
         )}
       </button>
       <Collapse open={open}>
@@ -57,7 +76,7 @@ export function ReasoningBlock({ message }: { message: StreamMessage }) {
               <Markdown>{text}</Markdown>
             </Suspense>
           ) : (
-            <span className="text-xs text-ink-muted">
+            <span className="text-xs text-ink-tertiary">
               {t("reasoning.waiting")}
             </span>
           )}

@@ -15,6 +15,8 @@ import inspect
 import logging
 from typing import Any, TYPE_CHECKING
 
+from .registration import RegistrationHandle
+
 if TYPE_CHECKING:
     from .hooks import HookContext
 
@@ -62,7 +64,7 @@ class PromptManager:
         self._contributors: list[PromptContributor] = []
 
     # ---------------------------------------------------------------- register
-    def register(self, contributor: PromptContributor) -> None:
+    def register(self, contributor: PromptContributor) -> RegistrationHandle:
         if not isinstance(contributor, PromptContributor):
             raise TypeError(
                 "register() requires a PromptContributor, "
@@ -78,6 +80,17 @@ class PromptManager:
             )
         self._contributors.append(contributor)
         self._contributors.sort(key=lambda c: c.priority)
+
+        def _dispose() -> None:
+            for index, registered in enumerate(self._contributors):
+                if registered is contributor:
+                    del self._contributors[index]
+                    break
+
+        return RegistrationHandle(
+            _dispose,
+            tag=f"prompt-contributor:{contributor.name}",
+        )
 
     def names(self) -> list[str]:
         return [c.name for c in self._contributors]

@@ -781,6 +781,119 @@ async def put_transcription_provider_type(
 
 
 @router.get(
+    "/web-search-backend",
+    summary="Get web search backend",
+    description=(
+        "Get the backend behind the web_search tool. "
+        'Values: "auto", "hosted", "tavily". Also reports whether '
+        "hosted-search credentials are actually present, so the UI can "
+        "warn before the first search fails."
+    ),
+)
+async def get_web_search_backend() -> dict:
+    """Get the web search backend setting, its readiness, and the choices.
+
+    ``providers`` lists what the picker can offer: every provider that has
+    a key, since only those can run a search. Whether a given host actually
+    serves a hosted web_search tool cannot be known without asking it, so
+    the list is offered rather than filtered — a wrong pick fails loudly on
+    the first search instead of being silently unavailable here.
+    """
+    from ...agents.tools import _hosted_search
+    from ...providers.provider_manager import ProviderManager
+
+    config = load_config()
+    provider_id = config.agents.web_search_provider_id
+
+    manager = ProviderManager.get_instance()
+    providers: list[dict] = []
+    for pid, provider in {
+        **manager.builtin_providers,
+        **manager.custom_providers,
+    }.items():
+        if not (getattr(provider, "api_key", "") or "").strip():
+            continue
+        providers.append(
+            {
+                "id": pid,
+                "name": getattr(provider, "name", "") or pid,
+            },
+        )
+    providers.sort(key=lambda p: p["id"])
+
+    return {
+        "web_search_backend": config.agents.web_search_backend,
+        "web_search_provider_id": provider_id,
+        "web_search_model": config.agents.web_search_model,
+        "hosted_configured": _hosted_search.is_available(provider_id),
+        "providers": providers,
+    }
+
+
+@router.put(
+    "/web-search-backend",
+    summary="Set web search backend",
+    description=(
+        "Set the backend behind the web_search tool. "
+        '"hosted": the model host searches server-side and answers from '
+        "the pages it read, whatever model the session itself runs; "
+        '"tavily": keyless Tavily, snippets only; '
+        '"auto": hosted when a key is configured, else Tavily.'
+    ),
+)
+async def put_web_search_backend(
+    body: dict = Body(
+        ...,
+        description=(
+            'Backend, e.g. {"web_search_backend": "hosted", '
+            '"web_search_provider_id": "deepseek", '
+            '"web_search_model": "deepseek-v4-flash"}. The provider and '
+            "model keys are optional and only meaningful for 'hosted'."
+        ),
+    ),
+) -> dict:
+    """Set the web search backend, and optionally which host runs it."""
+    raw = body.get("web_search_backend")
+    backend = (str(raw) if raw is not None else "").strip().lower()
+    valid = {"auto", "hosted", "tavily"}
+    if backend not in valid:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid web_search_backend '{backend}'. "
+                f"Must be one of: {', '.join(sorted(valid))}"
+            ),
+        )
+
+    config = load_config()
+    config.agents.web_search_backend = backend
+
+    if "web_search_provider_id" in body:
+        config.agents.web_search_provider_id = str(
+            body.get("web_search_provider_id") or "",
+        ).strip()
+    if "web_search_model" in body:
+        model = str(body.get("web_search_model") or "").strip()
+        if backend == "hosted" and not model:
+            # Hosted search cannot run without naming a model, and an empty
+            # one fails only later, inside a tool call the user is not
+            # watching. Refuse it while they are still on the settings page.
+            raise HTTPException(
+                status_code=400,
+                detail="web_search_model is required for hosted search",
+            )
+        if model:
+            config.agents.web_search_model = model
+
+    save_config(config)
+    return {
+        "web_search_backend": backend,
+        "web_search_provider_id": config.agents.web_search_provider_id,
+        "web_search_model": config.agents.web_search_model,
+    }
+
+
+@router.get(
     "/local-whisper-status",
     summary="Check local whisper availability",
     description=(

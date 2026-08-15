@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
 
+from ..constant import DEFAULT_UPLOAD_MAX_SIZE_MB
+
 if TYPE_CHECKING:
     from fastapi import Request, UploadFile
     from .multi_agent_manager import MultiAgentManager
@@ -159,7 +161,7 @@ def check_upload_size(data: bytes) -> None:
 async def read_upload_with_limit(
     file: "UploadFile",
     *,
-    default_max_size_mb: int = 100,
+    default_max_size_mb: int = DEFAULT_UPLOAD_MAX_SIZE_MB,
 ) -> bytes:
     """Read an UploadFile incrementally and stop once its limit is exceeded.
 

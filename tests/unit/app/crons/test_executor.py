@@ -24,29 +24,8 @@ class _Workspace:
             yield event
 
 
-def _patch_trace_storage(monkeypatch):
-    monkeypatch.setattr(
-        "qwenpaw.app.crons.executor.read_session_messages",
-        AsyncMock(return_value=[]),
-    )
-    monkeypatch.setattr(
-        "qwenpaw.app.crons.executor.create_trace",
-        AsyncMock(),
-    )
-    monkeypatch.setattr(
-        "qwenpaw.app.crons.executor.append_trace_from_session_delta",
-        AsyncMock(),
-    )
-    finalize_trace = AsyncMock()
-    monkeypatch.setattr(
-        "qwenpaw.app.crons.executor.finalize_trace",
-        finalize_trace,
-    )
-    return finalize_trace
-
-
 @pytest.mark.asyncio
-async def test_silent_agent_job_runs_without_channel_delivery(monkeypatch):
+async def test_silent_agent_job_runs_without_channel_delivery():
     workspace = _Workspace()
     channel_manager = AsyncMock()
     job = make_cron_job_spec(job_id="silent-job")
@@ -54,8 +33,6 @@ async def test_silent_agent_job_runs_without_channel_delivery(monkeypatch):
         target=DispatchTarget(user_id="u1", session_id="console:u1"),
         silent=True,
     )
-
-    finalize_trace = _patch_trace_storage(monkeypatch)
 
     result = await CronExecutor(
         workspace=workspace,
@@ -65,16 +42,13 @@ async def test_silent_agent_job_runs_without_channel_delivery(monkeypatch):
     assert workspace.events_consumed == 2
     channel_manager.send_event.assert_not_awaited()
     assert result["delivery_status"] == "suppressed"
-    finalize_trace.assert_awaited_once_with(result["run_id"], status="success")
 
 
 @pytest.mark.asyncio
-async def test_agent_job_still_delivers_by_default(monkeypatch):
+async def test_agent_job_still_delivers_by_default():
     workspace = _Workspace()
     channel_manager = AsyncMock()
     job = make_cron_job_spec(job_id="normal-job")
-
-    _patch_trace_storage(monkeypatch)
 
     result = await CronExecutor(
         workspace=workspace,
@@ -87,7 +61,7 @@ async def test_agent_job_still_delivers_by_default(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_final_mode_delivers_only_last_completed_message(monkeypatch):
+async def test_final_mode_delivers_only_last_completed_message():
     first = Event(
         object="message",
         status=RunStatus.Completed,
@@ -107,8 +81,6 @@ async def test_final_mode_delivers_only_last_completed_message(monkeypatch):
         mode="final",
     )
 
-    _patch_trace_storage(monkeypatch)
-
     result = await CronExecutor(
         workspace=workspace,
         channel_manager=channel_manager,
@@ -121,7 +93,7 @@ async def test_final_mode_delivers_only_last_completed_message(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_final_mode_reports_delivery_failure(monkeypatch):
+async def test_final_mode_reports_delivery_failure():
     final = Event(object="message", status=RunStatus.Completed)
     workspace = _Workspace([final])
     channel_manager = AsyncMock()
@@ -131,8 +103,6 @@ async def test_final_mode_reports_delivery_failure(monkeypatch):
         target=DispatchTarget(user_id="u1", session_id="console:u1"),
         mode="final",
     )
-
-    _patch_trace_storage(monkeypatch)
 
     result = await CronExecutor(
         workspace=workspace,

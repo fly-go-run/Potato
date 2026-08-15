@@ -5,10 +5,9 @@ Verifies that ``/api/agents/{agentId}/...`` paths route correctly to
 the same handlers as global ``/api/...`` paths (alias endpoints) and
 that real agent-scoped endpoints resolve agent context properly.
 
-Covers 13 P0 endpoints across five domains:
+Covers the P0 endpoints across these domains:
 
   - **plugins** (alias): install / upload / uninstall + real install
-  - **console/inbox** (alias): seed → list → mark-read → delete
   - **workspace** (real): upload invalid / valid zip
   - **mcp-oauth** (real): revoke unknown client
   - **workspace/transcribe** (alias): disabled, unsupported extension
@@ -28,14 +27,11 @@ from tests.integration.helpers import (
     LOADER_READY_TIMEOUT,
     OFFICIAL_PLUGINS_DIR,
     PLUGIN_HTTP_TIMEOUT,
-    clean_inbox,
     create_agent,
     default_http_timeout,
     delete_agent_quietly,
     delete_plugin_quietly,
-    make_event,
     scoped,
-    seed_inbox_events,
     wait_until_plugin_loader_ready,
 )
 
@@ -226,95 +222,6 @@ def test_plugins_install_real_via_agentscoped(app_server) -> None:
         assert del_resp.status_code == 200, app_server.logs_tail()
     finally:
         delete_plugin_quietly(app_server, plugin_id)
-
-
-# ------------------------------------------------------------------ #
-# console/inbox — alias endpoints
-# ------------------------------------------------------------------ #
-
-
-@pytest.mark.integration
-@pytest.mark.p0
-def test_inbox_seed_list_read_delete_lifecycle(app_server) -> None:
-    """Test purpose:
-    - Verify the console inbox CRUD lifecycle works through agent-scoped
-      paths: seed data → list → mark-read → delete. Covers the three
-      inbox endpoints that are P0 under agent-scoped routing.
-
-    Test flow:
-    1. Seed 3 unread events into inbox_events.json.
-    2. GET /api/agents/default/console/inbox/events — assert 3 events.
-    3. POST /api/agents/default/console/inbox/read with 2 event ids —
-       assert ``updated == 2``.
-    4. GET events again — assert 2 read + 1 unread.
-    5. DELETE /api/agents/default/console/inbox/events/{id} for the
-       remaining unread event — assert ``deleted == True``.
-    6. GET events — assert 2 remaining.
-    7. Cleanup: wipe inbox state.
-
-    API endpoints:
-    - GET    /api/agents/{agentId}/console/inbox/events
-    - POST   /api/agents/{agentId}/console/inbox/read
-    - DELETE /api/agents/{agentId}/console/inbox/events/{event_id}
-    """
-    events = [
-        make_event(event_id="scoped-inbox-01"),
-        make_event(event_id="scoped-inbox-02"),
-        make_event(event_id="scoped-inbox-03"),
-    ]
-    seed_inbox_events(app_server.working_dir, events)
-
-    try:
-        list_resp = app_server.api_request(
-            "GET",
-            scoped("default", "/console/inbox/events"),
-            timeout=_HTTP_TIMEOUT,
-        )
-        assert list_resp.status_code == 200, app_server.logs_tail()
-        listed = list_resp.json().get("events")
-        assert len(listed) == 3
-
-        mark_resp = app_server.api_request(
-            "POST",
-            scoped("default", "/console/inbox/read"),
-            json={
-                "event_ids": ["scoped-inbox-01", "scoped-inbox-02"],
-                "all": False,
-            },
-            timeout=_HTTP_TIMEOUT,
-        )
-        assert mark_resp.status_code == 200, app_server.logs_tail()
-        assert mark_resp.json().get("updated") == 2
-
-        verify_resp = app_server.api_request(
-            "GET",
-            scoped("default", "/console/inbox/events"),
-            timeout=_HTTP_TIMEOUT,
-        )
-        assert verify_resp.status_code == 200, app_server.logs_tail()
-        read_map = {e["id"]: e["read"] for e in verify_resp.json()["events"]}
-        assert read_map["scoped-inbox-01"] is True
-        assert read_map["scoped-inbox-02"] is True
-        assert read_map["scoped-inbox-03"] is False
-
-        del_resp = app_server.api_request(
-            "DELETE",
-            scoped("default", "/console/inbox/events/scoped-inbox-03"),
-            timeout=_HTTP_TIMEOUT,
-        )
-        assert del_resp.status_code == 200, app_server.logs_tail()
-        assert del_resp.json().get("deleted") is True
-
-        final_resp = app_server.api_request(
-            "GET",
-            scoped("default", "/console/inbox/events"),
-            timeout=_HTTP_TIMEOUT,
-        )
-        assert final_resp.status_code == 200, app_server.logs_tail()
-        remaining = {e["id"] for e in final_resp.json()["events"]}
-        assert remaining == {"scoped-inbox-01", "scoped-inbox-02"}
-    finally:
-        clean_inbox(app_server.working_dir)
 
 
 # ------------------------------------------------------------------ #

@@ -33,7 +33,6 @@ from qwenpaw.config.config import (
 )
 from qwenpaw.constant import (
     HEARTBEAT_FILE,
-    HEARTBEAT_TARGET_INBOX,
     HEARTBEAT_TARGET_LAST,
 )
 
@@ -179,7 +178,7 @@ def test_get_heartbeat_returns_timeout_seconds(
     fake_agent_workspace.config.heartbeat = HeartbeatConfig(
         enabled=True,
         every="2h",
-        target="inbox",
+        target="main",
         timeoutSeconds=240,
     )
 
@@ -202,7 +201,7 @@ def test_put_heartbeat_preserves_timeout_seconds(
             json={
                 "enabled": True,
                 "every": "2h",
-                "target": "inbox",
+                "target": "main",
                 "timeoutSeconds": 360,
             },
         )
@@ -231,7 +230,7 @@ def test_put_heartbeat_rejects_timeout_above_max(
         json={
             "enabled": True,
             "every": "2h",
-            "target": "inbox",
+            "target": "main",
             "timeoutSeconds": 3601,
         },
     )
@@ -252,7 +251,6 @@ def test_put_heartbeat_rejects_timeout_above_max(
                 session_id="session-1",
             ),
         ),
-        (HEARTBEAT_TARGET_INBOX, None),
     ],
 )
 async def test_run_heartbeat_once_uses_configured_timeout(
@@ -282,20 +280,6 @@ async def test_run_heartbeat_once_uses_configured_timeout(
         "qwenpaw.config.config.load_agent_config",
         lambda _agent_id: SimpleNamespace(last_dispatch=last_dispatch),
     )
-    monkeypatch.setattr(
-        heartbeat,
-        "read_session_messages",
-        AsyncMock(return_value=[]),
-    )
-    monkeypatch.setattr(heartbeat, "create_trace", AsyncMock())
-    monkeypatch.setattr(
-        heartbeat,
-        "append_trace_from_session_delta",
-        AsyncMock(return_value=[]),
-    )
-    monkeypatch.setattr(heartbeat, "finalize_trace", AsyncMock())
-    monkeypatch.setattr(heartbeat, "append_inbox_event", AsyncMock())
-
     await heartbeat.run_heartbeat_once(
         workspace=_HeartbeatWorkspace(),
         channel_manager=SimpleNamespace(send_event=AsyncMock()),

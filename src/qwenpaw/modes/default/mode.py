@@ -50,15 +50,18 @@ class DefaultMode(AgentMode):
     def setup(self, workspace: object) -> None:
         """Register an initially empty default-scoped handler."""
         super().setup(workspace)
-        workspace.plugins.stop_handlers.append(
-            StopHandlerRegistration(
-                plugin_id="__default_mode__",
-                handler=self._handler,
-                priority=0,
-                name="default-stop-handler",
-                scope="default",
-            ),
+        registration = StopHandlerRegistration(
+            plugin_id="__default_mode__",
+            handler=self._handler,
+            priority=0,
+            name="default-stop-handler",
+            scope="default",
         )
+        register = getattr(workspace.plugins, "register_stop_handler", None)
+        if register is not None:
+            register(registration)
+        else:
+            workspace.plugins.stop_handlers.append(registration)
 
     async def on_turn_start(self, ctx: HookContext) -> None:
         """Apply current config and prepare gates for a new user turn."""

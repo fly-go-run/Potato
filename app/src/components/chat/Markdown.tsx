@@ -96,7 +96,7 @@ export function Markdown({
                   }}
                   className="inline-flex items-center gap-1 rounded-[4px] text-accent underline decoration-accent/40 underline-offset-2 transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:decoration-accent"
                 >
-                  <FileText size={13} className="shrink-0" aria-hidden />
+                  <FileText size={14} strokeWidth={1.8} className="shrink-0" aria-hidden />
                   {value}
                 </a>
               );

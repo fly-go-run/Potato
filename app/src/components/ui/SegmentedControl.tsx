@@ -83,22 +83,22 @@ export function SegmentedControl<T extends string>({
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               track
                 ? cn(
-                    "h-7 rounded-lg px-3",
+                    "h-7 rounded-lg border px-3",
                     selected
-                      ? "bg-surface text-ink shadow-[var(--shadow-sm)]"
-                      : "text-ink-secondary hover:text-ink",
+                      ? "border-line bg-surface text-ink shadow-[var(--shadow-sm)] dark:border-line-highlight dark:shadow-none"
+                      : "border-transparent text-ink-secondary hover:text-ink",
                   )
                 : cn(
                     "h-8 rounded-full px-3.5",
                     selected
                       ? "bg-btn-primary text-btn-primary-ink shadow-[var(--shadow-control)]"
-                      : "text-ink-tertiary hover:bg-fill-hover hover:text-ink-secondary",
+                      : "text-ink-secondary hover:bg-fill-hover hover:text-ink",
                   ),
             )}
           >
             {option.label}
             {option.count !== undefined && (
-              <span className="text-xs tabular-nums text-ink-muted">
+              <span className="text-xs tabular-nums text-ink-tertiary">
                 {option.count}
               </span>
             )}

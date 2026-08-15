@@ -1,13 +1,16 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   ArrowUp,
+  AtSign,
   Check,
   ChevronDown,
   FileText,
   Loader2,
   Mic,
+  Paperclip,
   Plus,
   ShieldCheck,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -26,6 +29,10 @@ import { Button, IconButton } from "../ui";
 import { ApiError, sttApi } from "../../lib/api";
 import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { skillApi, type SkillInfo } from "../../lib/capabilities";
+import {
+  skillDescription,
+  skillDisplayName,
+} from "../../lib/skillPresentation";
 import { isImeCommitEnter } from "../../lib/ime";
 import {
   applyTrigger,
@@ -33,6 +40,7 @@ import {
   type ComposerTrigger,
 } from "../../lib/composerTrigger";
 import { useChatStore, type ApprovalLevel } from "../../stores/chat";
+import { useUiPrefs } from "../../stores/uiPrefs";
 import { VoiceInputError, VoiceRecorder } from "../../lib/voiceInput";
 import { ModelPicker } from "./ModelPicker";
 import { ProjectPicker } from "./ProjectPicker";
@@ -56,10 +64,11 @@ const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
 export function Composer({ wide = false }: { wide?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [text, setText] = useState("");
   const [voiceState, setVoiceState] = useState<VoiceUiState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const showContextUsage = useUiPrefs((state) => state.showContextUsage);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isComposingRef = useRef(false);
@@ -84,13 +93,15 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const [skillsError, setSkillsError] = useState(false);
   const skillsRequested = useRef(false);
 
-  // 随内容自动增高:2 行(64px)起步,192px(约 7 行,与 max-h-48 一致)封顶后内部滚动
+  // 随内容自动增高,192px(约 7 行,与 max-h-48 一致)封顶后内部滚动。
+  // 静息高度分档:首页(wide)两行起步做邀请,会话内一行起步少占阅读区
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.max(64, Math.min(el.scrollHeight, 192))}px`;
-  }, [text]);
+    // JS 下限与 CSS min-h 同值(86/46),避免哪天删了 min-h 静息高度悄悄塌掉
+    el.style.height = `${Math.max(wide ? 86 : 46, Math.min(el.scrollHeight, 192))}px`;
+  }, [text, wide]);
   const activeModel = useChatStore((state) => state.activeModel);
   const modelLoading = useChatStore((state) => state.modelLoading);
   const isStreaming = useChatStore((state) => state.isStreaming);
@@ -222,13 +233,14 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         .filter(
           (skill) =>
             !needle ||
-            `${skill.name} ${skill.description}`
+            `${skill.name} ${skillDisplayName(skill.name, language)} ${skill.description}`
               .toLocaleLowerCase()
               .includes(needle),
         )
         .map((skill) => ({
           value: skill.name,
-          description: skill.description,
+          label: skillDisplayName(skill.name, language),
+          description: skillDescription(skill.name, language),
           icon: "skill" as const,
           emoji: skill.emoji,
         }));
@@ -236,7 +248,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     return conversationFiles.filter(
       (item) => !needle || item.value.toLocaleLowerCase().includes(needle),
     );
-  }, [trigger, skills, conversationFiles]);
+  }, [trigger, skills, conversationFiles, language]);
 
   const skillsLoading = trigger?.kind === "slash" && skills === null;
 
@@ -256,27 +268,22 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const approvalLevels: Array<{
     value: ApprovalLevel;
     label: string;
-    hint: string;
   }> = [
     {
       value: "AUTO",
       label: t("composer.approval.auto"),
-      hint: t("composer.approval.autoHint"),
     },
     {
       value: "SMART",
       label: t("composer.approval.smart"),
-      hint: t("composer.approval.smartHint"),
     },
     {
       value: "STRICT",
       label: t("composer.approval.strict"),
-      hint: t("composer.approval.strictHint"),
     },
     {
       value: "OFF",
       label: t("composer.approval.off"),
-      hint: t("composer.approval.offHint"),
     },
   ];
   const model = activeModel?.active_llm;
@@ -298,12 +305,13 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         <Button
           variant="ghost"
           size="sm"
+          aria-label={t("composer.approval.aria")}
           className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
         >
-          <ShieldCheck size={15} className="text-ink-tertiary" />
+          <ShieldCheck size={16} strokeWidth={1.75} />
           {/* 审批档位是安全边界,任何入口都必须显示当前档位 */}
           {approvalLabel}
-          <ChevronDown size={13} />
+          <ChevronDown size={14} strokeWidth={1.8} />
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -312,6 +320,10 @@ export function Composer({ wide = false }: { wide?: boolean }) {
           align="start"
           className="qp-pop z-50 min-w-64 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
         >
+          {/* 缩短的 chip 文案(自动/关闭)靠这里的节头找回语境 */}
+          <div className="px-2.5 pb-1 pt-1.5 text-[11px] text-ink-muted">
+            {t("composer.approval.aria")}
+          </div>
           {approvalLevels.map((item) => (
             <DropdownMenu.Item
               key={item.value}
@@ -320,12 +332,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             >
               <span className="min-w-0">
                 <span className="block text-xs text-ink">{item.label}</span>
-                <span className="mt-0.5 block text-[11px] leading-4 text-ink-muted">
-                  {item.hint}
-                </span>
               </span>
               {approvalLevel === item.value && (
-                <Check size={13} className="mt-0.5 shrink-0 text-accent" />
+                <Check size={14} strokeWidth={1.8} className="mt-0.5 shrink-0 text-accent" />
               )}
             </DropdownMenu.Item>
           ))}
@@ -333,6 +342,24 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
+
+
+  const insertTriggerSymbol = (symbol: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? text.length;
+    const end = textarea.selectionEnd ?? start;
+    const before = text.slice(0, start);
+    const inserted = (before && !/\s$/.test(before) ? " " : "") + symbol;
+    const next = before + inserted + text.slice(end);
+    setText(next);
+    const caret = start + inserted.length;
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(caret, caret);
+      syncTrigger(textarea);
+    });
+  };
 
   const submit = () => {
     if (!canSend) return;
@@ -624,16 +651,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             onHover={setActiveIndex}
           />
         )}
-        {/* 双层结构(对标 WB):内层白卡=本次输入,外层托盘下挂会话环境
-            (项目/审批)。圆角走标尺(18/14),阴影用 composer 专档
-            (深色为 none:近黑背景上黑阴影是无效像素,层级靠表面差)。 */}
-        <div
-          className={
-            wide
-              ? "overflow-visible rounded-[var(--radius-bubble)] bg-composer-tray"
-              : "overflow-visible"
-          }
-        >
+        {/* 单卡结构(2026-08-14 终版):托盘层退役,工作区/审批 chip
+            收进输入卡底部控制行——与会话页 composer 同形。 */}
+        <div className="overflow-visible">
           <div className="relative z-10 rounded-[var(--radius-bubble)] border border-line bg-surface shadow-[var(--shadow-composer)] transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-line-strong focus-within:shadow-[var(--shadow-composer-focus)]">
             {pendingImages.length > 0 && (
               <div className="flex gap-2 overflow-x-auto px-3 pt-3">
@@ -650,7 +670,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                       />
                     ) : (
                       <div className="flex min-w-0 flex-col items-center gap-1 px-2 text-ink-secondary">
-                        <FileText size={18} />
+                        <FileText size={18} strokeWidth={1.75} />
                         <span className="w-full truncate text-center text-[10px]">
                           {attachment.file.name}
                         </span>
@@ -663,7 +683,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                       onClick={() => removeImage(attachment.id)}
                       className="absolute right-1 top-1 h-6 w-6 bg-raised shadow-[var(--shadow-sm)]"
                     >
-                      <X size={12} />
+                      <X size={12} strokeWidth={1.8} />
                     </IconButton>
                   </div>
                 ))}
@@ -673,7 +693,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             <textarea
               ref={textareaRef}
               data-testid="composer-input"
-              rows={2}
+              // rows=1:空文本区的 scrollHeight 起点是一行,静息高度由
+              // min-h 分档(wide 86 / 会话 46)和 JS 下限决定,不被 rows 顶起
+              rows={1}
               value={text}
               onChange={(event) => {
                 setText(event.target.value);
@@ -706,7 +728,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   ? t("composer.generating")
                   : t("composer.placeholder")
               }
-              className="block min-h-[86px] max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55"
+              className={`block ${
+                wide ? "min-h-[86px]" : "min-h-[46px]"
+              } max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[16px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55`}
             />
             <div className="flex items-center gap-1 px-3 pb-3">
               <input
@@ -719,27 +743,75 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   event.target.value = "";
                 }}
               />
-              <IconButton
-                size="sm"
-                disabled={busy}
-                title={t("composer.addAttachment")}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Plus size={20} strokeWidth={1.9} />
-              </IconButton>
+              {/* 「+」=「往对话里加东西」的家:附件、@ 引用、/ 技能。
+                  菜单项右侧的弱化符号就是教学——用几次自然改打快捷符。 */}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <IconButton
+                    size="sm"
+                    disabled={busy}
+                    title={t("composer.add")}
+                  >
+                    <Plus size={20} strokeWidth={1.75} />
+                  </IconButton>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    sideOffset={6}
+                    align="start"
+                    // 焦点必须回 textarea 而不是「+」:onBlur 会清 trigger 态
+                    onCloseAutoFocus={(event) => event.preventDefault()}
+                    className="qp-pop z-50 min-w-44 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
+                  >
+                    <DropdownMenu.Item
+                      onSelect={() => fileInputRef.current?.click()}
+                      className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
+                    >
+                      <Paperclip size={14} strokeWidth={1.8} className="text-icon" />
+                      {t("composer.addMenu.upload")}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => insertTriggerSymbol("@")}
+                      className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
+                    >
+                      <AtSign size={14} strokeWidth={1.8} className="text-icon" />
+                      <span className="flex-1">
+                        {t("composer.addMenu.reference")}
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-tertiary">
+                        @
+                      </span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => insertTriggerSymbol("/")}
+                      className="flex cursor-default items-center gap-2.5 rounded-sm px-2.5 py-2 text-xs text-ink outline-none hover:bg-fill-hover focus:bg-fill-active"
+                    >
+                      <Sparkles size={14} strokeWidth={1.8} className="text-icon" />
+                      <span className="flex-1">
+                        {t("composer.addMenu.skill")}
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-tertiary">
+                        /
+                      </span>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
 
-              {!wide && renderApprovalControl(true)}
+              {wide && <ProjectPicker />}
+              {renderApprovalControl(true)}
 
               <div className="flex-1" />
 
-              {/* 上下文用量在会话里最需要被看到:接近压缩/上限前给用户预警 */}
-              {!wide &&
+              {/* 上下文用量默认不显示(设置 → 通用 里可打开):它在绝大多数
+                  会话里停在个位数,没有可操作性,却一直占着输入框旁的注意力 */}
+              {showContextUsage &&
                 turnUsage?.context_usage?.context_usage_ratio !== undefined && (
                   <span
                     className={`hidden pr-1 text-[11px] sm:inline ${
                       turnUsage.context_usage.context_usage_ratio >= 80
                         ? "text-warn"
-                        : "text-ink-muted"
+                        : "text-ink-tertiary"
                     }`}
                   >
                     {t("chat.contextUsed", {
@@ -771,23 +843,34 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   }
                   aria-pressed={voiceState === "recording"}
                   onClick={toggleVoice}
-                  className={
+                  // mr-[17px]:让麦克风左右的留白在静止态看起来一样宽。
+                  //
+                  // 行上是统一的 gap-1(4px),但两侧的邻居性质不同:模型选择器
+                  // 有 14px 内边距且静止态不铺底色,那 14px 就是纯死白,全部计入
+                  // 左侧空隙;发送键是实心圆,右侧只有 gap 本身。实测墨迹到墨迹
+                  // 是 29.6px vs 16.7px,差了一倍。补到 17px 让两边都是 ~29.6px。
+                  // 放在麦克风上而不是发送键上:语音不可用时它整个不渲染,不会
+                  // 连带改动原有布局。
+                  className={`mr-[17px] ${
                     voiceState === "recording"
                       ? "text-danger hover:text-danger"
-                      : undefined
-                  }
+                      : ""
+                  }`}
                 >
                   {voiceState === "transcribing" ||
                   voiceState === "starting" ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <Mic
-                      size={18}
-                      strokeWidth={1.9}
-                      className={
-                        voiceState === "recording" ? "animate-pulse" : undefined
-                      }
+                    <Loader2 size={16} strokeWidth={1.75} className="animate-spin" />
+                  ) : voiceState === "recording" ? (
+                    // 录音中按钮的动作是「停止」,就得画成停止:红色脉冲的
+                    // 麦克风只说明正在录,没告诉用户点下去会怎样。方块与
+                    // 发送键的停流按钮同一套语义。
+                    <Square
+                      size={16}
+                      fill="currentColor"
+                      className="animate-pulse"
                     />
+                  ) : (
+                    <Mic size={18} strokeWidth={1.75} />
                   )}
                 </IconButton>
               )}
@@ -800,7 +883,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   onClick={() => void stop()}
                   className={sendButtonClass}
                 >
-                  <Square size={15} fill="currentColor" />
+                  <Square size={16} fill="currentColor" />
                 </button>
               ) : (
                 <button
@@ -811,7 +894,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   onClick={submit}
                   className={sendButtonClass}
                 >
-                  <ArrowUp size={18} strokeWidth={2.4} />
+                  <ArrowUp size={16} strokeWidth={2.4} />
                 </button>
               )}
             </div>
@@ -827,26 +910,6 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             </p>
           )}
 
-          {wide && (
-            /* 首页专属工作环境托盘；session 把默认权限留在白卡内，
-             * 这里只承载工作区、首页审批档位和上下文用量。 */
-            <div className="flex min-h-11 items-center gap-1 px-3 pb-2 pt-2">
-              <ProjectPicker />
-              {renderApprovalControl(false)}
-
-              <div className="flex-1" />
-
-              {turnUsage?.context_usage?.context_usage_ratio !== undefined && (
-                <span className="hidden pr-1 text-[11px] text-ink-muted sm:inline">
-                  {t("chat.contextUsed", {
-                    // 后端 ratio 已是百分数(context_stats.py 乘过 100)
-                    ratio:
-                      turnUsage.context_usage.context_usage_ratio.toFixed(1),
-                  })}
-                </span>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

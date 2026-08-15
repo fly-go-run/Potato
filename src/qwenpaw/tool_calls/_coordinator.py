@@ -552,6 +552,18 @@ class ToolCoordinator:
                     return
 
                 if isinstance(item, ToolChunk):
+                    if (
+                        item.is_last is not True
+                        and isinstance(item.metadata, dict)
+                        and "qp" in item.metadata
+                    ):
+                        item.metadata.pop("qp")
+                        logger.warning(
+                            "discarded qp metadata from non-terminal chunk "
+                            "for tool %s (call_id=%s)",
+                            tool_call.name,
+                            entry.ctx.tool_call_id,
+                        )
                     entry.final_response.append_chunk(item)
                     await entry.stream.append(item)
 

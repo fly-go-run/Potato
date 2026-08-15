@@ -10,6 +10,11 @@ import pytest
 from agentscope.event import EventType
 
 from qwenpaw.runtime.envelope import Envelope, _propagate_event_metadata
+from qwenpaw.runtime.tool_registry import (
+    ToolDescriptor,
+    ToolRegistry,
+    ToolUISpec,
+)
 from qwenpaw.schemas import ContentType, MessageType, RunStatus, TextContent
 
 
@@ -320,3 +325,154 @@ async def test_empty_metadata_keeps_existing_content_shape():
 
     assert message["metadata"] is None
     assert "metadata" not in delta
+
+
+@pytest.mark.asyncio
+async def test_tool_result_intermediate_output_has_no_meta():
+    envelope = Envelope()
+    await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_START,
+            metadata={},
+            tool_call_id="call",
+            tool_call_name="read_file",
+        ),
+    )
+
+    [delta] = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_TEXT_DELTA,
+            metadata={},
+            tool_call_id="call",
+            delta="done",
+        ),
+    )
+    assert "meta" not in delta["data"]
+
+
+@pytest.mark.asyncio
+async def test_tool_result_final_output_has_qp_meta():
+    envelope = Envelope()
+    await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_START,
+            metadata={},
+            tool_call_id="call",
+            tool_call_name="read_file",
+        ),
+    )
+    await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_TEXT_DELTA,
+            metadata={},
+            tool_call_id="call",
+            delta="done",
+        ),
+    )
+    qp = {
+        "v": 1,
+        "kind": "file_read",
+        "ok": True,
+        "data": {"path": "/tmp/a"},
+    }
+    final, _message = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_RESULT_END,
+            metadata={"qp": qp},
+            tool_call_id="call",
+            state="success",
+        ),
+    )
+    assert final["data"]["meta"] == qp
+
+
+@pytest.mark.asyncio
+async def test_tool_call_start_and_end_include_registry_icon():
+    registry = ToolRegistry()
+    registry.register(
+        ToolDescriptor(
+            name="read_file",
+            func=lambda: None,
+            ui=ToolUISpec(icon="📄"),
+        ),
+    )
+    envelope = Envelope(tool_registry=registry)
+
+    _message, start = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_CALL_START,
+            metadata={},
+            tool_call_id="call",
+            tool_call_name="read_file",
+        ),
+    )
+    assert start["data"]["ui"] == {"icon": "📄"}
+
+    final, _message = await _translate(
+        envelope,
+        _event(
+            EventType.TOOL_CALL_END,
+            metadata={},
+            tool_call_id="call",
+        ),
+    )
+    assert final["data"]["ui"] == {"icon": "📄"}
+
+
+@pytest.mark.asyncio
+async def test_answer_phase_passthrough_and_absent():
+    """Stamp commentary/final_answer onto the durable SSE message; omit if missing."""
+    present = Envelope()
+    for event in (
+        _event(
+            EventType.TEXT_BLOCK_START,
+            block_id="text",
+            metadata={"phase": "commentary"},
+        ),
+        _event(
+            EventType.TEXT_BLOCK_DELTA,
+            block_id="text",
+            delta="hi",
+            metadata={"phase": "commentary"},
+        ),
+        _event(
+            EventType.TEXT_BLOCK_END,
+            block_id="text",
+            metadata={"phase": "commentary"},
+        ),
+    ):
+        await _translate(present, event)
+    completed = await _dump(present.finalize())
+    messages = [
+        payload for payload in completed if payload.get("object") == "message"
+    ]
+    assert messages
+    assert messages[0]["metadata"] == {"phase": "commentary"}
+
+    absent = Envelope()
+    for event in (
+        _event(EventType.TEXT_BLOCK_START, block_id="text", metadata={}),
+        _event(
+            EventType.TEXT_BLOCK_DELTA,
+            block_id="text",
+            delta="hi",
+            metadata={},
+        ),
+        _event(EventType.TEXT_BLOCK_END, block_id="text", metadata={}),
+    ):
+        await _translate(absent, event)
+    completed_absent = await _dump(absent.finalize())
+    messages_absent = [
+        payload
+        for payload in completed_absent
+        if payload.get("object") == "message"
+    ]
+    assert messages_absent
+    metadata = messages_absent[0].get("metadata")
+    assert metadata is None or "phase" not in metadata

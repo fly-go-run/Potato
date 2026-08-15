@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from agentscope.message import Msg
+from agentscope.message import Msg, ToolResultBlock, ToolResultState
 
 from qwenpaw.app.chats.utils import (
     _abspath_from_url,
@@ -16,6 +16,32 @@ from qwenpaw.constant import (
     QWENPAW_MESSAGE_TAG_KEY,
     SCROLL_MEMORY_MESSAGE_TAG,
 )
+
+
+def test_tool_result_history_restores_qp_meta():
+    qp = {
+        "v": 1,
+        "kind": "file_read",
+        "ok": True,
+        "data": {"path": "/tmp/a"},
+    }
+    msg = Msg(
+        name="assistant",
+        role="assistant",
+        content=[
+            ToolResultBlock(
+                id="call",
+                name="read_file",
+                output="unchanged",
+                state=ToolResultState.SUCCESS,
+                metadata={"qp": qp},
+            ),
+        ],
+    )
+
+    [converted] = agentscope_msg_to_message(msg)
+
+    assert converted.content[0].data["meta"] == qp
 
 
 # ---------------------------------------------------------------------------

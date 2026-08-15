@@ -1,4 +1,5 @@
 import {
+  Fragment,
   memo,
   useEffect,
   useMemo,
@@ -11,10 +12,19 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  CircleDashed,
   Copy,
   FileDiff,
+  FilePenLine,
+  FileSearch,
+  FileText,
+  Files,
+  Globe,
   RefreshCw,
+  Search,
+  Sparkles,
+  Terminal,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { APP_NAME } from "../../lib/appInfo";
 import {
@@ -29,19 +39,28 @@ import {
   totalChangeStats,
   type FileChange,
 } from "../../lib/fileChanges";
-import { useTranslation, type TranslationKey } from "../../lib/i18n";
-import { textFromContent } from "../../lib/content";
+import { useTranslation, type Language } from "../../lib/i18n";
 import {
-  selectCollapsedWindow,
   summarizeTrack,
-  type CollapsedRow,
-  type CollapsedRowRole,
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
+import { formatStepGroupObject } from "../../lib/stepGroupCopy";
+import {
+  FOLD_WINDOW,
+  focusFoldRowKey,
+  materializeRun,
+  windowFoldRows,
+  type FoldRow,
+  type ProcessEntry,
+  type ToolFamily,
+} from "../../lib/stepGroups";
+import { buildTimeline } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
+import { historyTurnElapsedMs } from "../../lib/historyTurnDuration";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
+import { extractFirstBold } from "../../lib/reasoningTitle";
+import { textFromContent } from "../../lib/content";
 import { useNow } from "../../lib/useNow";
-import { useUiPrefs } from "../../stores/uiPrefs";
 import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
@@ -49,14 +68,14 @@ import { PotatoMark } from "../brand/PotatoMark";
 import { Spinner } from "../ui/Spinner";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ChangeStat";
-import { Collapse } from "./Collapse";
 import { MessageContent } from "./MessageContent";
 import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
+import { StepGroupRow } from "./StepGroupRow";
+import { TrackRow, TrackSummary } from "./TrackRow";
 import {
   buildToolPair,
   humanToolLabel,
-  toolData,
   toolPairStatus,
   ToolCard,
   type ToolPair,
@@ -68,6 +87,14 @@ interface MessageListProps {
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
 }
+
+/**
+ * 流式尾轮的最小高度:问题锚顶模型需要问题下方有足够的可滚动空间,
+ * 否则短回答时 scrollTop 到不了「问题在视口顶部」的位置。只挂在
+ * 「本会话流式出生的最后一轮」上——历史轮/被接替的轮立即释放,
+ * 释放的时机恰好是下一个问题重新锚定的那一帧,不可见。
+ */
+const TAIL_MIN_HEIGHT = "min-h-[calc(100dvh-16rem)]";
 
 interface Turn {
   id: string;
@@ -92,7 +119,10 @@ export function MessageList({
     pendingApprovals.length === 0 &&
     (turns.length === 0 || turns[lastIndex]!.role === "user");
   return (
-    <div className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-8 sm:px-8">
+    <div
+      data-chat-content
+      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-5 sm:px-8"
+    >
       {turns.map((turn, index) =>
         turn.role === "user" ? (
           <UserTurn
@@ -117,14 +147,17 @@ export function MessageList({
               index === lastIndex &&
               pendingApprovals.length === 0
             }
+            tail={index === lastIndex}
             activeMessageId={activeMessageId}
+            userTimestamp={previousUserTimestamp(turns, index)}
+            assistantTimestamp={messageTimestamp(turn.messages.at(-1))}
           />
         ),
       )}
       {showPendingTurn && (
-        <div data-testid="turn-assistant" className="qp-msg-in mb-10">
+        <div data-testid="turn-assistant" className={`mb-10 ${TAIL_MIN_HEIGHT}`}>
           <AssistantHeader />
-          <ExecutionTrack entries={[]} waiting pulsing live />
+          <TurnFlow pieces={[]} foldEntries={[]} waiting pulsing live />
         </div>
       )}
       {pendingApprovals.map((approval) => (
@@ -144,7 +177,7 @@ const UserTurn = memo(function UserTurn({
   activeMessageId,
 }: UserTurnProps) {
   return (
-    <div data-testid="turn-user" className="qp-msg-in mb-8 flex justify-end">
+    <div data-testid="turn-user" className="mb-8 flex justify-end">
       {/* 70% 上限 + 中档圆角:对表 WB(682px 宽的 18px 圆角灰板太"网页") */}
       <div className="max-w-[70%] rounded-[var(--radius-md)] bg-bubble-user px-4 py-2.5 text-[15px] leading-[1.7]">
         {messages.map((message) => (
@@ -165,16 +198,14 @@ const UserTurn = memo(function UserTurn({
   );
 }, areUserTurnPropsEqual);
 
-type RenderItem =
-  | { kind: "node"; key: string; node: ReactNode }
-  | { kind: "pair"; key: string; pair: ToolPair }
-  | { kind: "process"; key: string; entry: ProcessEntry };
-
-type ProcessEntry =
-  | { kind: "reasoning"; key: string; message: StreamMessage }
-  | { kind: "progress"; key: string; message: StreamMessage }
-  | { kind: "message"; key: string; message: StreamMessage }
-  | { kind: "pair"; key: string; pair: ToolPair };
+/**
+ * 一轮回复按时间序渲染的片段:连续过程条目经 materializeRun 收成
+ * fold-row;叙述、产物、失败卡是恒可见节点,同时充当 run 分隔符。
+ */
+type FlowPiece =
+  | { type: "fold"; key: string; row: FoldRow }
+  | { type: "failed"; key: string; pair: ToolPair }
+  | { type: "visible"; key: string; node: ReactNode };
 
 interface AssistantTurnProps {
   messages: StreamMessage[];
@@ -182,9 +213,13 @@ interface AssistantTurnProps {
   regeneratePrompt: string;
   /** 本轮是流式进行中的最后一轮（无审批卡挂起）。 */
   streaming: boolean;
+  /** 本轮是列表里最后一轮(配合流式出生保持锚定空间)。 */
+  tail: boolean;
   activeMessageId?: string;
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
+  userTimestamp?: unknown;
+  assistantTimestamp?: unknown;
 }
 
 const AssistantTurn = memo(function AssistantTurn({
@@ -192,206 +227,143 @@ const AssistantTurn = memo(function AssistantTurn({
   showActions,
   regeneratePrompt,
   streaming,
+  tail,
   activeMessageId,
   onOpenFile,
   onOpenChange,
+  userTimestamp,
+  assistantTimestamp,
 }: AssistantTurnProps) {
-  // 流式中挂载的轮是从等待占位原位接管的,重播入场动画会闪一下;
-  // 该决定只在挂载时定一次,避免流结束时 class 变化重新触发动画。
-  const enterAnimation = useRef(!streaming).current;
+  // 入场动画已整体移除(设计裁决:内容直接出现,不做淡入)。
+  // 流式出生的轮在它还是尾轮期间保持锚定空间(见 TAIL_MIN_HEIGHT);
+  // 该判定只在挂载时定一次,与原 enterAnimation 同语义。
+  const bornStreaming = useRef(streaming).current;
   // 内联 <thinking> 标签的模型:思考段拆成轨道条目,正文只留干净文本。
   const presented = useMemo(
     () => messages.flatMap(presentInlineThinking),
     [messages],
   );
-  const pairedOutputs = new Set<string>();
-  const outputsByCallId = new Map<string, StreamMessage>();
-  for (const message of presented) {
-    if (!isToolOutput(message.type)) continue;
-    const callId = stringValue(toolData(message).call_id);
-    if (!outputsByCallId.has(callId)) outputsByCallId.set(callId, message);
-  }
   const copyText = plainText(presented);
   const turnChanges = collectFileChanges(messages);
   const turnArtifacts = collectConversationArtifacts(messages);
   const resolveFilePath = (href: string) =>
     resolveConversationFileLink(href, turnArtifacts);
 
-  // WorkBuddy keeps the conversational narration that happens before/among
-  // tool calls inside the execution disclosure. A text message folds into
-  // the track as soon as any later reasoning/tool call follows it — even
-  // mid-stream — so hoisted tool entries never render above newer text.
-  // Text with no execution after it (the final answer) stays outside.
-  const foldIntoTrack: boolean[] = new Array(presented.length).fill(false);
-  {
-    let movedOn = false;
-    for (let index = presented.length - 1; index >= 0; index -= 1) {
-      foldIntoTrack[index] = movedOn;
-      if (startsTrackWork(presented[index]!, outputsByCallId)) movedOn = true;
+  /* 呈现承诺层(lib/turnTimeline)产出 append-only 的槽位序列;这里只
+   * 负责把槽位物化成节点:fold 槽合并成可折叠段落,交付产物/失败进度
+   * 就地升级为恒可见的突出卡,答案恒可见。流式期间没有任何已落地内容
+   * 会换容器或换形态——「文字先当正文渲染、下个工具一到又被抽进轨道」
+   * 的旧行为从模型上消灭了(叙述与答案同构,边界只在收口时被消费)。 */
+  const byId = new Map(presented.map((message) => [message.id, message]));
+  const slots = buildTimeline(presented);
+  const foldEntries: ProcessEntry[] = [];
+  const pieces: FlowPiece[] = [];
+  let run: ProcessEntry[] = [];
+  const flushRun = () => {
+    if (run.length === 0) return;
+    for (const item of materializeRun(run)) {
+      if (item.kind === "visible-failed") {
+        pieces.push({ type: "failed", key: item.key, pair: item.pair });
+        continue;
+      }
+      pieces.push({ type: "fold", key: item.row.key, row: item.row });
     }
-  }
-  const items: RenderItem[] = [];
-  for (let index = 0; index < presented.length; index += 1) {
-    const message = presented[index]!;
-    if (message.type === "reasoning") {
-      // 运行中与完成态共用轨道条目,身份不变,完成时原位收口。
-      items.push({
-        kind: "process",
-        key: message.id,
-        entry: { kind: "reasoning", key: message.id, message },
-      });
+    run = [];
+  };
+  const fold = (entry: ProcessEntry) => {
+    foldEntries.push(entry);
+    run.push(entry);
+  };
+  const visible = (key: string, node: ReactNode) => {
+    flushRun();
+    pieces.push({ type: "visible", key, node });
+  };
+  for (const slot of slots) {
+    const message = byId.get(slot.messageId)!;
+    if (slot.kind === "reasoning") {
+      fold({ kind: "reasoning", key: slot.key, message });
       continue;
     }
-    if (message.type === "progress") {
-      // 失败恒可见(r10 决定);压缩进行中沿用独立卡,轨道摘要只认完成态。
+    if (slot.kind === "progress") {
+      // 失败恒可见(r10 决定);压缩进行中沿用独立卡,完成后归入轨道。
       const failed =
         message.status === "failed" || message.status === "cancelled";
       const activeCompaction =
         isContextCompactionMessage(message) && message.status !== "completed";
       if (failed || activeCompaction) {
-        items.push({
-          kind: "node",
-          key: message.id,
-          node: <ProgressCard key={message.id} message={message} />,
-        });
+        visible(slot.key, <ProgressCard key={slot.key} message={message} />);
       } else {
-        items.push({
-          kind: "process",
-          key: message.id,
-          entry: { kind: "progress", key: message.id, message },
-        });
+        fold({ kind: "progress", key: slot.key, message });
       }
       continue;
     }
-    if (isToolCall(message.type)) {
-      const callId = stringValue(toolData(message).call_id);
-      const output = outputsByCallId.get(callId);
-      if (output) pairedOutputs.add(output.id);
-      const pair = buildToolPair(message, output ?? null);
+    if (slot.kind === "tool") {
+      const orphan = slot.outputId === slot.messageId;
+      const output = slot.outputId ? byId.get(slot.outputId) ?? null : null;
+      const pair = buildToolPair(orphan ? null : message, output);
       if (shouldPresentArtifactPair(pair, turnArtifacts)) {
-        items.push({ kind: "pair", key: message.id, pair });
+        visible(
+          slot.key,
+          <div id={`message-${slot.key}`} key={slot.key}>
+            <ToolCard pair={pair} onOpenFile={onOpenFile} prominentArtifact />
+          </div>,
+        );
       } else {
-        items.push({
-          kind: "process",
-          key: message.id,
-          entry: { kind: "pair", key: message.id, pair },
-        });
+        fold({ kind: "pair", key: slot.key, pair });
       }
       continue;
     }
-    if (isToolOutput(message.type)) {
-      if (pairedOutputs.has(message.id)) continue;
-      const pair = buildToolPair(null, message);
-      if (shouldPresentArtifactPair(pair, turnArtifacts)) {
-        items.push({ kind: "pair", key: message.id, pair });
-      } else {
-        items.push({
-          kind: "process",
-          key: message.id,
-          entry: { kind: "pair", key: message.id, pair },
-        });
-      }
-      continue;
-    }
-    if (message.content.length === 0) continue;
-    if (isOrdinaryAssistantMessage(message) && foldIntoTrack[index]) {
-      items.push({
-        kind: "process",
-        key: message.id,
-        entry: { kind: "message", key: message.id, message },
-      });
-      continue;
-    }
-    items.push({
-      kind: "node",
-      key: message.id,
-      node: (
-        <div
-          id={`message-${message.id}`}
-          key={message.id}
-          className={`rounded-[6px] py-1 ${
-            activeMessageId === message.id
-              ? "ring-2 ring-accent/35 ring-offset-2 ring-offset-canvas"
-              : ""
-          }`}
-        >
-          <MessageContent
-            content={message.content}
-            markdown
-            onOpenFile={onOpenFile}
-            resolveFilePath={resolveFilePath}
-          />
-        </div>
-      ),
-    });
+    // narration:无论 fold 还是 answer 角色都以同一节点恒可见——模型的
+    // 讲述是回复的一部分,永远留在正文流里(Codex 式)。这也让收口零
+    // 结构变动:工具/思考段各自渐进收起,文字从不动。叙述同时天然充当
+    // run 的分隔符——每当模型开口说话,它前面的工作段就被接替而收拢。
+    visible(
+      slot.key,
+      <div
+        id={`message-${slot.key}`}
+        key={slot.key}
+        className={`rounded-[6px] py-1 ${
+          activeMessageId === slot.key
+            ? "ring-2 ring-accent/35 ring-offset-2 ring-offset-canvas"
+            : ""
+        }`}
+      >
+        <MessageContent
+          content={message.content}
+          markdown
+          onOpenFile={onOpenFile}
+          resolveFilePath={resolveFilePath}
+        />
+      </div>,
+    );
   }
+  flushRun();
 
-  /* WorkBuddy 把整轮执行管线收成一条稳定「执行轨道」：运行中步骤也在
-   * 轨道容器里原位演化，而不是独立卡完成后被摘要行替换。正文、失败
-   * 进度、产物等需要突出的内容按原顺序渲染在轨道之外。 */
-  const rendered: ReactNode[] = [];
-  const processEntries = items.flatMap((item) =>
-    item.kind === "process" ? [item.entry] : [],
-  );
   // 正文流式输出时脉冲让位给文字本身;其余流式阶段(等待/思考/工具间隙)保持活动感。
   const hasStreamingText = presented.some(
     (message) =>
       isOrdinaryAssistantMessage(message) && message.status === "in_progress",
   );
-  const waiting = streaming && items.length === 0;
+  const waiting = streaming && slots.length === 0;
   const pulsing = streaming && !hasStreamingText;
-  let executionRendered = false;
-  for (const item of items) {
-    if (item.kind === "process") {
-      if (!executionRendered) {
-        rendered.push(
-          <ExecutionTrack
-            key="execution-track"
-            entries={processEntries}
-            waiting={false}
-            pulsing={pulsing}
-            live={streaming}
-            onOpenFile={onOpenFile}
-            resolveFilePath={resolveFilePath}
-          />,
-        );
-        executionRendered = true;
-      }
-      continue;
-    }
-    if (item.kind === "pair") {
-      rendered.push(
-        <div id={`message-${item.key}`} key={item.key}>
-          <ToolCard
-            pair={item.pair}
-            onOpenFile={onOpenFile}
-            prominentArtifact
-          />
-        </div>,
-      );
-    } else {
-      rendered.push(item.node);
-    }
-  }
 
   return (
     <div
       data-testid="turn-assistant"
-      className={`${enterAnimation ? "qp-msg-in " : ""}mb-10`}
+      className={`mb-10${tail && bornStreaming ? ` ${TAIL_MIN_HEIGHT}` : ""}`}
     >
       <AssistantHeader />
-      {waiting ? (
-        <ExecutionTrack
-          entries={[]}
-          waiting
-          pulsing
-          live
-          onOpenFile={onOpenFile}
-          resolveFilePath={resolveFilePath}
-        />
-      ) : (
-        rendered
-      )}
+      <TurnFlow
+        pieces={waiting ? [] : pieces}
+        foldEntries={foldEntries}
+        waiting={waiting}
+        pulsing={pulsing}
+        live={streaming}
+        onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
+        userTimestamp={userTimestamp}
+        assistantTimestamp={assistantTimestamp}
+      />
       {turnChanges.length > 0 && (
         <FileChangesCard changes={turnChanges} onOpenChange={onOpenChange} />
       )}
@@ -422,8 +394,11 @@ function areAssistantTurnPropsEqual(
     Object.is(previous.showActions, next.showActions) &&
     Object.is(previous.regeneratePrompt, next.regeneratePrompt) &&
     Object.is(previous.streaming, next.streaming) &&
+    Object.is(previous.tail, next.tail) &&
     Object.is(previous.onOpenFile, next.onOpenFile) &&
-    Object.is(previous.onOpenChange, next.onOpenChange)
+    Object.is(previous.onOpenChange, next.onOpenChange) &&
+    Object.is(previous.userTimestamp, next.userTimestamp) &&
+    Object.is(previous.assistantTimestamp, next.assistantTimestamp)
   );
 }
 
@@ -471,7 +446,7 @@ function FileChangesCard({
     <div className="my-3 overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface">
       <div className="flex items-center gap-2.5 px-3.5 py-2.5">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-fill-hover text-ink-secondary">
-          <FileDiff size={15} />
+          <FileDiff size={14} strokeWidth={1.8} />
         </span>
         <span className="text-[13px] font-medium text-ink">
           {t("chat.changes.title", { count: stats.files })}
@@ -508,13 +483,14 @@ function FileChangesCard({
           type="button"
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
-          className="flex w-full items-center gap-1 border-t border-line px-3.5 py-2 text-left text-[12px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
+          className="flex w-full items-center gap-1 border-t border-line px-3.5 py-2 text-left text-[12px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
         >
           {expanded
             ? t("chat.changes.showLess")
             : t("chat.changes.showMore", { count: hiddenCount })}
           <ChevronDown
-            size={13}
+            size={14}
+            strokeWidth={1.8}
             className={`transition-transform duration-[var(--dur-fast)] ${
               expanded ? "rotate-180" : ""
             }`}
@@ -529,10 +505,10 @@ function FileChangesCard({
  * 轨道总耗时:首个有计时的条目开始 → 最后一个收口;now 非空(仍有
  * 条目运行)时用它实时计。历史加载的会话没有计时,返回空串即隐藏。
  */
-function trackDurationLabel(
+function trackElapsedMs(
   entries: ProcessEntry[],
   now: number | null,
-): string {
+): number | null {
   let start = Number.POSITIVE_INFINITY;
   let end: number | null = null;
   for (const entry of entries) {
@@ -549,30 +525,11 @@ function trackDurationLabel(
       if (timing.endedAt !== null) end = Math.max(end ?? 0, timing.endedAt);
     }
   }
-  if (!Number.isFinite(start)) return "";
+  if (!Number.isFinite(start)) return null;
   const stop = now ?? end;
-  if (stop === null) return "";
-  return formatDuration(stop - start);
-}
-
-/** 近况列表的简短详情:文件名 / 截断命令 / 查询词,拿不到就不显示。 */
-function recentPairDetail(pair: ToolPair): string {
-  try {
-    const args = JSON.parse(pair.arguments) as Record<string, unknown>;
-    const path = typeof args.file_path === "string" ? args.file_path : "";
-    if (path) return path.split(/[/\\]/).at(-1) ?? "";
-    const command = typeof args.command === "string" ? args.command : "";
-    if (command) {
-      return command.length > 40 ? `${command.slice(0, 40)}…` : command;
-    }
-    for (const key of ["query", "search_term", "url", "skill"]) {
-      const value = args[key];
-      if (typeof value === "string" && value) return value;
-    }
-  } catch {
-    // 参数不是 JSON 时不展示详情。
-  }
-  return "";
+  if (stop === null) return null;
+  const elapsed = stop - start;
+  return elapsed > 0 ? elapsed : null;
 }
 
 /** 运行中(含尚未收到 output 的间隙)的条目。 */
@@ -588,79 +545,97 @@ function isActiveEntry(entry: ProcessEntry): boolean {
 }
 
 /**
- * 稳定执行轨道:等待响应 → 思考中 → 正在使用工具 → 已完成 N 步,
- * 全程共用同一容器。折叠态是 append-only 的有界窗口(摘要行 + 至多
- * COLLAPSED_WINDOW_CAPACITY 行):行按消息 id 常驻,同 key 原位从
- * 运行态换到完成态,被淘汰的行播退出动画;整轮只在流式结束时收口
- * 一次。选行与摘要状态机在 lib/executionTrack.ts(纯逻辑)。
+ * 一轮回复的执行流:头 + fold-row 摘要 + 恒可见节点。
+ * 头默认 summary;rowByKey / everRaw 提在这里,关头卸子树后再打开按表恢复。
+ * focus ≠ row:live 钉窗口。自动展开只给活跃 shell,且是 5 行尾巴。
+ * 静息头仅 ≥60s / 失败 / fold-row>8 才出现。
  */
-function ExecutionTrack({
-  entries,
+function TurnFlow({
+  pieces,
+  foldEntries,
   waiting,
   pulsing,
   live,
   onOpenFile,
-  resolveFilePath,
+  onOpenChange,
+  userTimestamp,
+  assistantTimestamp,
 }: {
-  entries: ProcessEntry[];
+  pieces: FlowPiece[];
+  /** 全部过程条目(时间序),驱动摘要行的状态与计数。 */
+  foldEntries: ProcessEntry[];
   waiting: boolean;
   pulsing: boolean;
-  /**
-   * 本轮仍在流式中。窗口只在此期间可见,isStreaming=false 才收口:
-   * 协议没有前瞻的 final 标记,「最终回复已开始」的回溯判定会在
-   * 叙述刚到、后续 tool 未到的间隙误收口再重开(review r2 决定)。
-   */
+  /** 本轮仍在流式中。 */
   live: boolean;
   onOpenFile?: (path: string) => void;
-  resolveFilePath?: (url: string) => string | null;
+  onOpenChange?: (path: string) => void;
+  userTimestamp?: unknown;
+  assistantTimestamp?: unknown;
 }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const detailedTools = useUiPrefs((state) => state.detailedTools);
-  const setDetailedTools = useUiPrefs((state) => state.setDetailedTools);
-  const snapshots = entries.map(entrySnapshot);
-  const state = summarizeTrack(snapshots, { streaming: live, waiting });
-  // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
-  // 它同时让「驻留到期、被推迟的行可以进窗」这件事有机会重算。
-  const now = useNow(live);
-  // 上一帧的窗口:选行要靠它判断谁已经站够时间。只在提交后回写——
-  // 渲染期写入会让被 React 丢弃的并发渲染污染驻留账本,把没真正露过
-  // 面的行记成已入窗,提前耗掉它的 900ms。
-  const windowRef = useRef<CollapsedRow[]>(NO_ROWS);
-  // 展开时窗口让位给完整条目列表,直接清空并忘掉驻留簿记。
-  const rows = open
-    ? NO_ROWS
-    : selectCollapsedWindow(snapshots, {
-        streaming: live,
-        // 心跳只有秒级精度,拿它当 since 会让刚进窗的行在下一跳就到期;
-        // 驻留判定用真实时钟,心跳只负责触发重算。
-        now: Date.now(),
-        prev: windowRef.current,
-      });
+  const { t, language } = useTranslation();
+  const [manualHeader, setManualHeader] = useState<boolean | null>(null);
+  const [rowByKey, setRowByKey] = useState<Record<string, "summary" | "raw">>(
+    {},
+  );
+  const [everRaw, setEverRaw] = useState<Record<string, boolean>>({});
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [settling, setSettling] = useState(live);
   useEffect(() => {
-    windowRef.current = rows;
-  });
-  const durationLabel = trackDurationLabel(entries, live ? now : null);
+    if (live) {
+      setSettling(true);
+      return;
+    }
+    if (!settling) return;
+    const timer = window.setTimeout(() => setSettling(false), 600);
+    return () => window.clearTimeout(timer);
+  }, [live, settling]);
+  const headerOpen = manualHeader ?? true;
+  const foldRows = pieces.flatMap((piece) =>
+    piece.type === "fold" ? [piece.row] : [],
+  );
+  const failedTools = foldEntries.filter(
+    (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
+  ).length;
+  const snapshots = foldEntries.map(entrySnapshot);
+  const state = summarizeTrack(snapshots, { streaming: live, waiting });
+  const now = useNow(live);
+  const elapsedMs =
+    trackElapsedMs(foldEntries, live ? now : null) ??
+    historyTurnElapsedMs(userTimestamp, assistantTimestamp);
+  const durationLabel = elapsedMs !== null ? formatDuration(elapsedMs) : "";
   const compactionEntry =
-    entries.length === 1 &&
-    entries[0]?.kind === "progress" &&
-    isContextCompactionMessage(entries[0].message)
-      ? entries[0]
+    foldEntries.length === 1 &&
+    foldEntries[0]?.kind === "progress" &&
+    isContextCompactionMessage(foldEntries[0].message)
+      ? foldEntries[0]
       : null;
   let summary: string;
   if (state.kind === "waiting") {
-    summary = t("chat.waitingModel");
+    summary = t("chat.waitingReply");
   } else if (state.kind === "runningTool") {
-    summary = humanToolLabel(state.toolName, true, t);
+    summary =
+      state.running > 1
+        ? t("chat.toolsRunning", { count: state.running })
+        : humanToolLabel(state.toolName, true, t);
   } else if (state.kind === "progress") {
     summary = t("progress.working");
   } else if (state.kind === "thinking") {
-    summary = t("reasoning.thinking");
+    summary =
+      extractFirstBold(inFlightReasoningText(foldEntries)) ??
+      t("reasoning.thinking");
   } else if (compactionEntry) {
     summary =
       compactionEntry.message.metadata?.phase === "fallback"
         ? t("chat.contextCompaction.fallback")
         : t("chat.contextCompaction.completed");
+  } else if (durationLabel) {
+    summary = state.failed
+      ? t("chat.workedForWithFailures", {
+          duration: durationLabel,
+          failed: state.failed,
+        })
+      : t("chat.workedFor", { duration: durationLabel });
   } else {
     summary = state.failed
       ? t("chat.toolGroupWithFailures", {
@@ -669,110 +644,189 @@ function ExecutionTrack({
         })
       : t("chat.toolGroup", { count: state.steps });
   }
-  const toggleable = entries.length > 0;
-  const entryByKey = new Map(entries.map((entry) => [entry.key, entry]));
-  // 窗口满员后每次换代都是「淘汰一行 + 新进一行」。淘汰行若留在文档流里
-  // 播收高动画,新行却是瞬时占位,窗口会先涨一行再缩回去——底部吸附把这
-  // 个高度回摆投射成上方已定稿内容的上下抖动。直接原位替换,行数恒定。
-  const display = rows;
+  const hasProcess =
+    waiting ||
+    foldEntries.length > 0 ||
+    foldRows.length > 0 ||
+    failedTools > 0;
+  const liveWindow = live || settling;
+  const settledFailed = state.kind === "done" ? state.failed : 0;
+  const showSettledHeader =
+    (elapsedMs !== null && elapsedMs >= 60_000) ||
+    settledFailed > 0 ||
+    failedTools > 0 ||
+    foldRows.length > FOLD_WINDOW;
+  const showHeader =
+    hasProcess && (waiting || liveWindow || showSettledHeader);
+  const toggleable = foldRows.length > 0 || failedTools > 0;
+  const showDurationSuffix =
+    Boolean(durationLabel) &&
+    (state.kind !== "done" || Boolean(compactionEntry));
+  const focusKey = focusFoldRowKey(foldRows, liveWindow);
+  const autoTailKey = liveWindow ? activeShellGroupKey(foldRows) : null;
+  useEffect(() => {
+    if (!autoTailKey) return;
+    setEverRaw((prev) =>
+      prev[autoTailKey] ? prev : { ...prev, [autoTailKey]: true },
+    );
+  }, [autoTailKey]);
+  const windowed = windowFoldRows(foldRows, {
+    settled: !liveWindow,
+    focusKey,
+    overflowOpen,
+  });
+  const shownKeys = new Set(windowed.shownKeys);
+  const lastShownKey = windowed.shownKeys.at(-1);
+  const rowState = (key: string): "summary" | "raw" | "tail" => {
+    if (rowByKey[key]) return rowByKey[key];
+    if (key === autoTailKey) return "tail";
+    return "summary";
+  };
+  const toggleRow = (key: string) => {
+    const next = rowState(key) === "raw" ? "summary" : "raw";
+    setRowByKey((prev) => ({ ...prev, [key]: next }));
+    if (next === "raw") {
+      setEverRaw((prev) => ({ ...prev, [key]: true }));
+    }
+  };
+  const toggleHeader = () => {
+    const next = !headerOpen;
+    setManualHeader(next);
+    if (!next) setOverflowOpen(false);
+  };
+  const inProgress = state.kind !== "done";
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
-      <span key={summary} className="qp-swap-in">
-        {summary}
-      </span>
-      {durationLabel && (
-        <span className="shrink-0 tabular-nums">· {durationLabel}</span>
+      <span className={inProgress ? "qp-shimmer" : undefined}>{summary}</span>
+      {showDurationSuffix && (
+        <span
+          className={`shrink-0 tabular-nums ${inProgress ? "qp-shimmer" : ""}`}
+        >
+          · {durationLabel}
+        </span>
       )}
       {toggleable && (
         <ChevronRight
-          size={13}
+          size={14}
+          strokeWidth={1.8}
           className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
-            open ? "rotate-90" : ""
+            headerOpen ? "rotate-90" : ""
           }`}
         />
       )}
     </>
   );
+  const rendered: ReactNode[] = [];
+  let overflowPlaced = false;
+  let trackBuf: ReactNode[] = [];
+  let trackKey = "";
+  const flushTrack = () => {
+    if (trackBuf.length === 0) return;
+    rendered.push(
+      <div
+        key={trackKey || `track-${rendered.length}`}
+        data-execution-track
+        className="mb-3 mt-1 border-l border-line pl-4"
+      >
+        {trackBuf}
+      </div>,
+    );
+    trackBuf = [];
+    trackKey = "";
+  };
+  const pushTrack = (key: string, node: ReactNode) => {
+    if (!trackKey) trackKey = `track-${key}`;
+    trackBuf.push(node);
+  };
+  for (const piece of pieces) {
+    if (piece.type === "visible") {
+      flushTrack();
+      rendered.push(<Fragment key={piece.key}>{piece.node}</Fragment>);
+      continue;
+    }
+    if (piece.type === "failed") {
+      pushTrack(
+        piece.key,
+        <div id={`message-${piece.key}`} key={piece.key}>
+          <ToolCard pair={piece.pair} onOpenFile={onOpenFile} />
+        </div>,
+      );
+      continue;
+    }
+    if (!headerOpen || !shownKeys.has(piece.key)) continue;
+    if (windowed.overflowAt === "start" && !overflowPlaced) {
+      pushTrack(
+        "overflow",
+        <OverflowRow
+          key="fold-overflow"
+          count={windowed.hiddenCount}
+          onClick={() => setOverflowOpen(true)}
+        />,
+      );
+      overflowPlaced = true;
+    }
+    pushTrack(
+      piece.key,
+      <FoldRowView
+        key={piece.key}
+        row={piece.row}
+        mode={rowState(piece.key)}
+        everRaw={Boolean(
+          everRaw[piece.key] ||
+            rowState(piece.key) === "raw" ||
+            rowState(piece.key) === "tail",
+        )}
+        language={language}
+        shimmer={liveWindow && isRowActive(piece.row)}
+        onToggle={() => toggleRow(piece.key)}
+        onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
+      />,
+    );
+    if (
+      windowed.overflowAt === "end" &&
+      piece.key === lastShownKey &&
+      !overflowPlaced
+    ) {
+      pushTrack(
+        "overflow",
+        <OverflowRow
+          key="fold-overflow"
+          count={windowed.hiddenCount}
+          onClick={() => setOverflowOpen(true)}
+        />,
+      );
+      overflowPlaced = true;
+    }
+  }
+  flushTrack();
   return (
-    <div className="my-1.5">
-      <div className="flex items-center gap-2">
-        {toggleable ? (
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            aria-expanded={open}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary"
-          >
-            {summaryContent}
-          </button>
-        ) : (
-          <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
-            {summaryContent}
-          </div>
-        )}
-        {toggleable && open && (
-          <div className="qp-fade-in inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-[11px]">
+    <div className="my-3">
+      {showHeader && (
+        <div className="flex items-center gap-2">
+          {toggleable ? (
             <button
               type="button"
-              onClick={() => setDetailedTools(false)}
-              aria-pressed={!detailedTools}
-              className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                detailedTools
-                  ? "text-ink-muted hover:text-ink-secondary"
-                  : "bg-fill-hover text-ink-secondary"
-              }`}
+              onClick={toggleHeader}
+              aria-expanded={headerOpen}
+              className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:text-ink"
             >
-              {t("chat.density.summary")}
+              {summaryContent}
             </button>
-            <button
-              type="button"
-              onClick={() => setDetailedTools(true)}
-              aria-pressed={detailedTools}
-              className={`px-1.5 py-0.5 transition-colors duration-[var(--dur-fast)] ${
-                detailedTools
-                  ? "bg-fill-hover text-ink-secondary"
-                  : "text-ink-muted hover:text-ink-secondary"
-              }`}
-            >
-              {t("chat.density.detailed")}
-            </button>
-          </div>
-        )}
-      </div>
-      {display.length > 0 && (
-        <div className="pl-1">
-          {display.map((row) => {
-            const entry = entryByKey.get(row.key);
-            if (!entry) return null;
-            return <WindowRow key={row.key} role={row.role} entry={entry} />;
-          })}
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-1 py-1 text-[13px] text-ink-tertiary">
+              {summaryContent}
+            </div>
+          )}
         </div>
       )}
-      {toggleable && (
-        <div className="pl-1">
-          {entries.map((entry) => (
-            <Collapse key={entry.key} open={open} keepMounted>
-              <TrackEntry
-                entry={entry}
-                onOpenFile={onOpenFile}
-                resolveFilePath={resolveFilePath}
-              />
-            </Collapse>
-          ))}
-        </div>
-      )}
+      {rendered}
     </div>
   );
 }
 
-const NO_ROWS: CollapsedRow[] = [];
-
-/**
- * 折叠窗口选行的输入快照:ProcessEntry → 纯逻辑层的形状。
- * ``displayable`` 与 ``windowRowContent`` 的判空口径保持一致——占了槽位
- * 却渲染成空,就是「行凭空消失、下一行慢半拍才出现」的来源。
- */
+/** 摘要状态机的输入快照:ProcessEntry → 纯逻辑层的形状。 */
 function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
   if (entry.kind === "pair") {
     const status = toolPairStatus(entry.pair);
@@ -783,181 +837,181 @@ function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
       completed: status.completed,
       failed: status.failed,
       toolName: entry.pair.name,
-      // 运行中的那条以 current 身份入窗,只展示详情;参数还在流式拼装、
-      // 详情解析不出来时先别占位。收口后走 done,有工具名兜底。
-      displayable: status.running
-        ? Boolean(recentPairDetail(entry.pair))
-        : true,
-    };
-  }
-  if (entry.kind === "message") {
-    return {
-      key: entry.key,
-      kind: "message",
-      active: false,
-      displayable: hasVisibleText(entry.message),
     };
   }
   return {
     key: entry.key,
     kind: entry.kind,
     active: isActiveEntry(entry),
-    displayable:
-      entry.kind === "progress" ? hasVisibleText(entry.message) : true,
   };
 }
 
-function hasVisibleText(message: StreamMessage): boolean {
-  return textFromContent(message.content).trim().length > 0;
-}
-
-/**
- * 折叠窗口单行。同一 key 的行在 current → done 时原位交叉淡化内容
- * (qp-swap-in),不重放入场动画;新行入场 qp-msg-in——只做透明度与位移,
- * 不改高度,窗口换代时行数恒定。当前步只展示详情(命令/文件/查询词)
- * ——「正在…」已由摘要行表达,无详情时整行省略,避免复读。
- */
-function WindowRow({
-  role,
-  entry,
-}: {
-  role: CollapsedRowRole;
-  entry: ProcessEntry;
-}) {
-  const { t } = useTranslation();
-  const content = windowRowContent(role, entry, t);
-  if (!content) return null;
-  return (
-    <div
-      className={`qp-msg-in flex items-start gap-1.5 px-1 py-0.5 text-[12px] leading-5 text-ink-muted ${
-        // 叙述行可折两行,恒定预留两行高度:否则文本流式变长/换代时会在
-        // 一行与两行之间跳,同样把上方内容顶得上下移动。
-        content.clamp ? "min-h-11" : "min-h-6"
-      }`}
-    >
-      <span key={role} className="qp-swap-in flex min-w-0 items-start gap-1.5">
-        {content.icon}
-        <span
-          className={
-            content.clamp ? "line-clamp-2 min-w-0" : "min-w-0 truncate"
-          }
-        >
-          {content.text}
-        </span>
-      </span>
-    </div>
-  );
-}
-
-/** 各角色的行内容;返回 null 表示该行没有可展示的信息,整行省略。 */
-function windowRowContent(
-  role: CollapsedRowRole,
-  entry: ProcessEntry,
-  translate: (
-    key: TranslationKey,
-    params?: Record<string, string | number>,
-  ) => string,
-): { icon: ReactNode; text: string; clamp?: boolean } | null {
-  if (role === "narration") {
-    if (entry.kind !== "message") return null;
-    const text = textFromContent(entry.message.content).trim();
-    if (!text) return null;
-    // 与带图标的行左缘对齐:12px 图标位 + 6px 间距。
-    return {
-      icon: <span aria-hidden className="w-3 shrink-0" />,
-      text,
-      clamp: true,
-    };
-  }
-  if (entry.kind === "pair") {
-    const detail = recentPairDetail(entry.pair);
-    if (role === "current") {
-      if (!detail) return null;
-      return {
-        icon: <CircleDashed size={12} className="mt-1 shrink-0" />,
-        text: detail,
-      };
+function activeShellGroupKey(rows: FoldRow[]): string | null {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index]!;
+    if (
+      row.type === "group" &&
+      row.family === "shell" &&
+      row.pairs.some((pair) => toolPairStatus(pair).running)
+    ) {
+      return row.key;
     }
-    const label = humanToolLabel(entry.pair.name, false, translate);
-    return {
-      icon: <Check size={12} className="mt-1 shrink-0" />,
-      text: detail ? `${label} · ${detail}` : label,
-    };
-  }
-  if (entry.kind === "progress") {
-    const text = textFromContent(entry.message.content).trim();
-    if (!text) return null;
-    return {
-      icon: <CircleDashed size={12} className="mt-1 shrink-0" />,
-      text,
-    };
   }
   return null;
 }
 
-/** memo:useNow 每秒心跳只该刷新摘要行的计时文案,条目行引用不变直接跳过。 */
-const TrackEntry = memo(function TrackEntry({
-  entry,
-  onOpenFile,
-  resolveFilePath,
-}: {
-  entry: ProcessEntry;
-  onOpenFile?: (path: string) => void;
-  resolveFilePath?: (url: string) => string | null;
-}) {
-  if (entry.kind === "reasoning") {
-    return <ReasoningBlock message={entry.message} />;
+function inFlightReasoningText(entries: ProcessEntry[]): string {
+  const parts: string[] = [];
+  for (const entry of entries) {
+    if (entry.kind !== "reasoning" || !isActiveEntry(entry)) continue;
+    const text = textFromContent(entry.message.content);
+    if (text) parts.push(text);
   }
-  if (entry.kind === "progress") {
-    return <ProgressCard message={entry.message} />;
-  }
-  if (entry.kind === "message") {
-    return (
-      <div
-        id={`message-${entry.key}`}
-        className="py-1 text-sm text-ink-secondary"
-      >
-        <MessageContent
-          content={entry.message.content}
-          markdown
-          onOpenFile={onOpenFile}
-          resolveFilePath={resolveFilePath}
-        />
-      </div>
-    );
-  }
-  return <ToolCard pair={entry.pair} onOpenFile={onOpenFile} />;
-});
+  return parts.join("\n\n");
+}
 
-/**
- * 该消息是否代表「助手转去继续执行」。文本之后一旦出现这类消息,说明
- * 它只是中间叙述,应折叠进执行轨道的时间线位置。progress 不算触发:
- * 压缩等进度可能出现在最终回复之后,不能因此把答案折叠掉;显式发送
- * 文件渲染在轨道外,同样不触发。普通写文件属于执行步骤,会触发折叠。
- * 工具名可能只出现在 output 上,与
- * buildToolPair 一致地按 call → output 顺序解析,保证分类不劈叉。
- *
- * 空 reasoning 不触发:走 OpenAI Responses 协议的供应商每轮收口时都会
- * 补一个没有思考文本的 reasoning 占位(只为回传 reasoning_item_id),
- * 它落在最终正文之后,否则会把整段答案折进轨道里再随收口一起藏掉。
- */
-export function startsTrackWork(
-  message: StreamMessage,
-  outputsByCallId: Map<string, StreamMessage>,
-): boolean {
-  if (message.type === "reasoning") {
-    return textFromContent(message.content).trim().length > 0;
-  }
-  if (!isToolCall(message.type)) return false;
-  const data = toolData(message);
-  const name =
-    stringValue(data.name) ||
-    stringValue(
-      toolData(outputsByCallId.get(stringValue(data.call_id)) ?? null).name,
+function isRowActive(row: FoldRow): boolean {
+  if (row.type === "thinking") {
+    return row.messages.some(
+      (message) =>
+        message.status === "created" || message.status === "in_progress",
     );
-  // 名称未知(仍在流式)时不触发折叠,避免交付调用先折叠正文再弹回。
-  if (!name) return false;
-  return name !== "send_file_to_user";
+  }
+  if (row.type === "progress") {
+    return (
+      row.message.status === "created" || row.message.status === "in_progress"
+    );
+  }
+  return row.pairs.some((pair) => toolPairStatus(pair).running);
+}
+
+function FoldRowView({
+  row,
+  mode,
+  everRaw,
+  language,
+  shimmer,
+  onToggle,
+  onOpenFile,
+  onOpenChange,
+}: {
+  row: FoldRow;
+  mode: "summary" | "raw" | "tail";
+  everRaw: boolean;
+  language: Language;
+  shimmer?: boolean;
+  onToggle: () => void;
+  onOpenFile?: (path: string) => void;
+  onOpenChange?: (path: string) => void;
+}) {
+  const { t } = useTranslation();
+  if (row.type === "thinking") {
+    return (
+      <ReasoningBlock
+        message={thinkingMessage(row)}
+        open={mode === "raw"}
+        onToggle={onToggle}
+        title={row.title}
+      />
+    );
+  }
+  if (row.type === "progress") {
+    return <ProgressCard message={row.message} shimmer={shimmer} />;
+  }
+  if (row.direct) {
+    return (
+      <ToolCard
+        pair={row.pairs[0]!}
+        onOpenFile={onOpenFile}
+        onOpenChange={onOpenChange}
+        shimmer={shimmer}
+        tail={mode === "tail"}
+        open={mode === "raw"}
+        onToggle={onToggle}
+      />
+    );
+  }
+  const Icon = FAMILY_ICONS[row.family];
+  const object = formatStepGroupObject(row, t, language);
+  return (
+    <StepGroupRow
+      icon={
+        <Icon size={14} strokeWidth={1.8} className="shrink-0 text-ink-muted" />
+      }
+      summary={<TrackSummary object={object} shimmer={shimmer} />}
+      open={mode === "raw" || mode === "tail"}
+      keepMounted={everRaw}
+      onToggle={onToggle}
+      shimmer={shimmer}
+    >
+      {mode === "tail"
+        ? row.pairs
+            .filter((pair) => toolPairStatus(pair).running)
+            .map((pair, index) => (
+              <ToolCard
+                key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
+                pair={pair}
+                tail
+                shimmer
+                onToggle={onToggle}
+              />
+            ))
+        : row.pairs.map((pair, index) => (
+            <ToolCard
+              key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
+              pair={pair}
+              onOpenFile={onOpenFile}
+              onOpenChange={onOpenChange}
+              embedded
+            />
+          ))}
+    </StepGroupRow>
+  );
+}
+
+function OverflowRow({
+  count,
+  onClick,
+}: {
+  count: number;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <TrackRow onToggle={onClick}>
+      {t("chat.step.overflow", { n: count })}
+    </TrackRow>
+  );
+}
+
+const FAMILY_ICONS: Record<ToolFamily, LucideIcon> = {
+  search: Search,
+  fetch: Globe,
+  grep: FileSearch,
+  glob: Files,
+  read: FileText,
+  edit: FilePenLine,
+  shell: Terminal,
+  skill: Sparkles,
+  other: Wrench,
+};
+
+function thinkingMessage(row: Extract<FoldRow, { type: "thinking" }>): StreamMessage {
+  const first = row.messages[0]!;
+  const inFlight = row.messages.some(
+    (message) =>
+      message.status === "created" || message.status === "in_progress",
+  );
+  return {
+    ...first,
+    status: inFlight ? "in_progress" : first.status,
+    content: [
+      {
+        type: "text",
+        text: row.text,
+      } as TextContent,
+    ],
+  };
 }
 
 /**
@@ -1051,7 +1105,7 @@ function MessageActions({
         label={copied ? t("message.copied") : t("message.copy")}
         onClick={() => void copy()}
       >
-        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {copied ? <Check size={14} strokeWidth={1.8} /> : <Copy size={14} strokeWidth={1.8} />}
       </ActionButton>
       {regeneratePrompt && (
         <ActionButton
@@ -1059,7 +1113,7 @@ function MessageActions({
           disabled={busy}
           onClick={() => void sendMessage(regeneratePrompt, navigate)}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} strokeWidth={1.8} />
         </ActionButton>
       )}
     </div>
@@ -1084,7 +1138,7 @@ function ActionButton({
       disabled={disabled}
       title={label}
       aria-label={label}
-      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink-secondary disabled:pointer-events-none disabled:opacity-40"
+      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-icon transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-icon-strong disabled:pointer-events-none disabled:opacity-40"
     >
       {children}
     </button>
@@ -1115,6 +1169,16 @@ export function groupIntoTurns(messages: StreamMessage[]): Turn[] {
 function previousUserText(turns: Turn[], index: number): string {
   const previous = turns[index - 1];
   return previous?.role === "user" ? plainText(previous.messages) : "";
+}
+
+function previousUserTimestamp(turns: Turn[], index: number): unknown {
+  const previous = turns[index - 1];
+  if (previous?.role !== "user") return undefined;
+  return messageTimestamp(previous.messages[0]);
+}
+
+function messageTimestamp(message: StreamMessage | undefined): unknown {
+  return message?.metadata?.timestamp;
 }
 
 /** 取一轮里正文消息的纯文本（跳过推理、进度与工具卡）。 */
@@ -1152,8 +1216,4 @@ function isToolOutput(type: StreamMessage["type"]) {
     type === "function_call_output" ||
     type === "mcp_tool_call_output"
   );
-}
-
-function stringValue(value: unknown) {
-  return typeof value === "string" ? value : "";
 }

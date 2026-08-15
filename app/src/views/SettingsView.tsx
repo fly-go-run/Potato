@@ -26,6 +26,7 @@ import {
   IconButton,
   Input,
   SegmentedControl,
+  Select,
   SkeletonRows,
   Switch,
 } from "../components/ui";
@@ -40,12 +41,15 @@ import {
   providerReady,
   settingsApi,
   sttApi,
+  webSearchApi,
   CUSTOM_PROVIDER_PROTOCOLS,
   type ChatModelName,
   type ModelInfo,
   type ProviderInfo,
   type SandboxStatus,
   type TranscriptionProviderType,
+  type WebSearchBackend,
+  type WebSearchSettings,
 } from "../lib/api";
 import {
   pluginApi,
@@ -59,6 +63,7 @@ import {
   resetDesktopWindowState,
   setDesktopWindowStatePreference,
 } from "../lib/desktop";
+import { skillDisplayName } from "../lib/skillPresentation";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 import {
   buildThemeTemplate,
@@ -73,6 +78,7 @@ import {
   type ThemePreference,
 } from "../lib/theme";
 import { useChatStore } from "../stores/chat";
+import { useUiPrefs } from "../stores/uiPrefs";
 
 /**
  * 设置信息架构(r9 重做):两个分区。
@@ -96,6 +102,44 @@ const SECTION_LABELS: Record<SectionId, TranslationKey> = {
   about: "settings.nav.about",
 };
 
+/**
+ * 缺 key 的后果取决于选了哪档,所以文案不能一概而论:auto 会退回 Tavily,
+ * 显式选服务端搜索则是直接失败(那正是"显式"的意义),而选了 Tavily 时
+ * 有没有 key 根本不相干。
+ */
+function webSearchHint(state: WebSearchSettings | null): TranslationKey | null {
+  // 只在会出问题时说话:缺密钥仍选服务端=会失败;缺密钥自动档=已回退。
+  if (!state || state.hosted_configured) return null;
+  if (state.web_search_backend === "tavily") return null;
+  return state.web_search_backend === "hosted"
+    ? "settings.webSearch.needsKeyStrict"
+    : "settings.webSearch.needsKey";
+}
+
+/** The dropdown is one list; these two are not providers. */
+const WEB_SEARCH_AUTO = "__auto__";
+const WEB_SEARCH_TAVILY = "__tavily__";
+
+/**
+ * 下拉的当前值:auto 与 tavily 是伪供应商项,其余是真实供应商 id。
+ * hosted 但没记住供应商时落回 auto——显示一个空选项等于让用户猜。
+ */
+function webSearchSelectValue(state: WebSearchSettings | null): string {
+  if (!state) return WEB_SEARCH_AUTO;
+  if (state.web_search_backend === "tavily") return WEB_SEARCH_TAVILY;
+  if (state.web_search_backend === "auto") return WEB_SEARCH_AUTO;
+  return state.web_search_provider_id || WEB_SEARCH_AUTO;
+}
+
+/**
+ * 换供应商时给一个能直接用的模型名,省得用户对着空框猜。只对内置的
+ * DeepSeek 有把握;别家网关代理什么模型只有用户知道,所以沿用他上次填的。
+ */
+function defaultSearchModel(providerId: string, current: string): string {
+  if (providerId.startsWith("deepseek")) return "deepseek-v4-flash";
+  return current;
+}
+
 const APPROVAL_LABELS: Record<string, TranslationKey> = {
   AUTO: "composer.approval.auto",
   SMART: "composer.approval.smart",
@@ -118,9 +162,12 @@ type TestState =
 export function SettingsView() {
   const { language, setLanguage, t } = useTranslation();
   const navigate = useNavigate();
+  const showContextUsage = useUiPrefs((state) => state.showContextUsage);
+  const setShowContextUsage = useUiPrefs((state) => state.setShowContextUsage);
   const activeModel = useChatStore((state) => state.activeModel);
   const loadActiveModel = useChatStore((state) => state.loadActiveModel);
   const [section, setSection] = useState<SectionId>("models");
+  const [webSearch, setWebSearch] = useState<WebSearchSettings | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +176,7 @@ export function SettingsView() {
   const [providerView, setProviderView] = useState<ProviderView>({
     kind: "list",
   });
+  const [addListOpen, setAddListOpen] = useState(false);
   const [keyDraft, setKeyDraft] = useState("");
   const [urlDraft, setUrlDraft] = useState("");
   const [protocolDraft, setProtocolDraft] =
@@ -208,6 +256,22 @@ export function SettingsView() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
+
+  useEffect(() => {
+    let active = true;
+    void webSearchApi
+      .get()
+      .then((state) => {
+        if (active) setWebSearch(state);
+      })
+      .catch(() => {
+        // An older backend has no such endpoint; the row then just shows
+        // the default rather than blocking the whole settings page.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -702,6 +766,54 @@ export function SettingsView() {
     setThemePreference(preference);
   };
 
+  const saveWebSearch = (update: {
+    web_search_backend: WebSearchBackend;
+    web_search_provider_id?: string;
+    web_search_model?: string;
+  }) => {
+    const previous = webSearch;
+    // Optimistic: snapping back on the next render would read as the click
+    // not registering. hosted_configured is the server's to know, so after
+    // the write lands we re-read rather than keep a guess.
+    setWebSearch((state) =>
+      state
+        ? {
+            ...state,
+            ...update,
+            web_search_provider_id:
+              update.web_search_provider_id ?? state.web_search_provider_id,
+            web_search_model: update.web_search_model ?? state.web_search_model,
+          }
+        : null,
+    );
+    void webSearchApi
+      .set(update)
+      .then(() => webSearchApi.get().then(setWebSearch))
+      .catch((reason: unknown) => {
+        setWebSearch(previous);
+        setError(readableError(reason));
+      });
+  };
+
+  const chooseWebSearchSource = (value: string) => {
+    if (value === WEB_SEARCH_TAVILY) {
+      saveWebSearch({ web_search_backend: "tavily" });
+      return;
+    }
+    if (value === WEB_SEARCH_AUTO) {
+      saveWebSearch({ web_search_backend: "auto" });
+      return;
+    }
+    saveWebSearch({
+      web_search_backend: "hosted",
+      web_search_provider_id: value,
+      web_search_model: defaultSearchModel(
+        value,
+        webSearch?.web_search_model ?? "",
+      ),
+    });
+  };
+
   const importThemeFile = async (file: File) => {
     clearBanners();
     try {
@@ -751,21 +863,25 @@ export function SettingsView() {
   };
 
   const navItems: { id: SectionId; icon: ReactNode }[] = [
-    { id: "models", icon: <Bot size={16} /> },
-    { id: "general", icon: <SlidersHorizontal size={16} /> },
-    { id: "security", icon: <ShieldCheck size={16} /> },
-    { id: "data", icon: <HardDrive size={16} /> },
-    { id: "shortcuts", icon: <Keyboard size={16} /> },
-    { id: "about", icon: <Info size={16} /> },
+    { id: "models", icon: <Bot size={16} strokeWidth={1.75} /> },
+    { id: "general", icon: <SlidersHorizontal size={16} strokeWidth={1.75} /> },
+    { id: "security", icon: <ShieldCheck size={16} strokeWidth={1.75} /> },
+    { id: "data", icon: <HardDrive size={16} strokeWidth={1.75} /> },
+    { id: "shortcuts", icon: <Keyboard size={16} strokeWidth={1.75} /> },
+    { id: "about", icon: <Info size={16} strokeWidth={1.75} /> },
   ];
   const activeSection: SectionId = navItems.some((item) => item.id === section)
     ? section
     : "models";
 
   const activePair = activeModel?.active_llm;
-  const activeProvider = activePair
-    ? providers.find((item) => item.id === activePair.provider_id) ?? null
-    : null;
+  // 已配置(含本地)平铺;未配置折叠进「添加服务商」,发现职责交给那一行
+  const connectedProviders = sortProviders(providers).filter(
+    (item) => providerConfigured(item) || item.is_local,
+  );
+  const availableProviders = sortProviders(providers).filter(
+    (item) => !providerConfigured(item) && !item.is_local,
+  );
 
   return (
     <Dialog.Root
@@ -781,10 +897,10 @@ export function SettingsView() {
           onOpenAutoFocus={(event) => event.preventDefault()}
           className={cn(
             "qp-pop fixed inset-3 z-50 flex flex-col overflow-hidden outline-none",
-            "rounded-[var(--radius-lg)] border border-line bg-surface shadow-[var(--shadow-lg)]",
+            "rounded-[var(--radius-lg)] border border-line bg-canvas shadow-[var(--shadow-lg)]",
             "sm:bottom-auto sm:right-auto sm:left-1/2 sm:top-1/2",
-            // 随内容收缩：固定 85vh 会让短分区留下大片空腔
-            "sm:h-auto sm:max-h-[85vh] sm:min-h-[30rem] sm:w-[min(56rem,calc(100vw-3rem))]",
+            // 分区切换只换内容、不改窗框。短页在右侧滚动区留白，避免跳尺寸。
+            "sm:h-[min(40rem,85vh)] sm:w-[min(56rem,calc(100vw-3rem))]",
             "sm:-translate-x-1/2 sm:-translate-y-1/2 sm:flex-row",
           )}
         >
@@ -795,8 +911,7 @@ export function SettingsView() {
           <nav
             aria-label={t("settings.title")}
             className={cn(
-              // 导航面用 bg-bg，与右侧 bg-surface 形成表面分层（不再只靠 1px 竖线）
-              "flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-bg p-2",
+              "flex shrink-0 gap-1 overflow-x-auto border-b border-line p-2",
               "sm:w-48 sm:flex-col sm:overflow-x-visible sm:overflow-y-auto",
               "sm:border-b-0 sm:border-r sm:p-3",
             )}
@@ -814,11 +929,11 @@ export function SettingsView() {
                     "transition-colors duration-[var(--dur-fast)]",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     selected
-                      ? "bg-fill-active font-medium text-ink"
+                      ? "bg-surface font-medium text-ink shadow-[var(--shadow-sm)]"
                       : "text-ink-secondary hover:bg-fill-hover hover:text-ink",
                   )}
                 >
-                  <span className={selected ? "text-ink" : "text-ink-muted"}>
+                  <span className={selected ? "text-ink" : "text-icon"}>
                     {item.icon}
                   </span>
                   {t(SECTION_LABELS[item.id])}
@@ -841,7 +956,7 @@ export function SettingsView() {
                 title={t("settings.close")}
                 onClick={closePanel}
               >
-                <X size={16} />
+                <X size={16} strokeWidth={1.75} />
               </IconButton>
             </header>
 
@@ -931,43 +1046,14 @@ export function SettingsView() {
                   />
                 ) : (
                   <div className="space-y-3">
-                    <SettingsGroup>
-                      <SettingRow
-                        title={t("settings.models.current")}
-                        description={t("settings.models.currentHint")}
-                      >
-                        <div className="text-right">
-                          <div className="text-[13px] text-ink">
-                            {activePair?.model || t("settings.models.noActive")}
-                          </div>
-                          {activePair && (
-                            <div className="mt-0.5 text-xs text-ink-tertiary">
-                              {providerDisplayName(
-                                activeProvider?.name ?? activePair.provider_id,
-                              )}
-                              {activeModel?.effective_max_input_length
-                                ? ` · ${t("settings.models.contextWindow", {
-                                    count:
-                                      activeModel.effective_max_input_length.toLocaleString(),
-                                  })}`
-                                : ""}
-                            </div>
-                          )}
-                        </div>
-                      </SettingRow>
-                    </SettingsGroup>
-
                     <SettingsGroup className="p-2">
                       <div className="px-2 pb-2 pt-1">
                         <div className="text-[13px] font-medium text-ink">
                           {t("settings.provider.listTitle")}
                         </div>
-                        <div className="mt-0.5 text-xs leading-5 text-ink-tertiary">
-                          {t("settings.provider.listDescription")}
-                        </div>
                       </div>
                       <div className="space-y-1">
-                        {sortProviders(providers).map((item) => (
+                        {connectedProviders.map((item) => (
                           <ProviderListRow
                             key={item.id}
                             provider={item}
@@ -978,15 +1064,44 @@ export function SettingsView() {
                       <div className="mt-1 border-t border-line pt-1.5">
                         <button
                           type="button"
-                          onClick={() => {
-                            setProviderView({ kind: "create" });
-                            clearBanners();
-                          }}
+                          onClick={() => setAddListOpen((value) => !value)}
+                          aria-expanded={addListOpen}
                           className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-[13px] text-ink-secondary transition-colors hover:bg-fill-hover hover:text-ink"
                         >
-                          <Plus size={14} />
-                          {t("settings.provider.addCustom")}
+                          <Plus size={14} strokeWidth={1.8} />
+                          <span className="flex-1 text-left">
+                            {t("settings.provider.addSection")}
+                          </span>
+                          <ChevronRight
+                            size={14}
+                            strokeWidth={1.8}
+                            className={`text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
+                              addListOpen ? "rotate-90" : ""
+                            }`}
+                          />
                         </button>
+                        {addListOpen && (
+                          <div className="mt-1 space-y-1">
+                            {availableProviders.map((item) => (
+                              <ProviderListRow
+                                key={item.id}
+                                provider={item}
+                                onOpen={() => openDetail(item)}
+                              />
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProviderView({ kind: "create" });
+                                clearBanners();
+                              }}
+                              className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-[13px] text-ink-secondary transition-colors hover:bg-fill-hover hover:text-ink"
+                            >
+                              <Plus size={14} strokeWidth={1.8} />
+                              {t("settings.provider.addCustom")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </SettingsGroup>
                   </div>
@@ -996,7 +1111,6 @@ export function SettingsView() {
                   <SettingsGroup>
                     <SettingRow
                       title={t("settings.appearance.theme")}
-                      description={t("settings.appearance.description")}
                     >
                       <SegmentedControl
                         variant="track"
@@ -1013,8 +1127,70 @@ export function SettingsView() {
                       />
                     </SettingRow>
                     <SettingRow
+                      title={t("settings.webSearch.title")}
+                      description={(() => {
+                        const hint = webSearchHint(webSearch);
+                        return hint ? t(hint) : undefined;
+                      })()}
+                    >
+                      <Select
+                        className="w-56"
+                        aria-label={t("settings.webSearch.title")}
+                        value={webSearchSelectValue(webSearch)}
+                        onChange={(event) =>
+                          chooseWebSearchSource(event.target.value)
+                        }
+                      >
+                        <option value={WEB_SEARCH_AUTO}>
+                          {t("settings.webSearch.auto")}
+                        </option>
+                        <option value={WEB_SEARCH_TAVILY}>
+                          {t("settings.webSearch.tavily")}
+                        </option>
+                        {(webSearch?.providers ?? []).map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </SettingRow>
+                    {webSearch?.web_search_backend === "hosted" && (
+                      <SettingRow
+                        title={t("settings.webSearch.model")}
+                        description={t("settings.webSearch.modelHint")}
+                      >
+                        <Input
+                          className="w-56"
+                          defaultValue={webSearch.web_search_model}
+                          placeholder="deepseek-v4-flash"
+                          aria-label={t("settings.webSearch.model")}
+                          // Commit on blur, like the provider key field:
+                          // saving per keystroke would write a config file
+                          // for every character.
+                          onBlur={(event) => {
+                            const next = event.target.value.trim();
+                            if (!next || next === webSearch.web_search_model) {
+                              return;
+                            }
+                            saveWebSearch({
+                              web_search_backend: "hosted",
+                              web_search_model: next,
+                            });
+                          }}
+                        />
+                      </SettingRow>
+                    )}
+                    <SettingRow
+                      title={t("settings.contextUsage.title")}
+                    >
+                      <Switch
+                        checked={showContextUsage}
+                        onChange={() => setShowContextUsage(!showContextUsage)}
+                        aria-label={t("settings.contextUsage.title")}
+                      />
+                    </SettingRow>
+                    <SettingRow
                       title={t("settings.theme.custom")}
-                      description={t("settings.theme.customHint")}
                     >
                       <div className="flex items-center gap-2">
                         <Button
@@ -1029,7 +1205,7 @@ export function SettingsView() {
                           size="sm"
                           onClick={() => themeFileRef.current?.click()}
                         >
-                          <Upload size={13} />
+                          <Upload size={14} strokeWidth={1.8} />
                           {t("settings.theme.import")}
                         </Button>
                         <input
@@ -1058,7 +1234,7 @@ export function SettingsView() {
                           <span className="truncate text-[13px] text-ink">
                             {customTheme.name}
                           </span>
-                          <span className="shrink-0 text-[11px] text-ink-muted">
+                          <span className="shrink-0 text-[11px] text-ink-tertiary">
                             {t(
                               customTheme.base === "dark"
                                 ? "settings.theme.baseDark"
@@ -1076,13 +1252,12 @@ export function SettingsView() {
                           aria-label={t("settings.theme.deleteTheme")}
                           onClick={() => deleteCustomTheme(customTheme.id)}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} strokeWidth={1.8} />
                         </IconButton>
                       </div>
                     ))}
                     <SettingRow
                       title={t("settings.language.title")}
-                      description={t("settings.language.description")}
                     >
                       <SegmentedControl
                         variant="track"
@@ -1098,7 +1273,6 @@ export function SettingsView() {
                       <>
                         <SettingRow
                           title={t("settings.window.remember")}
-                          description={t("settings.window.rememberHint")}
                         >
                           <Switch
                             checked={rememberWindow}
@@ -1111,7 +1285,6 @@ export function SettingsView() {
                         </SettingRow>
                         <SettingRow
                           title={t("settings.window.reset")}
-                          description={t("settings.window.resetHint")}
                         >
                           <Button
                             variant="secondary"
@@ -1123,7 +1296,8 @@ export function SettingsView() {
                           >
                             {resettingWindow ? (
                               <LoaderCircle
-                                size={13}
+                                size={14}
+                                strokeWidth={1.8}
                                 className="animate-spin"
                               />
                             ) : null}
@@ -1136,7 +1310,7 @@ export function SettingsView() {
                       title={t("settings.voice.title")}
                       description={
                         doubaoKeyReady
-                          ? t("settings.voice.descriptionReady")
+                          ? undefined
                           : t("settings.voice.descriptionMissingKey")
                       }
                     >
@@ -1182,16 +1356,19 @@ export function SettingsView() {
                             key={skill.name}
                             className="flex items-center gap-3 border-t border-line px-4 py-2 first:border-t-0"
                           >
-                            <span className="min-w-0 flex-1 truncate text-[13px] text-ink-secondary">
+                            <span
+                              title={skill.name}
+                              className="min-w-0 flex-1 truncate text-[13px] text-ink-secondary"
+                            >
                               {skill.emoji ? `${skill.emoji} ` : ""}
-                              {skill.name}
+                              {skillDisplayName(skill.name, language)}
                             </span>
                             <Switch
                               checked={skill.enabled}
                               onChange={() =>
                                 void toggleSkill(skill.name, !skill.enabled)
                               }
-                              aria-label={skill.name}
+                              aria-label={skillDisplayName(skill.name, language)}
                             />
                           </div>
                         ))}
@@ -1231,7 +1408,6 @@ export function SettingsView() {
                   )}
                   <SettingRow
                     title={t("settings.security.approval")}
-                    description={t("settings.security.approvalHint")}
                   >
                     <span className="text-[13px] text-ink-secondary">
                       {t(
@@ -1245,7 +1421,6 @@ export function SettingsView() {
                 <SettingsGroup>
                   <SettingRow
                     title={t("settings.data.uploadLimit")}
-                    description={t("settings.data.uploadLimitHint")}
                   >
                     <span className="text-[13px] tabular-nums text-ink-secondary">
                       {uploadLimitMb === "unknown"
@@ -1257,7 +1432,6 @@ export function SettingsView() {
                   </SettingRow>
                   <SettingRow
                     title={t("settings.data.export")}
-                    description={t("settings.data.exportDescription")}
                   >
                     <Button
                       variant="secondary"
@@ -1266,9 +1440,9 @@ export function SettingsView() {
                       onClick={() => void exportWorkspace()}
                     >
                       {exporting ? (
-                        <LoaderCircle size={13} className="animate-spin" />
+                        <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                       ) : (
-                        <Download size={13} />
+                        <Download size={14} strokeWidth={1.8} />
                       )}
                       {t("settings.data.export")}
                     </Button>
@@ -1354,45 +1528,28 @@ function ProviderListRow({
   onOpen: () => void;
 }) {
   const { t } = useTranslation();
-  const configured = providerConfigured(provider);
   const modelCount = providerModels(provider).length;
-  const summary = provider.is_local
-    ? t("settings.provider.localReady")
-    : configured
-    ? provider.api_key || provider.base_url
-    : provider.require_api_key
-    ? t("settings.provider.notConfigured")
-    : t("settings.provider.keyNotRequired");
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors hover:bg-fill-hover"
+      className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors hover:bg-fill-hover"
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[13px] text-ink">
-            {providerDisplayName(provider.name)}
-          </span>
-          {provider.is_local ? (
-            <Badge tone="neutral">{t("settings.provider.local")}</Badge>
-          ) : configured ? (
-            <Badge tone="ok">{t("settings.provider.configured")}</Badge>
-          ) : null}
-          {provider.is_custom && (
-            <Badge tone="neutral">{t("settings.provider.custom")}</Badge>
-          )}
-        </div>
-        <div className="mt-0.5 truncate text-xs text-ink-tertiary">
-          {summary}
-        </div>
-      </div>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+        {providerDisplayName(provider.name)}
+      </span>
+      {provider.is_local && (
+        <Badge tone="neutral">{t("settings.provider.local")}</Badge>
+      )}
+      {provider.is_custom && (
+        <Badge tone="neutral">{t("settings.provider.custom")}</Badge>
+      )}
       {modelCount > 0 && (
-        <span className="shrink-0 text-xs tabular-nums text-ink-muted">
+        <span className="shrink-0 text-xs tabular-nums text-ink-tertiary">
           {t("settings.provider.modelCount", { count: modelCount })}
         </span>
       )}
-      <ChevronRight size={14} className="shrink-0 text-ink-muted" />
+      <ChevronRight size={14} strokeWidth={1.8} className="shrink-0 text-ink-tertiary" />
     </button>
   );
 }
@@ -1513,7 +1670,7 @@ function ProviderDetail({
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <ChevronLeft size={14} />
+          <ChevronLeft size={14} strokeWidth={1.8} />
           {t("settings.provider.backToList")}
         </Button>
         <div className="min-w-0 flex-1" />
@@ -1524,7 +1681,7 @@ function ProviderDetail({
             disabled={busy}
             onClick={onRemoveProvider}
           >
-            <Trash2 size={13} className="text-danger" />
+            <Trash2 size={14} strokeWidth={1.8} className="text-danger" />
             <span className="text-danger">{t("settings.provider.delete")}</span>
           </Button>
         )}
@@ -1544,7 +1701,7 @@ function ProviderDetail({
           ) : providerConfigured(provider) ? (
             <Badge tone="ok">{t("settings.provider.configured")}</Badge>
           ) : (
-            <span className="text-xs text-ink-muted">
+            <span className="text-xs text-ink-tertiary">
               {t("settings.provider.notConfigured")}
             </span>
           )}
@@ -1593,7 +1750,7 @@ function ProviderDetail({
                     onClick={onClearKey}
                   >
                     {clearingKey ? (
-                      <LoaderCircle size={13} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     ) : (
                       t("settings.provider.clearKey")
                     )}
@@ -1650,9 +1807,9 @@ function ProviderDetail({
                   onClick={onTest}
                 >
                   {testState.phase === "busy" ? (
-                    <LoaderCircle size={13} className="animate-spin" />
+                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                   ) : (
-                    <PlugZap size={13} />
+                    <PlugZap size={14} strokeWidth={1.8} />
                   )}
                   {t("settings.provider.test")}
                 </Button>
@@ -1663,7 +1820,7 @@ function ProviderDetail({
                   disabled={!dirty || busy}
                 >
                   {saving ? (
-                    <LoaderCircle size={13} className="animate-spin" />
+                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                   ) : null}
                   {t("settings.provider.save")}
                 </Button>
@@ -1679,13 +1836,10 @@ function ProviderDetail({
             <div className="text-[13px] font-medium text-ink">
               {t("settings.provider.modelsTitle")}
               {models.length > 0 && (
-                <span className="ml-1.5 text-xs font-normal text-ink-muted">
+                <span className="ml-1.5 text-xs font-normal text-ink-tertiary">
                   {models.length}
                 </span>
               )}
-            </div>
-            <div className="mt-0.5 text-xs leading-5 text-ink-tertiary">
-              {t("settings.models.manageModelsDescription")}
             </div>
           </div>
           <Button
@@ -1695,16 +1849,16 @@ function ProviderDetail({
             onClick={onDiscover}
           >
             {discovering ? (
-              <LoaderCircle size={13} className="animate-spin" />
+              <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
             ) : (
-              <Radar size={13} />
+              <Radar size={14} strokeWidth={1.8} />
             )}
             {t("settings.models.discover")}
           </Button>
         </div>
         <div className="max-h-72 overflow-y-auto rounded-[var(--radius-sm)] border border-line bg-surface">
           {models.length === 0 ? (
-            <div className="px-3 py-3 text-xs text-ink-muted">
+            <div className="px-3 py-3 text-xs text-ink-tertiary">
               {t("settings.models.noModels")}
             </div>
           ) : (
@@ -1724,7 +1878,7 @@ function ProviderDetail({
                     {item.name || item.id}
                   </div>
                   {item.name && item.name !== item.id && (
-                    <div className="truncate font-mono text-[11px] text-ink-muted">
+                    <div className="truncate font-mono text-[11px] text-ink-tertiary">
                       {item.id}
                     </div>
                   )}
@@ -1735,7 +1889,7 @@ function ProviderDetail({
                   </Badge>
                 )}
                 {builtin ? (
-                  <span className="text-[11px] text-ink-muted">
+                  <span className="text-[11px] text-ink-tertiary">
                     {t("settings.models.builtinBadge")}
                   </span>
                 ) : (
@@ -1747,9 +1901,9 @@ function ProviderDetail({
                     onClick={() => onRemoveModel(item.id)}
                   >
                     {removingModel === item.id ? (
-                      <LoaderCircle size={14} className="animate-spin" />
+                      <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
                     ) : (
-                      <Trash2 size={14} />
+                      <Trash2 size={14} strokeWidth={1.8} />
                     )}
                   </IconButton>
                 )}
@@ -1787,9 +1941,9 @@ function ProviderDetail({
             disabled={busy || !newModelId.trim()}
           >
             {addingModel ? (
-              <LoaderCircle size={13} className="animate-spin" />
+              <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
             ) : (
-              <Plus size={13} />
+              <Plus size={14} strokeWidth={1.8} />
             )}
             {t("settings.models.addModelConfirm")}
           </Button>
@@ -1830,7 +1984,7 @@ function ProviderCreate({
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <ChevronLeft size={14} />
+          <ChevronLeft size={14} strokeWidth={1.8} />
           {t("settings.provider.backToList")}
         </Button>
       </div>
@@ -1843,7 +1997,6 @@ function ProviderCreate({
         <SettingsGroup>
           <SettingRow
             title={t("settings.create.name")}
-            description={t("settings.create.nameDescription")}
           >
             <Input
               autoFocus
@@ -1904,9 +2057,9 @@ function ProviderCreate({
               disabled={creating || !name.trim() || !baseUrl.trim()}
             >
               {creating ? (
-                <LoaderCircle size={13} className="animate-spin" />
+                <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
               ) : (
-                <Plus size={13} />
+                <Plus size={14} strokeWidth={1.8} />
               )}
               {t("settings.create.submit")}
             </Button>
@@ -1928,7 +2081,7 @@ function SettingsGroup({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[var(--radius-md)] bg-bg",
+        "overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface",
         className,
       )}
     >

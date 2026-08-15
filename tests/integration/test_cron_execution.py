@@ -4,7 +4,7 @@
 Sprint 2.1/2.2 covered cron CRUD lifecycle (create, pause, resume,
 delete, history seeding).  This module covers the **execution** path:
 POST /run triggers real ``CronExecutor.execute()`` and we verify
-history records, inbox events, and channel delivery.
+history records and channel delivery.
 
 Agent-type tests use the shared Mock LLM (``helpers.MockLLMHandler``)
 with tool_call support to validate the full pipeline:
@@ -22,7 +22,6 @@ import pytest
 from helpers import (
     MOCK_LLM_PROVIDER_ID,
     MockLLMHandler,
-    clean_inbox,
     default_http_timeout,
     register_mock_provider,
     unregister_mock_provider,
@@ -94,9 +93,8 @@ def _agent_spec(
     name,
     *,
     input_text="What time is it?",
-    save_inbox=False,
 ):
-    spec = {
+    return {
         "name": name,
         "enabled": True,
         "schedule": {
@@ -116,9 +114,6 @@ def _agent_spec(
             "mode": "stream",
         },
     }
-    if save_inbox:
-        spec["save_result_to_inbox"] = True
-    return spec
 
 
 def _create_job(app_server, spec):
@@ -143,31 +138,6 @@ def _delete_job(app_server, job_id):
         )
     except Exception:
         pass
-
-
-def _poll_inbox_cron(app_server, deadline, *, event_type=None):
-    """Poll inbox for cron-sourced events."""
-    while time.time() < deadline:
-        resp = app_server.api_request(
-            "GET",
-            "/api/console/inbox/events",
-            params={"source_type": "cron"},
-            timeout=_CRON_HTTP_TIMEOUT,
-        )
-        if resp.status_code == 200:
-            body = resp.json()
-            events = body.get(
-                "events",
-                body if isinstance(body, list) else [],
-            )
-            if event_type:
-                events = [
-                    e for e in events if e.get("event_type") == event_type
-                ]
-            if events:
-                return events
-        time.sleep(1.0)
-    return []
 
 
 # ------------------------------------------------------------------ #
@@ -301,29 +271,25 @@ def test_cron_agent_tool_call_execution(
 
     Test flow:
     1. Register mock LLM provider.
-    2. POST create agent-type cron job with save_result_to_inbox=true.
+    2. POST create agent-type cron job.
     3. POST run.
     4. Poll history → status=success.
-    5. Poll inbox → cron_result event body contains time info.
-    6. Cleanup.
+    5. Cleanup.
 
     API endpoints:
     - POST /api/cron/jobs
     - POST /api/cron/jobs/{job_id}/run
     - GET /api/cron/jobs/{job_id}/history
-    - GET /api/console/inbox/events
     - DELETE /api/cron/jobs/{job_id}
     """
     srv, mock_url = mock_llm
     srv.force_error = False
     srv.force_tool_call = True
-    clean_inbox(app_server.working_dir)
     unregister_mock_provider(app_server, MOCK_LLM_PROVIDER_ID)
     provider_id = register_mock_provider(app_server, mock_url)
     spec = _agent_spec(
         "integ_tool_call",
         input_text="What time is it?",
-        save_inbox=True,
     )
     job_id = _create_job(app_server, spec)
     try:
@@ -343,90 +309,9 @@ def test_cron_agent_tool_call_execution(
             len(records) >= 1
         ), f"No history after 30s: {app_server.logs_tail()}"
         assert records[0]["status"] == "success"
-
-        events = _poll_inbox_cron(
-            app_server,
-            time.time() + 10.0,
-            event_type="cron_result",
-        )
-        assert (
-            len(events) >= 1
-        ), f"No cron_result event: {app_server.logs_tail()}"
-        event = events[0]
-        assert event["source_type"] == "cron"
-        assert event.get("body"), "event body should not be empty"
     finally:
         srv.force_tool_call = False
         _delete_job(app_server, job_id)
-        clean_inbox(app_server.working_dir)
-        unregister_mock_provider(app_server, provider_id)
-
-
-# ------------------------------------------------------------------ #
-# A4: agent run → inbox event
-# ------------------------------------------------------------------ #
-
-
-@pytest.mark.integration
-@pytest.mark.p1
-def test_cron_agent_run_creates_inbox_event(
-    app_server,
-    mock_llm,  # pylint: disable=redefined-outer-name
-) -> None:
-    """Test purpose:
-    - Verify an agent-type cron run with save_result_to_inbox
-      creates a cron_result inbox event with correct metadata.
-
-    Test flow:
-    1. Register mock LLM provider.
-    2. POST create agent-type job with save_result_to_inbox=true.
-    3. POST run.
-    4. Poll inbox for cron_result event.
-    5. Assert event fields: source_type, event_type, agent_id.
-    6. Cleanup.
-
-    API endpoints:
-    - POST /api/cron/jobs
-    - POST /api/cron/jobs/{job_id}/run
-    - GET /api/console/inbox/events
-    - DELETE /api/cron/jobs/{job_id}
-    """
-    srv, mock_url = mock_llm
-    srv.force_error = False
-    clean_inbox(app_server.working_dir)
-    unregister_mock_provider(app_server, MOCK_LLM_PROVIDER_ID)
-    provider_id = register_mock_provider(app_server, mock_url)
-    spec = _agent_spec(
-        "integ_inbox_event",
-        input_text="Say hello",
-        save_inbox=True,
-    )
-    job_id = _create_job(app_server, spec)
-    try:
-        app_server.api_request(
-            "POST",
-            f"/api/cron/jobs/{job_id}/run",
-            timeout=_CRON_HTTP_TIMEOUT,
-        )
-
-        events = _poll_inbox_cron(
-            app_server,
-            time.time() + 30.0,
-            event_type="cron_result",
-        )
-        assert (
-            len(events) >= 1
-        ), f"No cron_result inbox event: {app_server.logs_tail()}"
-
-        event = events[0]
-        assert event["source_type"] == "cron"
-        assert event["event_type"] == "cron_result"
-        assert event["agent_id"] == "default"
-        assert event["status"] == "success"
-        assert event["severity"] == "info"
-    finally:
-        _delete_job(app_server, job_id)
-        clean_inbox(app_server.working_dir)
         unregister_mock_provider(app_server, provider_id)
 
 

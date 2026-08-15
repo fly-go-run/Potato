@@ -4,7 +4,7 @@
 # 分发架构(R2 + VPS 混合):
 #   大文件产物 → Cloudflare R2 桶 potato-updates,经 https://dl.recodex.top
 #   对外(零出站流量费,rclone remote 名 "r2")。
-#   更新清单 → vps-aozhou /srv/potato-updates/metadata(Caddy no-store,
+#   更新清单 → g-vps /srv/potato-updates/metadata(Caddy no-store,
 #   充当即时生效的"发版开关")。
 #   应用内 tauri-plugin-updater 轮询 metadata/qwenpaw-tauri-latest.json。
 #
@@ -13,7 +13,7 @@
 #   release_desktop.sh macos --skip-build   复用已有构建产物,只做暂存
 #   release_desktop.sh windows <dir>    摄取 CI 下载的 Windows 产物目录
 #                                       (需包含 *-setup.exe 与同名 .sig)
-#   release_desktop.sh publish          聚合清单并 rsync 推送到 VPS
+#   release_desktop.sh publish          聚合清单并推送到 VPS
 #   release_desktop.sh status           查看线上当前版本
 #
 # 典型发版流:
@@ -25,7 +25,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STAGE_DIR="$REPO_ROOT/dist/updates"
-REMOTE_HOST="vps-aozhou"
+REMOTE_HOST="g-vps"
 REMOTE_ROOT="/srv/potato-updates"
 R2_REMOTE="r2:potato-updates"
 BASE_URL="https://dl.recodex.top/artifacts"
@@ -159,8 +159,10 @@ publish() {
     --exclude "*.json" \
     "$STAGE_DIR/" "$R2_REMOTE/artifacts/"
   echo "==> 推送清单到 $REMOTE_HOST:$REMOTE_ROOT/metadata"
-  command rsync -av "$STAGE_DIR/$MANIFEST_NAME" \
-    "$REMOTE_HOST:$REMOTE_ROOT/metadata/$MANIFEST_NAME"
+  local remote_tmp="/tmp/${MANIFEST_NAME}.${ver}.$$"
+  command scp "$STAGE_DIR/$MANIFEST_NAME" "$REMOTE_HOST:$remote_tmp"
+  command ssh "$REMOTE_HOST" \
+    "sudo -n install -o root -g root -m 0644 '$remote_tmp' '$REMOTE_ROOT/metadata/$MANIFEST_NAME' && rm -f '$remote_tmp'"
 
   echo "==> 线上验证"
   curl -fsS "https://chat.recodex.top/potato-updates/metadata/$MANIFEST_NAME" \

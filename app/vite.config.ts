@@ -7,16 +7,31 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const packageJson = JSON.parse(
-  readFileSync(path.resolve(__dirname, "package.json"), "utf8"),
-) as { version?: string };
+
+function readProductVersion(): string {
+  const versionFile = path.resolve(__dirname, "../src/qwenpaw/__version__.py");
+  try {
+    const match = /__version__\s*=\s*["']([^"']+)["']/.exec(
+      readFileSync(versionFile, "utf8"),
+    );
+    if (match?.[1]) return match[1];
+  } catch {
+    // 前端单开时仓外可能没有 Python 包。
+  }
+  const packageJson = JSON.parse(
+    readFileSync(path.resolve(__dirname, "package.json"), "utf8"),
+  ) as { version?: string };
+  return packageJson.version && packageJson.version !== "0.1.0"
+    ? packageJson.version
+    : "2.0.5";
+}
 
 // 后端同源托管：build 产物放 app/dist，可由 QWENPAW_WEB_STATIC_DIR 覆盖。
 // dev 模式下 /api 代理到本地后端（默认 8088，与旧 console 一致）。
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss()],
   define: {
-    __APP_VERSION__: JSON.stringify(packageJson.version ?? "0.0.0"),
+    __APP_VERSION__: JSON.stringify(readProductVersion()),
   },
   resolve: {
     alias: {

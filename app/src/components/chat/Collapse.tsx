@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 
-/** 与 .qp-collapse 的 grid 行高过渡时长保持一致。 */
+/** 与 .qp-collapse / .qp-collapse-struct 的行高过渡时长保持一致。 */
 const COLLAPSE_MS = 200;
+const STRUCT_COLLAPSE_MS = 280;
 
 /**
  * 统一折叠容器:展开时挂载内容并以行高过渡展开;收起时播完收口动画
@@ -11,6 +12,7 @@ const COLLAPSE_MS = 200;
 export function Collapse({
   open,
   keepMounted = false,
+  struct = false,
   className,
   children,
 }: {
@@ -20,6 +22,11 @@ export function Collapse({
    * 子组件状态的场景(如轨道条目自身的展开状态);内容重的详情不要开。
    */
   keepMounted?: boolean;
+  /**
+   * 结构折叠档:整段时间线的轮次收口用。高度过渡放慢到 --dur-struct
+   * 并叠加内容淡出,读作「整理归档」;条目级的开合不要用这一档。
+   */
+  struct?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -33,6 +40,7 @@ export function Collapse({
     setPrevOpen(open);
     setExiting(!open);
   }
+  const durationMs = struct ? STRUCT_COLLAPSE_MS : COLLAPSE_MS;
   useEffect(() => {
     if (open || !exiting) return;
     // reduced-motion 下没有过渡,不为看不见的动画保留 DOM。
@@ -40,17 +48,19 @@ export function Collapse({
       setExiting(false);
       return;
     }
-    const timer = window.setTimeout(() => setExiting(false), COLLAPSE_MS + 60);
+    const timer = window.setTimeout(() => setExiting(false), durationMs + 60);
     return () => window.clearTimeout(timer);
-  }, [open, exiting]);
+  }, [open, exiting, durationMs]);
   const mounted = keepMounted || open || exiting;
   // 收口动画期间内容仍在 DOM,inert 把它从焦点顺序与无障碍树中移除。
   // React 18 的 JSX 类型没有 inert prop,以字符串属性形式当次提交。
   const inertProps = open ? undefined : ({ inert: "" } as object);
+  const closedProps = !open && struct ? { "data-closed": "" } : undefined;
   return (
     <div
-      className="qp-collapse"
+      className={`qp-collapse${struct ? " qp-collapse-struct" : ""}`}
       style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      {...closedProps}
     >
       <div className={className} {...inertProps}>
         {mounted ? children : null}

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { RunStatus } from "./protocol/types";
 import type { StreamMessage } from "./stream";
-import { collectFileChanges, totalChangeStats } from "./fileChanges";
+import { buildToolPair } from "../components/chat/ToolCard";
+import {
+  INLINE_DIFF_MAX_LINES,
+  collectFileChanges,
+  editDiffLines,
+  pairFileEdit,
+  totalChangeStats,
+  visibleDiffLines,
+} from "./fileChanges";
 
 type ToolMessageType =
   | "function_call"
@@ -63,6 +71,7 @@ function toolOutput(
     state?: string;
     status?: RunStatus;
     output?: string;
+    meta?: Record<string, unknown>;
   } = {},
   type:
     | "function_call_output"
@@ -77,6 +86,7 @@ function toolOutput(
       name,
       output: options.output ?? "ok",
       state: options.state ?? "completed",
+      ...(options.meta ? { meta: options.meta } : {}),
     },
     options.status ?? "completed",
   );
@@ -469,6 +479,152 @@ describe("collectFileChanges", () => {
     ];
 
     expect(collectFileChanges(messages)).toEqual([]);
+  });
+
+  it("prefers backend qp meta counts over local estimates", () => {
+    // 后端 meta 报的 ±(全局替换的真值)与本地 LCS 对单份 old/new 的
+    // 估计(1/1)不同——断言 meta 赢,证明没有静默回落。
+    const editChanges = collectFileChanges([
+      toolCall(
+        "meta-edit",
+        "edit_file",
+        JSON.stringify({
+          file_path: "/workspace/multi.ts",
+          old_text: "old",
+          new_text: "new",
+        }),
+      ),
+      toolOutput("meta-edit", "edit_file", {
+        meta: {
+          v: 1,
+          kind: "file_edit",
+          ok: true,
+          data: { path: "/workspace/multi.ts", additions: 3, deletions: 3 },
+        },
+      }),
+    ]);
+    expect(editChanges[0].additions).toBe(3);
+    expect(editChanges[0].deletions).toBe(3);
+
+    // 覆盖写:本地只能按"新增全部行"高估,meta 报真实差异。
+    const writeChanges = collectFileChanges([
+      toolCall(
+        "meta-write",
+        "write_file",
+        JSON.stringify({
+          file_path: "/workspace/rewrite.txt",
+          content: "a\nb\nc",
+        }),
+      ),
+      toolOutput("meta-write", "write_file", {
+        meta: {
+          v: 1,
+          kind: "file_write",
+          ok: true,
+          data: { path: "/workspace/rewrite.txt", additions: 1, deletions: 2 },
+        },
+      }),
+    ]);
+    expect(writeChanges[0].additions).toBe(1);
+    expect(writeChanges[0].deletions).toBe(2);
+  });
+
+  it("falls back to local estimates when qp meta is malformed", () => {
+    const changes = collectFileChanges([
+      toolCall(
+        "bad-meta",
+        "write_file",
+        JSON.stringify({ file_path: "/workspace/x.txt", content: "a\nb" }),
+      ),
+      toolOutput("bad-meta", "write_file", {
+        meta: { v: 99, kind: "file_write" },
+      }),
+    ]);
+    expect(changes[0].additions).toBe(2);
+    expect(changes[0].deletions).toBe(0);
+  });
+});
+
+describe("editDiffLines", () => {
+  it("aligns edit_file with lineDiff and treats write/append as all adds", () => {
+    expect(
+      editDiffLines({
+        tool: "edit_file",
+        before: "keep\nold",
+        after: "keep\nnew",
+      }),
+    ).toEqual([
+      { kind: "same", text: "keep" },
+      { kind: "remove", text: "old" },
+      { kind: "add", text: "new" },
+    ]);
+    expect(
+      editDiffLines({
+        tool: "write_file",
+        before: "",
+        after: "one\ntwo",
+      }),
+    ).toEqual([
+      { kind: "add", text: "one" },
+      { kind: "add", text: "two" },
+    ]);
+    expect(
+      editDiffLines({
+        tool: "append_file",
+        before: "",
+        after: "tail",
+      }),
+    ).toEqual([{ kind: "add", text: "tail" }]);
+  });
+
+  it("skips line alignment for oversized edits", () => {
+    expect(
+      editDiffLines({
+        tool: "edit_file",
+        before: "a\nb",
+        after: "c",
+        oversized: true,
+      }),
+    ).toEqual([
+      { kind: "remove", text: "a" },
+      { kind: "remove", text: "b" },
+      { kind: "add", text: "c" },
+    ]);
+  });
+});
+
+describe("visibleDiffLines", () => {
+  it("keeps short diffs intact and reports the omitted tail", () => {
+    const short = ["a", "b", "c"];
+    expect(visibleDiffLines(short, 3)).toEqual({
+      visible: short,
+      truncated: 0,
+    });
+    const long = Array.from({ length: INLINE_DIFF_MAX_LINES + 7 }, (_, i) => i);
+    expect(visibleDiffLines(long)).toEqual({
+      visible: long.slice(0, INLINE_DIFF_MAX_LINES),
+      truncated: 7,
+    });
+  });
+});
+
+describe("pairFileEdit", () => {
+  it("returns an in-flight write so the raw row can preview before completion", () => {
+    const pair = buildToolPair(
+      toolCall(
+        "live-write",
+        "write_file",
+        JSON.stringify({ file_path: "/workspace/live.txt", content: "alpha" }),
+        "in_progress",
+      ),
+      null,
+    );
+    expect(pairFileEdit(pair)).toMatchObject({
+      tool: "write_file",
+      after: "alpha",
+      additions: 1,
+      deletions: 0,
+    });
   });
 });
 

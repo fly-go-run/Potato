@@ -31,6 +31,10 @@ _OPENSPEECH_HOST = "https://openspeech.bytedance.com"
 FLASH_URL = f"{_OPENSPEECH_HOST}/api/v3/auc/bigmodel/recognize/flash"
 DEFAULT_RESOURCE_ID = "volc.bigasr.auc_turbo"
 SUCCESS_STATUS = "20000000"
+# 请求处理成功、但音频里没有可识别的人声(录到的是静音/纯底噪)。
+# 这是「用户没说话」这一正常结果,不是失败:调用方拿到空转写文本即可,
+# 不该看到「转写失败,请检查供应商配置」这种要人去翻日志的报错。
+NO_SPEECH_STATUS = "20000003"
 
 # Formats the flash API documents as supported without conversion.
 _NATIVE_EXTS = {".wav", ".mp3", ".ogg"}
@@ -259,6 +263,13 @@ def _transcript_from_response(
     OpenSpeech reports business failures in headers with a 200 body, so the
     status code has to be checked separately from the HTTP status.
     """
+    if status_code == NO_SPEECH_STATUS:
+        logger.info(
+            "Doubao ASR: no speech in audio (message=%s log_id=%s)",
+            status_message,
+            log_id,
+        )
+        return ""
     if status_code and status_code != SUCCESS_STATUS:
         logger.warning(
             "Doubao ASR business failure: code=%s message=%s log_id=%s",
@@ -276,12 +287,13 @@ def _transcript_from_response(
 
     text = _extract_text(body)
     if not text:
-        logger.warning(
+        # 调用成功但没识别出内容,同样是「没说话」,不是失败。
+        logger.info(
             "Doubao ASR returned empty text (status=%s log_id=%s)",
             status_code or "ok",
             log_id,
         )
-        return None
+        return ""
     return text
 
 

@@ -157,7 +157,9 @@ class Workspace:
                 try:
                     desc = getattr(func, "_tool_descriptor", None)
                     if desc is not None:
-                        tr.register(desc)
+                        self.plugins.scope.add(
+                            self.plugins.register_tool(desc),
+                        )
                     else:
                         logger.debug(
                             "bootstrap: %s has no _tool_descriptor, skipped",
@@ -173,7 +175,9 @@ class Workspace:
         if builtin_contributor_clses:
             for cls in builtin_contributor_clses:
                 try:
-                    self.plugins.prompt_manager.register(cls())
+                    self.plugins.scope.add(
+                        self.plugins.register_prompt_contributor(cls()),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: contributor register failed for %s",
@@ -184,7 +188,9 @@ class Workspace:
         if builtin_hook_clses:
             for cls in builtin_hook_clses:
                 try:
-                    self.plugins.hook_registry.register(cls())
+                    self.plugins.scope.add(
+                        self.plugins.register_runtime_hook(cls()),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: hook register failed for %s",
@@ -195,7 +201,9 @@ class Workspace:
         if builtin_command_specs:
             for spec in builtin_command_specs:
                 try:
-                    self.plugins.slash_command_registry.register(spec)
+                    self.plugins.scope.add(
+                        self.plugins.register_slash_command(spec),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: command register failed for %s",
@@ -205,8 +213,10 @@ class Workspace:
 
         if builtin_fallback_handler is not None:
             try:
-                self.plugins.slash_command_registry.register_fallback(
-                    builtin_fallback_handler,
+                self.plugins.scope.add(
+                    self.plugins.register_fallback(
+                        builtin_fallback_handler,
+                    ),
                 )
             except Exception:
                 logger.debug(
@@ -218,7 +228,9 @@ class Workspace:
             for cls in builtin_mode_clses:
                 try:
                     mode = cls()
-                    self.plugins.register_mode(mode, self)
+                    self.plugins.scope.add(
+                        self.plugins.register_mode(mode, self),
+                    )
                 except Exception:
                     logger.debug(
                         "bootstrap: mode register failed for %s",
@@ -378,6 +390,11 @@ class Workspace:
                 post_init=create_channel_service,
                 start_method="start_all",
                 stop_method="stop_all",
+                dependencies=[
+                    "local_workspace",
+                    "session",
+                    "chat_manager",
+                ],
                 priority=30,
                 concurrent_init=False,
             ),
@@ -404,6 +421,7 @@ class Workspace:
                 },
                 start_method="start",
                 stop_method="stop",
+                dependencies=["channel_manager", "chat_manager"],
                 priority=40,
                 concurrent_init=False,
             ),
@@ -417,6 +435,7 @@ class Workspace:
                 post_init=create_agent_config_watcher,
                 start_method="start",
                 stop_method="stop",
+                after=["channel_manager", "cron_manager"],
                 priority=50,
                 concurrent_init=False,
             ),
@@ -430,6 +449,7 @@ class Workspace:
                 post_init=create_driver_config_watcher,
                 start_method="start",
                 stop_method="stop",
+                after=["driver_manager"],
                 priority=51,
                 concurrent_init=False,
             ),
@@ -572,7 +592,8 @@ class Workspace:
             final: If True (default), stop ALL services including reusable.
                    If False, skip reusable services (for reload scenario).
         """
-        if not self._started:
+        rollback = not self._started
+        if rollback and not self._service_manager.has_started_services:
             logger.debug(f"Workspace not started: {self.agent_id}")
             return
 
@@ -581,7 +602,10 @@ class Workspace:
         )
 
         # Stop all services via ServiceManager (handles reuse automatically)
-        await self._service_manager.stop_all(final=final)
+        await self._service_manager.stop_all(
+            final=final,
+            rollback=rollback,
+        )
 
         self._started = False
         logger.info(f"Workspace stopped: {self.agent_id}")

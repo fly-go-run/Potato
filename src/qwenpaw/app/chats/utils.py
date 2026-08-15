@@ -644,6 +644,13 @@ def agentscope_msg_to_message(
                 if tool_state is not None:
                     output_data["state"] = tool_state
 
+                block_metadata = block.get("metadata")
+                if (
+                    isinstance(block_metadata, dict)
+                    and "qp" in block_metadata
+                ):
+                    output_data["meta"] = block_metadata["qp"]
+
                 data_content = DataContent(
                     delta=False,
                     index=None,

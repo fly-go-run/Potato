@@ -229,16 +229,19 @@ class GoalMode(AgentMode):
 
         handler = StopHandler()
         self._handler = handler
-        workspace.plugins.stop_handlers.append(
-            StopHandlerRegistration(
-                plugin_id="__goal_mode__",
-                handler=handler,
-                priority=0,
-                name="goal-stop-handler",
-                scope="goal",
-                is_active=lambda: self.active_session() is not None,
-            ),
+        registration = StopHandlerRegistration(
+            plugin_id="__goal_mode__",
+            handler=handler,
+            priority=0,
+            name="goal-stop-handler",
+            scope="goal",
+            is_active=lambda: self.active_session() is not None,
         )
+        register = getattr(workspace.plugins, "register_stop_handler", None)
+        if register is not None:
+            register(registration)
+        else:
+            workspace.plugins.stop_handlers.append(registration)
         rubric = GoalStatusRubric(
             get_session_fn=self.session_by_ctx_var,
         )

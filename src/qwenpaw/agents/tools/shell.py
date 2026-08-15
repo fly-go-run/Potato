@@ -15,7 +15,7 @@ import threading
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, AsyncGenerator, Optional
 
 from agentscope.message import TextBlock, ToolResultState
 from agentscope.tool import ToolChunk
@@ -27,7 +27,23 @@ from ...config.context import (
 )
 from ...constant import WORKING_DIR
 from ...runtime.tool_registry import tool_descriptor
+from ...runtime.tool_meta import build_qp_meta
 from ...sandbox import ExecutionResult
+
+
+def _shell_metadata(
+    *,
+    sandboxed: bool,
+    ok: bool,
+    exit_code: int | None = None,
+    violation: str | None = None,
+) -> dict:
+    data: dict[str, Any] = {"sandboxed": sandboxed}
+    if exit_code is not None:
+        data["exit_code"] = exit_code
+    if violation is not None:
+        data["violation"] = violation
+    return {"qp": build_qp_meta("shell", ok, data)}
 
 
 def _windows_taskkill_args(pid: int) -> list[str]:
@@ -403,6 +419,13 @@ def _execute_subprocess_sync(
 # Subsequent calls hit the cache and need no extension.
 _SANDBOX_SETUP_DEADLINE_EXTENSION = 180.0
 
+# Live shell preview: yield on newline or this interval, whichever first.
+# Incremental chunks are true deltas (toolkit/envelope accumulate). Each
+# SSE in_progress frame then carries the full output so stream.ts can
+# replace. qp meta is reserved for the terminal chunk.
+_STREAM_INTERVAL_S = 0.2
+_STREAM_PREVIEW_CHARS = 16_384
+
 
 async def _execute_in_sandbox(
     cmd: str,
@@ -461,6 +484,187 @@ async def _execute_in_sandbox(
         raise
 
     return result
+
+
+def _format_shell_output(
+    returncode: int,
+    stdout_str: str,
+    stderr_str: str,
+) -> str:
+    if returncode == 0:
+        if stdout_str:
+            response_text = stdout_str
+        else:
+            response_text = "Command executed successfully (no output)."
+        if stderr_str:
+            response_text += f"\n[stderr]\n{stderr_str}"
+        return response_text
+    parts = [f"Command failed with exit code {returncode}."]
+    if stdout_str:
+        parts.append(f"\n[stdout]\n{stdout_str}")
+    if stderr_str:
+        parts.append(f"\n[stderr]\n{stderr_str}")
+    return "".join(parts)
+
+
+def _live_preview(stdout_buf: bytearray, stderr_buf: bytearray) -> str:
+    stdout_str = smart_decode(bytes(stdout_buf))
+    stderr_str = smart_decode(bytes(stderr_buf))
+    if stdout_str and stderr_str:
+        return f"{stdout_str}\n[stderr]\n{stderr_str}"
+    return stdout_str or (
+        f"[stderr]\n{stderr_str}" if stderr_str else ""
+    )
+
+
+def _running_chunk(text: str) -> ToolChunk:
+    return ToolChunk(
+        is_last=False,
+        state=ToolResultState.RUNNING,
+        content=[TextBlock(type="text", text=text)],
+    )
+
+
+def _final_shell_chunk(
+    text: str,
+    *,
+    sandboxed: bool,
+    ok: bool,
+    exit_code: int | None,
+) -> ToolChunk:
+    return ToolChunk(
+        is_last=True,
+        state=ToolResultState.SUCCESS,
+        content=[TextBlock(type="text", text=text)],
+        metadata=_shell_metadata(
+            sandboxed=sandboxed,
+            ok=ok,
+            exit_code=exit_code,
+        ),
+    )
+
+
+async def _read_pipe(stream: Any, buf: bytearray) -> None:
+    while True:
+        chunk = await stream.read(4096)
+        if not chunk:
+            return
+        buf.extend(chunk)
+
+
+async def _kill_posix_pg(proc: Any) -> None:
+    try:
+        pgid = os.getpgid(proc.pid)
+        os.killpg(pgid, signal.SIGTERM)
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=2)
+        except asyncio.TimeoutError:
+            os.killpg(pgid, signal.SIGKILL)
+            await asyncio.wait_for(proc.wait(), timeout=2)
+    except (ProcessLookupError, OSError):
+        try:
+            proc.kill()
+            await proc.wait()
+        except (ProcessLookupError, OSError):
+            pass
+
+
+async def _stream_posix_shell(
+    cmd: str,
+    working_dir: str,
+    timeout: float,
+    env: dict,
+    shell_executable: str | None,
+) -> AsyncGenerator[ToolChunk, None]:
+    """Yield stdout/stderr deltas while the process runs, then a final chunk.
+
+    Incremental chunks never carry qp meta. Oversized bursts are held
+    back so only a tail window rides the live stream; the terminal
+    chunk still delivers everything that was not sent.
+    """
+    from ...tool_calls import get_call_context
+
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        bufsize=0,
+        cwd=working_dir,
+        env=env,
+        start_new_session=True,
+        executable=shell_executable,
+    )
+    stdout_buf = bytearray()
+    stderr_buf = bytearray()
+    readers = [
+        asyncio.create_task(_read_pipe(proc.stdout, stdout_buf)),
+        asyncio.create_task(_read_pipe(proc.stderr, stderr_buf)),
+    ]
+    wait_task = asyncio.create_task(proc.wait())
+    ctx = get_call_context()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    sent = ""
+    last_yield = 0.0
+    timed_out = False
+    cancelled = False
+
+    try:
+        while not wait_task.done():
+            if ctx is not None and ctx.is_cancelled:
+                cancelled = True
+                break
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                timed_out = True
+                break
+            await asyncio.wait({wait_task}, timeout=min(_STREAM_INTERVAL_S, remaining))
+            preview = _live_preview(stdout_buf, stderr_buf)
+            new = preview[len(sent) :]
+            now = time.monotonic()
+            due = (now - last_yield) >= _STREAM_INTERVAL_S
+            if new and ("\n" in new or due) and len(new) <= _STREAM_PREVIEW_CHARS:
+                yield _running_chunk(new)
+                sent = preview
+                last_yield = now
+    finally:
+        if timed_out or cancelled:
+            await _kill_posix_pg(proc)
+            if not wait_task.done():
+                await asyncio.gather(wait_task, return_exceptions=True)
+        await asyncio.gather(*readers, return_exceptions=True)
+        if not wait_task.done():
+            await asyncio.gather(wait_task, return_exceptions=True)
+
+    stdout_str = smart_decode(bytes(stdout_buf))
+    stderr_str = smart_decode(bytes(stderr_buf))
+    if timed_out:
+        stderr_suffix = (
+            f"⚠️ TimeoutError: The command execution exceeded "
+            f"the timeout of {timeout} seconds. "
+            f"Please consider increasing the timeout value if this command "
+            f"requires more time to complete."
+        )
+        returncode = -1
+        stderr_str = f"{stderr_str}\n{stderr_suffix}" if stderr_str else stderr_suffix
+    elif cancelled:
+        returncode = -1
+        stop = "Command execution was cancelled."
+        stderr_str = f"{stderr_str}\n{stop}" if stderr_str else stop
+    else:
+        returncode = proc.returncode if proc.returncode is not None else -1
+
+    response_text = _format_shell_output(returncode, stdout_str, stderr_str)
+    if response_text.startswith(sent):
+        remaining_text = response_text[len(sent) :]
+    else:
+        remaining_text = response_text
+    yield _final_shell_chunk(
+        remaining_text,
+        sandboxed=False,
+        ok=returncode == 0,
+        exit_code=returncode,
+    )
 
 
 _DANGER_NAMES = {
@@ -544,7 +748,7 @@ async def execute_shell_command(
     timeout: float = 60.0,
     cwd: Optional[Path] = None,
     sandbox_config: Optional[Any] = None,
-) -> ToolChunk:
+) -> ToolChunk | AsyncGenerator[ToolChunk, None]:
     """Execute a shell command and return its output.
 
     Each call runs in a fresh subprocess — `cd`, `export`, `source`,
@@ -570,10 +774,10 @@ async def execute_shell_command(
             with the specified mount permissions and network restrictions.
 
     Returns:
-        `ToolChunk`:
-            The tool response containing the return code, standard output, and
-            standard error of the executed command. If timeout occurs, the
-            return code will be -1 and stderr will contain timeout information.
+        `ToolChunk | AsyncGenerator[ToolChunk, None]`:
+            A single terminal chunk for blocked / sandboxed / Windows
+            runs, or a stream of incremental chunks (no qp) followed by
+            one terminal chunk (with qp) on POSIX. Timeout sets exit -1.
     """
 
     shell_executable = (
@@ -600,6 +804,10 @@ async def execute_shell_command(
                     ),
                 ),
             ],
+            metadata=_shell_metadata(
+                sandboxed=sandbox_config is not None,
+                ok=False,
+            ),
         )
 
     if isinstance(timeout, str):
@@ -657,30 +865,24 @@ async def execute_shell_command(
                         f"Command was blocked by sandbox security policy.",
                     ),
                 ],
-                metadata={"sandbox_violation": result.sandbox_violation},
+                metadata={
+                    "sandbox_violation": result.sandbox_violation,
+                    **_shell_metadata(
+                        sandboxed=True,
+                        ok=False,
+                        violation=result.sandbox_violation,
+                    ),
+                },
             )
-        if result.exit_code == 0:
-            response_text = (
-                result.stdout or "Command executed successfully (no output)."
-            )
-            if result.stderr:
-                response_text += f"\n[stderr]\n{result.stderr}"
-        else:
-            parts = [f"Command failed with exit code {result.exit_code}."]
-            if result.stdout:
-                parts.append(f"\n[stdout]\n{result.stdout}")
-            if result.stderr:
-                parts.append(f"\n[stderr]\n{result.stderr}")
-            response_text = "".join(parts)
-        return ToolChunk(
-            is_last=True,
-            state=ToolResultState.SUCCESS,
-            content=[
-                TextBlock(
-                    type="text",
-                    text=response_text,
-                ),
-            ],
+        return _final_shell_chunk(
+            _format_shell_output(
+                result.exit_code,
+                result.stdout,
+                result.stderr,
+            ),
+            sandboxed=True,
+            ok=result.exit_code == 0,
+            exit_code=result.exit_code,
         )
 
     import logging as _logging
@@ -719,98 +921,19 @@ async def execute_shell_command(
                     worker_task,
                 )
         else:
-            proc = await asyncio.create_subprocess_shell(
+            return _stream_posix_shell(
                 cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                bufsize=0,
-                cwd=str(working_dir),
-                env=env,
-                start_new_session=True,
-                executable=shell_executable,
+                str(working_dir),
+                timeout,
+                env,
+                shell_executable,
             )
 
-            try:
-                # Apply timeout to communicate directly; wait()+communicate()
-                # can hang if descendants keep stdout/stderr pipes open.
-                from ...tool_calls import cancellable_wait
-
-                stdout, stderr = await cancellable_wait(
-                    proc.communicate(),
-                    fallback_secs=timeout,
-                )
-                stdout_str = smart_decode(stdout)
-                stderr_str = smart_decode(stderr)
-                returncode = proc.returncode
-
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                stderr_suffix = (
-                    f"⚠️ TimeoutError: The command execution exceeded "
-                    f"the timeout of {timeout} seconds. "
-                    f"Please consider increasing the timeout value if this command "
-                    f"requires more time to complete."
-                )
-                returncode = -1
-                try:
-                    # Kill the entire process group so that child processes
-                    # spawned by the shell are also terminated.
-                    pgid = os.getpgid(proc.pid)
-                    os.killpg(pgid, signal.SIGTERM)
-                    try:
-                        await asyncio.wait_for(proc.wait(), timeout=2)
-                    except asyncio.TimeoutError:
-                        os.killpg(pgid, signal.SIGKILL)
-                        await asyncio.wait_for(proc.wait(), timeout=2)
-
-                    # Drain remaining output.
-                    try:
-                        stdout, stderr = await asyncio.wait_for(
-                            proc.communicate(),
-                            timeout=1,
-                        )
-                    except asyncio.TimeoutError:
-                        stdout, stderr = b"", b""
-                    stdout_str = smart_decode(stdout)
-                    stderr_str = smart_decode(stderr)
-                    if stderr_str:
-                        stderr_str += f"\n{stderr_suffix}"
-                    else:
-                        stderr_str = stderr_suffix
-                except (ProcessLookupError, OSError):
-                    # Process already gone or pgid lookup failed — fall back
-                    # to direct kill on the process itself.
-                    try:
-                        proc.kill()
-                        await proc.wait()
-                    except (ProcessLookupError, OSError):
-                        pass
-                    stdout_str = ""
-                    stderr_str = stderr_suffix
-
-        if returncode == 0:
-            if stdout_str:
-                response_text = stdout_str
-            else:
-                response_text = "Command executed successfully (no output)."
-            if stderr_str:
-                response_text += f"\n[stderr]\n{stderr_str}"
-        else:
-            response_parts = [f"Command failed with exit code {returncode}."]
-            if stdout_str:
-                response_parts.append(f"\n[stdout]\n{stdout_str}")
-            if stderr_str:
-                response_parts.append(f"\n[stderr]\n{stderr_str}")
-            response_text = "".join(response_parts)
-
-        return ToolChunk(
-            is_last=True,
-            state=ToolResultState.SUCCESS,
-            content=[
-                TextBlock(
-                    type="text",
-                    text=response_text,
-                ),
-            ],
+        return _final_shell_chunk(
+            _format_shell_output(returncode, stdout_str, stderr_str),
+            sandboxed=False,
+            ok=returncode == 0,
+            exit_code=returncode,
         )
 
     except Exception as e:
@@ -823,6 +946,7 @@ async def execute_shell_command(
                     text=f"Error: Shell command execution failed due to \n{e}",
                 ),
             ],
+            metadata=_shell_metadata(sandboxed=False, ok=False),
         )
 
 

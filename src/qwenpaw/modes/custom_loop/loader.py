@@ -34,7 +34,9 @@ def load_custom_loop_modes(workspace: object) -> None:
             continue
         try:
             mode = DeclarativeLoopMode(config, store)
-            workspace.plugins.register_mode(mode, workspace)
+            workspace.plugins.scope.add(
+                workspace.plugins.register_mode(mode, workspace),
+            )
         except Exception:
             logger.warning(
                 "Custom loop mode '%s' could not be loaded",
@@ -46,7 +48,12 @@ def load_custom_loop_modes(workspace: object) -> None:
         loaded += 1
 
     if loaded and "mode" not in reserved:
-        workspace.plugins.register_mode(CustomLoopController(store), workspace)
+        workspace.plugins.scope.add(
+            workspace.plugins.register_mode(
+                CustomLoopController(store),
+                workspace,
+            ),
+        )
 
 
 __all__ = ["load_custom_loop_modes"]

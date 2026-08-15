@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Tauri 会把与 tauri.conf.json 同目录的 Info.plist 合并进默认 Info.plist。
+
+  NSMicrophoneUsageDescription 不是「有更好」而是必需:WKWebView 在宿主
+  App 缺这个键时根本不暴露媒体捕获接口,navigator.mediaDevices 直接是
+  undefined,输入框的语音按钮只会报「当前环境不支持语音输入」——录音代码
+  一行都跑不到。Windows 的 WebView2 走系统权限,不看这里。
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Potato 需要使用麦克风,把你说的话转写成文字填进输入框。</string>
+  </dict>
+</plist>

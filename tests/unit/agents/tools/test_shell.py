@@ -37,6 +37,7 @@ from qwenpaw.agents.tools.shell import (
     _sanitize_win_cmd,
     _shell_basename,
     _windows_taskkill_args,
+    execute_shell_command,
     smart_decode,
 )
 from qwenpaw.sandbox import (
@@ -45,6 +46,53 @@ from qwenpaw.sandbox import (
     SandboxConfig,
     SandboxMode,
 )
+
+
+def _async_stream(data: bytes):
+    state = {"done": False}
+
+    async def read(_n=-1):
+        if state["done"]:
+            return b""
+        state["done"] = True
+        return data
+
+    stream = MagicMock()
+    stream.read = read
+    return stream
+
+
+def _mock_proc(stdout: bytes, stderr: bytes, returncode: int = 0):
+    proc = MagicMock()
+    proc.stdout = _async_stream(stdout)
+    proc.stderr = _async_stream(stderr)
+    proc.returncode = returncode
+    proc.pid = 12345
+
+    async def wait():
+        return returncode
+
+    proc.wait = wait
+    return proc
+
+
+async def _run_shell(*args, **kwargs):
+    result = await execute_shell_command(*args, **kwargs)
+    if not hasattr(result, "__aiter__"):
+        return result
+    chunks = []
+    async for chunk in result:
+        chunks.append(chunk)
+    last = chunks[-1]
+    text = "".join(
+        block.text
+        for chunk in chunks
+        for block in chunk.content
+        if getattr(block, "type", None) == "text"
+    )
+    if last.content:
+        last.content[0].text = text
+    return last
 
 
 # ---------------------------------------------------------------------------
@@ -516,12 +564,7 @@ class TestExecuteShellCommand:
         async def fake_wait_for(coro, timeout=None):
             return await coro
 
-        mock_proc = MagicMock()
-        mock_proc.communicate = AsyncMock(
-            return_value=(b"hello\n", b""),
-        )
-        mock_proc.returncode = 0
-        mock_proc.pid = 12345
+        mock_proc = _mock_proc(b"hello\n", b"", 0)
 
         with (
             patch(
@@ -533,14 +576,16 @@ class TestExecuteShellCommand:
                 side_effect=fake_wait_for,
             ),
         ):
-            from qwenpaw.agents.tools.shell import (
-                execute_shell_command,
-            )
-
-            result = await execute_shell_command("echo hello")
+            result = await _run_shell("echo hello")
             assert result.content is not None
             text = result.content[0].text
             assert "hello" in text
+            assert result.metadata["qp"] == {
+                "v": 1,
+                "kind": "shell",
+                "ok": True,
+                "data": {"sandboxed": False, "exit_code": 0},
+            }
 
     @pytest.mark.asyncio
     @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
@@ -559,12 +604,7 @@ class TestExecuteShellCommand:
         async def fake_wait_for(coro, timeout=None):
             return await coro
 
-        mock_proc = MagicMock()
-        mock_proc.communicate = AsyncMock(
-            return_value=(b"", b"error msg\n"),
-        )
-        mock_proc.returncode = 1
-        mock_proc.pid = 12345
+        mock_proc = _mock_proc(b"", b"error msg\n", 1)
 
         with (
             patch(
@@ -576,13 +616,27 @@ class TestExecuteShellCommand:
                 side_effect=fake_wait_for,
             ),
         ):
-            from qwenpaw.agents.tools.shell import (
-                execute_shell_command,
-            )
-
-            result = await execute_shell_command("false")
+            result = await _run_shell("false")
             text = result.content[0].text
             assert "failed" in text.lower() or "error" in text.lower()
+            assert result.metadata["qp"]["ok"] is False
+            assert result.metadata["qp"]["data"] == {
+                "sandboxed": False,
+                "exit_code": 1,
+            }
+
+    @pytest.mark.asyncio
+    async def test_blocked_command_omits_unavailable_exit_code(self):
+        from qwenpaw.agents.tools.shell import execute_shell_command
+
+        result = await execute_shell_command(f"kill {os.getpid()}")
+
+        assert result.metadata["qp"] == {
+            "v": 1,
+            "kind": "shell",
+            "ok": False,
+            "data": {"sandboxed": False},
+        }
 
     @pytest.mark.asyncio
     @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
@@ -601,10 +655,7 @@ class TestExecuteShellCommand:
         async def fake_wait_for(coro, timeout=None):
             return await coro
 
-        mock_proc = MagicMock()
-        mock_proc.communicate = AsyncMock(return_value=(b"", b""))
-        mock_proc.returncode = 0
-        mock_proc.pid = 12345
+        mock_proc = _mock_proc(b"", b"", 0)
 
         with (
             patch(
@@ -616,11 +667,7 @@ class TestExecuteShellCommand:
                 side_effect=fake_wait_for,
             ),
         ):
-            from qwenpaw.agents.tools.shell import (
-                execute_shell_command,
-            )
-
-            result = await execute_shell_command("")
+            result = await _run_shell("")
             text = result.content[0].text
             assert "successfully" in text.lower()
 
@@ -641,10 +688,7 @@ class TestExecuteShellCommand:
         async def fake_wait_for(coro, timeout=None):
             return await coro
 
-        mock_proc = MagicMock()
-        mock_proc.communicate = AsyncMock(return_value=(b"ok", b""))
-        mock_proc.returncode = 0
-        mock_proc.pid = 12345
+        mock_proc = _mock_proc(b"ok", b"", 0)
 
         with (
             patch(
@@ -656,12 +700,8 @@ class TestExecuteShellCommand:
                 side_effect=fake_wait_for,
             ),
         ):
-            from qwenpaw.agents.tools.shell import (
-                execute_shell_command,
-            )
-
             # timeout as string "30" should be converted to float
-            result = await execute_shell_command("echo ok", timeout="30")
+            result = await _run_shell("echo ok", timeout="30")
             assert result.content is not None
 
     @pytest.mark.asyncio
@@ -681,10 +721,7 @@ class TestExecuteShellCommand:
         async def fake_wait_for(coro, timeout=None):
             return await coro
 
-        mock_proc = MagicMock()
-        mock_proc.communicate = AsyncMock(return_value=(b"ok", b""))
-        mock_proc.returncode = 0
-        mock_proc.pid = 12345
+        mock_proc = _mock_proc(b"ok", b"", 0)
 
         with (
             patch(
@@ -696,12 +733,8 @@ class TestExecuteShellCommand:
                 side_effect=fake_wait_for,
             ),
         ):
-            from qwenpaw.agents.tools.shell import (
-                execute_shell_command,
-            )
-
             # Invalid timeout string falls back to 60.0 default
-            result = await execute_shell_command(
+            result = await _run_shell(
                 "echo ok",
                 timeout="invalid",
             )
@@ -789,3 +822,39 @@ class TestExecuteShellCommand:
             "MASKED_SECRET": "",
         }
         assert config.timeout_seconds == 30
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX live shell streaming",
+    )
+    async def test_slow_command_streams_chunks_qp_only_on_last(
+        self,
+        tmp_path,
+    ):
+        script = tmp_path / "slow.py"
+        script.write_text(
+            "import time\n"
+            "for i in range(5):\n"
+            "    print(f'line{i}', flush=True)\n"
+            "    time.sleep(0.22)\n",
+            encoding="utf-8",
+        )
+        cmd = f"{sys.executable} {script}"
+        result = await execute_shell_command(cmd, cwd=tmp_path, timeout=10)
+        assert hasattr(result, "__aiter__")
+        chunks = []
+        async for chunk in result:
+            chunks.append(chunk)
+
+        non_last = [chunk for chunk in chunks if not chunk.is_last]
+        assert len(non_last) >= 2
+        for chunk in non_last:
+            assert "qp" not in (chunk.metadata or {})
+
+        last = chunks[-1]
+        assert last.is_last is True
+        assert "qp" in last.metadata
+        joined = "".join(chunk.content[0].text for chunk in chunks)
+        assert "line0" in joined
+        assert "line4" in joined

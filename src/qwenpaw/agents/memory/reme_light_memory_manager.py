@@ -23,7 +23,6 @@ from .base_memory_manager import BaseMemoryManager, memory_registry
 from .prompts import build_memory_guidance_prompt
 from .reme_config import get_reme_app_config
 from ..model_factory import create_model_and_formatter
-from ...app.inbox_store import append_event as append_inbox_event
 from ...config import load_config
 from ...config.config import load_agent_config, AgentProfileConfig
 
@@ -36,10 +35,6 @@ logger = logging.getLogger(__name__)
 os.environ.setdefault("REME_DISABLE_LOGURU", "true")
 
 NO_MEMORY_RESULTS = "(no memory results)"
-INBOX_RESULT_JOB_NAMES = {"auto_memory", "auto_dream", "auto_resource"}
-INBOX_RESULT_HOOK_KEY = "qwenpaw_memory_result_hook"
-INBOX_EMITTED_METADATA_KEY = "_qwenpaw_inbox_emitted"
-MAX_INBOX_BODY_CHARS = 4000
 _AUTO_SEARCH_DEDUP_PREFIX = "auto_memory_search:"
 _AUTO_SEARCH_DEDUP_TTL_SECONDS = 24 * 60 * 60
 _REME_TOOL_CONTEXTS_KEY = "tool_contexts"
@@ -141,7 +136,6 @@ class ReMeLightMemoryManager(BaseMemoryManager):
                     ),
                 ),
             )
-            self._install_reme_result_hook()
         except Exception as exc:
             logger.warning("ReMe import failed; memory disabled: %s", exc)
 
@@ -235,153 +229,10 @@ class ReMeLightMemoryManager(BaseMemoryManager):
             if needs_llm:
                 await self._update_qwenpaw_model()
             response = await self._reme.run_job(name, **kwargs)
-            await self._append_reme_job_result_to_inbox(
-                name,
-                response=response,
-                kwargs=kwargs,
-            )
             return response
         except Exception:
             logger.exception("ReMe job failed: %s", name)
             return None
-
-    def _install_reme_result_hook(self) -> None:
-        """Expose QwenPaw inbox delivery to ReMe background steps."""
-        if self._reme is None:
-            return
-        context = getattr(self._reme, "context", None)
-        metadata = getattr(context, "metadata", None)
-        if not isinstance(metadata, dict):
-            logger.debug("ReMe result hook skipped; metadata unavailable")
-            return
-        metadata[INBOX_RESULT_HOOK_KEY] = self._handle_reme_result_hook
-
-    async def _handle_reme_result_hook(
-        self,
-        *,
-        job_name: str,
-        response: "Response",
-        kwargs: dict[str, Any] | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
-        """Handle result notifications emitted from ReMe background steps."""
-        del metadata
-        await self._append_reme_job_result_to_inbox(
-            job_name,
-            response=response,
-            kwargs=kwargs or {},
-        )
-
-    async def _append_reme_job_result_to_inbox(
-        self,
-        name: str,
-        *,
-        response: "Response",
-        kwargs: dict[str, Any],
-    ) -> bool:
-        if name not in INBOX_RESULT_JOB_NAMES:
-            return False
-        memory_config = self.get_memory_config()
-        if not memory_config.inbox_push_enabled:
-            logger.info(
-                "ReMe job result inbox push disabled: "
-                "agent_id=%s job_name=%s",
-                self.agent_id,
-                name,
-            )
-            return False
-        response_metadata = getattr(response, "metadata", None)
-        if isinstance(response_metadata, dict) and response_metadata.get(
-            INBOX_EMITTED_METADATA_KEY,
-        ):
-            return False
-        if (
-            name in {"auto_memory", "auto_resource"}
-            and isinstance(response_metadata, dict)
-            and response_metadata.get("modified") is False
-        ):
-            logger.info(
-                "ReMe job result inbox push skipped; no memory change: "
-                "agent_id=%s job_name=%s modified=False",
-                self.agent_id,
-                name,
-            )
-            return False
-
-        answer = str(getattr(response, "answer", "") or "").strip()
-        if len(answer) > MAX_INBOX_BODY_CHARS:
-            answer = f"{answer[:MAX_INBOX_BODY_CHARS].rstrip()}\n..."
-        success = bool(getattr(response, "success", False))
-        title = self._inbox_result_title(name)
-        body = answer or self._empty_inbox_result_body(name)
-        payload: dict[str, Any] = {
-            "job_name": name,
-            "session_id": str(kwargs.get("session_id") or ""),
-            "date": str(kwargs.get("date") or ""),
-            "hint": str(
-                kwargs.get("memory_hint") or kwargs.get("hint") or "",
-            ),
-        }
-        if name == "auto_resource":
-            changes = kwargs.get("changes") or []
-            if isinstance(changes, list):
-                payload["change_count"] = len(changes)
-            if isinstance(response_metadata, dict):
-                payload["processed"] = response_metadata.get("processed")
-
-        try:
-            event = await append_inbox_event(
-                agent_id=self.agent_id,
-                source_type="memory",
-                source_id=name,
-                event_type=f"{name}_result",
-                status="success" if success else "error",
-                severity="info" if success else "error",
-                title=title,
-                body=body,
-                payload=payload,
-            )
-            if isinstance(response_metadata, dict):
-                response_metadata[INBOX_EMITTED_METADATA_KEY] = True
-            logger.info(
-                "ReMe job result pushed to inbox: "
-                "agent_id=%s job_name=%s event_id=%s status=%s modified=%s",
-                self.agent_id,
-                name,
-                event.get("id"),
-                event.get("status"),
-                response_metadata.get("modified")
-                if isinstance(response_metadata, dict)
-                else None,
-            )
-            return True
-        except Exception:  # pylint: disable=broad-except
-            logger.exception(
-                "failed to push ReMe job result to inbox: "
-                "agent_id=%s job_name=%s success=%s",
-                self.agent_id,
-                name,
-                success,
-            )
-            return False
-
-    @staticmethod
-    def _inbox_result_title(name: str) -> str:
-        return {
-            "auto_memory": "Auto-memory result",
-            "auto_dream": "Auto-dream result",
-            "auto_resource": "Auto-resource result",
-        }.get(name, "Memory job result")
-
-    @staticmethod
-    def _empty_inbox_result_body(name: str) -> str:
-        return {
-            "auto_memory": "Auto-memory completed with no returned content.",
-            "auto_dream": "Auto-dream completed with no returned content.",
-            "auto_resource": (
-                "Auto-resource completed with no returned content."
-            ),
-        }.get(name, "Memory job completed with no returned content.")
 
     async def memory_search(
         self,

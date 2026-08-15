@@ -4,7 +4,8 @@ import {
   toolPairStatus,
   type ToolPair,
 } from "../components/chat/ToolCard";
-import { lineDiff } from "./lineDiff";
+import { lineDiff, type DiffLine } from "./lineDiff";
+import { qpCount, recordLegacyParse } from "./toolMeta";
 import type { StreamMessage } from "./stream";
 
 export type FileChangeTool = "write_file" | "edit_file" | "append_file";
@@ -43,6 +44,18 @@ const CHANGE_TOOLS = new Set<string>([
   "edit_file",
   "append_file",
 ]);
+
+/**
+ * 单次调用的 ±行数,供工具行内联展示:qp meta 真值优先,历史会话回落
+ * 本地估算(与汇总卡同一套算法)。读取/发送等非改动工具返回 null。
+ */
+export function pairChangeStats(
+  pair: ToolPair,
+): { additions: number; deletions: number } | null {
+  if (!CHANGE_TOOLS.has(pair.name)) return null;
+  const edit = computeEdit("row-stats", pair);
+  return edit ? { additions: edit.additions, deletions: edit.deletions } : null;
+}
 
 /**
  * 从消息流聚合文件改动。传整个会话得到会话级列表(侧栏「改动」tab),
@@ -109,6 +122,57 @@ export function totalChangeStats(changes: FileChange[]): {
   return { files: changes.length, additions, deletions };
 }
 
+/** 轨道内联 diff 最多渲染这么多行;超出点截断行进侧栏。 */
+export const INLINE_DIFF_MAX_LINES = 120;
+
+/**
+ * 单次改动的展示行:edit 走 lineDiff;write/append 全是 add;
+ * oversized 与侧栏一致,整块删 + 整块加,不跑行级对齐。
+ */
+export function editDiffLines(
+  edit: Pick<FileEdit, "tool" | "before" | "after" | "oversized">,
+): DiffLine[] {
+  if (edit.tool !== "edit_file") {
+    return splitContentLines(edit.after).map((text) => ({
+      kind: "add" as const,
+      text,
+    }));
+  }
+  if (edit.oversized) {
+    return [
+      ...splitContentLines(edit.before).map((text) => ({
+        kind: "remove" as const,
+        text,
+      })),
+      ...splitContentLines(edit.after).map((text) => ({
+        kind: "add" as const,
+        text,
+      })),
+    ];
+  }
+  return lineDiff(edit.before, edit.after);
+}
+
+export function visibleDiffLines<T>(
+  lines: readonly T[],
+  max = INLINE_DIFF_MAX_LINES,
+): { visible: T[]; truncated: number } {
+  if (lines.length <= max) return { visible: [...lines], truncated: 0 };
+  return { visible: lines.slice(0, max), truncated: lines.length - max };
+}
+
+/** 行内 ± / diff 块共用:完成态走缓存,流式中按当前参数现算。 */
+export function pairFileEdit(pair: ToolPair): FileEdit | null {
+  const messageId = pair.call?.id ?? pair.callId ?? "inline";
+  const cached = successfulEdit(messageId, pair);
+  if (cached || toolPairStatus(pair).completed) return cached;
+  return computeEdit(messageId, pair);
+}
+
+function splitContentLines(value: string): string[] {
+  return value === "" ? [] : value.split("\n");
+}
+
 /** write 覆盖 edit/append;edit 覆盖 append。表达"这个文件本会话被整写过"。 */
 function mergeKind(
   current: FileChangeTool,
@@ -145,6 +209,15 @@ function successfulEdit(messageId: string, pair: ToolPair): FileEdit | null {
 function computeEdit(messageId: string, pair: ToolPair): FileEdit | null {
   const parameters = parseArguments(pair.arguments);
   const tool = pair.name as FileChangeTool;
+  // ±行数优先读后端 qp meta:那是对执行前后真实内容做的 diff,
+  // 覆盖全局多次替换与覆盖写这两个本地估算天生算不准的情形。
+  // before/after 仍取自参数——diff 面板展示的是模型提交的改动原文。
+  const metaAdditions = qpCount(pair.meta, "additions");
+  const metaDeletions = qpCount(pair.meta, "deletions");
+  const metaCounts =
+    metaAdditions !== null && metaDeletions !== null
+      ? { additions: metaAdditions, deletions: metaDeletions }
+      : null;
 
   if (tool === "edit_file") {
     const before =
@@ -152,6 +225,10 @@ function computeEdit(messageId: string, pair: ToolPair): FileEdit | null {
     const after =
       typeof parameters.new_text === "string" ? parameters.new_text : "";
     if (!before && !after) return null;
+    if (metaCounts) {
+      return { messageId, tool, before, after, ...metaCounts };
+    }
+    recordLegacyParse("F7:lcs-estimate");
     const beforeLines = lineCount(before);
     const afterLines = lineCount(after);
     // 注意:后端 edit_file 是全局替换,old_text 多次出现时实际改动
@@ -176,11 +253,15 @@ function computeEdit(messageId: string, pair: ToolPair): FileEdit | null {
     return { messageId, tool, before, after, additions, deletions };
   }
 
-  // write/append 没有旧文本可比,按"新增全部行"计(覆盖写会高估,
-  // 精确数字以 git diff 视图为准);不跑 LCS,避免大文件卡顿。
+  // write/append 没有旧文本可比。无 meta 时按"新增全部行"计
+  // (覆盖写会高估,精确数字以 git diff 视图为准);不跑 LCS。
   // content 缺失/非字符串视为畸形调用跳过;空字符串是合法的"清空写入"。
   const content = parameters.content;
   if (typeof content !== "string") return null;
+  if (metaCounts) {
+    return { messageId, tool, before: "", after: content, ...metaCounts };
+  }
+  recordLegacyParse("F7:write-full-count");
   return {
     messageId,
     tool,

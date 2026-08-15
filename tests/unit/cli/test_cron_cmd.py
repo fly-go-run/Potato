@@ -77,7 +77,6 @@ def _update(full_spec: dict, **overrides) -> dict:
         "enabled": None,
         "mode": None,
         "silent": None,
-        "save_result_to_inbox": None,
         "share_session": None,
         "timeout_seconds": None,
         "tool_safety": None,

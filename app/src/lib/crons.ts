@@ -43,7 +43,6 @@ export interface CronJobSpec {
     [key: string]: unknown;
   } | null;
   dispatch: CronDispatch;
-  save_result_to_inbox?: boolean;
   runtime?: Record<string, unknown>;
   meta?: Record<string, unknown>;
 }

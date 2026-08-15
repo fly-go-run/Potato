@@ -134,3 +134,26 @@ async def test_put_language_preserves_other_settings(
     data = json.loads(_use_tmp_settings.read_text("utf-8"))
     assert data["language"] == "zh"
     assert data["theme"] == "dark"
+
+
+# ── GET /settings/upload-limit ──────────────────────────────────────────
+
+
+async def test_get_upload_limit_uses_effective_default(api_client):
+    """The UI should see the same default enforced by upload endpoints."""
+    with patch("qwenpaw.app.routers.settings.UPLOAD_MAX_SIZE_MB", None):
+        async with api_client:
+            resp = await api_client.get("/api/settings/upload-limit")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"upload_max_size_mb": 200}
+
+
+async def test_get_upload_limit_uses_configured_override(api_client):
+    """An environment override should replace the 200 MB default."""
+    with patch("qwenpaw.app.routers.settings.UPLOAD_MAX_SIZE_MB", 256):
+        async with api_client:
+            resp = await api_client.get("/api/settings/upload-limit")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"upload_max_size_mb": 256}

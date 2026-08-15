@@ -179,33 +179,6 @@ def test_concurrent_workspace_file_writes(app_server) -> None:
     ), f"unexpected content: {content!r}"
 
 
-@pytest.mark.integration
-@pytest.mark.p2
-def test_concurrent_inbox_list_does_not_crash(app_server) -> None:
-    """Test purpose:
-    - Verify N concurrent GET /api/console/inbox/events do not return
-      5xx — the inbox store's asyncio.Lock must serialize cleanly.
-
-    API endpoints:
-    - GET /api/console/inbox/events
-    """
-
-    def _get(_):
-        return app_server.api_request(
-            "GET",
-            "/api/console/inbox/events",
-            timeout=_HTTP_TIMEOUT,
-        )
-
-    with ThreadPoolExecutor(max_workers=10) as ex:
-        results = list(ex.map(_get, range(20)))
-
-    for resp in results:
-        assert (
-            resp.status_code == 200
-        ), f"inbox list crashed: {resp.status_code} {resp.text[:200]}"
-
-
 # ------------------------------------------------------------------ #
 # C. File size limits
 # ------------------------------------------------------------------ #

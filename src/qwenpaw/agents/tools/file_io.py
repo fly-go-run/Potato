@@ -21,13 +21,25 @@ from ...config.context import (
 )
 from ...constant import WORKING_DIR
 from ...runtime.tool_registry import tool_descriptor
+from ...runtime.tool_meta import build_qp_meta, count_line_changes
 from ...utils.io_utils import (
-    append_text_async,
     get_path_lock,
+    run_sync_io,
     write_text_atomic_async,
 )
 
 _USER_FILE_MODE = 0o644
+
+
+def _qp_metadata(kind: str, ok: bool, path: str, **data) -> dict:
+    return {"qp": build_qp_meta(kind, ok, {"path": path, **data})}
+
+
+def _append_text_locked(path: str, content: str, encoding: str) -> None:
+    """Append while the async caller owns the path transaction lock."""
+
+    with open(path, "a", encoding=encoding) as handle:
+        handle.write(content)
 
 
 def _path_to_file_url(path: str) -> str:
@@ -136,6 +148,7 @@ async def read_file(  # pylint: disable=too-many-return-statements
                         text=f"Error: start_line must be an integer, got {start_line!r}.",
                     ),
                 ],
+                metadata=_qp_metadata("file_read", False, file_path),
             )
 
     if end_line is not None:
@@ -151,6 +164,7 @@ async def read_file(  # pylint: disable=too-many-return-statements
                         text=f"Error: end_line must be an integer, got {end_line!r}.",
                     ),
                 ],
+                metadata=_qp_metadata("file_read", False, file_path),
             )
 
     file_path = _resolve_file_path(file_path)
@@ -174,6 +188,7 @@ async def read_file(  # pylint: disable=too-many-return-statements
                         text=f"Error: start_line {s} exceeds file length ({total} lines).",
                     ),
                 ],
+                metadata=_qp_metadata("file_read", False, file_path),
             )
 
         if s > e:
@@ -186,6 +201,7 @@ async def read_file(  # pylint: disable=too-many-return-statements
                         text=f"Error: start_line ({s}) > end_line ({e}).",
                     ),
                 ],
+                metadata=_qp_metadata("file_read", False, file_path),
             )
 
         # Extract selected lines
@@ -222,7 +238,18 @@ async def read_file(  # pylint: disable=too-many-return-statements
             is_last=True,
             state=ToolResultState.SUCCESS,
             content=[TextBlock(type="text", text=text)],
-            metadata=metadata,
+            metadata={
+                **metadata,
+                **_qp_metadata(
+                    "file_read",
+                    True,
+                    file_path,
+                    bytes_read=len(selected_content.encode("utf-8")),
+                    line_start=s,
+                    line_end=e,
+                    total_lines=total,
+                ),
+            },
         )
 
     except FileNotFoundError:
@@ -235,6 +262,7 @@ async def read_file(  # pylint: disable=too-many-return-statements
                     text=f"Error: The file {file_path} does not exist.",
                 ),
             ],
+            metadata=_qp_metadata("file_read", False, file_path),
         )
     except IsADirectoryError:
         return ToolChunk(
@@ -246,6 +274,7 @@ async def read_file(  # pylint: disable=too-many-return-statements
                     text=f"Error: The path {file_path} is not a file.",
                 ),
             ],
+            metadata=_qp_metadata("file_read", False, file_path),
         )
     except Exception as e:
         return ToolChunk(
@@ -257,6 +286,7 @@ async def read_file(  # pylint: disable=too-many-return-statements
                     text=f"Error: Read file failed due to \n{e}",
                 ),
             ],
+            metadata=_qp_metadata("file_read", False, file_path),
         )
 
 
@@ -292,6 +322,7 @@ async def write_file(
                     text="Error: No `file_path` provided.",
                 ),
             ],
+            metadata=_qp_metadata("file_write", False, file_path),
         )
 
     file_path = _resolve_file_path(file_path)
@@ -299,12 +330,16 @@ async def write_file(
 
     try:
         async with get_path_lock(file_path):
+            created = not os.path.exists(file_path)
+            before = "" if created else await read_file_safe(file_path)
             await write_text_atomic_async(
                 file_path,
                 content,
                 encoding=encoding,
                 new_file_mode=_USER_FILE_MODE,
             )
+            additions, deletions = count_line_changes(before, content)
+            bytes_written = os.path.getsize(file_path)
         return ToolChunk(
             is_last=True,
             state=ToolResultState.SUCCESS,
@@ -314,6 +349,15 @@ async def write_file(
                     text=f"Wrote {len(content)} bytes to {file_path}.",
                 ),
             ],
+            metadata=_qp_metadata(
+                "file_write",
+                True,
+                file_path,
+                bytes_written=bytes_written,
+                additions=additions,
+                deletions=deletions,
+                created=created,
+            ),
         )
     except Exception as e:
         return ToolChunk(
@@ -325,6 +369,7 @@ async def write_file(
                     text=f"Error: Write file failed due to \n{e}",
                 ),
             ],
+            metadata=_qp_metadata("file_write", False, file_path),
         )
 
 
@@ -365,6 +410,7 @@ async def edit_file(
                     text="Error: No `file_path` provided.",
                 ),
             ],
+            metadata=_qp_metadata("file_edit", False, file_path),
         )
 
     resolved_path = _resolve_file_path(file_path)
@@ -386,6 +432,7 @@ async def edit_file(
                         ),
                     ),
                 ],
+                metadata=_qp_metadata("file_edit", False, resolved_path),
             )
         except IsADirectoryError:
             return ToolChunk(
@@ -400,6 +447,7 @@ async def edit_file(
                         ),
                     ),
                 ],
+                metadata=_qp_metadata("file_edit", False, resolved_path),
             )
         except Exception as e:
             return ToolChunk(
@@ -411,6 +459,7 @@ async def edit_file(
                         text=f"Error: Read file failed due to \n{e}",
                     ),
                 ],
+                metadata=_qp_metadata("file_edit", False, resolved_path),
             )
 
         if old_text not in content:
@@ -423,9 +472,11 @@ async def edit_file(
                         text=f"Error: The text to replace was not found in {file_path}.",
                     ),
                 ],
+                metadata=_qp_metadata("file_edit", False, resolved_path),
             )
 
         try:
+            replacements = content.count(old_text)
             new_content = content.replace(old_text, new_text)
             await write_text_atomic_async(
                 resolved_path,
@@ -433,6 +484,7 @@ async def edit_file(
                 encoding=encoding,
                 new_file_mode=_USER_FILE_MODE,
             )
+            additions, deletions = count_line_changes(content, new_content)
         except Exception as e:
             return ToolChunk(
                 is_last=True,
@@ -443,6 +495,7 @@ async def edit_file(
                         text=f"Error: Write file failed due to \n{e}",
                     ),
                 ],
+                metadata=_qp_metadata("file_edit", False, resolved_path),
             )
 
     return ToolChunk(
@@ -454,6 +507,14 @@ async def edit_file(
                 text=f"Successfully replaced text in {file_path}.",
             ),
         ],
+        metadata=_qp_metadata(
+            "file_edit",
+            True,
+            resolved_path,
+            replacements=replacements,
+            additions=additions,
+            deletions=deletions,
+        ),
     )
 
 
@@ -491,17 +552,26 @@ async def append_file(
                     text="Error: No `file_path` provided.",
                 ),
             ],
+            metadata=_qp_metadata("file_write", False, file_path),
         )
 
     file_path = _resolve_file_path(file_path)
     encoding = _get_encoding_for_file(file_path)
 
     try:
-        await append_text_async(
-            file_path,
-            content,
-            encoding=encoding,
-        )
+        async with get_path_lock(file_path):
+            created = not os.path.exists(file_path)
+            before = "" if created else await read_file_safe(file_path)
+            before_size = 0 if created else os.path.getsize(file_path)
+            await run_sync_io(
+                _append_text_locked,
+                file_path,
+                content,
+                encoding,
+            )
+            after = await read_file_safe(file_path)
+            additions, deletions = count_line_changes(before, after)
+            bytes_written = os.path.getsize(file_path) - before_size
         return ToolChunk(
             is_last=True,
             state=ToolResultState.SUCCESS,
@@ -511,6 +581,15 @@ async def append_file(
                     text=f"Appended {len(content)} bytes to {file_path}.",
                 ),
             ],
+            metadata=_qp_metadata(
+                "file_write",
+                True,
+                file_path,
+                bytes_written=bytes_written,
+                additions=additions,
+                deletions=deletions,
+                created=created,
+            ),
         )
     except Exception as e:
         return ToolChunk(
@@ -522,4 +601,5 @@ async def append_file(
                     text=f"Error: Append file failed due to \n{e}",
                 ),
             ],
+            metadata=_qp_metadata("file_write", False, file_path),
         )

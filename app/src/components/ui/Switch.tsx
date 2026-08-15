@@ -34,7 +34,7 @@ export function Switch({
         "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-[var(--dur-fast)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
         "disabled:opacity-40",
-        checked ? "bg-btn-primary" : "bg-line-strong",
+        checked ? "bg-tint" : "bg-line-strong",
         className,
       )}
     >

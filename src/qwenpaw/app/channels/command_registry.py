@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from typing import Dict
 
+from ...runtime.registration import RegistrationHandle
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +54,7 @@ class CommandRegistry:
 
         # Command prefix → priority level (fast lookup)
         self._command_to_level: Dict[str, int] = {}
+        self._command_tokens: Dict[str, object] = {}
 
         # Default priority level for unknown commands
         self._default_level = 20  # normal
@@ -96,7 +99,7 @@ class CommandRegistry:
         command_prefix: str,
         priority: str | None = None,
         priority_level: int | None = None,
-    ) -> None:
+    ) -> RegistrationHandle:
         """Register command to priority level.
 
         Args:
@@ -131,11 +134,22 @@ class CommandRegistry:
 
         # Register to lookup table
         prefix_lower = command_prefix.lower()
+        token = object()
         self._command_to_level[prefix_lower] = level
+        self._command_tokens[prefix_lower] = token
 
         logger.info(
             f"Registered command: {command_prefix} → level={level}",
         )
+        return RegistrationHandle(
+            lambda: self._unregister_identity(prefix_lower, token),
+            tag=f"command-priority:{prefix_lower}",
+        )
+
+    def _unregister_identity(self, key: str, token: object) -> None:
+        if self._command_tokens.get(key) is token:
+            self._command_tokens.pop(key, None)
+            self._command_to_level.pop(key, None)
 
     def is_control_command(self, query: str) -> bool:
         """Check if query is a registered control command.
@@ -275,6 +289,7 @@ class CommandRegistry:
             )
             return False
         del self._command_to_level[key]
+        self._command_tokens.pop(key, None)
         logger.info(f"Unregistered command from priority registry: {key}")
         return True
 
