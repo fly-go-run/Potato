@@ -1,4 +1,4 @@
-import { PanelLeft, Search, SquarePen } from "lucide-react";
+import { PanelLeft, SquarePen } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { MouseEvent } from "react";
 import { isMacDesktopShell, startDesktopWindowDrag } from "../../lib/desktop";
@@ -11,13 +11,11 @@ import { useUiStore } from "../../stores/ui";
 export const chromeIconClass =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-icon transition-colors duration-[150ms] ease-out hover:bg-fill-hover hover:text-icon-strong active:bg-fill-active";
 
-/** 对标 ChatGPT 桌面端：红绿灯右侧并排侧栏 / 新建 / 搜索。 */
+/** 红绿灯右侧并排：侧栏开关 / 新建。搜索走侧栏导航行或 ⌘K。 */
 export function ChromeActions({
   sidebarCollapsed,
-  onSearch,
 }: {
   sidebarCollapsed: boolean;
-  onSearch: () => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -51,15 +49,6 @@ export function ChromeActions({
       >
         <SquarePen size={16} strokeWidth={1.75} />
       </button>
-      <button
-        type="button"
-        title={`${t("sidebar.searchChats")} · ${shortcutLabel("K")}`}
-        aria-label={t("sidebar.searchChats")}
-        onClick={onSearch}
-        className={chromeIconClass}
-      >
-        <Search size={16} strokeWidth={1.75} />
-      </button>
     </>
   );
 }
@@ -68,7 +57,7 @@ export function ChromeActions({
  * 侧栏收起：三个按钮贴在左上角顶栏，和红绿灯同一行。
  * 会话路由下按钮右侧补当前会话名，避免收起后丢标题。
  */
-export function CollapsedRail({ onSearch }: { onSearch: () => void }) {
+export function CollapsedRail() {
   const location = useLocation();
   const chats = useChatStore((state) => state.chats);
   const activeChatId = useChatStore((state) => state.activeChatId);
@@ -102,7 +91,7 @@ export function CollapsedRail({ onSearch }: { onSearch: () => void }) {
         mac ? "pl-[4.75rem] pr-2" : "pl-3 pr-2"
       }`}
     >
-      <ChromeActions sidebarCollapsed onSearch={onSearch} />
+      <ChromeActions sidebarCollapsed />
       {isChatRoute && title && (
         <span
           data-tauri-drag-region={mac || undefined}

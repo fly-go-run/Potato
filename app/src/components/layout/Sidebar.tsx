@@ -118,7 +118,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           isMacDesktopShell() ? "pl-[4.75rem] pr-2" : "px-2"
         }`}
       >
-        <ChromeActions sidebarCollapsed={false} onSearch={onSearch} />
+        <ChromeActions sidebarCollapsed={false} />
         <div data-tauri-drag-region className="min-w-2 flex-1 self-stretch" />
       </div>
 

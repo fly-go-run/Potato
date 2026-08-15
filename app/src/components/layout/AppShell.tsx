@@ -123,7 +123,7 @@ export function AppShell() {
         />
       )}
       {sidebarCollapsed ? (
-        <CollapsedRail onSearch={() => setSearchOpen(true)} />
+        <CollapsedRail />
       ) : (
         <Sidebar onSearch={() => setSearchOpen(true)} />
       )}
