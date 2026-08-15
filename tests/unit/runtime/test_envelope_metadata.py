@@ -423,3 +423,56 @@ async def test_tool_call_start_and_end_include_registry_icon():
         ),
     )
     assert final["data"]["ui"] == {"icon": "📄"}
+
+
+@pytest.mark.asyncio
+async def test_answer_phase_passthrough_and_absent():
+    """Stamp commentary/final_answer onto the durable SSE message; omit if missing."""
+    present = Envelope()
+    for event in (
+        _event(
+            EventType.TEXT_BLOCK_START,
+            block_id="text",
+            metadata={"phase": "commentary"},
+        ),
+        _event(
+            EventType.TEXT_BLOCK_DELTA,
+            block_id="text",
+            delta="hi",
+            metadata={"phase": "commentary"},
+        ),
+        _event(
+            EventType.TEXT_BLOCK_END,
+            block_id="text",
+            metadata={"phase": "commentary"},
+        ),
+    ):
+        await _translate(present, event)
+    completed = await _dump(present.finalize())
+    messages = [
+        payload for payload in completed if payload.get("object") == "message"
+    ]
+    assert messages
+    assert messages[0]["metadata"] == {"phase": "commentary"}
+
+    absent = Envelope()
+    for event in (
+        _event(EventType.TEXT_BLOCK_START, block_id="text", metadata={}),
+        _event(
+            EventType.TEXT_BLOCK_DELTA,
+            block_id="text",
+            delta="hi",
+            metadata={},
+        ),
+        _event(EventType.TEXT_BLOCK_END, block_id="text", metadata={}),
+    ):
+        await _translate(absent, event)
+    completed_absent = await _dump(absent.finalize())
+    messages_absent = [
+        payload
+        for payload in completed_absent
+        if payload.get("object") == "message"
+    ]
+    assert messages_absent
+    metadata = messages_absent[0].get("metadata")
+    assert metadata is None or "phase" not in metadata

@@ -325,6 +325,20 @@ describe("stream reducer", () => {
     expect(corrected.clearHistoryVersion).toBe(1);
   });
 
+  it("preserves optional answer phase on message metadata", () => {
+    const state = reduceStreamFrame(initialConversationStreamState, {
+      object: "message",
+      id: "msg_phase",
+      type: "message",
+      role: "assistant",
+      content: [],
+      status: "in_progress",
+      metadata: { phase: "commentary" },
+      sequence_number: 1,
+    });
+    expect(state.messages[0]?.metadata).toEqual({ phase: "commentary" });
+  });
+
   it("ignores duplicate or out-of-order sequence numbers", () => {
     const frames = parseFixture("simple-text.sse.txt");
     const current = reduceStreamFrames(frames.slice(0, 5));
