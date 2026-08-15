@@ -331,12 +331,20 @@ describe("materializeRun merge", () => {
           expect.objectContaining({ id: "r2" }),
         ],
         text: "first thought\n\nsecond thought",
+        title: null,
       },
     });
   });
 
-  it("keeps an in-flight empty reasoning as a fold-row", () => {
+  it("drops in-flight reasoning from fold-rows", () => {
     const items = materializeRun([reasoning("r1", "", "in_progress")]);
+    expect(items).toEqual([]);
+  });
+
+  it("keeps completed titled reasoning as a fold-row with the first bold", () => {
+    const items = materializeRun([
+      reasoning("r1", "**Exploring codebase**\n\nlooking around"),
+    ]);
     expect(items).toEqual([
       {
         kind: "fold",
@@ -344,10 +352,23 @@ describe("materializeRun merge", () => {
           type: "thinking",
           key: "r1",
           messages: [expect.objectContaining({ id: "r1" })],
-          text: "",
+          text: "**Exploring codebase**\n\nlooking around",
+          title: "Exploring codebase",
         },
       },
     ]);
+  });
+
+  it("does not merge a completed thought into a following in-flight one", () => {
+    const items = materializeRun([
+      reasoning("r1", "**Done looking**"),
+      reasoning("r2", "**Next**", "in_progress"),
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "fold",
+      row: { type: "thinking", key: "r1", title: "Done looking" },
+    });
   });
 
   it("emits completed progress as a direct fold-row", () => {
@@ -566,23 +587,25 @@ describe("focus and 8-row window", () => {
     expect(window.overflowAt).toBeNull();
   });
 
-  it("prefers the last active tool pair over in-flight thinking", () => {
+  it("prefers the last active tool pair and ignores in-flight thinking", () => {
     const rowsWithFocus = foldRowsOf([
       reasoning("r1", "thinking", "in_progress"),
       successPair("s1", "web_search", { search_term: "done" }),
       runningPair("s2", "web_search", { search_term: "now" }),
       reasoning("r2", "later", "in_progress"),
     ]);
+    expect(rowsWithFocus.map((row) => row.key)).toEqual(["s1", "s2"]);
     expect(focusFoldRowKey(rowsWithFocus, true)).toBe("s2");
     expect(focusFoldRowKey(rowsWithFocus, false)).toBeNull();
   });
 
-  it("falls back to the last in-flight thinking row", () => {
+  it("does not pin a settled thinking row as the live focus", () => {
     const rowsWithThinking = foldRowsOf([
       successPair("s1", "web_search", { search_term: "done" }),
       reasoning("r1", "one", "completed"),
       reasoning("r2", "", "in_progress"),
     ]);
-    expect(focusFoldRowKey(rowsWithThinking, true)).toBe("r1");
+    expect(rowsWithThinking.map((row) => row.key)).toEqual(["s1", "r1"]);
+    expect(focusFoldRowKey(rowsWithThinking, true)).toBeNull();
   });
 });

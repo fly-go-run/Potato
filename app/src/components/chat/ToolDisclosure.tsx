@@ -19,6 +19,8 @@ export function ToolDisclosure({
   toggleGrow = true,
   detailClassName = "",
   failed = false,
+  open: openProp,
+  onToggle,
   children,
 }: {
   /** 展开按钮内的主内容(工具名、命令等,不含交互控件)。 */
@@ -35,10 +37,17 @@ export function ToolDisclosure({
    */
   detailClassName?: string;
   failed?: boolean;
+  /** 受控开合;与 onToggle 成对,给 fold-row 的 raw/summary。 */
+  open?: boolean;
+  onToggle?: () => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const toggleOpen = () => setOpen((value) => !value);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = onToggle ? Boolean(openProp) : internalOpen;
+  const toggleOpen = () => {
+    if (onToggle) onToggle();
+    else setInternalOpen((value) => !value);
+  };
   const onButtonClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     toggleOpen();

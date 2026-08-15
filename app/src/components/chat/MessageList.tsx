@@ -46,6 +46,7 @@ import {
 } from "../../lib/executionTrack";
 import { skillDisplayName } from "../../lib/skillPresentation";
 import {
+  FOLD_WINDOW,
   focusFoldRowKey,
   materializeRun,
   windowFoldRows,
@@ -56,8 +57,10 @@ import {
 } from "../../lib/stepGroups";
 import { buildTimeline } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
-import { historyTurnDuration } from "../../lib/historyTurnDuration";
+import { historyTurnElapsedMs } from "../../lib/historyTurnDuration";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
+import { extractFirstBold } from "../../lib/reasoningTitle";
+import { textFromContent } from "../../lib/content";
 import { useNow } from "../../lib/useNow";
 import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
@@ -504,10 +507,10 @@ function FileChangesCard({
  * 轨道总耗时:首个有计时的条目开始 → 最后一个收口;now 非空(仍有
  * 条目运行)时用它实时计。历史加载的会话没有计时,返回空串即隐藏。
  */
-function trackDurationLabel(
+function trackElapsedMs(
   entries: ProcessEntry[],
   now: number | null,
-): string {
+): number | null {
   let start = Number.POSITIVE_INFINITY;
   let end: number | null = null;
   for (const entry of entries) {
@@ -524,12 +527,11 @@ function trackDurationLabel(
       if (timing.endedAt !== null) end = Math.max(end ?? 0, timing.endedAt);
     }
   }
-  if (!Number.isFinite(start)) return "";
+  if (!Number.isFinite(start)) return null;
   const stop = now ?? end;
-  if (stop === null) return "";
+  if (stop === null) return null;
   const elapsed = stop - start;
-  if (elapsed <= 0) return "";
-  return formatDuration(elapsed);
+  return elapsed > 0 ? elapsed : null;
 }
 
 /** 运行中(含尚未收到 output 的间隙)的条目。 */
@@ -547,7 +549,8 @@ function isActiveEntry(entry: ProcessEntry): boolean {
 /**
  * 一轮回复的执行流:头 + fold-row 摘要 + 恒可见节点。
  * 头默认 summary;rowByKey / everRaw 提在这里,关头卸子树后再打开按表恢复。
- * focus ≠ row:live 钉窗口,row=raw 只自动给 active tool pair。
+ * focus ≠ row:live 钉窗口。自动展开只给活跃 shell,且是 5 行尾巴。
+ * 静息头仅 ≥60s / 失败 / fold-row>8 才出现。
  */
 function TurnFlow({
   pieces,
@@ -599,9 +602,10 @@ function TurnFlow({
   const snapshots = foldEntries.map(entrySnapshot);
   const state = summarizeTrack(snapshots, { streaming: live, waiting });
   const now = useNow(live);
-  const durationLabel =
-    trackDurationLabel(foldEntries, live ? now : null) ||
-    historyTurnDuration(userTimestamp, assistantTimestamp);
+  const elapsedMs =
+    trackElapsedMs(foldEntries, live ? now : null) ??
+    historyTurnElapsedMs(userTimestamp, assistantTimestamp);
+  const durationLabel = elapsedMs !== null ? formatDuration(elapsedMs) : "";
   const compactionEntry =
     foldEntries.length === 1 &&
     foldEntries[0]?.kind === "progress" &&
@@ -616,7 +620,9 @@ function TurnFlow({
   } else if (state.kind === "progress") {
     summary = t("progress.working");
   } else if (state.kind === "thinking") {
-    summary = t("reasoning.thinking");
+    summary =
+      extractFirstBold(inFlightReasoningText(foldEntries)) ??
+      t("reasoning.thinking");
   } else if (compactionEntry) {
     summary =
       compactionEntry.message.metadata?.phase === "fallback"
@@ -637,17 +643,29 @@ function TurnFlow({
         })
       : t("chat.toolGroup", { count: state.steps });
   }
-  const showHeader = waiting || foldRows.length > 0 || failedTools > 0;
+  const hasProcess =
+    waiting ||
+    foldEntries.length > 0 ||
+    foldRows.length > 0 ||
+    failedTools > 0;
+  const liveWindow = live || settling;
+  const settledFailed = state.kind === "done" ? state.failed : 0;
+  const showSettledHeader =
+    (elapsedMs !== null && elapsedMs >= 60_000) ||
+    settledFailed > 0 ||
+    failedTools > 0 ||
+    foldRows.length > FOLD_WINDOW;
+  const showHeader =
+    hasProcess && (waiting || liveWindow || showSettledHeader);
   const toggleable = foldRows.length > 0 || failedTools > 0;
   const showDurationSuffix =
     Boolean(durationLabel) &&
     (state.kind !== "done" || Boolean(compactionEntry));
-  const liveWindow = live || settling;
   const focusKey = focusFoldRowKey(foldRows, liveWindow);
-  const autoRawKey = liveWindow ? activeToolGroupKey(foldRows) : null;
-  if (autoRawKey && !everRaw[autoRawKey]) {
+  const autoTailKey = liveWindow ? activeShellGroupKey(foldRows) : null;
+  if (autoTailKey && !everRaw[autoTailKey]) {
     setEverRaw((prev) =>
-      prev[autoRawKey] ? prev : { ...prev, [autoRawKey]: true },
+      prev[autoTailKey] ? prev : { ...prev, [autoTailKey]: true },
     );
   }
   const windowed = windowFoldRows(foldRows, {
@@ -657,8 +675,11 @@ function TurnFlow({
   });
   const shownKeys = new Set(windowed.shownKeys);
   const lastShownKey = windowed.shownKeys.at(-1);
-  const rowState = (key: string): "summary" | "raw" =>
-    rowByKey[key] ?? (key === autoRawKey ? "raw" : "summary");
+  const rowState = (key: string): "summary" | "raw" | "tail" => {
+    if (rowByKey[key]) return rowByKey[key];
+    if (key === autoTailKey) return "tail";
+    return "summary";
+  };
   const toggleRow = (key: string) => {
     const next = rowState(key) === "raw" ? "summary" : "raw";
     setRowByKey((prev) => ({ ...prev, [key]: next }));
@@ -749,7 +770,11 @@ function TurnFlow({
         key={piece.key}
         row={piece.row}
         mode={rowState(piece.key)}
-        everRaw={Boolean(everRaw[piece.key] || rowState(piece.key) === "raw")}
+        everRaw={Boolean(
+          everRaw[piece.key] ||
+            rowState(piece.key) === "raw" ||
+            rowState(piece.key) === "tail",
+        )}
         language={language}
         shimmer={liveWindow && isRowActive(piece.row)}
         onToggle={() => toggleRow(piece.key)}
@@ -819,17 +844,28 @@ function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
   };
 }
 
-function activeToolGroupKey(rows: FoldRow[]): string | null {
+function activeShellGroupKey(rows: FoldRow[]): string | null {
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     const row = rows[index]!;
     if (
       row.type === "group" &&
+      row.family === "shell" &&
       row.pairs.some((pair) => toolPairStatus(pair).running)
     ) {
       return row.key;
     }
   }
   return null;
+}
+
+function inFlightReasoningText(entries: ProcessEntry[]): string {
+  const parts: string[] = [];
+  for (const entry of entries) {
+    if (entry.kind !== "reasoning" || !isActiveEntry(entry)) continue;
+    const text = textFromContent(entry.message.content);
+    if (text) parts.push(text);
+  }
+  return parts.join("\n\n");
 }
 
 function isRowActive(row: FoldRow): boolean {
@@ -858,7 +894,7 @@ function FoldRowView({
   onOpenChange,
 }: {
   row: FoldRow;
-  mode: "summary" | "raw";
+  mode: "summary" | "raw" | "tail";
   everRaw: boolean;
   language: Language;
   shimmer?: boolean;
@@ -873,6 +909,7 @@ function FoldRowView({
         message={thinkingMessage(row)}
         open={mode === "raw"}
         onToggle={onToggle}
+        title={row.title}
       />
     );
   }
@@ -886,6 +923,9 @@ function FoldRowView({
         onOpenFile={onOpenFile}
         onOpenChange={onOpenChange}
         shimmer={shimmer}
+        tail={mode === "tail"}
+        open={mode === "raw"}
+        onToggle={onToggle}
       />
     );
   }
@@ -899,20 +939,32 @@ function FoldRowView({
       summary={
         <TrackSummary verb={parts.verb} object={parts.object} shimmer={shimmer} />
       }
-      open={mode === "raw"}
+      open={mode === "raw" || mode === "tail"}
       keepMounted={everRaw}
       onToggle={onToggle}
       shimmer={shimmer}
     >
-      {row.pairs.map((pair, index) => (
-        <ToolCard
-          key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
-          pair={pair}
-          onOpenFile={onOpenFile}
-          onOpenChange={onOpenChange}
-          embedded
-        />
-      ))}
+      {mode === "tail"
+        ? row.pairs
+            .filter((pair) => toolPairStatus(pair).running)
+            .map((pair, index) => (
+              <ToolCard
+                key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
+                pair={pair}
+                tail
+                shimmer
+                onToggle={onToggle}
+              />
+            ))
+        : row.pairs.map((pair, index) => (
+            <ToolCard
+              key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
+              pair={pair}
+              onOpenFile={onOpenFile}
+              onOpenChange={onOpenChange}
+              embedded
+            />
+          ))}
     </StepGroupRow>
   );
 }

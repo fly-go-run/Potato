@@ -16,11 +16,18 @@ export function ShellToolCard({
   pair,
   embedded = false,
   shimmer = false,
+  tail = false,
+  open,
+  onToggle,
 }: {
   pair: ToolPair;
   /** 组内原始层:只出命令+输出纯文本块,不再套一层摘要行。 */
   embedded?: boolean;
   shimmer?: boolean;
+  /** Live auto-expand: last 5 lines, no frame. Manual expand is full. */
+  tail?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const { t } = useTranslation();
   const command = shellCommand(pair.arguments);
@@ -63,6 +70,37 @@ export function ShellToolCard({
       )}
     </div>
   );
+
+  if (tail) {
+    const preview = lastOutputLines(output, 5);
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="group flex w-full items-center gap-1.5 py-1 text-left text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:text-ink"
+        >
+          <Terminal
+            size={14}
+            strokeWidth={1.8}
+            className="shrink-0 text-ink-muted"
+          />
+          <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
+            <span>{t("tool.tense.shell.running")}</span>
+            <code className="ml-1.5 font-mono text-[12px]">
+              {command || t("tool.shell")}
+            </code>
+          </span>
+          {running && <Spinner size={13} className="text-ink-tertiary" />}
+        </button>
+        {preview ? (
+          <pre className="font-mono text-xs leading-6 whitespace-pre-wrap break-words text-ink-secondary">
+            {preview}
+          </pre>
+        ) : null}
+      </div>
+    );
+  }
 
   if (embedded) {
     return (
@@ -108,11 +146,25 @@ export function ShellToolCard({
       toggle={toggle}
       after={after}
       failed={failed}
+      open={open}
+      onToggle={onToggle}
       detailClassName="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2"
     >
       {detail}
     </ToolDisclosure>
   );
+}
+
+function lastOutputLines(output: unknown, count: number): string {
+  const text =
+    typeof output === "string"
+      ? output
+      : output == null
+        ? ""
+        : JSON.stringify(output, null, 2);
+  if (!text) return "";
+  const lines = text.replace(/\s+$/u, "").split("\n");
+  return lines.slice(-count).join("\n");
 }
 
 function shellCommand(argumentsJson: string) {

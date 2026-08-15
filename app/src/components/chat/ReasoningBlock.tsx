@@ -18,10 +18,13 @@ export function ReasoningBlock({
   message,
   open: openProp,
   onToggle,
+  title,
 }: {
   message: StreamMessage;
   open?: boolean;
   onToggle?: () => void;
+  /** Settled titled thought: dim `• title` instead of「思考过程」. */
+  title?: string | null;
 }) {
   const { t } = useTranslation();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -31,6 +34,7 @@ export function ReasoningBlock({
     if (onToggle) onToggle();
     else setInternalOpen((value) => !value);
   };
+  const labeled = Boolean(title);
 
   return (
     <div className="my-1 text-ink-secondary">
@@ -38,16 +42,26 @@ export function ReasoningBlock({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-xs font-medium text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
+        className={`flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-xs transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink ${
+          labeled
+            ? "font-normal text-ink-muted"
+            : "font-medium text-ink-secondary"
+        }`}
       >
-        <ChevronRight
-          size={12}
-          strokeWidth={1.8}
-          className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
-            open ? "rotate-90" : ""
-          }`}
-        />
-        <span>{t("reasoning.process")}</span>
+        {labeled ? (
+          <span>• {title}</span>
+        ) : (
+          <>
+            <ChevronRight
+              size={12}
+              strokeWidth={1.8}
+              className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
+                open ? "rotate-90" : ""
+              }`}
+            />
+            <span>{t("reasoning.process")}</span>
+          </>
+        )}
       </button>
       <Collapse open={open}>
         <div className="ml-4 border-l border-line pl-3 pt-1 text-ink-secondary">

@@ -64,6 +64,9 @@ export function ToolCard({
   prominentArtifact = false,
   embedded = false,
   shimmer = false,
+  tail = false,
+  open,
+  onToggle,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
@@ -72,13 +75,23 @@ export function ToolCard({
   /** 组内原始层:shell 直接出纯文本块,文件保留 ± 行。 */
   embedded?: boolean;
   shimmer?: boolean;
+  tail?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   if (toolPairStatus(pair).failed && !prominentArtifact) {
     return <FailedToolRow pair={pair} />;
   }
   if (pair.name === "execute_shell_command") {
     return (
-      <ShellToolCard pair={pair} embedded={embedded} shimmer={shimmer} />
+      <ShellToolCard
+        pair={pair}
+        embedded={embedded}
+        shimmer={shimmer}
+        tail={tail}
+        open={open}
+        onToggle={onToggle}
+      />
     );
   }
   if (isFileTool(pair.name)) {

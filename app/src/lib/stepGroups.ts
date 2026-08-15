@@ -5,6 +5,7 @@ import {
 } from "../components/chat/ToolCard";
 import { textFromContent } from "./content";
 import { pairChangeStats } from "./fileChanges";
+import { extractFirstBold } from "./reasoningTitle";
 import type { StreamMessage } from "./stream";
 
 export type ProcessEntry =
@@ -48,6 +49,8 @@ export type ThinkingRow = {
   key: string;
   messages: StreamMessage[];
   text: string;
+  /** First closed **bold** phrase; drives the settled `• title` row. */
+  title: string | null;
 };
 
 export type ProgressRow = {
@@ -134,6 +137,22 @@ export function materializeRun(entries: ProcessEntry[]): MaterializedItem[] {
   while (index < entries.length) {
     const entry = entries[index]!;
     if (entry.kind === "reasoning") {
+      // Live reasoning only drives the TurnFlow header. A completed
+      // title-only thought settles as a dim `• title` fold-row.
+      if (isInFlight(entry.message)) {
+        index += 1;
+        while (
+          index < entries.length &&
+          entries[index]?.kind === "reasoning" &&
+          isInFlight(
+            (entries[index] as Extract<ProcessEntry, { kind: "reasoning" }>)
+              .message,
+          )
+        ) {
+          index += 1;
+        }
+        continue;
+      }
       const messages = [entry.message];
       index += 1;
       while (index < entries.length && entries[index]?.kind === "reasoning") {
@@ -141,16 +160,19 @@ export function materializeRun(entries: ProcessEntry[]): MaterializedItem[] {
           ProcessEntry,
           { kind: "reasoning" }
         >;
+        if (isInFlight(next.message)) break;
         messages.push(next.message);
         index += 1;
       }
+      const text = joinReasoning(messages);
       items.push({
         kind: "fold",
         row: {
           type: "thinking",
           key: entry.message.id,
           messages,
-          text: joinReasoning(messages),
+          text,
+          title: extractFirstBold(text),
         },
       });
       continue;
@@ -200,12 +222,6 @@ export function focusFoldRowKey(
       row.type === "group" &&
       row.pairs.some((pair) => toolPairStatus(pair).running)
     ) {
-      return row.key;
-    }
-  }
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const row = rows[index]!;
-    if (row.type === "thinking" && row.messages.some(isInFlight)) {
       return row.key;
     }
   }
