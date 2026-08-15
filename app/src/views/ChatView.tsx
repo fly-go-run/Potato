@@ -437,9 +437,6 @@ export function ChatView() {
       )}
 
       {!historyLoading && isEmpty ? (
-        // WorkBuddy 的空态从视口上方约 15% 开始；固定上边距比靠
-        // 大块 padding-bottom 挤压居中更稳定，矮窗口也不会顶到标题栏。
-        // 能力胶囊 → composer;胶囊贴着 composer(其自带 pt-2)形成一组输入区
         // 目标是输入框光学中心落在 45-48%(对标 ChatGPT),不是锁问候位:
         // justify-center 自适应视口,pb 上偏让中心从 50%+ 回到目标带
         <div className="qp-fade-in flex min-h-0 flex-1 flex-col justify-center pb-[16vh]">

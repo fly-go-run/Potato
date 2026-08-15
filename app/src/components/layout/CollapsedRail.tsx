@@ -54,7 +54,7 @@ export function ChromeActions({
 }
 
 /**
- * 侧栏收起：三个按钮贴在左上角顶栏，和红绿灯同一行。
+ * 侧栏收起：侧栏开关/新建两钮贴在左上角顶栏，和红绿灯同一行。
  * 会话路由下按钮右侧补当前会话名，避免收起后丢标题。
  */
 export function CollapsedRail() {

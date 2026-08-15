@@ -112,7 +112,7 @@ export function AppShell() {
     // nested scroll regions (chat messages, sidebar list, page bodies)
     // move — never the chrome (top bar / side rail) with the document.
     <div className="relative flex h-full min-h-0 overflow-hidden">
-      {/* macOS overlay：红绿灯和左上三个钮同一行；主列顶上只留透明拖区。 */}
+      {/* macOS overlay：红绿灯和左上按钮同一行；主列顶上只留透明拖区。 */}
       {mac && (
         <div
           data-tauri-drag-region

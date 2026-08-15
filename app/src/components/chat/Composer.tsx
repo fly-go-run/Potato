@@ -99,7 +99,8 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.max(wide ? 64 : 46, Math.min(el.scrollHeight, 192))}px`;
+    // JS 下限与 CSS min-h 同值(86/46),避免哪天删了 min-h 静息高度悄悄塌掉
+    el.style.height = `${Math.max(wide ? 86 : 46, Math.min(el.scrollHeight, 192))}px`;
   }, [text, wide]);
   const activeModel = useChatStore((state) => state.activeModel);
   const modelLoading = useChatStore((state) => state.modelLoading);
