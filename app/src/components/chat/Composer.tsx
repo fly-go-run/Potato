@@ -93,13 +93,14 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const [skillsError, setSkillsError] = useState(false);
   const skillsRequested = useRef(false);
 
-  // 随内容自动增高:2 行(64px)起步,192px(约 7 行,与 max-h-48 一致)封顶后内部滚动
+  // 随内容自动增高,192px(约 7 行,与 max-h-48 一致)封顶后内部滚动。
+  // 静息高度分档:首页(wide)两行起步做邀请,会话内一行起步少占阅读区
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.max(64, Math.min(el.scrollHeight, 192))}px`;
-  }, [text]);
+    el.style.height = `${Math.max(wide ? 64 : 46, Math.min(el.scrollHeight, 192))}px`;
+  }, [text, wide]);
   const activeModel = useChatStore((state) => state.activeModel);
   const modelLoading = useChatStore((state) => state.modelLoading);
   const isStreaming = useChatStore((state) => state.isStreaming);
@@ -691,7 +692,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
             <textarea
               ref={textareaRef}
               data-testid="composer-input"
-              rows={2}
+              // rows=1:空文本区的 scrollHeight 起点是一行,静息高度由
+              // min-h 分档(wide 86 / 会话 46)和 JS 下限决定,不被 rows 顶起
+              rows={1}
               value={text}
               onChange={(event) => {
                 setText(event.target.value);
@@ -724,7 +727,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   ? t("composer.generating")
                   : t("composer.placeholder")
               }
-              className="block min-h-[86px] max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[16px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55"
+              className={`block ${
+                wide ? "min-h-[86px]" : "min-h-[46px]"
+              } max-h-48 w-full resize-none overflow-y-auto bg-transparent px-5 pb-1 pt-4 text-[16px] leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-55`}
             />
             <div className="flex items-center gap-1 px-3 pb-3">
               <input
