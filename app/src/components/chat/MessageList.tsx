@@ -29,11 +29,20 @@ import {
   totalChangeStats,
   type FileChange,
 } from "../../lib/fileChanges";
-import { useTranslation } from "../../lib/i18n";
+import { useTranslation, type Language, type TranslationKey } from "../../lib/i18n";
 import {
   summarizeTrack,
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
+import { skillDisplayName } from "../../lib/skillPresentation";
+import {
+  focusFoldRowKey,
+  materializeRun,
+  windowFoldRows,
+  type FoldRow,
+  type ProcessEntry,
+  type ToolGroupRow,
+} from "../../lib/stepGroups";
 import { buildTimeline } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
 import { historyTurnDuration } from "../../lib/historyTurnDuration";
@@ -46,16 +55,16 @@ import { PotatoMark } from "../brand/PotatoMark";
 import { Spinner } from "../ui/Spinner";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ChangeStat";
-import { Collapse } from "./Collapse";
 import { MessageContent } from "./MessageContent";
 import { isContextCompactionMessage, ProgressCard } from "./ProgressCard";
 import { ReasoningBlock } from "./ReasoningBlock";
+import { StepGroupRow } from "./StepGroupRow";
 import {
   buildToolPair,
   humanToolLabel,
+  humanToolName,
   toolPairStatus,
   ToolCard,
-  type ToolPair,
 } from "./ToolCard";
 
 interface MessageListProps {
@@ -175,19 +184,12 @@ const UserTurn = memo(function UserTurn({
   );
 }, areUserTurnPropsEqual);
 
-type ProcessEntry =
-  | { kind: "reasoning"; key: string; message: StreamMessage }
-  | { kind: "progress"; key: string; message: StreamMessage }
-  | { kind: "pair"; key: string; pair: ToolPair };
-
 /**
- * 一轮回复按时间序渲染的片段:连续的工具/思考槽位合成一个可折叠工作
- * 段(run);叙述、答案与突出卡是恒可见节点(visible),同时天然充当
- * run 的分隔符。时间线严格 append-only,每个 run 在被后续内容接替时
- * 各自收拢一次(渐进收口),此后不再变。
+ * 一轮回复按时间序渲染的片段:连续过程条目经 materializeRun 收成
+ * fold-row;叙述、产物、失败卡是恒可见节点,同时充当 run 分隔符。
  */
 type FlowPiece =
-  | { type: "run"; key: string; entries: ProcessEntry[] }
+  | { type: "fold"; key: string; row: FoldRow }
   | { type: "visible"; key: string; node: ReactNode };
 
 interface AssistantTurnProps {
@@ -243,8 +245,21 @@ const AssistantTurn = memo(function AssistantTurn({
   const pieces: FlowPiece[] = [];
   let run: ProcessEntry[] = [];
   const flushRun = () => {
-    if (run.length > 0) {
-      pieces.push({ type: "run", key: `run-${run[0]!.key}`, entries: run });
+    if (run.length === 0) return;
+    for (const item of materializeRun(run)) {
+      if (item.kind === "visible-failed") {
+        pieces.push({
+          type: "visible",
+          key: item.key,
+          node: (
+            <div id={`message-${item.key}`} key={item.key}>
+              <ToolCard pair={item.pair} onOpenFile={onOpenFile} />
+            </div>
+          ),
+        });
+        continue;
+      }
+      pieces.push({ type: "fold", key: item.row.key, row: item.row });
     }
     run = [];
   };
@@ -523,19 +538,9 @@ function isActiveEntry(entry: ProcessEntry): boolean {
 }
 
 /**
- * 一轮回复的执行流:摘要头 + append-only 时间线,收口是**渐进式**的。
- *
- * 每个工作段(连续的工具/思考)只在它还是「活跃的最后一段」时展开;
- * 一旦被接替——模型开口说话、交付产物、或开始下一段工作前的叙述——
- * 它就地收拢(一次 280ms 结构过渡)。于是答案开始流式时,它上方的
- * 过程已经让位;流结束的时刻**没有任何结构变动**,用户正读到的答案
- * 纹丝不动。这是问题锚顶滚动模型的前提:结尾若再来一次大折叠,会把
- * 正在读的答案往上拽。
- *
- * 尾段没有后继(纯行动收尾)时,流结束后静置 600ms 再收——读作
- * 「整理」而不是「抽走」。用户手动点过开合,以他的选择为准,自动
- * 行为不再覆盖(展开 = 全部段落展开)。
- * 摘要状态机在 lib/executionTrack.ts,槽位与折叠边界在 lib/turnTimeline.ts。
+ * 一轮回复的执行流:头 + fold-row 摘要 + 恒可见节点。
+ * 头默认 summary;rowByKey / everRaw 提在这里,关头卸子树后再打开按表恢复。
+ * focus ≠ row:live 钉窗口,row=raw 只自动给 active tool pair。
  */
 function TurnFlow({
   pieces,
@@ -558,10 +563,13 @@ function TurnFlow({
   userTimestamp?: unknown;
   assistantTimestamp?: unknown;
 }) {
-  const { t } = useTranslation();
-  // 用户手动点过开合就以他的选择为准,自动行为不再覆盖。
-  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
-  // 尾段收口延迟:live 结束后静置 600ms 再收拢仍展开的最后一段。
+  const { t, language } = useTranslation();
+  const [manualHeader, setManualHeader] = useState<boolean | null>(null);
+  const [rowByKey, setRowByKey] = useState<Record<string, "summary" | "raw">>(
+    {},
+  );
+  const [everRaw, setEverRaw] = useState<Record<string, boolean>>({});
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const [settling, setSettling] = useState(live);
   useEffect(() => {
     if (live) {
@@ -572,13 +580,15 @@ function TurnFlow({
     const timer = window.setTimeout(() => setSettling(false), 600);
     return () => window.clearTimeout(timer);
   }, [live, settling]);
-  const lastPiece = pieces.length > 0 ? pieces[pieces.length - 1] : undefined;
-  // 自动展开只给「活跃的最后一段」;被接替的段落已各自收拢。
-  const autoOpenLast = (live || settling) && lastPiece?.type === "run";
-  const headerOpen = manualOpen ?? autoOpenLast;
+  const headerOpen = manualHeader ?? true;
+  const foldRows = pieces.flatMap((piece) =>
+    piece.type === "fold" ? [piece.row] : [],
+  );
+  const failedTools = foldEntries.filter(
+    (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
+  ).length;
   const snapshots = foldEntries.map(entrySnapshot);
   const state = summarizeTrack(snapshots, { streaming: live, waiting });
-  // 执行阶段每秒心跳驱动「· 12s」跳动(工具间隙也不停摆);收口后冻结。
   const now = useNow(live);
   const durationLabel =
     trackDurationLabel(foldEntries, live ? now : null) ||
@@ -618,18 +628,43 @@ function TurnFlow({
         })
       : t("chat.toolGroup", { count: state.steps });
   }
-  const toggleable = foldEntries.length > 0;
-  // 摘要头只在有过程可折(或等待首帧)时出现:纯文本回答不需要一行
-  // 「已完成 1 个步骤」的噪音。无过程条目且无失败工具则不画头。
-  const showHeader = waiting || toggleable;
+  const showHeader = waiting || foldRows.length > 0 || failedTools > 0;
+  const toggleable = foldRows.length > 0 || failedTools > 0;
   const showDurationSuffix =
     Boolean(durationLabel) &&
     (state.kind !== "done" || Boolean(compactionEntry));
+  const liveWindow = live || settling;
+  const focusKey = focusFoldRowKey(foldRows, liveWindow);
+  const autoRawKey = liveWindow ? activeToolGroupKey(foldRows) : null;
+  if (autoRawKey && !everRaw[autoRawKey]) {
+    setEverRaw((prev) =>
+      prev[autoRawKey] ? prev : { ...prev, [autoRawKey]: true },
+    );
+  }
+  const windowed = windowFoldRows(foldRows, {
+    settled: !liveWindow,
+    focusKey,
+    overflowOpen,
+  });
+  const shownKeys = new Set(windowed.shownKeys);
+  const lastShownKey = windowed.shownKeys.at(-1);
+  const rowState = (key: string): "summary" | "raw" =>
+    rowByKey[key] ?? (key === autoRawKey ? "raw" : "summary");
+  const toggleRow = (key: string) => {
+    const next = rowState(key) === "raw" ? "summary" : "raw";
+    setRowByKey((prev) => ({ ...prev, [key]: next }));
+    if (next === "raw") {
+      setEverRaw((prev) => ({ ...prev, [key]: true }));
+    }
+  };
+  const toggleHeader = () => {
+    const next = !headerOpen;
+    setManualHeader(next);
+    if (!next) setOverflowOpen(false);
+  };
   const summaryContent = (
     <>
       {pulsing && <Spinner size={13} />}
-      {/* 摘要文字直接替换,不做交叉淡化——状态变化本身就是信息,
-          给它加动画反而把注意力引向动画。 */}
       <span>{summary}</span>
       {showDurationSuffix && (
         <span className="shrink-0 tabular-nums">· {durationLabel}</span>
@@ -645,6 +680,50 @@ function TurnFlow({
       )}
     </>
   );
+  const rendered: ReactNode[] = [];
+  let overflowPlaced = false;
+  for (const piece of pieces) {
+    if (piece.type === "visible") {
+      rendered.push(<Fragment key={piece.key}>{piece.node}</Fragment>);
+      continue;
+    }
+    if (!headerOpen || !shownKeys.has(piece.key)) continue;
+    if (windowed.overflowAt === "start" && !overflowPlaced) {
+      rendered.push(
+        <OverflowRow
+          key="fold-overflow"
+          count={windowed.hiddenCount}
+          onClick={() => setOverflowOpen(true)}
+        />,
+      );
+      overflowPlaced = true;
+    }
+    rendered.push(
+      <FoldRowView
+        key={piece.key}
+        row={piece.row}
+        mode={rowState(piece.key)}
+        everRaw={Boolean(everRaw[piece.key] || rowState(piece.key) === "raw")}
+        language={language}
+        onToggle={() => toggleRow(piece.key)}
+        onOpenFile={onOpenFile}
+      />,
+    );
+    if (
+      windowed.overflowAt === "end" &&
+      piece.key === lastShownKey &&
+      !overflowPlaced
+    ) {
+      rendered.push(
+        <OverflowRow
+          key="fold-overflow"
+          count={windowed.hiddenCount}
+          onClick={() => setOverflowOpen(true)}
+        />,
+      );
+      overflowPlaced = true;
+    }
+  }
   return (
     <div className="my-1.5">
       {showHeader && (
@@ -652,7 +731,7 @@ function TurnFlow({
           {toggleable ? (
             <button
               type="button"
-              onClick={() => setManualOpen(!headerOpen)}
+              onClick={toggleHeader}
               aria-expanded={headerOpen}
               className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
             >
@@ -665,30 +744,7 @@ function TurnFlow({
           )}
         </div>
       )}
-      {pieces.map((piece) =>
-        piece.type === "run" ? (
-          // 每段 run 一个 Collapse:自动态只有「活跃的最后一段」展开,
-          // 被接替的段落各自收拢过一次,不再重开。keepMounted 保住条目
-          // 内部展开状态;struct 档 = 280ms 高度过渡 + 内容淡出。
-          <Collapse
-            key={piece.key}
-            open={manualOpen ?? (autoOpenLast && piece === lastPiece)}
-            keepMounted
-            struct
-            className="pl-1"
-          >
-            {piece.entries.map((entry) => (
-              <TrackEntry
-                key={entry.key}
-                entry={entry}
-                onOpenFile={onOpenFile}
-              />
-            ))}
-          </Collapse>
-        ) : (
-          <Fragment key={piece.key}>{piece.node}</Fragment>
-        ),
-      )}
+      {rendered}
     </div>
   );
 }
@@ -713,22 +769,180 @@ function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
   };
 }
 
-/** memo:useNow 每秒心跳只该刷新摘要行的计时文案,条目行引用不变直接跳过。 */
-const TrackEntry = memo(function TrackEntry({
-  entry,
+function activeToolGroupKey(rows: FoldRow[]): string | null {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index]!;
+    if (
+      row.type === "group" &&
+      row.pairs.some((pair) => toolPairStatus(pair).running)
+    ) {
+      return row.key;
+    }
+  }
+  return null;
+}
+
+function FoldRowView({
+  row,
+  mode,
+  everRaw,
+  language,
+  onToggle,
   onOpenFile,
 }: {
-  entry: ProcessEntry;
+  row: FoldRow;
+  mode: "summary" | "raw";
+  everRaw: boolean;
+  language: Language;
+  onToggle: () => void;
   onOpenFile?: (path: string) => void;
 }) {
-  if (entry.kind === "reasoning") {
-    return <ReasoningBlock message={entry.message} />;
+  const { t } = useTranslation();
+  if (row.type === "thinking") {
+    return (
+      <ReasoningBlock
+        message={thinkingMessage(row)}
+        open={mode === "raw"}
+        onToggle={onToggle}
+      />
+    );
   }
-  if (entry.kind === "progress") {
-    return <ProgressCard message={entry.message} />;
+  if (row.type === "progress") {
+    return <ProgressCard message={row.message} />;
   }
-  return <ToolCard pair={entry.pair} onOpenFile={onOpenFile} />;
-});
+  if (row.direct) {
+    return <ToolCard pair={row.pairs[0]!} onOpenFile={onOpenFile} />;
+  }
+  return (
+    <StepGroupRow
+      summary={groupSummaryLabel(row, t, language)}
+      open={mode === "raw"}
+      keepMounted={everRaw}
+      onToggle={onToggle}
+    >
+      {row.pairs.map((pair, index) => (
+        <ToolCard
+          key={pair.callId ?? pair.call?.id ?? `${row.key}-${index}`}
+          pair={pair}
+          onOpenFile={onOpenFile}
+        />
+      ))}
+    </StepGroupRow>
+  );
+}
+
+function OverflowRow({
+  count,
+  onClick,
+}: {
+  count: number;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5 py-1 text-left text-xs text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
+    >
+      {t("chat.step.overflow", { n: count })}
+    </button>
+  );
+}
+
+const STEP_COUNT_KEYS: Record<
+  Exclude<ToolGroupRow["family"], "other">,
+  TranslationKey
+> = {
+  search: "chat.step.search",
+  fetch: "chat.step.fetch",
+  grep: "chat.step.grep",
+  glob: "chat.step.glob",
+  read: "chat.step.read",
+  edit: "chat.step.edit",
+  shell: "chat.step.shell",
+  skill: "chat.step.skill",
+};
+
+const TENSE_DONE_KEYS: Record<
+  Exclude<ToolGroupRow["family"], "other">,
+  TranslationKey
+> = {
+  search: "tool.tense.webSearch.done",
+  fetch: "tool.tense.webFetch.done",
+  grep: "tool.tense.searchFiles.done",
+  glob: "tool.tense.matchFiles.done",
+  read: "tool.tense.fileRead.done",
+  edit: "tool.tense.fileEdit.done",
+  shell: "tool.tense.shell.done",
+  skill: "tool.tense.skill.done",
+};
+
+function groupSummaryLabel(
+  row: ToolGroupRow,
+  translate: (
+    key: TranslationKey,
+    params?: Record<string, string | number>,
+  ) => string,
+  language: Language,
+): string {
+  const count = row.pairs.length;
+  const object = formatGroupObject(row, translate, language);
+  const suffix = object ? ` · ${object}` : "";
+  if (row.family === "other") {
+    return (
+      translate("chat.step.other", {
+        name: humanToolName(row.name, translate),
+        count,
+      }) + suffix
+    );
+  }
+  const verb =
+    count === 1
+      ? translate(TENSE_DONE_KEYS[row.family])
+      : translate(STEP_COUNT_KEYS[row.family], { count });
+  return verb + suffix;
+}
+
+function formatGroupObject(
+  row: ToolGroupRow,
+  translate: (key: TranslationKey) => string,
+  language: Language,
+): string {
+  let object = row.object;
+  if (row.family === "skill" && object) {
+    object = skillDisplayName(object, language);
+  }
+  if (row.family === "edit") {
+    const stats: string[] = [];
+    if (row.additions > 0) stats.push(`+${row.additions}`);
+    if (row.deletions > 0) stats.push(`-${row.deletions}`);
+    if (object && stats.length > 0) object = `${object} ${stats.join(" ")}`;
+    else if (!object && stats.length > 0) object = stats.join(" ");
+  }
+  if (object && row.objectVaried) {
+    object = `${object} ${translate("chat.step.andMore")}`;
+  }
+  return object;
+}
+
+function thinkingMessage(row: Extract<FoldRow, { type: "thinking" }>): StreamMessage {
+  const first = row.messages[0]!;
+  const inFlight = row.messages.some(
+    (message) =>
+      message.status === "created" || message.status === "in_progress",
+  );
+  return {
+    ...first,
+    status: inFlight ? "in_progress" : first.status,
+    content: [
+      {
+        type: "text",
+        text: row.text,
+      } as TextContent,
+    ],
+  };
+}
 
 /**
  * 内联 `<thinking>` 标签的模型不走结构化 reasoning 通道。展示层把

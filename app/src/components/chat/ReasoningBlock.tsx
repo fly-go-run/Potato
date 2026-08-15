@@ -14,16 +14,29 @@ const Markdown = lazy(() =>
  * 这里只保留稳定身份(思考过程)与可展开的正文,开合动效与轨道行
  * 共用同一套 qp-collapse 过渡。
  */
-export function ReasoningBlock({ message }: { message: StreamMessage }) {
+export function ReasoningBlock({
+  message,
+  open: openProp,
+  onToggle,
+}: {
+  message: StreamMessage;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = onToggle ? Boolean(openProp) : internalOpen;
   const text = textFromContent(message.content);
+  const toggle = () => {
+    if (onToggle) onToggle();
+    else setInternalOpen((value) => !value);
+  };
 
   return (
     <div className="my-1 text-ink-secondary">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         aria-expanded={open}
         className="flex items-center gap-1.5 rounded-[var(--radius-sm)] px-1 py-1 text-xs font-medium text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover hover:text-ink"
       >
