@@ -614,9 +614,12 @@ function TurnFlow({
       : null;
   let summary: string;
   if (state.kind === "waiting") {
-    summary = t("chat.waitingModel");
+    summary = t("chat.waitingReply");
   } else if (state.kind === "runningTool") {
-    summary = humanToolLabel(state.toolName, true, t);
+    summary =
+      state.running > 1
+        ? t("chat.toolsRunning", { count: state.running })
+        : humanToolLabel(state.toolName, true, t);
   } else if (state.kind === "progress") {
     summary = t("progress.working");
   } else if (state.kind === "thinking") {
@@ -663,11 +666,12 @@ function TurnFlow({
     (state.kind !== "done" || Boolean(compactionEntry));
   const focusKey = focusFoldRowKey(foldRows, liveWindow);
   const autoTailKey = liveWindow ? activeShellGroupKey(foldRows) : null;
-  if (autoTailKey && !everRaw[autoTailKey]) {
+  useEffect(() => {
+    if (!autoTailKey) return;
     setEverRaw((prev) =>
       prev[autoTailKey] ? prev : { ...prev, [autoTailKey]: true },
     );
-  }
+  }, [autoTailKey]);
   const windowed = windowFoldRows(foldRows, {
     settled: !liveWindow,
     focusKey,

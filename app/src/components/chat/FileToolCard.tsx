@@ -76,6 +76,8 @@ export function FileToolCard({
   onOpenChange,
   prominentArtifact = false,
   shimmer = false,
+  open,
+  onToggle,
 }: {
   pair: ToolPair;
   onOpenFile?: (path: string) => void;
@@ -84,6 +86,8 @@ export function FileToolCard({
   /** 仅在文件被明确交付给用户时展示大号产物卡。 */
   prominentArtifact?: boolean;
   shimmer?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const { t } = useTranslation();
   const parameters = parseArguments(pair.arguments);
@@ -228,6 +232,8 @@ export function FileToolCard({
       }}
       toggleGrow={false}
       failed={failed}
+      open={open}
+      onToggle={onToggle}
       detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain"
     >
       {detail}

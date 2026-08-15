@@ -80,7 +80,7 @@ export function ToolCard({
   onToggle?: () => void;
 }) {
   if (toolPairStatus(pair).failed && !prominentArtifact) {
-    return <FailedToolRow pair={pair} />;
+    return <FailedToolRow pair={pair} open={open} onToggle={onToggle} />;
   }
   if (pair.name === "execute_shell_command") {
     return (
@@ -102,20 +102,34 @@ export function ToolCard({
         onOpenChange={onOpenChange}
         prominentArtifact={prominentArtifact}
         shimmer={shimmer}
+        open={open}
+        onToggle={onToggle}
       />
     );
   }
-  return <GenericToolCard pair={pair} embedded={embedded} shimmer={shimmer} />;
+  return (
+    <GenericToolCard
+      pair={pair}
+      embedded={embedded}
+      shimmer={shimmer}
+      open={open}
+      onToggle={onToggle}
+    />
+  );
 }
 
 function GenericToolCard({
   pair,
   embedded = false,
   shimmer = false,
+  open,
+  onToggle,
 }: {
   pair: ToolPair;
   embedded?: boolean;
   shimmer?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const { t } = useTranslation();
   const { running, failed } = toolPairStatus(pair);
@@ -181,6 +195,8 @@ function GenericToolCard({
       toggle={toggle}
       after={after}
       failed={failed}
+      open={open}
+      onToggle={onToggle}
       detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-surface px-3 py-2"
     >
       {detail}
@@ -189,7 +205,15 @@ function GenericToolCard({
 }
 
 /** 失败工具:红字安静行,点开才见完整错误。 */
-function FailedToolRow({ pair }: { pair: ToolPair }) {
+function FailedToolRow({
+  pair,
+  open,
+  onToggle,
+}: {
+  pair: ToolPair;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   const { t } = useTranslation();
   const reason = toolFailureSummary(pair);
   const output = pair.result ? richOutputText(pair.result) : "";
@@ -211,6 +235,8 @@ function FailedToolRow({ pair }: { pair: ToolPair }) {
         />
       }
       failed
+      open={open}
+      onToggle={onToggle}
       detailClassName="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2"
     >
       {detail}

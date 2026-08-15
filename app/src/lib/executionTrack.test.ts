@@ -25,16 +25,22 @@ describe("summarizeTrack", () => {
     ).toEqual({ kind: "waiting" });
   });
 
-  it("describes the latest active tool", () => {
-    // 并发/嵌套调用时可能同时有多个 active tool。摘要行只有一句话,
-    // 取最后一个才对得上用户视线里刚出现的那张卡。
+  it("describes the latest active tool and counts concurrent runners", () => {
+    // 并发/嵌套调用时可能同时有多个 active tool。单个仍报最后那张卡的
+    // 工具名;多个则带 running 计数,头文案改成「N 个进行中」。
+    expect(
+      summarizeTrack(
+        [entry("only", "tool", { active: true, toolName: "shell" })],
+        { streaming: true, waiting: false },
+      ),
+    ).toEqual({ kind: "runningTool", toolName: "shell", running: 1 });
     const entries = [
       entry("old-tool", "tool", { active: true, toolName: "read_file" }),
       entry("new-tool", "tool", { active: true, toolName: "shell" }),
     ];
     expect(
       summarizeTrack(entries, { streaming: true, waiting: false }),
-    ).toEqual({ kind: "runningTool", toolName: "shell" });
+    ).toEqual({ kind: "runningTool", toolName: "shell", running: 2 });
   });
 
   it("falls back to an empty tool name instead of dropping the state", () => {
@@ -45,7 +51,7 @@ describe("summarizeTrack", () => {
         streaming: true,
         waiting: false,
       }),
-    ).toEqual({ kind: "runningTool", toolName: "" });
+    ).toEqual({ kind: "runningTool", toolName: "", running: 1 });
   });
 
   it("prefers a running tool over active progress", () => {
@@ -57,17 +63,17 @@ describe("summarizeTrack", () => {
     ];
     expect(
       summarizeTrack(entries, { streaming: true, waiting: false }),
-    ).toEqual({ kind: "runningTool", toolName: "shell" });
+    ).toEqual({ kind: "runningTool", toolName: "shell", running: 1 });
   });
 
-  it("describes active progress and reasoning", () => {
+  it("describes active progress and in-flight reasoning", () => {
     expect(
       summarizeTrack([entry("progress", "progress", { active: true })], {
         streaming: true,
         waiting: false,
       }),
     ).toEqual({ kind: "progress" });
-    // reasoning 没有专门的状态:摘要行本来就是「思考中」,不必重复。
+    // 有 in-flight reasoning 才叫思考中;空档不再一律 thinking。
     expect(
       summarizeTrack([entry("reasoning", "reasoning", { active: true })], {
         streaming: true,
@@ -76,10 +82,23 @@ describe("summarizeTrack", () => {
     ).toEqual({ kind: "thinking" });
   });
 
-  it("stays in thinking state during streaming gaps", () => {
-    // 这条是状态机存在的理由:一个工具已收口、下一个还没发出的间隙里,
-    // 若返回 done,摘要行会在「已完成 1 步」与「正在…」之间来回摆。
+  it("uses waiting for streaming gaps without in-flight reasoning", () => {
+    // 工具已收口、下一个还没发出:不能回 done(会与「正在…」来回摆),
+    // 也不是思考中——没有 reasoning 在飞,只是在等下一帧。
     const entries = [entry("done", "tool", { completed: true })];
+    expect(
+      summarizeTrack(entries, { streaming: true, waiting: false }),
+    ).toEqual({ kind: "waiting" });
+    expect(summarizeTrack([], { streaming: true, waiting: false })).toEqual({
+      kind: "waiting",
+    });
+  });
+
+  it("keeps thinking when reasoning is still in flight during a tool gap", () => {
+    const entries = [
+      entry("thought", "reasoning", { active: true }),
+      entry("done", "tool", { completed: true }),
+    ];
     expect(
       summarizeTrack(entries, { streaming: true, waiting: false }),
     ).toEqual({ kind: "thinking" });
