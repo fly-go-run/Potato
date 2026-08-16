@@ -180,16 +180,24 @@ export function reduceStreamFrame(
   frame: SseFrame,
 ): ConversationStreamState {
   const sequenceNumber = getSequenceNumber(frame);
+  // Each Runtime.run() (one payload) starts Envelope._seq_counter at 0.
+  // Follow-ups drain on the same SSE, so a new response id means the
+  // watermark must reset or the whole next turn is dropped as a replay.
+  const newResponse =
+    isResponseFrame(frame) &&
+    Boolean(frame.id) &&
+    frame.id !== state.responseId;
+  const lastSeq = newResponse ? 0 : state.lastSequenceNumber;
   if (
     sequenceNumber !== undefined &&
-    sequenceNumber <= state.lastSequenceNumber
+    sequenceNumber <= lastSeq
   ) {
     return state;
   }
 
   let next: ConversationStreamState = {
     ...state,
-    lastSequenceNumber: sequenceNumber ?? state.lastSequenceNumber,
+    lastSequenceNumber: sequenceNumber ?? lastSeq,
   };
 
   if (isResponseFrame(frame)) return reduceResponse(next, frame);

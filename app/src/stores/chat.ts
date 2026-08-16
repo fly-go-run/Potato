@@ -80,6 +80,8 @@ interface ChatStore {
   pendingApprovals: PendingApproval[];
   composerDraft: string | null;
   requestController: AbortController | null;
+  followupController: AbortController | null;
+  queuedMessageIds: string[];
 
   initialize: () => Promise<void>;
   refreshChats: () => Promise<ChatSpec[]>;
@@ -146,6 +148,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   pendingApprovals: [],
   composerDraft: null,
   requestController: null,
+  followupController: null,
+  queuedMessageIds: [],
 
   initialize: async () => {
     try {
@@ -215,6 +219,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   newChat: () => {
     get().requestController?.abort();
+    get().followupController?.abort();
     sessionStorage.removeItem(PENDING_SESSION_KEY);
     revokePreviews(get().pendingImages);
     resetMessageTimings();
@@ -235,6 +240,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       pendingImages: [],
       pendingApprovals: [],
       requestController: null,
+      followupController: null,
+      queuedMessageIds: [],
     });
   },
 
@@ -247,6 +254,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return;
     }
     get().requestController?.abort();
+    get().followupController?.abort();
     resetMessageTimings();
     const controller = new AbortController();
     let chat = get().chats.find((item) => item.id === chatId);
@@ -265,6 +273,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           : null,
       pendingApprovals: [],
       requestController: controller,
+      followupController: null,
+      queuedMessageIds: [],
     });
     if (!chat) {
       const chats = await get().refreshChats();
@@ -328,12 +338,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   sendMessage: async (rawText, navigate) => {
     const text = rawText.trim();
-    if (
-      (!text && get().pendingImages.length === 0) ||
-      get().isStreaming ||
-      get().isSubmitting
-    ) {
+    if ((!text && get().pendingImages.length === 0) || get().isSubmitting) {
       return false;
+    }
+    if (get().isStreaming) {
+      return enqueueFollowup(text, set, get);
     }
     if (isUnfinishedResponse(get().stream.responseStatus)) {
       const message = t("stream.turnStillRunning");
@@ -490,6 +499,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           isSubmitting: false,
           requestController: null,
           pendingApprovals: [],
+          queuedMessageIds: [],
         });
       }
       await get().refreshChats();
@@ -498,35 +508,37 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   stop: async () => {
-    const { activeChatId, requestController, pendingImages, sessionId } = get();
-    if (!activeChatId) {
-      requestController?.abort();
-      revokePreviews(pendingImages);
-      if (sessionStorage.getItem(PENDING_SESSION_KEY) === sessionId) {
-        sessionStorage.removeItem(PENDING_SESSION_KEY);
-      }
-      set((state) => ({
-        isStreaming: false,
-        isSubmitting: false,
-        requestController: null,
-        pendingImages: [],
-        pendingApprovals: [],
-        stream: { ...state.stream, responseStatus: "cancelled" },
-      }));
-      return;
+    const {
+      activeChatId,
+      requestController,
+      followupController,
+      pendingImages,
+      sessionId,
+    } = get();
+    // Drop local follow-ups before aborting the SSE. sendMessage's
+    // finally clears queuedMessageIds without removing messages; if
+    // abort wins that race the bubbles would stick.
+    followupController?.abort();
+    requestController?.abort();
+    revokePreviews(pendingImages);
+    if (
+      !activeChatId &&
+      sessionStorage.getItem(PENDING_SESSION_KEY) === sessionId
+    ) {
+      sessionStorage.removeItem(PENDING_SESSION_KEY);
     }
+    set((state) => ({
+      isStreaming: false,
+      isSubmitting: false,
+      requestController: null,
+      followupController: null,
+      pendingImages: [],
+      pendingApprovals: [],
+      ...dropQueuedFollowups(state),
+    }));
+    if (!activeChatId) return;
     try {
       await chatApi.stop(activeChatId);
-      requestController?.abort();
-      revokePreviews(get().pendingImages);
-      set((state) => ({
-        isStreaming: false,
-        isSubmitting: false,
-        requestController: null,
-        pendingImages: [],
-        pendingApprovals: [],
-        stream: { ...state.stream, responseStatus: "cancelled" },
-      }));
       await get().refreshChats();
     } catch (error) {
       set({ error: readableError(error) });
@@ -535,6 +547,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   reconnect: async (chat) => {
     get().requestController?.abort();
+    get().followupController?.abort();
     const controller = new AbortController();
     set({
       activeChatId: chat.id,
@@ -546,6 +559,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       error: null,
       pendingApprovals: [],
       requestController: controller,
+      followupController: null,
       stream: {
         ...get().stream,
         responseStatus: "in_progress",
@@ -572,15 +586,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const history = await chatApi.get(chat.id);
         backendStillRunning = history.status === "running";
         if (get().activeChatId === chat.id) {
-          set((state) => ({
-            stream: {
-              ...state.stream,
-              messages: historyMessages(history),
-              turnUsage: historyTurnUsage(history, chat.session_id),
-              responseStatus:
-                history.status === "running" ? "in_progress" : "completed",
-            },
-          }));
+          set((state) => {
+            const fromHistory = historyMessages(history);
+            const historyIds = new Set(fromHistory.map((item) => item.id));
+            const extras = state.stream.messages.filter(
+              (message) =>
+                state.queuedMessageIds.includes(message.id) &&
+                !historyIds.has(message.id),
+            );
+            return {
+              stream: {
+                ...state.stream,
+                messages: [...fromHistory, ...extras],
+                turnUsage: historyTurnUsage(history, chat.session_id),
+                responseStatus:
+                  history.status === "running" ? "in_progress" : "completed",
+              },
+            };
+          });
         }
         if (
           history.status !== "running" &&
@@ -770,6 +793,122 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     })),
 }));
 
+async function enqueueFollowup(
+  text: string,
+  set: typeof useChatStore.setState,
+  get: typeof useChatStore.getState,
+): Promise<boolean> {
+  const submittedImages = get().pendingImages;
+  set({ isSubmitting: true, error: null });
+  let uploadedAttachments: UploadedAttachment[];
+  try {
+    uploadedAttachments = await uploadPendingFiles(
+      submittedImages.map((attachment) => attachment.file),
+    );
+  } catch (error) {
+    set({ isSubmitting: false, error: readableError(error) });
+    return false;
+  }
+  if (!get().isSubmitting) return false;
+  const outboundContent = buildOutboundContent(text, uploadedAttachments);
+  const localMessage = userMessage(outboundContent);
+  let followupController = get().followupController;
+  if (!followupController || followupController.signal.aborted) {
+    followupController = new AbortController();
+  }
+  set((state) => ({
+    stream: {
+      ...state.stream,
+      messages: [...state.stream.messages, localMessage],
+      error: null,
+    },
+    queuedMessageIds: [...state.queuedMessageIds, localMessage.id],
+    followupController,
+    isSubmitting: false,
+    error: null,
+  }));
+  const removeLocal = (error: string | null) =>
+    set((state) => ({
+      error,
+      queuedMessageIds: state.queuedMessageIds.filter(
+        (id) => id !== localMessage.id,
+      ),
+      stream: {
+        ...state.stream,
+        messages: state.stream.messages.filter(
+          (message) => message.id !== localMessage.id,
+        ),
+      },
+    }));
+  try {
+    const response = await chatApi.stream(
+      {
+        input: [{ role: "user", content: outboundContent }],
+        session_id: get().sessionId,
+        user_id: get().userId,
+        channel: get().channel,
+        stream: true,
+        request_context: {
+          approval_level: get().approvalLevel,
+          ...(get().project
+            ? { "potato.coding_project_dir": get().project?.path }
+            : {}),
+        },
+      },
+      followupController.signal,
+    );
+    if (response.status === 202 || response.status === 200) {
+      revokePreviews(submittedImages);
+      const submittedImageIds = new Set(
+        submittedImages.map((attachment) => attachment.id),
+      );
+      set((state) => ({
+        pendingImages: state.pendingImages.filter(
+          (attachment) => !submittedImageIds.has(attachment.id),
+        ),
+      }));
+      if (response.status === 200) {
+        const controller = new AbortController();
+        get().requestController?.abort();
+        set({ requestController: controller, isStreaming: true });
+        try {
+          await consumeResponse(response, controller, set, get);
+        } catch (error) {
+          if (!isAbort(error) && !controller.signal.aborted) {
+            const knownChat = get().chats.find(
+              (item) => item.session_id === get().sessionId,
+            );
+            if (knownChat?.status === "running") {
+              await get().reconnect(knownChat);
+            } else {
+              set({ error: readableError(error) });
+            }
+          }
+        } finally {
+          if (get().requestController === controller) {
+            set({
+              isStreaming: false,
+              requestController: null,
+              queuedMessageIds: [],
+            });
+          }
+          await get().refreshChats();
+        }
+      }
+      return true;
+    }
+    removeLocal(t("stream.turnStillRunning"));
+    return false;
+  } catch (error) {
+    if (isAbort(error)) {
+      removeLocal(null);
+    } else {
+      removeLocal(readableError(error));
+    }
+    return false;
+  }
+}
+
 async function consumeResponse(
   response: Response,
   controller: AbortController,
@@ -795,7 +934,11 @@ async function consumeResponse(
   const flush = () => {
     clearFlushTimer();
     if (!hasPending || controller.signal.aborted) return;
-    set({ stream: pending, error: pending.error });
+    set((state) => {
+      const stream = mergeLiveLocalMessages(pending, state.stream);
+      pending = stream;
+      return { stream, error: stream.error };
+    });
     hasPending = false;
     lastFlushAt = Date.now();
   };
@@ -915,6 +1058,40 @@ function isContentBlock(value: unknown): value is ContentBlock {
     typeof value === "object" &&
     (value as { object?: unknown }).object === "content"
   );
+}
+
+function mergeLiveLocalMessages(
+  pending: ConversationStreamState,
+  live: ConversationStreamState,
+): ConversationStreamState {
+  const pendingIds = new Set(pending.messages.map((message) => message.id));
+  const extras = live.messages.filter(
+    (message) =>
+      !pendingIds.has(message.id) && message.id.startsWith("local_"),
+  );
+  if (extras.length === 0) return pending;
+  return {
+    ...pending,
+    messages: [...pending.messages, ...extras],
+  };
+}
+
+function dropQueuedFollowups(state: {
+  stream: ConversationStreamState;
+  queuedMessageIds: string[];
+}): {
+  stream: ConversationStreamState;
+  queuedMessageIds: string[];
+} {
+  const drop = new Set(state.queuedMessageIds);
+  return {
+    queuedMessageIds: [],
+    stream: {
+      ...state.stream,
+      responseStatus: "cancelled",
+      messages: state.stream.messages.filter((message) => !drop.has(message.id)),
+    },
+  };
 }
 
 function userMessage(content: OutboundContentBlock[]): StreamMessage {

@@ -346,4 +346,58 @@ describe("stream reducer", () => {
     expect(stale).toBe(current);
     expect(stale.lastSequenceNumber).toBe(5);
   });
+
+  it("resets the sequence watermark when a new response id starts", () => {
+    const first = reduceStreamFrames([
+      {
+        object: "response",
+        id: "response-1",
+        status: "in_progress",
+        output: [],
+        created_at: null,
+        completed_at: null,
+        metadata: null,
+        sequence_number: 1,
+      },
+      {
+        object: "message",
+        id: "asst-1",
+        type: "message",
+        role: "assistant",
+        content: [],
+        status: "completed",
+        metadata: null,
+        sequence_number: 20,
+      },
+    ]);
+    expect(first.lastSequenceNumber).toBe(20);
+
+    const second = reduceStreamFrame(first, {
+      object: "response",
+      id: "response-2",
+      status: "created",
+      output: [],
+      created_at: null,
+      completed_at: null,
+      metadata: null,
+      sequence_number: 1,
+    });
+    expect(second.responseId).toBe("response-2");
+    expect(second.lastSequenceNumber).toBe(1);
+    expect(second.responseStatus).toBe("created");
+
+    const withText = reduceStreamFrame(second, {
+      object: "message",
+      id: "asst-2",
+      type: "message",
+      role: "assistant",
+      content: [],
+      status: "in_progress",
+      metadata: null,
+      sequence_number: 2,
+    });
+    expect(withText.messages.some((message) => message.id === "asst-2")).toBe(
+      true,
+    );
+  });
 });

@@ -98,6 +98,80 @@ async def test_attach_or_start_streams_events_and_marks_completion():
 
 
 @pytest.mark.asyncio
+async def test_enqueue_drains_after_current_payload():
+    tracker = TaskTracker()
+    seen: list[object] = []
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+
+    async def staged_stream(payload):
+        seen.append(payload)
+        if payload == "first":
+            first_started.set()
+            await release_first.wait()
+        yield f"data: {payload}\n\n"
+
+    queue, is_new = await tracker.attach_or_start(
+        "run-q",
+        payload="first",
+        stream_fn=staged_stream,
+    )
+    assert is_new is True
+    await asyncio.wait_for(first_started.wait(), timeout=1)
+    assert await tracker.enqueue("run-q", "second") == 1
+    release_first.set()
+
+    first = await asyncio.wait_for(queue.get(), timeout=1)
+    second = await asyncio.wait_for(queue.get(), timeout=1)
+    sentinel = await asyncio.wait_for(queue.get(), timeout=1)
+    assert [first, second, sentinel] == [
+        "data: first\n\n",
+        "data: second\n\n",
+        None,
+    ]
+    assert seen == ["first", "second"]
+    assert await tracker.get_status("run-q") == "idle"
+
+
+@pytest.mark.asyncio
+async def test_enqueue_returns_none_when_idle():
+    tracker = TaskTracker()
+
+    assert await tracker.enqueue("missing", "late") is None
+
+
+@pytest.mark.asyncio
+async def test_request_stop_discards_inbox():
+    tracker = TaskTracker()
+    seen: list[object] = []
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+
+    async def staged_stream(payload):
+        seen.append(payload)
+        if payload == "first":
+            first_started.set()
+            await release_first.wait()
+        yield f"data: {payload}\n\n"
+
+    await tracker.attach_or_start(
+        "run-stop-q",
+        payload="first",
+        stream_fn=staged_stream,
+    )
+    await asyncio.wait_for(first_started.wait(), timeout=1)
+    assert await tracker.enqueue("run-stop-q", "second") == 1
+
+    assert await tracker.request_stop("run-stop-q") is True
+    release_first.set()
+    await asyncio.sleep(0.05)
+
+    assert seen == ["first"]
+    assert await tracker.get_status("run-stop-q") == "idle"
+    assert await tracker.enqueue("run-stop-q", "late") is None
+
+
+@pytest.mark.asyncio
 async def test_attach_or_start_existing_run_returns_buffer_replay():
     tracker = TaskTracker()
     started = asyncio.Event()
@@ -211,7 +285,7 @@ async def test_producer_exception_emits_error_sse():
     sentinel = await asyncio.wait_for(queue.get(), timeout=1)
 
     assert err.startswith("data: ")
-    payload = json.loads(err[len("data: ") :].rstrip("\n"))
+    payload = json.loads(err.removeprefix("data: ").rstrip("\n"))
     assert payload == {"error": "internal server error"}
     assert sentinel is None
 

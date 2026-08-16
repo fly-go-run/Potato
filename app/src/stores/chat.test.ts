@@ -63,27 +63,30 @@ function sseResponse(status: "in_progress" | "completed") {
 function controlledSseResponse() {
   const encoder = new TextEncoder();
   let finish!: () => void;
+  let push!: (payload: unknown) => void;
   const response = new Response(
     new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify(responseFrame("in_progress"))}\n\n`,
-          ),
-        );
-        finish = () => {
+        const write = (payload: unknown) => {
           controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify(responseFrame("completed"))}\n\n`,
-            ),
+            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
           );
+        };
+        write(responseFrame("in_progress"));
+        push = write;
+        finish = () => {
+          write(responseFrame("completed"));
           controller.close();
         };
       },
     }),
     { headers: { "Content-Type": "text/event-stream" } },
   );
-  return { response, finish: () => finish() };
+  return {
+    response,
+    finish: () => finish(),
+    push: (payload: unknown) => push(payload),
+  };
 }
 
 function history(status: ChatHistory["status"]): ChatHistory {
@@ -125,6 +128,8 @@ describe("chat stream interruption recovery", () => {
       pendingImages: [],
       pendingApprovals: [],
       requestController: null,
+      followupController: null,
+      queuedMessageIds: [],
     });
   });
 
@@ -165,7 +170,7 @@ describe("chat stream interruption recovery", () => {
     });
   });
 
-  it("keeps a repeatedly disconnected backend run busy and blocks a new turn", async () => {
+  it("keeps a repeatedly disconnected backend run busy and queues a follow-up", async () => {
     vi.spyOn(chatApi, "stream").mockImplementation(async () =>
       sseResponse("in_progress"),
     );
@@ -185,8 +190,194 @@ describe("chat stream interruption recovery", () => {
       .getState()
       .sendMessage("must not be dropped", vi.fn());
 
-    expect(accepted).toBe(false);
-    expect(chatApi.stream).toHaveBeenCalledTimes(2);
+    expect(accepted).toBe(true);
+    expect(chatApi.stream.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(
+      useChatStore
+        .getState()
+        .stream.messages.some((message) =>
+          JSON.stringify(message.content).includes("must not be dropped"),
+        ),
+    ).toBe(true);
+  });
+
+  it("queues a follow-up on a live stream without opening a second turn", async () => {
+    const controlled = controlledSseResponse();
+    const streamSpy = vi
+      .spyOn(chatApi, "stream")
+      .mockResolvedValueOnce(controlled.response)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ queued: true, position: 1 }), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    vi.spyOn(chatApi, "list").mockResolvedValue([chat("running")]);
+
+    const firstSend = useChatStore.getState().sendMessage("first", vi.fn());
+    await vi.waitFor(() => {
+      expect(useChatStore.getState().isStreaming).toBe(true);
+    });
+
+    const accepted = await useChatStore
+      .getState()
+      .sendMessage("follow up next", vi.fn());
+
+    expect(accepted).toBe(true);
+    expect(streamSpy).toHaveBeenCalledTimes(2);
+    expect(streamSpy.mock.calls[1]?.[0]).toMatchObject({
+      input: [{ role: "user" }],
+      session_id: "session-1",
+    });
+    expect(
+      useChatStore
+        .getState()
+        .stream.messages.some((message) =>
+          JSON.stringify(message.content).includes("follow up next"),
+        ),
+    ).toBe(true);
+    expect(useChatStore.getState().isStreaming).toBe(true);
+
+    controlled.finish();
+    await expect(firstSend).resolves.toBe(true);
+  });
+
+  it("keeps a queued follow-up visible after the live stream flushes", async () => {
+    const controlled = controlledSseResponse();
+    vi.spyOn(chatApi, "stream")
+      .mockResolvedValueOnce(controlled.response)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ queued: true, position: 1 }), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    vi.spyOn(chatApi, "list").mockResolvedValue([chat("running")]);
+
+    const firstSend = useChatStore.getState().sendMessage("first", vi.fn());
+    await vi.waitFor(() => {
+      expect(useChatStore.getState().isStreaming).toBe(true);
+    });
+    await useChatStore.getState().sendMessage("stay after flush", vi.fn());
+
+    controlled.push({
+      object: "message",
+      id: "asst-live",
+      type: "message",
+      role: "assistant",
+      content: [],
+      status: "in_progress",
+      metadata: null,
+      sequence_number: 2,
+    });
+    await vi.waitFor(() => {
+      expect(
+        useChatStore
+          .getState()
+          .stream.messages.some((message) =>
+            JSON.stringify(message.content).includes("stay after flush"),
+          ),
+      ).toBe(true);
+    });
+
+    controlled.finish();
+    await expect(firstSend).resolves.toBe(true);
+    expect(
+      useChatStore
+        .getState()
+        .stream.messages.some((message) =>
+          JSON.stringify(message.content).includes("stay after flush"),
+        ),
+    ).toBe(true);
+  });
+
+  it("removes queued follow-ups when the user stops", async () => {
+    const controlled = controlledSseResponse();
+    vi.spyOn(chatApi, "stream")
+      .mockResolvedValueOnce(controlled.response)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ queued: true, position: 1 }), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    vi.spyOn(chatApi, "stop").mockResolvedValue({ stopped: true });
+    vi.spyOn(chatApi, "list").mockResolvedValue([chat("running")]);
+    useChatStore.setState({
+      chats: [chat("running")],
+      activeChatId: "chat-1",
+    });
+
+    const firstSend = useChatStore.getState().sendMessage("first", vi.fn());
+    await vi.waitFor(() => {
+      expect(useChatStore.getState().isStreaming).toBe(true);
+    });
+    await useChatStore.getState().sendMessage("will be dropped", vi.fn());
+    expect(
+      useChatStore
+        .getState()
+        .stream.messages.some((message) =>
+          JSON.stringify(message.content).includes("will be dropped"),
+        ),
+    ).toBe(true);
+
+    await useChatStore.getState().stop();
+
+    expect(
+      useChatStore
+        .getState()
+        .stream.messages.some((message) =>
+          JSON.stringify(message.content).includes("will be dropped"),
+        ),
+    ).toBe(false);
+    expect(useChatStore.getState().queuedMessageIds).toEqual([]);
+    expect(useChatStore.getState().stream.responseStatus).toBe("cancelled");
+    controlled.finish();
+    await firstSend;
+  });
+
+  it("aborts an in-flight follow-up post on stop", async () => {
+    const controlled = controlledSseResponse();
+    vi.spyOn(chatApi, "stream")
+      .mockResolvedValueOnce(controlled.response)
+      .mockImplementationOnce(
+        (_payload, signal) =>
+          new Promise<Response>((_, reject) => {
+            signal?.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            );
+          }),
+      );
+    vi.spyOn(chatApi, "stop").mockResolvedValue({ stopped: true });
+    vi.spyOn(chatApi, "list").mockResolvedValue([chat("running")]);
+    useChatStore.setState({
+      chats: [chat("running")],
+      activeChatId: "chat-1",
+    });
+
+    const firstSend = useChatStore.getState().sendMessage("first", vi.fn());
+    await vi.waitFor(() => {
+      expect(useChatStore.getState().isStreaming).toBe(true);
+    });
+
+    const queued = useChatStore
+      .getState()
+      .sendMessage("hangs until abort", vi.fn());
+    await vi.waitFor(() => {
+      expect(useChatStore.getState().followupController).not.toBeNull();
+    });
+
+    await useChatStore.getState().stop();
+    await expect(queued).resolves.toBe(false);
+    expect(
+      useChatStore
+        .getState()
+        .stream.messages.some((message) =>
+          JSON.stringify(message.content).includes("hangs until abort"),
+        ),
+    ).toBe(false);
+    controlled.finish();
+    await firstSend;
   });
 
   it("rejects a new payload when an interrupted response is still unfinished", async () => {

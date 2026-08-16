@@ -68,6 +68,13 @@ const sendButtonClass =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
   "focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
+const stopButtonClass =
+  "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-line bg-raised text-ink " +
+  "shadow-[var(--shadow-sm)] transition-[background-color,color,opacity] duration-[var(--dur-fast)] " +
+  "hover:bg-fill-hover active:opacity-90 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
 
 export function Composer({ wide = false }: { wide?: boolean }) {
@@ -301,9 +308,11 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     },
   ];
   const model = activeModel?.active_llm;
-  const busy = isStreaming || isSubmitting;
+  // Only uploads lock the composer. A live turn stays typeable so the
+  // next message can sit in the backend inbox (DSH-style follow-up).
+  const busy = isSubmitting;
   const canSend = Boolean(
-    model && (text.trim() || pendingImages.length > 0) && !busy,
+    model && (text.trim() || pendingImages.length > 0) && !isSubmitting,
   );
   const approvalLabel =
     approvalLevels.find((item) => item.value === approvalLevel)?.label ??
@@ -813,7 +822,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   : isSubmitting
                   ? t("composer.uploading")
                   : isStreaming
-                  ? t("composer.generating")
+                  ? t("composer.followupPlaceholder")
                   : t("composer.placeholder")
               }
               className={`block ${
@@ -931,14 +940,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   }
                   aria-pressed={voiceState === "recording"}
                   onClick={toggleVoice}
-                  // mr-[17px]:让麦克风左右的留白在静止态看起来一样宽。
-                  //
-                  // 行上是统一的 gap-1(4px),但两侧的邻居性质不同:模型选择器
-                  // 有 14px 内边距且静止态不铺底色,那 14px 就是纯死白,全部计入
-                  // 左侧空隙;发送键是实心圆,右侧只有 gap 本身。实测墨迹到墨迹
-                  // 是 29.6px vs 16.7px,差了一倍。补到 17px 让两边都是 ~29.6px。
-                  // 放在麦克风上而不是发送键上:语音不可用时它整个不渲染,不会
-                  // 连带改动原有布局。
+                  // mr-[17px]:麦克风左侧是弱底的模型选择器,右侧是 36px
+                  // 圆钮(停或发)。补边距让两侧墨迹空隙接近。放在麦克风上:
+                  // 语音不可用时整颗不渲染,不会改发送键布局。
                   className={`mr-[17px] ${
                     voiceState === "recording"
                       ? "text-danger hover:text-danger"
@@ -963,28 +967,29 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 </IconButton>
               )}
 
-              {isStreaming ? (
+              {isStreaming && (
                 <button
                   type="button"
                   data-testid="composer-stop"
                   title={t("composer.stop")}
                   onClick={() => void stop()}
-                  className={sendButtonClass}
+                  className={stopButtonClass}
                 >
                   <Square size={16} fill="currentColor" />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  data-testid="composer-send"
-                  title={t("composer.send")}
-                  disabled={!canSend || voiceState !== "idle"}
-                  onClick={submit}
-                  className={sendButtonClass}
-                >
-                  <ArrowUp size={16} strokeWidth={2.4} />
-                </button>
               )}
+              <button
+                type="button"
+                data-testid="composer-send"
+                title={
+                  isStreaming ? t("composer.sendQueued") : t("composer.send")
+                }
+                disabled={!canSend || voiceState !== "idle"}
+                onClick={submit}
+                className={sendButtonClass}
+              >
+                <ArrowUp size={16} strokeWidth={2.4} />
+              </button>
             </div>
           </div>
 

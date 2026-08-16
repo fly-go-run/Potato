@@ -228,31 +228,26 @@ async def post_console_chat(
         queue = await tracker.attach(chat.id)
         if queue is None:
             return
-    elif await tracker.get_status(chat.id) == "running":
-        position = await tracker.enqueue(chat.id, native_payload)
-        if position is None:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "A response is already running for this chat. "
-                    "Use reconnect=true to follow it, or retry this message "
-                    "after it finishes."
-                ),
-            )
-        if first_text and chat.name == name:
-            asyncio.create_task(
-                generate_and_update_title(
-                    workspace=workspace,
-                    chat_id=chat.id,
-                    user_message=first_text,
-                    placeholder_name=name,
-                ),
-            )
-        return JSONResponse(
-            {"queued": True, "position": position},
-            status_code=202,
-        )
     else:
+        # Fast path: a live turn already owns this chat. Enqueue so the
+        # current SSE keeps going. If the producer just finished, fall
+        # through and start a new run instead of 409.
+        if await tracker.get_status(chat.id) == "running":
+            position = await tracker.enqueue(chat.id, native_payload)
+            if position is not None:
+                if first_text and chat.name == name:
+                    asyncio.create_task(
+                        generate_and_update_title(
+                            workspace=workspace,
+                            chat_id=chat.id,
+                            user_message=first_text,
+                            placeholder_name=name,
+                        ),
+                    )
+                return JSONResponse(
+                    {"queued": True, "position": position},
+                    status_code=202,
+                )
         queue, is_new_run = await tracker.attach_or_start(
             chat.id,
             native_payload,
@@ -266,8 +261,8 @@ async def post_console_chat(
                     status_code=409,
                     detail=(
                         "A response is already running for this chat. "
-                        "Use reconnect=true to follow it, or retry this message "
-                        "after it finishes."
+                        "Use reconnect=true to follow it, or retry this "
+                        "message after it finishes."
                     ),
                 )
             return JSONResponse(

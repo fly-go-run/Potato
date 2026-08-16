@@ -222,7 +222,22 @@ class TaskTracker:
 
             async def _producer() -> None:
                 start_time = datetime.now(timezone.utc)
+                # First payload always runs, including ``None``. Tests
+                # and reconnect helpers pass ``None``; a ``is not None``
+                # loop would skip stream_fn entirely.
                 current = payload
+
+                def _close_run(tracker: TaskTracker, now: datetime) -> None:
+                    """Atomically finish so enqueue() cannot sneak in after."""
+                    if tracker._runs.get(run_key) is not run:
+                        return
+                    run.finish_time = now
+                    # pylint: disable=protected-access
+                    tracker._global_last_finish_at = now
+                    for q in run.queues:
+                        q.put_nowait(_SENTINEL)
+                    tracker._runs.pop(run_key, None)
+                    tracker._inboxes.pop(run_key, None)
 
                 try:
                     tracker = tracker_ref()
@@ -232,7 +247,7 @@ class TaskTracker:
                             # pylint: disable=protected-access
                             tracker._global_last_run_at = start_time
 
-                    while current is not None:
+                    while True:
                         async for sse in stream_fn(current):
                             tracker = tracker_ref()
                             if tracker is None:
@@ -246,9 +261,16 @@ class TaskTracker:
                             return
                         async with tracker.lock:
                             inbox = tracker._inboxes.get(run_key) or []
-                            current = inbox.pop(0) if inbox else None
-                            if not inbox:
-                                tracker._inboxes.pop(run_key, None)
+                            if inbox:
+                                current = inbox.pop(0)
+                                if not inbox:
+                                    tracker._inboxes.pop(run_key, None)
+                            else:
+                                _close_run(
+                                    tracker,
+                                    datetime.now(timezone.utc),
+                                )
+                                return
                 except asyncio.CancelledError:
                     logger.debug("run cancelled run_key=%s", run_key)
                     tracker = tracker_ref()
@@ -268,27 +290,22 @@ class TaskTracker:
                             for q in run.queues:
                                 q.put_nowait(err_sse)
                 finally:
-                    finish_time = datetime.now(timezone.utc)
                     tracker = tracker_ref()
                     if tracker is not None:
                         async with tracker.lock:
-                            run.finish_time = finish_time
-                            # pylint: disable=protected-access
-                            tracker._global_last_finish_at = finish_time
-                            for q in run.queues:
-                                q.put_nowait(_SENTINEL)
-                            # pylint: disable=protected-access
-                            tracker._runs.pop(
-                                run_key,
-                                None,
+                            _close_run(
+                                tracker,
+                                datetime.now(timezone.utc),
                             )
-                            tracker._inboxes.pop(run_key, None)
 
             run.task = asyncio.create_task(_producer())
             return my_queue, True
 
     async def enqueue(self, run_key: str, payload: Any) -> int | None:
-        """Queue *payload* behind the live run. ``None`` if nothing is running."""
+        """Queue *payload* behind the live run.
+
+        Returns ``None`` if nothing is running.
+        """
         async with self._lock:
             state = self._runs.get(run_key)
             if state is None or state.task.done():

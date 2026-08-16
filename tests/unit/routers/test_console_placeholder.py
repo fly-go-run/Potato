@@ -11,10 +11,10 @@ labels like ``{"type": ...`` in the session drawer (regression for PR #3).
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
 
 import potato.app.routers.console as console_router
 from potato.app.routers.console import _extract_placeholder_name
@@ -96,21 +96,28 @@ def test_falsy_first_part_is_media() -> None:
 
 
 @pytest.mark.asyncio
-async def test_new_message_during_active_run_returns_conflict(
+async def test_new_message_during_active_run_is_queued(
     monkeypatch,
 ) -> None:
-    queue: asyncio.Queue = asyncio.Queue()
     detached: list[tuple[str, asyncio.Queue]] = []
 
     class Tracker:
+        async def get_status(self, run_key):
+            assert run_key == "chat-1"
+            return "running"
+
+        async def enqueue(self, run_key, payload):
+            assert run_key == "chat-1"
+            assert payload is not None
+            return 1
+
         async def attach_or_start(  # pylint: disable=unused-argument
             self,
             run_key,
             payload,
             stream_fn,
         ):
-            assert run_key == "chat-1"
-            return queue, False
+            raise AssertionError("should enqueue, not start")
 
         async def detach_subscriber(self, run_key, subscriber):
             detached.append((run_key, subscriber))
@@ -147,9 +154,69 @@ async def test_new_message_during_active_run_returns_conflict(
         "session_id": "session-1",
         "input": [{"content": [{"type": "text", "text": "second"}]}],
     }
-    with pytest.raises(HTTPException) as exc_info:
-        await console_router.post_console_chat(request_data, object())
+    response = await console_router.post_console_chat(request_data, object())
 
-    assert exc_info.value.status_code == 409
-    assert "reconnect=true" in exc_info.value.detail
-    assert detached == [("chat-1", queue)]
+    assert response.status_code == 202
+    assert json.loads(response.body) == {"queued": True, "position": 1}
+    assert detached == []
+
+
+@pytest.mark.asyncio
+async def test_enqueue_miss_starts_a_new_run(monkeypatch) -> None:
+    started: list[object] = []
+
+    class Tracker:
+        async def get_status(self, run_key):
+            assert run_key == "chat-1"
+            return "running"
+
+        async def enqueue(self, run_key, payload):
+            assert run_key == "chat-1"
+            assert payload is not None
+            return None
+
+        async def attach_or_start(self, run_key, payload, stream_fn):
+            started.append((run_key, payload, stream_fn))
+            return asyncio.Queue(), True
+
+        async def detach_subscriber(self, run_key, subscriber):
+            raise AssertionError("new run should keep the subscriber")
+
+        async def stream_from_queue(self, queue, run_key):
+            if False:  # pragma: no cover
+                yield ""
+
+    channel = SimpleNamespace(
+        resolve_session_id=lambda **_kwargs: "console:user-1",
+        stream_one=lambda _payload: None,
+    )
+    workspace = SimpleNamespace(
+        channel_manager=SimpleNamespace(get_channel=lambda _name: None),
+        chat_manager=SimpleNamespace(),
+        task_tracker=Tracker(),
+    )
+
+    async def get_channel(_name):
+        return channel
+
+    async def get_or_create_chat(*_args, **_kwargs):
+        return SimpleNamespace(id="chat-1", name="Existing chat")
+
+    workspace.channel_manager.get_channel = get_channel
+    workspace.chat_manager.get_or_create_chat = get_or_create_chat
+
+    async def get_workspace(_request):
+        return workspace
+
+    monkeypatch.setattr(console_router, "get_agent_for_request", get_workspace)
+
+    request_data = {
+        "channel": "console",
+        "user_id": "user-1",
+        "session_id": "session-1",
+        "input": [{"content": [{"type": "text", "text": "retry"}]}],
+    }
+    response = await console_router.post_console_chat(request_data, object())
+
+    assert getattr(response, "media_type", None) == "text/event-stream"
+    assert len(started) == 1
