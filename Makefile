@@ -1,4 +1,4 @@
-# CoPaw Test & Coverage Makefile
+# Potato Test & Coverage Makefile
 
 .PHONY: test test-unit test-contract test-integration test-channel test-channel-contract coverage-full clean
 
@@ -25,7 +25,7 @@ test-integration:
 # Full coverage (all modules)
 coverage-full:
 	$(PYTEST) tests/unit/ tests/integration/ -v \
-		--cov=src/qwenpaw \
+		--cov=src/potato \
 		--cov-report=term-missing \
 		--cov-report=html
 

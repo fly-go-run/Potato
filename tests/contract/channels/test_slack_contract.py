@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock
 from tests.contract.channels import ChannelContractTest
 
 if TYPE_CHECKING:
-    from qwenpaw.app.channels.base import BaseChannel
+    from potato.app.channels.base import BaseChannel
 
 
 def create_mock_process_handler():
@@ -36,7 +36,7 @@ class TestSlackChannelContract(ChannelContractTest):
 
     def create_instance(self) -> "BaseChannel":
         """Provide a SlackChannel instance for contract testing."""
-        from qwenpaw.app.channels.slack.channel import SlackChannel
+        from potato.app.channels.slack.channel import SlackChannel
 
         process = create_mock_process_handler()
         return SlackChannel(

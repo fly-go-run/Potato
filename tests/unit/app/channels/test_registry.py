@@ -5,8 +5,8 @@ import sys
 
 import pytest
 
-from qwenpaw.app.channels import registry
-from qwenpaw.app.channels.base import BaseChannel
+from potato.app.channels import registry
+from potato.app.channels.base import BaseChannel
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +57,7 @@ class TestChannelClass:
 
 class TestLoadableChannels:
     def test_loadable_is_subset_of_available(self):
-        from qwenpaw.config.utils import (
+        from potato.config.utils import (
             get_available_channels,
             get_loadable_channels,
         )

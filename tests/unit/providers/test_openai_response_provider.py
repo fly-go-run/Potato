@@ -11,11 +11,11 @@ import openai
 import pytest
 from agentscope.model import OpenAIResponseModel
 
-from qwenpaw.providers.openai_response_provider import (
+from potato.providers.openai_response_provider import (
     OpenAIResponseProvider,
     ResponsesStreamError,
 )
-from qwenpaw.providers.provider import ModelInfo
+from potato.providers.provider import ModelInfo
 
 
 def _provider(models: list[ModelInfo] | None = None) -> OpenAIResponseProvider:
@@ -205,7 +205,7 @@ async def test_incomplete_stream_warns_but_does_not_raise(caplog) -> None:
 
 async def test_failed_stream_maps_transient_codes_to_status() -> None:
     """So ``retry_chat_model`` can retry / report a 429 like any other."""
-    from qwenpaw.providers.retry_chat_model import _extract_status_code
+    from potato.providers.retry_chat_model import _extract_status_code
 
     provider = _provider()
     model = provider.get_chat_model_instance("gpt-5")

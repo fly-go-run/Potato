@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from click.testing import CliRunner
 
-from qwenpaw.cli.main import cli
-from qwenpaw.cli import shutdown_cmd as shutdown_cmd_module
-from qwenpaw.cli.shutdown_cmd import (
+from potato.cli.main import cli
+from potato.cli import shutdown_cmd as shutdown_cmd_module
+from potato.cli.shutdown_cmd import (
+    _find_desktop_wrapper_pids,
     _find_windows_wrapper_ancestor_pids,
     _terminate_pid,
 )
@@ -13,23 +14,23 @@ from qwenpaw.cli.shutdown_cmd import (
 
 def test_shutdown_command_stops_backend_and_frontend(monkeypatch) -> None:
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._listening_pids_for_port",
+        "potato.cli.shutdown_cmd._listening_pids_for_port",
         lambda _port: {1001},
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_frontend_dev_pids",
+        "potato.cli.shutdown_cmd._find_frontend_dev_pids",
         lambda: {2002},
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_desktop_wrapper_pids",
+        "potato.cli.shutdown_cmd._find_desktop_wrapper_pids",
         set,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
+        "potato.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
         lambda _pids: set(),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._terminate_pid",
+        "potato.cli.shutdown_cmd._terminate_pid",
         lambda _pid: True,
     )
 
@@ -42,23 +43,23 @@ def test_shutdown_command_stops_backend_and_frontend(monkeypatch) -> None:
 
 def test_shutdown_command_reports_failure(monkeypatch) -> None:
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._listening_pids_for_port",
+        "potato.cli.shutdown_cmd._listening_pids_for_port",
         lambda _port: {1001},
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_frontend_dev_pids",
+        "potato.cli.shutdown_cmd._find_frontend_dev_pids",
         set,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_desktop_wrapper_pids",
+        "potato.cli.shutdown_cmd._find_desktop_wrapper_pids",
         set,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
+        "potato.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
         lambda _pids: set(),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._terminate_pid",
+        "potato.cli.shutdown_cmd._terminate_pid",
         lambda _pid: False,
     )
 
@@ -70,48 +71,48 @@ def test_shutdown_command_reports_failure(monkeypatch) -> None:
 
 def test_shutdown_command_reports_nothing_found(monkeypatch) -> None:
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._listening_pids_for_port",
+        "potato.cli.shutdown_cmd._listening_pids_for_port",
         lambda _port: set(),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_frontend_dev_pids",
+        "potato.cli.shutdown_cmd._find_frontend_dev_pids",
         set,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_desktop_wrapper_pids",
+        "potato.cli.shutdown_cmd._find_desktop_wrapper_pids",
         set,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
+        "potato.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
         lambda _pids: set(),
     )
 
     result = CliRunner().invoke(cli, ["shutdown"])
 
     assert result.exit_code != 0
-    assert "No running QwenPaw" in result.output
+    assert "No running Potato" in result.output
 
 
 def test_shutdown_command_stops_windows_wrapper_ancestors(monkeypatch) -> None:
-    monkeypatch.setattr("qwenpaw.cli.shutdown_cmd.sys.platform", "win32")
+    monkeypatch.setattr("potato.cli.shutdown_cmd.sys.platform", "win32")
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._listening_pids_for_port",
+        "potato.cli.shutdown_cmd._listening_pids_for_port",
         lambda _port: {24692},
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_frontend_dev_pids",
+        "potato.cli.shutdown_cmd._find_frontend_dev_pids",
         set,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_desktop_wrapper_pids",
+        "potato.cli.shutdown_cmd._find_desktop_wrapper_pids",
         set,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
+        "potato.cli.shutdown_cmd._find_windows_wrapper_ancestor_pids",
         lambda _pids: {1052},
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._terminate_pid",
+        "potato.cli.shutdown_cmd._terminate_pid",
         lambda _pid: True,
     )
 
@@ -126,17 +127,17 @@ def test_terminate_pid_force_kills_on_windows(monkeypatch) -> None:
     calls: list[tuple[int, bool]] = []
     waits = iter([False, True])
 
-    monkeypatch.setattr("qwenpaw.cli.shutdown_cmd.sys.platform", "win32")
+    monkeypatch.setattr("potato.cli.shutdown_cmd.sys.platform", "win32")
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._pid_exists",
+        "potato.cli.shutdown_cmd._pid_exists",
         lambda _pid: True,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._terminate_process_tree_windows",
+        "potato.cli.shutdown_cmd._terminate_process_tree_windows",
         lambda pid, force=False: calls.append((pid, force)),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._wait_for_pid_exit",
+        "potato.cli.shutdown_cmd._wait_for_pid_exit",
         lambda _pid, _timeout, _interval: next(waits),
     )
 
@@ -149,21 +150,21 @@ def test_terminate_pid_uses_windows_fallback(monkeypatch) -> None:
     waits = iter([False, False, True])
     fallback_calls: list[int] = []
 
-    monkeypatch.setattr("qwenpaw.cli.shutdown_cmd.sys.platform", "win32")
+    monkeypatch.setattr("potato.cli.shutdown_cmd.sys.platform", "win32")
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._pid_exists",
+        "potato.cli.shutdown_cmd._pid_exists",
         lambda _pid: True,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._terminate_process_tree_windows",
+        "potato.cli.shutdown_cmd._terminate_process_tree_windows",
         lambda pid, force=False: calls.append((pid, force)),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._force_terminate_windows_process",
+        "potato.cli.shutdown_cmd._force_terminate_windows_process",
         fallback_calls.append,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._wait_for_pid_exit",
+        "potato.cli.shutdown_cmd._wait_for_pid_exit",
         lambda _pid, _timeout, _interval: next(waits),
     )
 
@@ -173,10 +174,10 @@ def test_terminate_pid_uses_windows_fallback(monkeypatch) -> None:
 
 
 def test_pid_exists_uses_windows_snapshot(monkeypatch) -> None:
-    monkeypatch.setattr("qwenpaw.cli.shutdown_cmd.sys.platform", "win32")
+    monkeypatch.setattr("potato.cli.shutdown_cmd.sys.platform", "win32")
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._windows_process_snapshot",
-        lambda: {29104: (1, "qwenpaw.exe", "qwenpaw app")},
+        "potato.cli.shutdown_cmd._windows_process_snapshot",
+        lambda: {29104: (1, "potato.exe", "potato app")},
     )
 
     assert (
@@ -194,9 +195,23 @@ def test_pid_exists_uses_windows_snapshot(monkeypatch) -> None:
 
 
 def test_find_windows_wrapper_ancestor_pids(monkeypatch) -> None:
-    monkeypatch.setattr("qwenpaw.cli.shutdown_cmd.sys.platform", "win32")
+    monkeypatch.setattr("potato.cli.shutdown_cmd.sys.platform", "win32")
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._windows_process_snapshot",
+        "potato.cli.shutdown_cmd._windows_process_snapshot",
+        lambda: {
+            24692: (1052, "python.exe", "python -m uvicorn potato.app"),
+            1052: (900, "potato.exe", ""),
+            900: (4, "powershell.exe", "powershell"),
+        },
+    )
+
+    assert _find_windows_wrapper_ancestor_pids({24692}) == {1052}
+
+
+def test_find_windows_legacy_wrapper_ancestor_pids(monkeypatch) -> None:
+    monkeypatch.setattr("potato.cli.shutdown_cmd.sys.platform", "win32")
+    monkeypatch.setattr(
+        "potato.cli.shutdown_cmd._windows_process_snapshot",
         lambda: {
             24692: (1052, "python.exe", "python -m uvicorn qwenpaw.app"),
             1052: (900, "qwenpaw.exe", ""),
@@ -207,21 +222,36 @@ def test_find_windows_wrapper_ancestor_pids(monkeypatch) -> None:
     assert _find_windows_wrapper_ancestor_pids({24692}) == {1052}
 
 
+def test_find_desktop_wrapper_pids_includes_legacy_commands(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "potato.cli.shutdown_cmd._process_table",
+        lambda: [
+            (101, "python -m potato desktop"),
+            (102, "qwenpaw desktop"),
+            (103, "copaw.exe desktop"),
+            (105, "/home/user/.qwenpaw/bin/qwenpaw desktop"),
+            (104, "python unrelated.py"),
+        ],
+    )
+
+    assert _find_desktop_wrapper_pids() == {101, 102, 103, 105}
+
+
 def test_terminate_pid_force_kills_on_unix(monkeypatch) -> None:
     calls: list[tuple[int, object]] = []
     waits = iter([False, True])
 
-    monkeypatch.setattr("qwenpaw.cli.shutdown_cmd.sys.platform", "darwin")
+    monkeypatch.setattr("potato.cli.shutdown_cmd.sys.platform", "darwin")
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._pid_exists",
+        "potato.cli.shutdown_cmd._pid_exists",
         lambda _pid: True,
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._signal_process_tree_unix",
+        "potato.cli.shutdown_cmd._signal_process_tree_unix",
         lambda pid, sig: calls.append((pid, sig)),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.shutdown_cmd._wait_for_pid_exit",
+        "potato.cli.shutdown_cmd._wait_for_pid_exit",
         lambda _pid, _timeout, _interval: next(waits),
     )
 

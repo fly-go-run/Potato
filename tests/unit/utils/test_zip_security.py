@@ -7,7 +7,7 @@ import zipfile
 
 import pytest
 
-from qwenpaw.utils.zip_security import (
+from potato.utils.zip_security import (
     ZipLimits,
     ZipResourceLimitError,
     normalize_zip_member_name,

@@ -1,6 +1,6 @@
 name: PR preview tests
 
-# Fork-local preview of the Tests matrix from agentscope-ai/QwenPaw's
+# Fork-local preview of the Tests matrix from fly-go-run/Potato's
 # `.github/workflows/tests.yml`, WITHOUT its `approval-gate` (the upstream
 # `maintainer-approved` environment that gates every Tests run behind a manual
 # maintainer approval). Purpose: catch cross-OS regressions on this branch
@@ -130,7 +130,7 @@ jobs:
       - name: Run integrated tests
         shell: bash
         env:
-          QWENPAW_INTEGRATION_HTTP_TIMEOUT: ${{ matrix.os == 'windows-latest' && '120' || '' }}
+          POTATO_INTEGRATION_HTTP_TIMEOUT: ${{ matrix.os == 'windows-latest' && '120' || '' }}
         run: |
           pytest tests/integration -v \
             -n auto --dist=loadscope --timeout=300 \

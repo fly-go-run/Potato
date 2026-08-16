@@ -36,7 +36,7 @@ if [ "$TARGET" == "--changed" ] || [ "$TARGET" == "-c" ]; then
 fi
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}CoPaw Channel Pre-Commit Check${NC}"
+echo -e "${BLUE}Potato Channel Pre-Commit Check${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -89,7 +89,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Check if dependencies are installed
-if ! python3 -c "import copaw" 2>/dev/null; then
+if ! python3 -c "import potato" 2>/dev/null; then
     echo -e "${YELLOW}Installing dependencies...${NC}"
     pip install -e ".[dev]" -q
 fi

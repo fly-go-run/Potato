@@ -34,9 +34,9 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
-from qwenpaw.exceptions import ChannelError
+from potato.exceptions import ChannelError
 
 
 # =============================================================================
@@ -64,7 +64,7 @@ def wecom_channel(
     tmp_path: Path,
 ) -> Generator:
     """Create a WecomChannel instance for testing."""
-    from qwenpaw.app.channels.wecom.channel import WecomChannel
+    from potato.app.channels.wecom.channel import WecomChannel
 
     channel = WecomChannel(
         process=mock_process_handler,
@@ -271,7 +271,7 @@ class TestWecomChannelInit:
         tmp_path: Path,
     ):
         """Constructor should store all basic configuration parameters."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         channel = WecomChannel(
             process=mock_process_handler,
@@ -300,7 +300,7 @@ class TestWecomChannelInit:
         tmp_path: Path,
     ):
         """Constructor should store advanced configuration parameters."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         channel = WecomChannel(
             process=mock_process_handler,
@@ -330,7 +330,7 @@ class TestWecomChannelInit:
 
     def test_init_creates_required_data_structures(self, mock_process_handler):
         """Constructor should initialize required internal data structures."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         channel = WecomChannel(
             process=mock_process_handler,
@@ -371,7 +371,7 @@ class TestWecomChannelFromEnv:
         monkeypatch,
     ):
         """from_env should read basic environment variables."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         monkeypatch.setenv("WECOM_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("WECOM_BOT_ID", "env_bot_id")
@@ -395,7 +395,7 @@ class TestWecomChannelFromEnv:
         monkeypatch,
     ):
         """from_env should read policy environment variables."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         monkeypatch.setenv("WECOM_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("WECOM_BOT_ID", "bot_id")
@@ -416,7 +416,7 @@ class TestWecomChannelFromEnv:
 
     def test_from_env_disabled_by_default(self, mock_process_handler):
         """from_env should create disabled channel by default."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         channel = WecomChannel.from_env(mock_process_handler)
 
@@ -430,7 +430,7 @@ class TestWecomChannelFromEnv:
         monkeypatch,
     ):
         """from_env should handle empty allow_from."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         monkeypatch.setenv("WECOM_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("WECOM_BOT_ID", "bot_id")
@@ -449,7 +449,7 @@ class TestWecomChannelFromConfig:
 
     def test_from_config_reads_basic_config(self, mock_process_handler):
         """from_config should read basic configuration."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         config = MagicMock()
         config.enabled = True
@@ -482,7 +482,7 @@ class TestWecomChannelFromConfig:
 
     def test_from_config_handles_none_values(self, mock_process_handler):
         """from_config should handle None values gracefully."""
-        from qwenpaw.app.channels.wecom.channel import WecomChannel
+        from potato.app.channels.wecom.channel import WecomChannel
 
         config = MagicMock()
         config.enabled = False  # Use False instead of None
@@ -666,7 +666,7 @@ class TestWecomChannelDeduplication:
 
     def test_processed_ids_limit(self, wecom_channel):
         """_is_duplicate should limit stored message IDs."""
-        from qwenpaw.app.channels.wecom.channel import _WECOM_PROCESSED_IDS_MAX
+        from potato.app.channels.wecom.channel import _WECOM_PROCESSED_IDS_MAX
 
         # Add many message IDs
         for i in range(_WECOM_PROCESSED_IDS_MAX + 100):
@@ -691,7 +691,7 @@ class TestWecomChannelBuildAgentRequest:
 
     def test_build_agent_request_from_native_basic(self, wecom_channel):
         """build_agent_request_from_native creates proper AgentRequest."""
-        from qwenpaw.schemas import TextContent
+        from potato.schemas import TextContent
 
         payload = {
             "channel_id": "wecom",
@@ -1049,7 +1049,7 @@ class TestWecomChannelSendMethods:
     ):
         """send_content_parts should send text content."""
         wecom_channel._client = mock_ws_client
-        from qwenpaw.schemas import TextContent
+        from potato.schemas import TextContent
 
         parts = [TextContent(type="text", text="Hello World")]
         meta = {"wecom_frame": {"test": "frame"}}
@@ -1071,7 +1071,7 @@ class TestWecomChannelSendMethods:
         """send_content_parts should apply bot prefix."""
         wecom_channel._client = mock_ws_client
         wecom_channel.bot_prefix = "[Bot]"
-        from qwenpaw.schemas import TextContent
+        from potato.schemas import TextContent
 
         parts = [TextContent(type="text", text="Hello")]
 
@@ -1093,7 +1093,7 @@ class TestWecomChannelSendMethods:
     ):
         """send_content_parts should use send_message when no frame."""
         wecom_channel._client = mock_ws_client
-        from qwenpaw.schemas import TextContent
+        from potato.schemas import TextContent
 
         parts = [TextContent(type="text", text="Hello")]
 
@@ -1471,7 +1471,7 @@ class TestWecomChannelEdgeCases:
         wecom_channel._client = mock_ws_client
         wecom_channel._upload_media = AsyncMock(return_value="media_123")
 
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             ImageContent,
         )
 
@@ -1500,7 +1500,7 @@ class TestWecomChannelEdgeCases:
         amr_file = tmp_path / "test.amr"
         amr_file.write_bytes(b"amr data")
 
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             AudioContent,
         )
 

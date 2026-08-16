@@ -8,12 +8,12 @@
     "zh-CN": "使用 OpenAI GPT Image 2 模型生成与编辑图像",
     "en-US": "Generate and edit images using OpenAI GPT Image 2 model"
   },
-  "author": "QwenPaw Team",
+  "author": "Potato Team",
   "entry": {
     "backend": "gpt_image2.py"
   },
   "dependencies": ["httpx>=0.24.0"],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.1.7",
     "max": "2.1.0"
   },

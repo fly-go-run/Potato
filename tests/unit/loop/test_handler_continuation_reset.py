@@ -6,12 +6,12 @@ from typing import Any, Optional, cast
 
 import pytest
 
-from qwenpaw.loop.gates.base import (
+from potato.loop.gates.base import (
     StopAction,
     StopGate,
     StopHandlerResult,
 )
-from qwenpaw.loop.gates.handler import StopHandler
+from potato.loop.gates.handler import StopHandler
 
 
 class _AlwaysContinueGate(StopGate):

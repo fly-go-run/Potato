@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for :mod:`qwenpaw.app.approvals.display`.
+"""Unit tests for :mod:`potato.app.approvals.display`.
 
 The scope-gating fields (``exact_target`` / ``similar_target`` /
 ``is_generalized``) are already pinned in
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 # pylint: disable=use-implicit-booleaness-not-comparison,unused-argument
 
-from qwenpaw.app.approvals.display import approval_display_fields
+from potato.app.approvals.display import approval_display_fields
 
 
 class _FakePending:

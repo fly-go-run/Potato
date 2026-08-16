@@ -5,26 +5,26 @@ from types import SimpleNamespace
 
 import pytest
 
-from qwenpaw.app.approvals.driver_gate import QwenPawDriverApprovalGate
-from qwenpaw.app.approvals.service import ApprovalService
-from qwenpaw.app.driver_config_watcher import DriverConfigWatcher
-from qwenpaw.app.mcp.config_service import MCPConfigService
-from qwenpaw.app.mcp.schemas import (
+from potato.app.approvals.driver_gate import PotatoDriverApprovalGate
+from potato.app.approvals.service import ApprovalService
+from potato.app.driver_config_watcher import DriverConfigWatcher
+from potato.app.mcp.config_service import MCPConfigService
+from potato.app.mcp.schemas import (
     MCPAccessPolicy,
     MCPAccessRule,
     MCPToolDefaultPolicy,
 )
-from qwenpaw.drivers.capabilities import DriverInvocation
-from qwenpaw.drivers.contracts import (
+from potato.drivers.capabilities import DriverInvocation
+from potato.drivers.contracts import (
     DriverCard,
     PolicyRule,
     coerce_driver_policy,
 )
-from qwenpaw.drivers.credentials.store import AsyncCredentialStore
-from qwenpaw.drivers.handlers.mcp import MCPDriverHandler
-from qwenpaw.drivers.manager import DriverManager
-from qwenpaw.drivers.storage import card_path, dump_card, load_card
-from qwenpaw.security.tool_guard.approval import ApprovalDecision
+from potato.drivers.credentials.store import AsyncCredentialStore
+from potato.drivers.handlers.mcp import MCPDriverHandler
+from potato.drivers.manager import DriverManager
+from potato.drivers.storage import card_path, dump_card, load_card
+from potato.security.tool_guard.approval import ApprovalDecision
 from tests.integration.driver_mcp_fakes import (
     FakeStdIOClient,
     patch_mcp_runtime_clients,
@@ -48,7 +48,7 @@ async def _registry_with_policy(
     manager = DriverManager(
         tmp_path / "drivers",
         store,
-        approval_gate=QwenPawDriverApprovalGate(),
+        approval_gate=PotatoDriverApprovalGate(),
     )
     manager.register_handler_type("mcp", MCPDriverHandler)
     await manager.build_drivers()
@@ -358,7 +358,7 @@ async def test_driver_mcp_policy_ask_approve_resumes_client_call(
     patch_mcp_runtime_clients(monkeypatch)
     service = ApprovalService()
     monkeypatch.setattr(
-        "qwenpaw.app.approvals.get_approval_service",
+        "potato.app.approvals.get_approval_service",
         lambda: service,
     )
     manager = await _registry_with_policy(
@@ -407,7 +407,7 @@ async def test_driver_mcp_policy_ask_session_off_auto_allows_no_persist(
     patch_mcp_runtime_clients(monkeypatch)
     service = ApprovalService()
     monkeypatch.setattr(
-        "qwenpaw.app.approvals.get_approval_service",
+        "potato.app.approvals.get_approval_service",
         lambda: service,
     )
     manager = await _registry_with_policy(
@@ -457,11 +457,11 @@ async def test_driver_mcp_policy_ask_agent_off_auto_allows_no_persist(
     patch_mcp_runtime_clients(monkeypatch)
     service = ApprovalService()
     monkeypatch.setattr(
-        "qwenpaw.app.approvals.get_approval_service",
+        "potato.app.approvals.get_approval_service",
         lambda: service,
     )
     monkeypatch.setattr(
-        "qwenpaw.config.config.load_agent_config",
+        "potato.config.config.load_agent_config",
         lambda _agent_id: SimpleNamespace(approval_level="OFF"),
     )
     manager = await _registry_with_policy(
@@ -520,11 +520,11 @@ async def test_driver_mcp_policy_ask_agent_auto_requires_approval(
     patch_mcp_runtime_clients(monkeypatch)
     service = ApprovalService()
     monkeypatch.setattr(
-        "qwenpaw.app.approvals.get_approval_service",
+        "potato.app.approvals.get_approval_service",
         lambda: service,
     )
     monkeypatch.setattr(
-        "qwenpaw.config.config.load_agent_config",
+        "potato.config.config.load_agent_config",
         lambda _agent_id: SimpleNamespace(approval_level="AUTO"),
     )
     manager = await _registry_with_policy(
@@ -568,11 +568,11 @@ async def test_driver_mcp_policy_ask_active_agent_off_auto_allows(
     patch_mcp_runtime_clients(monkeypatch)
     service = ApprovalService()
     monkeypatch.setattr(
-        "qwenpaw.app.approvals.get_approval_service",
+        "potato.app.approvals.get_approval_service",
         lambda: service,
     )
     monkeypatch.setattr(
-        "qwenpaw.config.utils.load_config",
+        "potato.config.utils.load_config",
         lambda: SimpleNamespace(
             agents=SimpleNamespace(active_agent="active-agent"),
         ),
@@ -583,7 +583,7 @@ async def test_driver_mcp_policy_ask_active_agent_off_auto_allows(
         return SimpleNamespace(approval_level="OFF")
 
     monkeypatch.setattr(
-        "qwenpaw.config.config.load_agent_config",
+        "potato.config.config.load_agent_config",
         fake_load_agent_config,
     )
     manager = await _registry_with_policy(
@@ -658,7 +658,7 @@ async def test_driver_mcp_policy_allow_session_strict_requires_approval(
     patch_mcp_runtime_clients(monkeypatch)
     service = ApprovalService()
     monkeypatch.setattr(
-        "qwenpaw.app.approvals.get_approval_service",
+        "potato.app.approvals.get_approval_service",
         lambda: service,
     )
     manager = await _registry_with_policy(

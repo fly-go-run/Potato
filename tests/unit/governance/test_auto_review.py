@@ -6,12 +6,12 @@ import json
 
 import pytest
 
-from qwenpaw.config.config import (
+from potato.config.config import (
     AgentProfileConfig,
     AutoReviewConfig,
     ModelSlotConfig,
 )
-from qwenpaw.governance.auto_review import (
+from potato.governance.auto_review import (
     _MAX_REVIEW_PAYLOAD_CHARS,
     AutoReviewResult,
     _redact_review_value,
@@ -107,7 +107,7 @@ def test_review_payload_redacts_finding_matches_and_plain_text_context() -> (
 async def test_review_tool_call_returns_structured_decision(
     monkeypatch,
 ) -> None:
-    import qwenpaw.governance.auto_review as module
+    import potato.governance.auto_review as module
 
     settings = SimpleNamespace(
         enabled=True,
@@ -164,7 +164,7 @@ async def test_review_tool_call_returns_structured_decision(
 
 @pytest.mark.asyncio
 async def test_review_tool_call_falls_back_to_main_model(monkeypatch) -> None:
-    import qwenpaw.governance.auto_review as module
+    import potato.governance.auto_review as module
 
     settings = SimpleNamespace(
         enabled=True,
@@ -218,7 +218,7 @@ async def test_review_tool_call_falls_back_to_main_model(monkeypatch) -> None:
 async def test_structured_allow_with_critical_risk_is_denied_locally(
     monkeypatch,
 ) -> None:
-    import qwenpaw.governance.auto_review as module
+    import potato.governance.auto_review as module
 
     settings = SimpleNamespace(
         enabled=True,
@@ -262,7 +262,7 @@ async def test_structured_allow_with_critical_risk_is_denied_locally(
 async def test_review_payload_has_a_total_serialized_size_bound(
     monkeypatch,
 ) -> None:
-    import qwenpaw.governance.auto_review as module
+    import potato.governance.auto_review as module
 
     settings = SimpleNamespace(
         enabled=True,
@@ -317,7 +317,7 @@ async def test_review_payload_has_a_total_serialized_size_bound(
 async def test_disabled_auto_review_denies_without_model_call(
     monkeypatch,
 ) -> None:
-    import qwenpaw.governance.auto_review as module
+    import potato.governance.auto_review as module
 
     monkeypatch.setattr(
         module,

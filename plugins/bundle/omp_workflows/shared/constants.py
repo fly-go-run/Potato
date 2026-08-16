@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # ---------------------------------------------------------------------------
 # Registered tool names used in OMP role configs / controller prompts.
-# Keep in sync with QwenPaw ToolRegistry names (not display labels).
+# Keep in sync with Potato ToolRegistry names (not display labels).
 # ---------------------------------------------------------------------------
 TOOL_READ_FILE = "read_file"
 TOOL_GREP_SEARCH = "grep_search"

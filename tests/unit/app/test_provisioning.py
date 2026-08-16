@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from qwenpaw.app import provisioning
+from potato.app import provisioning
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ class TestEnvSeeding:
     ):
         seeded: dict[str, str] = {}
         monkeypatch.setattr(
-            "qwenpaw.envs.set_env_var",
+            "potato.envs.set_env_var",
             lambda key, value: seeded.update({key: value}),
         )
         _write(tmp_path, {"envs": {"apikey": "sk-voice", "keyid": "app-1"}})
@@ -61,7 +61,7 @@ class TestEnvSeeding:
     ):
         seeded: dict[str, str] = {}
         monkeypatch.setattr(
-            "qwenpaw.envs.set_env_var",
+            "potato.envs.set_env_var",
             lambda key, value: seeded.update({key: value}),
         )
         _write(tmp_path, {"envs": {"  ": "x", "keyid": None, "ok": "1"}})
@@ -80,8 +80,8 @@ class TestTranscriptionSetting:
     ):
         config = MagicMock()
         saved: list = []
-        monkeypatch.setattr("qwenpaw.config.load_config", lambda: config)
-        monkeypatch.setattr("qwenpaw.config.save_config", saved.append)
+        monkeypatch.setattr("potato.config.load_config", lambda: config)
+        monkeypatch.setattr("potato.config.save_config", saved.append)
         _write(tmp_path, {"transcription_provider_type": "doubao_asr"})
 
         await provisioning.apply_provision_file(manager, "default", tmp_path)
@@ -97,7 +97,7 @@ class TestTranscriptionSetting:
         tmp_path,
     ):
         saved: list = []
-        monkeypatch.setattr("qwenpaw.config.save_config", saved.append)
+        monkeypatch.setattr("potato.config.save_config", saved.append)
         _write(tmp_path, {"active": {"provider_id": "", "model": ""}})
 
         await provisioning.apply_provision_file(manager, "default", tmp_path)
@@ -115,7 +115,7 @@ class TestFailureHandling:
         def boom(_key, _value):
             raise RuntimeError("secret store unavailable")
 
-        monkeypatch.setattr("qwenpaw.envs.set_env_var", boom)
+        monkeypatch.setattr("potato.envs.set_env_var", boom)
         _write(tmp_path, {"envs": {"apikey": "sk-voice"}})
 
         # 不能抛:预配置失败绝不能挡住应用启动。

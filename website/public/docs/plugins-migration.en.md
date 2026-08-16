@@ -1,6 +1,6 @@
 # Plugin System Migration Guide
 
-The new version of QwenPaw keeps most of the public API from the previous plugin system. Most legacy public APIs keep the same signature and can still be called as-is. However, if a plugin depends on agent state, workspace internals, runtime helpers, tool config structures, or frontend page structure, you still need to verify the actual behavior in the new version.
+The new version of Potato keeps most of the public API from the previous plugin system. Most legacy public APIs keep the same signature and can still be called as-is. However, if a plugin depends on agent state, workspace internals, runtime helpers, tool config structures, or frontend page structure, you still need to verify the actual behavior in the new version.
 
 ## Scope
 
@@ -8,7 +8,7 @@ This document applies to:
 
 - Backend plugins built against the legacy official documentation
 - Plugins that register providers, hooks, tools, HTTP APIs, or commands through `PluginApi`
-- Frontend plugins that use the `window.QwenPaw.*` Host SDK
+- Frontend plugins that use the `window.Potato.*` Host SDK
 
 ## Pre-migration Checklist
 
@@ -46,11 +46,11 @@ Legacy plugin manifests usually use `min_version`:
 
 In the legacy version, `min_version` was mostly manifest metadata — the loader never used it to block plugin loading. The new version checks version compatibility before importing a plugin. Incompatible plugins are recorded with `enabled=false`, and the backend entry's `register()` is never executed.
 
-The new version recommends using `qwenpaw_version`:
+The new version recommends using `potato_version`:
 
 ```json
 {
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "2.0.0",
     "max": "2.1.0"
   }
@@ -64,16 +64,16 @@ The version range uses `>= min, < max` semantics. When `max` is omitted, the new
 | `"min": "2.0.0"`  | `>=2.0.0, <2.1.0`  |
 | `"min": "1.1.10"` | `>=1.1.10, <1.2.0` |
 
-So if you drop a legacy plugin into the new version unchanged and it only has `"min_version": "1.1.10"`, the new version interprets it as `>=1.1.10, <1.2.0`, which is judged incompatible under QwenPaw 2.0.x.
+So if you drop a legacy plugin into the new version unchanged and it only has `"min_version": "1.1.10"`, the new version interprets it as `>=1.1.10, <1.2.0`, which is judged incompatible under Potato 2.0.x.
 
 ### Manifest Field Reference
 
 | Field                                                                                                               | Type     | Legacy                                   | New                                                                               | Migration advice                                            |
 | ------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `qwenpaw_version`                                                                                                   | `object` | Undefined, ignored                       | New, recommended                                                                  | New plugins should add this field                           |
-| `qwenpaw_version.min`                                                                                               | `string` | Undefined                                | Minimum compatible QwenPaw version, inclusive                                     | Set to the lowest new version you actually verified against |
-| `qwenpaw_version.max`                                                                                               | `string` | Undefined                                | Highest compatible QwenPaw version, exclusive                                     | Recommended to set explicitly                               |
-| `min_version`                                                                                                       | `string` | Supported, but not enforced at load time | Legacy field, only used for compatibility checks when `qwenpaw_version` is absent | Keep it if you need legacy compatibility                    |
+| `potato_version`                                                                                                   | `object` | Undefined, ignored                       | New, recommended                                                                  | New plugins should add this field                           |
+| `potato_version.min`                                                                                               | `string` | Undefined                                | Minimum compatible Potato version, inclusive                                     | Set to the lowest new version you actually verified against |
+| `potato_version.max`                                                                                               | `string` | Undefined                                | Highest compatible Potato version, exclusive                                     | Recommended to set explicitly                               |
+| `min_version`                                                                                                       | `string` | Supported, but not enforced at load time | Legacy field, only used for compatibility checks when `potato_version` is absent | Keep it if you need legacy compatibility                    |
 | `max_version`                                                                                                       | `string` | Undefined                                | Legacy field, used together with `min_version`                                    | Only for legacy-manifest compatibility scenarios            |
 | `id`, `version`, `name`, `type`, `description`, `author`, `entry.backend`, `entry.frontend`, `dependencies`, `meta` | —        | Supported                                | Still supported                                                                   | No change                                                   |
 | `entry_point`                                                                                                       | `string` | Legacy field                             | Still compatible                                                                  | New plugins should still use `entry.backend`                |
@@ -83,14 +83,14 @@ If a single plugin needs to support both the legacy and new versions, you can ke
 ```json
 {
   "min_version": "1.1.10",
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "2.0.0",
     "max": "2.1.0"
   }
 }
 ```
 
-The legacy version ignores the unknown `qwenpaw_version` field. The new version reads `qwenpaw_version` first, and only falls back to `min_version` / `max_version` when that field is absent.
+The legacy version ignores the unknown `potato_version` field. The new version reads `potato_version` first, and only falls back to `min_version` / `max_version` when that field is absent.
 
 ## Check Backend Plugin Code
 
@@ -289,16 +289,16 @@ If your plugin relies on the behavior of "resetting skill toggles on every start
 
 ## Check Frontend Plugin Code
 
-The new version continues to support the existing `window.QwenPaw.*` frontend Host SDK. Plugins using existing legacy frontend APIs can usually run without changes.
+The new version continues to support the existing `window.Potato.*` frontend Host SDK. Plugins using existing legacy frontend APIs can usually run without changes.
 
 | API                                                            | Type       | Purpose                                                             |
 | -------------------------------------------------------------- | ---------- | ------------------------------------------------------------------- |
-| `window.QwenPaw.host`                                          | Compatible | Access React, Ant Design, API helpers, runtime state, etc.          |
-| `window.QwenPaw.menu`                                          | Compatible | Register sidebar menu items                                         |
-| `window.QwenPaw.route`                                         | Compatible | Register page routes                                                |
-| `window.QwenPaw.slot`                                          | Compatible | Register UI slots                                                   |
-| `window.QwenPaw.chat.requestPayload.add(pluginId, fn, opts?)`  | New        | Append or rewrite request body fields before a chat request is sent |
-| `window.QwenPaw.chat.response.set(pluginId, { avatar, nick })` | New        | Set the avatar and nickname for the default AI reply card           |
+| `window.Potato.host`                                          | Compatible | Access React, Ant Design, API helpers, runtime state, etc.          |
+| `window.Potato.menu`                                          | Compatible | Register sidebar menu items                                         |
+| `window.Potato.route`                                         | Compatible | Register page routes                                                |
+| `window.Potato.slot`                                          | Compatible | Register UI slots                                                   |
+| `window.Potato.chat.requestPayload.add(pluginId, fn, opts?)`  | New        | Append or rewrite request body fields before a chat request is sent |
+| `window.Potato.chat.response.set(pluginId, { avatar, nick })` | New        | Set the avatar and nickname for the default AI reply card           |
 
 ## Check Dependency Installation
 
@@ -330,27 +330,27 @@ Hidden directories starting with `.` and directories ending in `.disabled` are n
 
 ## Publishing to the Plugin Marketplace
 
-The new version's plugin marketplace catalog filters entries by QwenPaw version. The filtering rules match the loader:
+The new version's plugin marketplace catalog filters entries by Potato version. The filtering rules match the loader:
 
 | Field                 | Type     | Read priority | Description                                                                        |
 | --------------------- | -------- | ------------- | ---------------------------------------------------------------------------------- |
-| `qwenpaw_version`     | `object` | 1             | Recommended field, same format as the plugin manifest                              |
-| `qwenpaw_version.min` | `string` | 1             | Minimum compatible QwenPaw version, inclusive                                      |
-| `qwenpaw_version.max` | `string` | 1             | Highest compatible QwenPaw version, exclusive                                      |
-| `min_version`         | `string` | 2             | Legacy field, only used when `qwenpaw_version` is absent                           |
-| `max_version`         | `string` | 2             | Legacy field, only used when `qwenpaw_version` is absent                           |
+| `potato_version`     | `object` | 1             | Recommended field, same format as the plugin manifest                              |
+| `potato_version.min` | `string` | 1             | Minimum compatible Potato version, inclusive                                      |
+| `potato_version.max` | `string` | 1             | Highest compatible Potato version, exclusive                                      |
+| `min_version`         | `string` | 2             | Legacy field, only used when `potato_version` is absent                           |
+| `max_version`         | `string` | 2             | Legacy field, only used when `potato_version` is absent                           |
 | No version constraint | -        | 3             | Treated as compatible, but omitting constraints is not recommended when publishing |
 
-When publishing a new-version plugin, keep the version constraints in the packaged `plugin.json` consistent with the marketplace index entry. If an existing entry only has `"min_version": "1.1.10"`, it may get filtered out under QwenPaw 2.0.x.
+When publishing a new-version plugin, keep the version constraints in the packaged `plugin.json` consistent with the marketplace index entry. If an existing entry only has `"min_version": "1.1.10"`, it may get filtered out under Potato 2.0.x.
 
 ## Migration Steps
 
-1. Update `plugin.json`, adding `qwenpaw_version` with an explicit `max`.
+1. Update `plugin.json`, adding `potato_version` with an explicit `max`.
 2. Confirm the backend entry point exports `plugin = MyPlugin()`.
 3. Search for `register_prompt_section`, and change calls to keyword-argument style with `after` passed explicitly.
 4. If the plugin provides a skill, verify the persistence behavior after a user manually toggles it.
 5. Run plugin install and validation in the new version.
-6. Start QwenPaw and check the logs for `is incompatible` or plugin registration failure messages.
+6. Start Potato and check the logs for `is incompatible` or plugin registration failure messages.
 7. If published to the plugin marketplace, update the version constraints in the marketplace index as well.
 
 ## FAQ
@@ -377,12 +377,12 @@ api.register_prompt_section(
 
 ### Can the same plugin support both the legacy and new versions?
 
-Yes. The plugin code should only use APIs that exist on both sides, or check the version before calling a new-version-only API. The manifest can keep both `min_version` and `qwenpaw_version`:
+Yes. The plugin code should only use APIs that exist on both sides, or check the version before calling a new-version-only API. The manifest can keep both `min_version` and `potato_version`:
 
 ```json
 {
   "min_version": "1.1.10",
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "2.0.0",
     "max": "2.1.0"
   }
@@ -393,6 +393,6 @@ Yes. The plugin code should only use APIs that exist on both sides, or check the
 
 No. `register_control_command()` remains available in the new version. `register_slash_command()` is only recommended for new plugins that need workspace-level command registration.
 
-### Can I omit `qwenpaw_version.max`?
+### Can I omit `potato_version.max`?
 
 Yes, but omitting it means it will be automatically derived as the next minor version. If your plugin has been verified to work across multiple minor versions, it's better to explicitly declare a wider `max`.

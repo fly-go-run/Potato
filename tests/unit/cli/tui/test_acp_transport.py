@@ -14,11 +14,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from qwenpaw.agents.acp.meta import (
+from potato.agents.acp.meta import (
     ACP_APPROVAL_EXPIRES_AT_META_KEY,
     ACP_CODING_PROJECT_META_KEY,
 )
-from qwenpaw.cli.tui.events import (
+from potato.cli.tui.events import (
     BackendWarmed,
     Connected,
     PermissionExpired,
@@ -30,7 +30,7 @@ from qwenpaw.cli.tui.events import (
     TurnEnded,
     UserTurn,
 )
-from qwenpaw.cli.tui.transport.acp import AcpTransport, _TuiClient
+from potato.cli.tui.transport.acp import AcpTransport, _TuiClient
 
 pytestmark = [pytest.mark.unit, pytest.mark.p1]
 
@@ -72,7 +72,7 @@ async def test_start_and_basic_turn():
         connected = await asyncio.wait_for(transport.start(), timeout=10.0)
         assert isinstance(connected, Connected)
         assert connected.session_id == "sess-1"
-        assert connected.qwenpaw_version == "0.0.1"
+        assert connected.potato_version == "0.0.1"
         assert connected.warming is True
 
         await transport.send("hi there")
@@ -230,7 +230,7 @@ async def test_permission_expires_locally_at_deadline(monkeypatch):
     emits PermissionExpired so the overlay clears with an explanation.
     """
     monkeypatch.setattr(
-        "qwenpaw.cli.tui.transport.acp._PERMISSION_EXPIRY_GRACE_SECONDS",
+        "potato.cli.tui.transport.acp._PERMISSION_EXPIRY_GRACE_SECONDS",
         10.0,
     )
     queue = asyncio.Queue()
@@ -374,10 +374,10 @@ async def test_load_session_replays_history():
 
 
 def test_session_agent_reads_meta():
-    from qwenpaw.cli.tui.transport.acp import _session_agent
+    from potato.cli.tui.transport.acp import _session_agent
 
     # Agent id reported via the session response _meta.
-    sess = SimpleNamespace(field_meta={"qwenpaw.agent": "writer"})
+    sess = SimpleNamespace(field_meta={"potato.agent": "writer"})
     assert _session_agent(sess) == "writer"
 
     # Missing / unrelated meta → None (caller falls back to the requested id).

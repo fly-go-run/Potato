@@ -10,7 +10,7 @@ import httpx
 from agentscope.tool import FunctionTool
 from agentscope.tool import Toolkit
 
-from qwenpaw.agents.tools import agent_management
+from potato.agents.tools import agent_management
 
 
 class _FakeResponse:
@@ -411,7 +411,7 @@ async def test_spawn_subagent_inherits_root_channel_context(monkeypatch):
     async def fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    from qwenpaw.app import agent_context
+    from potato.app import agent_context
 
     monkeypatch.setattr(
         agent_management,
@@ -597,7 +597,7 @@ async def test_spawn_subagent_batch_json_string_dispatches(monkeypatch):
     async def fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    from qwenpaw.app import agent_context
+    from potato.app import agent_context
 
     monkeypatch.setattr(
         agent_management,
@@ -661,7 +661,7 @@ async def test_spawn_subagent_batch_list_still_works(monkeypatch):
     async def fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    from qwenpaw.app import agent_context
+    from potato.app import agent_context
 
     monkeypatch.setattr(
         agent_management,
@@ -729,7 +729,7 @@ async def test_spawn_subagent_batch_ignores_top_level_ignored_fields(
     async def fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    from qwenpaw.app import agent_context
+    from potato.app import agent_context
 
     monkeypatch.setattr(
         agent_management,
@@ -806,7 +806,7 @@ async def test_spawn_subagent_batch_ambiguous_fork_errors_before_dispatch(
     async def fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    from qwenpaw.app import agent_context
+    from potato.app import agent_context
 
     monkeypatch.setattr(
         agent_management,
@@ -883,7 +883,7 @@ async def test_spawn_subagent_top_level_string_bools(monkeypatch):
     async def fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    from qwenpaw.app import agent_context
+    from potato.app import agent_context
 
     monkeypatch.setattr(
         agent_management,
@@ -988,7 +988,7 @@ async def test_spawn_subagent_batch_item_timeout_errors_before_dispatch(
     async def fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    from qwenpaw.app import agent_context
+    from potato.app import agent_context
 
     monkeypatch.setattr(
         agent_management,

@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from qwenpaw.loop.gates.base import StopAction, StopHandlerResult
-from qwenpaw.loop.gates.loop_gate import LoopGate
+from potato.loop.gates.base import StopAction, StopHandlerResult
+from potato.loop.gates.loop_gate import LoopGate
 
 from ..shared.constants import ULTRAWORK_MAX_ITERATIONS
 from ..shared.fork_guard import forks_integrated, merge_blocked_continuation
@@ -43,7 +43,7 @@ class UltraworkGate(LoopGate):
     def activate_for_work(self, workspace_dir: Path) -> Path:
         """Create state directory and activate."""
         try:
-            from qwenpaw.agents.fork_project import begin_fork_scope
+            from potato.agents.fork_project import begin_fork_scope
 
             begin_fork_scope(workspace_dir)
         except ImportError:

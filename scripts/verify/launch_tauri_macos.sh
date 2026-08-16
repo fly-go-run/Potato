@@ -6,7 +6,7 @@ set -euo pipefail
 # 1. Unpack the freshly built Tauri zip.
 echo "[launch_tauri_macos] Unpacking zip..."
 mkdir -p dist/verify-tauri
-unzip -q dist/QwenPaw-Tauri-*-macOS.zip -d dist/verify-tauri
+unzip -q dist/Potato-Tauri-*-macOS.zip -d dist/verify-tauri
 APP="$(find dist/verify-tauri -maxdepth 3 -name '*.app' -type d | head -1)"
 if [ -z "$APP" ]; then
   echo "::error::Tauri .app not found inside zip"
@@ -23,12 +23,12 @@ open "$APP"
 echo "[launch_tauri_macos] open exit=$?"
 sleep 3
 echo "[launch_tauri_macos] Process snapshot after launch:"
-ps -ef | grep -iE "qwenpaw|tauri" | grep -v grep || echo "  (no matching processes)"
+ps -ef | grep -iE "potato|tauri" | grep -v grep || echo "  (no matching processes)"
 
 # 4. Wait for the sidecar to write the port file and respond.
-#    The sidecar writes desktop_port at WORKING_DIR root (~/.qwenpaw),
+#    The sidecar writes desktop_port at WORKING_DIR root (~/.potato),
 #    not inside the workspace dir.
-PORT_FILE="$HOME/.qwenpaw/desktop_port"
+PORT_FILE="$HOME/.potato/desktop_port"
 PORT=""
 for i in $(seq 1 60); do
   if [ -f "$PORT_FILE" ]; then
@@ -41,14 +41,14 @@ for i in $(seq 1 60); do
   if [ "$i" = "60" ]; then
     echo "::error::Tauri app did not start within 120s"
     echo "[debug] PORT_FILE=$PORT_FILE exists=$([ -f "$PORT_FILE" ] && echo yes || echo no)"
-    echo "[debug] WORKING_DIR (~/.qwenpaw) contents:"
-    ls -la "$HOME/.qwenpaw/" 2>/dev/null || echo "  (missing)"
-    echo "[debug] All qwenpaw-related files under HOME (top 30):"
-    find "$HOME/.qwenpaw" -maxdepth 4 -type f 2>/dev/null | head -30 || true
+    echo "[debug] WORKING_DIR (~/.potato) contents:"
+    ls -la "$HOME/.potato/" 2>/dev/null || echo "  (missing)"
+    echo "[debug] All potato-related files under HOME (top 30):"
+    find "$HOME/.potato" -maxdepth 4 -type f 2>/dev/null | head -30 || true
     echo "[debug] desktop.log tail (if exists):"
-    tail -50 "$HOME/.qwenpaw/desktop.log" 2>/dev/null || echo "  (no desktop.log)"
+    tail -50 "$HOME/.potato/desktop.log" 2>/dev/null || echo "  (no desktop.log)"
     echo "[debug] Process list:"
-    ps -ef | grep -iE "qwenpaw|tauri" | grep -v grep || echo "  (no matching processes)"
+    ps -ef | grep -iE "potato|tauri" | grep -v grep || echo "  (no matching processes)"
     exit 1
   fi
   sleep 2
@@ -56,7 +56,7 @@ done
 
 # 5. Auto-init creates BOOTSTRAP.md during startup. Remove it afterwards so
 #    the verifier can drive the agent in normal QA mode.
-rm -f "$HOME/.qwenpaw/workspaces/default/BOOTSTRAP.md"
+rm -f "$HOME/.potato/workspaces/default/BOOTSTRAP.md"
 
 export BASE_URL="http://127.0.0.1:$PORT"
 echo "BASE_URL=$BASE_URL" >> "$GITHUB_ENV"

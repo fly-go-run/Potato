@@ -18,7 +18,8 @@ export default function BackendLoadingPage({
     return (
       <div className={styles.page}>
         <div className={styles.card}>
-          <img src="/qwenpaw.png" alt="Potato" className={styles.logo} />
+          <img src="/potato.png" alt="" className={styles.logo} />
+          <p className={styles.brand}>Potato</p>
           <div className={styles.loadingRow}>
             <span className={styles.spinner} aria-hidden="true" />
             <span className={styles.loadingText}>
@@ -33,7 +34,8 @@ export default function BackendLoadingPage({
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <img src="/qwenpaw.png" alt="Potato" className={styles.logo} />
+        <img src="/potato.png" alt="" className={styles.logo} />
+        <p className={styles.brand}>Potato</p>
         <h1 className={styles.title}>
           {t("startup.error", "Backend failed to start.")}
         </h1>

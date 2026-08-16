@@ -13,8 +13,30 @@ export function shouldShowProcessHeader(opts: {
   failed: number;
   toolFoldCount: number;
   foldWindow: number;
+  /** Stream is over; a finished turn with real work gets "Worked for…". */
+  settled?: boolean;
+  hasProcessWork?: boolean;
 }): boolean {
   if (opts.failed > 0) return true;
   if (opts.toolFoldCount > opts.foldWindow) return true;
+  if (opts.settled && opts.hasProcessWork) return true;
   return opts.elapsedMs !== null && opts.elapsedMs >= PROCESS_HEADER_MS;
+}
+
+/**
+ * Immediate "the model has started" line. Distinct from the 60s header:
+ * show it only while the assistant column has nothing else to look at.
+ */
+export function shouldShowLiveSignal(opts: {
+  live: boolean;
+  showHeader: boolean;
+  hasVisiblePiece: boolean;
+  hasVisibleToolFold: boolean;
+}): boolean {
+  return (
+    opts.live &&
+    !opts.showHeader &&
+    !opts.hasVisiblePiece &&
+    !opts.hasVisibleToolFold
+  );
 }

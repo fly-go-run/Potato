@@ -28,7 +28,7 @@ function linkifySessionUrls(body: string): string {
   );
 }
 
-const DEVELOPER_DAY_COLLECTION_SLUG = "qwenpaw-developer-day-collection";
+const DEVELOPER_DAY_COLLECTION_SLUG = "potato-developer-day-collection";
 
 async function fetchBlogPost(
   slug: string,
@@ -71,7 +71,7 @@ export default function BlogPost() {
   const [notFound, setNotFound] = useState(false);
 
   const isKnownSlug = BLOG_POSTS.some((entry) => entry.slug === slug);
-  const isSessionList = slug === "qwenpaw-developer-day-collection";
+  const isSessionList = slug === "potato-developer-day-collection";
 
   useEffect(() => {
     if (!slug || !isKnownSlug) {

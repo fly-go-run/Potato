@@ -6,7 +6,7 @@ The Tauri backend is a PyInstaller-frozen executable, so ``sys.executable`` is
 not a usable Python interpreter. To install third-party *plugin* dependencies
 at runtime we ship a standalone CPython (python-build-standalone) whose
 ``X.Y``/architecture match the frozen interpreter, and drive ``pip install``
-with it (see ``qwenpaw.plugins.loader``).
+with it (see ``potato.plugins.loader``).
 
 This script downloads the matching ``install_only`` build and extracts it to
 ``<dest>/python``. Run it with the SAME interpreter used for the PyInstaller
@@ -32,7 +32,7 @@ RELEASES_API_BASE = (
     "python-build-standalone/releases"
 )
 DEFAULT_RELEASE = "20260623"
-RELEASE_ENV = "QWENPAW_PYTHON_BUILD_STANDALONE_RELEASE"
+RELEASE_ENV = "POTATO_PYTHON_BUILD_STANDALONE_RELEASE"
 HTTP_ATTEMPTS = 4
 HTTP_TIMEOUT_SECONDS = 120
 RETRYABLE_HTTP_STATUS = {408, 429, 500, 502, 503, 504}
@@ -69,7 +69,7 @@ def _http_get(url: str) -> bytes:
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
         request.add_header("Authorization", f"Bearer {token}")
-    request.add_header("User-Agent", "qwenpaw-build")
+    request.add_header("User-Agent", "potato-build")
     for attempt in range(1, HTTP_ATTEMPTS + 1):
         try:
             with urllib.request.urlopen(

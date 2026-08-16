@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for qwenpaw.app.channels.schema."""
+"""Unit tests for potato.app.channels.schema."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from qwenpaw.app.channels.schema import (
+from potato.app.channels.schema import (
     BUILTIN_CHANNEL_TYPES,
     DEFAULT_CHANNEL,
     ChannelAddress,

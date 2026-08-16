@@ -30,8 +30,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from qwenpaw.pawapp import PawApp, get_ctx
-from qwenpaw.pawapp.task import SSEChannel
+from potato.pawapp import PawApp, get_ctx
+from potato.pawapp.task import SSEChannel
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ class _Txn:
     """Serialize a read-modify-write across coroutines AND processes.
 
     ``_LOCK`` guards coroutines in this event loop; the ``fcntl`` advisory
-    lock on ``.issues.lock`` guards other ``qwenpaw app`` processes sharing
+    lock on ``.issues.lock`` guards other ``potato app`` processes sharing
     the same app directory (all read/write the same ``data/issues.json``).
     Without it, concurrent writes lose updates.
     """
@@ -950,8 +950,8 @@ async def list_kanban_approvals() -> Dict[str, Any]:
     ``session_id`` matches ``pawapp:agent-kanban:<issue_id>``.
     """
     try:
-        from qwenpaw.app.approvals import get_approval_service
-        from qwenpaw.app.approvals.display import (
+        from potato.app.approvals import get_approval_service
+        from potato.app.approvals.display import (
             approval_display_fields,
         )
     except ImportError:
@@ -998,8 +998,8 @@ async def approve_kanban(request_id: str) -> Dict[str, Any]:
     not need to know the session topology.
     """
     try:
-        from qwenpaw.app.approvals import get_approval_service
-        from qwenpaw.security.tool_guard.approval import (
+        from potato.app.approvals import get_approval_service
+        from potato.security.tool_guard.approval import (
             ApprovalDecision,
         )
     except ImportError as exc:
@@ -1026,8 +1026,8 @@ async def approve_kanban(request_id: str) -> Dict[str, Any]:
 async def deny_kanban(request_id: str) -> Dict[str, Any]:
     """Deny a pending tool execution from the kanban UI."""
     try:
-        from qwenpaw.app.approvals import get_approval_service
-        from qwenpaw.security.tool_guard.approval import (
+        from potato.app.approvals import get_approval_service
+        from potato.security.tool_guard.approval import (
             ApprovalDecision,
         )
     except ImportError as exc:

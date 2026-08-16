@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const COMMUNITY_BENEFITS_URL =
-  "https://opc.aliyun.com/qwenpaw?utm_content=g_1000415374";
+  "https://opc.aliyun.com/potato?utm_content=g_1000415374";
 
 type BenefitItem = {
   iconSrc: string;

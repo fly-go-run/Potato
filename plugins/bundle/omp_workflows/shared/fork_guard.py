@@ -31,7 +31,7 @@ def forks_integrated(
     if workspace_dir is None:
         return False
     try:
-        from qwenpaw.agents.fork_project import (
+        from potato.agents.fork_project import (
             forks_merged_into_head,
             get_active_fork_scope,
             resolve_integration_project_dir,

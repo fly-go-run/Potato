@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name,protected-access,unused-argument
 """Agent-level resume / crash-recovery tests for the scroll strategy.
 
-These drive the REAL ``QwenPawAgent.state_dict`` / ``load_state_dict`` wiring
+These drive the REAL ``PotatoAgent.state_dict`` / ``load_state_dict`` wiring
 (not the manager in isolation): after an agent process dies mid-session and is
 rebuilt from its persisted snapshot, its restored window must NOT be
 re-appended to ``history.db``. The manager-level guarantee is covered in
@@ -22,16 +22,16 @@ import pytest
 from agentscope.message import Msg, TextBlock
 from agentscope.state import AgentState
 
-from qwenpaw.agents.context.scroll.continuation_summary import (
+from potato.agents.context.scroll.continuation_summary import (
     ContinuationSummary,
 )
-from qwenpaw.agents.context.scroll.history import HistoryStore
-from qwenpaw.agents.context.scroll.manager import ScrollContextManager
-from qwenpaw.agents.react_agent import QwenPawAgent
+from potato.agents.context.scroll.history import HistoryStore
+from potato.agents.context.scroll.manager import ScrollContextManager
+from potato.agents.react_agent import PotatoAgent
 
 
 class AgentShim:
-    """Minimal stand-in for QwenPawAgent's state (de)serialization.
+    """Minimal stand-in for PotatoAgent's state (de)serialization.
 
     ``state_dict`` / ``load_state_dict`` only read ``self.state`` and
     ``self._context_manager``; the manager's write-through only reads
@@ -45,7 +45,7 @@ class AgentShim:
 
     def _sanitize_loaded_context(self) -> None:
         """Delegate to the production loaded-context sanitizer."""
-        QwenPawAgent._sanitize_loaded_context(self)
+        PotatoAgent._sanitize_loaded_context(self)
 
 
 def _user(text):
@@ -91,7 +91,7 @@ def _seed_session(store):
 
 def test_state_dict_carries_the_scroll_bookkeeping(store):
     agent, _ = _seed_session(store)
-    dumped = QwenPawAgent.state_dict(agent)
+    dumped = PotatoAgent.state_dict(agent)
     assert "state" in dumped
     assert "scroll" in dumped  # the wiring: cm.to_dict() is embedded
     assert set(dumped["scroll"]["persisted_ids"]) == {
@@ -105,12 +105,12 @@ def test_resume_after_crash_does_not_reappend(store):
     already durable, so the next write-through appends nothing."""
     agent1, mgr1 = _seed_session(store)
     assert store.count("s1") == 3
-    snapshot = json.loads(json.dumps(QwenPawAgent.state_dict(agent1)))
+    snapshot = json.loads(json.dumps(PotatoAgent.state_dict(agent1)))
 
     # New process: a brand-new manager (empty bookkeeping) on the SAME db.
     mgr2 = ScrollContextManager(history=store, session_id="s1", agent_id="ag1")
     agent2 = AgentShim(mgr2)
-    QwenPawAgent.load_state_dict(agent2, snapshot, strict=True)
+    PotatoAgent.load_state_dict(agent2, snapshot, strict=True)
 
     # Window + bookkeeping were restored...
     assert [m.id for m in agent2.state.context] == [
@@ -127,11 +127,11 @@ def test_resume_continues_appending_new_turns(store):
     """After resume, genuinely new turns are still persisted (the dedup seed
     must not freeze the store)."""
     agent1, _ = _seed_session(store)
-    snapshot = json.loads(json.dumps(QwenPawAgent.state_dict(agent1)))
+    snapshot = json.loads(json.dumps(PotatoAgent.state_dict(agent1)))
 
     mgr2 = ScrollContextManager(history=store, session_id="s1", agent_id="ag1")
     agent2 = AgentShim(mgr2)
-    QwenPawAgent.load_state_dict(agent2, snapshot, strict=True)
+    PotatoAgent.load_state_dict(agent2, snapshot, strict=True)
 
     agent2.state.context.append(_assistant("step three", headline="h3"))
     mgr2.on_save(agent2, None)
@@ -159,7 +159,7 @@ def test_resume_removes_summary_whose_history_was_purged(store):
         status="in_progress",
     )
     mgr1._rebuild_context(agent1, [live])
-    snapshot = json.loads(json.dumps(QwenPawAgent.state_dict(agent1)))
+    snapshot = json.loads(json.dumps(PotatoAgent.state_dict(agent1)))
 
     assert store.purge(before="2001-01-01T00:00:00+00:00") == 2
 
@@ -169,7 +169,7 @@ def test_resume_removes_summary_whose_history_was_purged(store):
         agent_id="ag1",
     )
     agent2 = AgentShim(mgr2)
-    QwenPawAgent.load_state_dict(agent2, snapshot, strict=True)
+    PotatoAgent.load_state_dict(agent2, snapshot, strict=True)
 
     assert mgr2.describe_summary() == ""
     rendered = agent2.state.context[0].get_text_content()
@@ -183,12 +183,12 @@ def test_resume_without_scroll_block_is_tolerated(store):
     manager starts with empty bookkeeping and the DB ux_dedup index alone
     prevents duplicate rows on the re-append."""
     agent1, _ = _seed_session(store)
-    snapshot = json.loads(json.dumps(QwenPawAgent.state_dict(agent1)))
+    snapshot = json.loads(json.dumps(PotatoAgent.state_dict(agent1)))
     snapshot.pop("scroll")  # simulate an older checkpoint
 
     mgr2 = ScrollContextManager(history=store, session_id="s1", agent_id="ag1")
     agent2 = AgentShim(mgr2)
-    QwenPawAgent.load_state_dict(agent2, snapshot, strict=True)
+    PotatoAgent.load_state_dict(agent2, snapshot, strict=True)
 
     assert mgr2._persisted_ids == set()  # nothing seeded
     mgr2.on_save(agent2, None)

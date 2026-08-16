@@ -22,7 +22,7 @@ from agentscope.message import (
     ToolResultState,
 )
 
-from qwenpaw.agents.utils.tool_message_utils import (
+from potato.agents.utils.tool_message_utils import (
     _coerce_tool_inputs_to_json,
     _dedup_tool_blocks,
     _remove_invalid_tool_blocks,

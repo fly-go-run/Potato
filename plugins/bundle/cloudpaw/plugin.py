@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=protected-access
-"""CloudPaw Plugin for QwenPaw.
+"""CloudPaw Plugin for Potato.
 
 Provides Alibaba Cloud deployment orchestration capabilities:
 - Built-in agents (Orchestration + IaC Code + Executor + Verifier)
@@ -25,7 +25,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-logger = logging.getLogger("qwenpaw").getChild("plugin.cloudpaw")
+logger = logging.getLogger("potato").getChild("plugin.cloudpaw")
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ def _install_plugin_skills() -> None:
     from .constants import PLUGIN_DIR, _PLUGIN_SKILLS
 
     try:
-        from qwenpaw.agents.skill_system import (
+        from potato.agents.skill_system import (
             get_skill_pool_dir,
             ensure_skill_pool_initialized,
         )
@@ -134,7 +134,7 @@ _DEFAULT_ENV_VALUES: dict[str, str] = {
 
 
 def _ensure_default_env_vars() -> None:
-    """Ensure required env var keys always appear in the QwenPaw console.
+    """Ensure required env var keys always appear in the Potato console.
 
     For each key in ``_DEFAULT_ENV_KEYS``:
     - If already in envs.json → keep as-is (user may have edited it).
@@ -143,9 +143,9 @@ def _ensure_default_env_vars() -> None:
     - If absent from both → create a blank placeholder.
     """
     try:
-        from qwenpaw.envs import load_envs, save_envs
+        from potato.envs import load_envs, save_envs
     except ImportError:
-        logger.warning("Cannot import qwenpaw.envs; env provisioning skipped")
+        logger.warning("Cannot import potato.envs; env provisioning skipped")
         return
 
     envs = load_envs()
@@ -427,7 +427,7 @@ def _patch_plugin_loader_unload() -> None:
     when the plugin is uninstalled.
     """
     try:
-        from qwenpaw.plugins.loader import PluginLoader
+        from potato.plugins.loader import PluginLoader
     except ImportError:
         logger.warning(
             "Cannot import PluginLoader; uninstall patch skipped",

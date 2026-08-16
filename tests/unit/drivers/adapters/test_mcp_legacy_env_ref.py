@@ -2,14 +2,14 @@
 """Migration tests: legacy ${VAR} header/env values -> env: credential refs."""
 from types import SimpleNamespace
 
-from qwenpaw.drivers.adapters.mcp_binding import (
+from potato.drivers.adapters.mcp_binding import (
     EnvRefPlan,
     plan_env_ref_bindings,
 )
-from qwenpaw.drivers.adapters.mcp_legacy_config import (
+from potato.drivers.adapters.mcp_legacy_config import (
     legacy_mcp_client_to_driver,
 )
-from qwenpaw.drivers.contracts import CredentialRef
+from potato.drivers.contracts import CredentialRef
 
 
 # --- plan_env_ref_bindings unit behavior ---

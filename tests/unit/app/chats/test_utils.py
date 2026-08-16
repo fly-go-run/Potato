@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from agentscope.message import Msg, ToolResultBlock, ToolResultState
 
-from qwenpaw.app.chats.utils import (
+from potato.app.chats.utils import (
     _abspath_from_url,
     _is_local_file_url,
     _resolve_content_url,
@@ -11,9 +11,9 @@ from qwenpaw.app.chats.utils import (
     clean_display_text,
     strip_injected_skill_block,
 )
-from qwenpaw.app.chats.title_generator import _clean_title
-from qwenpaw.constant import (
-    QWENPAW_MESSAGE_TAG_KEY,
+from potato.app.chats.title_generator import _clean_title
+from potato.constant import (
+    POTATO_MESSAGE_TAG_KEY,
     SCROLL_MEMORY_MESSAGE_TAG,
 )
 
@@ -179,7 +179,7 @@ def test_msg_to_message_omits_tagged_scroll_memory_placeholder():
             },
         ],
         metadata={
-            QWENPAW_MESSAGE_TAG_KEY: SCROLL_MEMORY_MESSAGE_TAG,
+            POTATO_MESSAGE_TAG_KEY: SCROLL_MEMORY_MESSAGE_TAG,
         },
     )
 
@@ -253,7 +253,7 @@ def test_history_batch_hides_scroll_internals_but_keeps_transcript():
                 },
             ],
             metadata={
-                QWENPAW_MESSAGE_TAG_KEY: SCROLL_MEMORY_MESSAGE_TAG,
+                POTATO_MESSAGE_TAG_KEY: SCROLL_MEMORY_MESSAGE_TAG,
             },
         ),
         Msg(

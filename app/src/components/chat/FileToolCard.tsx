@@ -162,9 +162,6 @@ export function FileToolCard({
         shimmer ? "qp-shimmer" : ""
       }`}
     >
-      <span className="mr-1.5 font-sans">
-        {t(modifies ? "chat.step.verb.edit" : "chat.step.verb.read")}
-      </span>
       {path || t("tool.file.path")}
     </span>
   );

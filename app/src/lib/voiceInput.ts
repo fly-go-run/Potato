@@ -8,12 +8,53 @@
  * 那个格式,不再依赖任何外部二进制,Windows / macOS 表现一致。
  */
 
+import { ApiError } from "./api";
+
 export type VoiceInputErrorCode =
   | "unsupported"
   | "permission"
   | "empty"
   | "too_short"
   | "start_failed";
+
+const FATAL_SPEECH_CODES = new Set([
+  "TRANSCRIPTION_DISABLED",
+  "SPEECH_API_KEY_MISSING",
+  "AUDIO_CONVERSION_UNAVAILABLE",
+]);
+
+function speechErrorCode(reason: unknown): string {
+  if (reason instanceof ApiError) return reason.code;
+  if (reason && typeof reason === "object" && "code" in reason) {
+    const code = (reason as { code: unknown }).code;
+    return typeof code === "string" ? code : "";
+  }
+  return "";
+}
+
+/** Config / environment errors should abort live listening immediately. */
+export function isFatalSpeechError(reason: unknown): boolean {
+  return FATAL_SPEECH_CODES.has(speechErrorCode(reason));
+}
+
+/** Silence / "no speech" on a short live slice is not a reason to abort. */
+export function isBenignSpeechMiss(reason: unknown): boolean {
+  if (!(reason instanceof ApiError)) return false;
+  if (isFatalSpeechError(reason)) return false;
+  const message = `${reason.code} ${reason.message}`.toLowerCase();
+  return /no valid speech|no speech|empty|too short/.test(message);
+}
+
+/** Replace the live draft after the pre-recording composer text. */
+export function joinVoiceDraft(
+  base: string,
+  transcript: string,
+): string | null {
+  const piece = transcript.trim();
+  if (!piece) return null;
+  if (!base.trim()) return piece;
+  return `${base.replace(/\s+$/, "")} ${piece}`;
+}
 
 export class VoiceInputError extends Error {
   constructor(
@@ -108,6 +149,17 @@ export function encodeWav(
   return buffer;
 }
 
+/** Convert [-1,1] floats to little-endian PCM16. */
+export function floatToPcm16(samples: Float32Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(samples.length * 2);
+  const view = new DataView(buffer);
+  for (let index = 0; index < samples.length; index += 1) {
+    const clamped = Math.max(-1, Math.min(1, samples[index]!));
+    view.setInt16(index * 2, clamped * 0x7fff, true);
+  }
+  return buffer;
+}
+
 function mergeChunks(chunks: Float32Array[]): Float32Array {
   let total = 0;
   for (const chunk of chunks) total += chunk.length;
@@ -146,12 +198,34 @@ export class VoiceRecorder {
   private stopPromise: Promise<File> | null = null;
   /** 代次令牌:start() 的每个 await 之后都要确认这次启动还算数。 */
   private generation = 0;
+  private onPcm: ((pcm: ArrayBuffer) => void) | null = null;
+  private pendingNative: Float32Array[] = [];
+  private pendingNativeFrames = 0;
 
   get recording(): boolean {
     return this.active;
   }
 
-  async start(onAutoStop?: (file: File) => void): Promise<void> {
+  /**
+   * Encode audio captured so far without stopping the mic.
+   * Used for live partial transcripts while the user is still talking.
+   */
+  snapshot(): File | null {
+    if (!this.active || this.chunks.length === 0) return null;
+    const sampleRate = this.context?.sampleRate ?? TARGET_SAMPLE_RATE;
+    const captured = mergeChunks(this.chunks);
+    if (!captured.length) return null;
+    const samples = resampleTo(captured, sampleRate, TARGET_SAMPLE_RATE);
+    const wav = encodeWav(samples, TARGET_SAMPLE_RATE);
+    return new File([wav], `voice-partial-${Date.now()}.wav`, {
+      type: "audio/wav",
+    });
+  }
+
+  async start(
+    onAutoStop?: (file: File) => void,
+    onPcm?: (pcm: ArrayBuffer) => void,
+  ): Promise<void> {
     const Ctor = audioContextCtor();
     if (
       typeof navigator === "undefined" ||
@@ -166,6 +240,9 @@ export class VoiceRecorder {
 
     const generation = ++this.generation;
     this.chunks = [];
+    this.pendingNative = [];
+    this.pendingNativeFrames = 0;
+    this.onPcm = onPcm ?? null;
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true },
@@ -200,7 +277,9 @@ export class VoiceRecorder {
       this.processor.onaudioprocess = (event) => {
         if (!this.active) return;
         // 缓冲区会被复用,必须拷贝一份留存。
-        this.chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+        const copied = new Float32Array(event.inputBuffer.getChannelData(0));
+        this.chunks.push(copied);
+        this.queueNative(copied);
         // 收尾时在等这一块:停止那一刻还有小半块音频卡在管线里。
         const flush = this.pendingFlush;
         if (flush) {
@@ -264,11 +343,31 @@ export class VoiceRecorder {
     }
   }
 
+  private queueNative(chunk: Float32Array): void {
+    if (!this.onPcm || !this.context) return;
+    this.pendingNative.push(chunk);
+    this.pendingNativeFrames += chunk.length;
+    const needed = Math.round((this.context.sampleRate * 200) / 1000);
+    if (this.pendingNativeFrames >= needed) this.flushPendingPcm();
+  }
+
+  private flushPendingPcm(): void {
+    if (!this.onPcm || this.pendingNative.length === 0) return;
+    const sampleRate = this.context?.sampleRate ?? TARGET_SAMPLE_RATE;
+    const captured = mergeChunks(this.pendingNative);
+    this.pendingNative = [];
+    this.pendingNativeFrames = 0;
+    if (!captured.length) return;
+    const samples = resampleTo(captured, sampleRate, TARGET_SAMPLE_RATE);
+    this.onPcm(floatToPcm16(samples));
+  }
+
   private async finish(): Promise<File> {
     // 停止那一刻还有小半块音频卡在管线里,ScriptProcessor 只在缓冲区
     // 填满时才回调。这里多等一个回调周期(上限 FLUSH_TIMEOUT_MS)把话尾
     // 收进来——代价是可能多录进最多一个缓冲区的环境音,对识别无害。
     await this.awaitFinalChunk();
+    this.flushPendingPcm();
     this.active = false;
 
     const durationMs = Date.now() - this.startedAt;
@@ -318,6 +417,9 @@ export class VoiceRecorder {
       this.maxTimer = null;
     }
     this.chunks = [];
+    this.pendingNative = [];
+    this.pendingNativeFrames = 0;
+    this.onPcm = null;
     void this.teardown();
   }
 

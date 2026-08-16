@@ -7,13 +7,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 APP_DIR="$REPO_ROOT/app"
-WEB_DEST="$REPO_ROOT/src/qwenpaw/console"
+WEB_DEST="$REPO_ROOT/src/potato/console"
 
 echo "[wheel_build] Building default web app..."
 (cd "$APP_DIR" && npm ci)
 (cd "$APP_DIR" && npm run build)
 
-echo "[wheel_build] Copying app/dist/* -> src/qwenpaw/console/..."
+echo "[wheel_build] Copying app/dist/* -> src/potato/console/..."
 rm -rf "$WEB_DEST"/*
 
 mkdir -p "$WEB_DEST"
@@ -21,7 +21,7 @@ cp -R "$APP_DIR/dist/"* "$WEB_DEST/"
 
 echo "[wheel_build] Bundling website docs into package..."
 DOCS_SRC="$REPO_ROOT/website/public/docs"
-DOCS_DEST="$REPO_ROOT/src/qwenpaw/docs"
+DOCS_DEST="$REPO_ROOT/src/potato/docs"
 rm -rf "$DOCS_DEST"
 mkdir -p "$DOCS_DEST"
 cp "$DOCS_SRC/"*.md "$DOCS_DEST/"

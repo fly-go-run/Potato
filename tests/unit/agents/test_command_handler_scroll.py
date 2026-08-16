@@ -10,7 +10,7 @@ branch (and the native no-op) without constructing a real model/agent.
 
 from types import SimpleNamespace
 
-from qwenpaw.agents.command_handler import CommandHandler
+from potato.agents.command_handler import CommandHandler
 
 
 def _config(strategy="scroll"):
@@ -23,7 +23,7 @@ def _config(strategy="scroll"):
 def _handler(tmp_path, *, strategy="scroll", workspace=True, monkeypatch):
     state = SimpleNamespace(context=[], session_id="sess-x")
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         state=state,
         agent_id="ag1",
         workspace_dir=str(tmp_path) if workspace else None,
@@ -86,9 +86,9 @@ def test_forced_compact_drops_trigger_keeps_reserve(monkeypatch):
     configured recent-tail reserve — same as auto compaction. /compact only
     means "compact now", not "shrink the tail more aggressively"; a
     conversation that already fits inside the reserve has nothing to evict."""
-    from qwenpaw.agents.command_handler import _FORCE_TRIGGER_RATIO
+    from potato.agents.command_handler import _FORCE_TRIGGER_RATIO
 
-    handler = CommandHandler(agent_name="QwenPaw")
+    handler = CommandHandler(agent_name="Potato")
     monkeypatch.setattr(
         handler,
         "_get_agent_config",
@@ -108,9 +108,9 @@ def test_forced_compact_under_native_keeps_reserve(monkeypatch):
     reserve. Native compaction is lossy (the non-reserved middle is summarized
     away and the originals dropped), so it keeps the configured reserve to
     preserve the same recent-tail continuity as auto compaction."""
-    from qwenpaw.agents.command_handler import _FORCE_TRIGGER_RATIO
+    from potato.agents.command_handler import _FORCE_TRIGGER_RATIO
 
-    handler = CommandHandler(agent_name="QwenPaw")
+    handler = CommandHandler(agent_name="Potato")
     monkeypatch.setattr(
         handler,
         "_get_agent_config",
@@ -132,5 +132,5 @@ def test_agent_backed_mode_never_builds_a_throwaway_manager():
     agent = MagicMock()
     agent.state = SimpleNamespace(context=[], session_id="s")
     agent.memory_manager = None
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
     assert handler.updated_scroll_state is None

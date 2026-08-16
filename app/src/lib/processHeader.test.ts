@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldShowProcessHeader } from "./processHeader";
+import {
+  shouldShowLiveSignal,
+  shouldShowProcessHeader,
+} from "./processHeader";
 
 const base = {
   elapsedMs: 38_000,
@@ -23,5 +26,69 @@ describe("shouldShowProcessHeader", () => {
     expect(
       shouldShowProcessHeader({ ...base, toolFoldCount: 9 }),
     ).toBe(true);
+  });
+
+  it("shows Worked for… on a settled turn that actually did work", () => {
+    expect(
+      shouldShowProcessHeader({
+        ...base,
+        elapsedMs: 8_000,
+        settled: true,
+        hasProcessWork: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowProcessHeader({
+        ...base,
+        elapsedMs: 8_000,
+        settled: true,
+        hasProcessWork: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldShowLiveSignal", () => {
+  it("shows only while the turn is live and still empty", () => {
+    expect(
+      shouldShowLiveSignal({
+        live: true,
+        showHeader: false,
+        hasVisiblePiece: false,
+        hasVisibleToolFold: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowLiveSignal({
+        live: true,
+        showHeader: false,
+        hasVisiblePiece: true,
+        hasVisibleToolFold: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowLiveSignal({
+        live: true,
+        showHeader: false,
+        hasVisiblePiece: false,
+        hasVisibleToolFold: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowLiveSignal({
+        live: true,
+        showHeader: true,
+        hasVisiblePiece: false,
+        hasVisibleToolFold: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowLiveSignal({
+        live: false,
+        showHeader: false,
+        hasVisiblePiece: false,
+        hasVisibleToolFold: false,
+      }),
+    ).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
-# QwenPaw Agent Team Practice Guide
+# Potato Agent Team Practice Guide
 
-This guide introduces how to build multi-agent collaborative teams using QwenPaw + AgentTeams, achieving the capability leap from single Agent to Agent Team.
+This guide introduces how to build multi-agent collaborative teams using Potato + AgentTeams, achieving the capability leap from single Agent to Agent Team.
 
 ---
 
@@ -15,12 +15,12 @@ However, "running multiple Agents simultaneously" and "multiple Agents collabora
 - **Orchestration**: Managing Agent lifecycle, resource allocation, and security isolation—solving "how to run multiple Agents"
 - **Collaboration**: Defining organizational relationships, communication permissions, task delegation, and state sharing among Agents—solving "how multiple Agents work together"
 
-### QwenPaw Team Solution
+### Potato Team Solution
 
-QwenPaw Team provides a complete multi-Agent orchestration and collaboration solution by combining **QwenPaw** + **[AgentTeams](https://hiclaw.io/)**:
+Potato Team provides a complete multi-Agent orchestration and collaboration solution by combining **Potato** + **[AgentTeams](https://hiclaw.io/)**:
 
-- **QwenPaw Team Leader**: Built on QwenPaw, serves as team coordinator, responsible for task decomposition, work allocation, and result aggregation
-- **QwenPaw Workers**: Built on QwenPaw, serve as task executors, focusing on domain-specific work, receiving Leader instructions and returning results
+- **Potato Team Leader**: Built on Potato, serves as team coordinator, responsible for task decomposition, work allocation, and result aggregation
+- **Potato Workers**: Built on Potato, serve as task executors, focusing on domain-specific work, receiving Leader instructions and returning results
 - **AgentTeams**: Open-source multi-Agent collaborative operating system, providing declarative configuration, automated deployment, and lifecycle management
 
 ![Architecture Diagram](https://img.alicdn.com/imgextra/i2/O1CN01LtRoaN1I5gcjMEEkl_!!6000000000842-55-tps-601-509.svg)
@@ -299,13 +299,13 @@ The Worker's `soul` field defines the Agent's identity, role, and behavioral nor
 
 ## Related Documentation
 
-- [QwenPaw Quick Start](./quickstart)
-- [QwenPaw Multi-Agent](./multi-agent)
-- [QwenPaw Skills](./skills)
+- [Potato Quick Start](./quickstart)
+- [Potato Multi-Agent](./multi-agent)
+- [Potato Skills](./skills)
 - [AgentTeams Official Documentation](https://hiclaw.io/)
 
 ---
 
 ## Summary
 
-QwenPaw Agent Team, through the combination of QwenPaw and AgentTeams, provides powerful multi-agent collaboration capabilities for individual developers and small teams. Through proper team design and task allocation, work efficiency can be significantly improved, achieving a "one-person team."
+Potato Agent Team, through the combination of Potato and AgentTeams, provides powerful multi-agent collaboration capabilities for individual developers and small teams. Through proper team design and task allocation, work efficiency can be significantly improved, achieving a "one-person team."

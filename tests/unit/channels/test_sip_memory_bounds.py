@@ -6,11 +6,11 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import MagicMock
 
-from qwenpaw.app.channels.sip.livekit_backend import (
+from potato.app.channels.sip.livekit_backend import (
     _put_latest_audio as lk_put,
 )
-from qwenpaw.app.channels.sip.mini_registrar import _SIPProxy
-from qwenpaw.app.channels.sip.pyvoip_backend import (
+from potato.app.channels.sip.mini_registrar import _SIPProxy
+from potato.app.channels.sip.pyvoip_backend import (
     _put_latest_audio as voip_put,
 )
 

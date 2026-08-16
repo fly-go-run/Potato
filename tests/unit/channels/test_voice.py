@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 
 # =============================================================================
@@ -67,7 +67,7 @@ def mock_tunnel_manager():
 @pytest.fixture
 def voice_channel(mock_process):
     """Create VoiceChannel instance for testing."""
-    from qwenpaw.app.channels.voice.channel import VoiceChannel
+    from potato.app.channels.voice.channel import VoiceChannel
 
     channel = VoiceChannel(
         process=mock_process,
@@ -89,7 +89,7 @@ class TestVoiceChannelInit:
 
     def test_init_stores_basic_config(self, mock_process):
         """Constructor should store basic configuration parameters."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         channel = VoiceChannel(
             process=mock_process,
@@ -108,7 +108,7 @@ class TestVoiceChannelInit:
 
     def test_init_creates_required_data_structures(self, mock_process):
         """Constructor should initialize required internal data structures."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         channel = VoiceChannel(process=mock_process)
 
@@ -157,7 +157,7 @@ class TestVoiceChannelFromConfig:
 
     def test_from_config_creates_instance(self, mock_process):
         """from_config should create VoiceChannel instance."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         config = Mock()
         config.enabled = True
@@ -177,7 +177,7 @@ class TestVoiceChannelFromConfig:
 
     def test_from_config_stores_basic_params(self, mock_process):
         """from_config should store basic config parameters."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         config = Mock()
         config.enabled = True
@@ -202,7 +202,7 @@ class TestVoiceChannelFromConfig:
 
     def test_from_config_creates_twilio_manager(self, mock_process):
         """from_config creates TwilioManager when credentials provided."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         config = Mock()
         config.enabled = True
@@ -222,7 +222,7 @@ class TestVoiceChannelFromConfig:
         mock_process,
     ):
         """from_config skips TwilioManager creation without credentials."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         config = Mock()
         config.enabled = True
@@ -238,7 +238,7 @@ class TestVoiceChannelFromConfig:
 
     def test_from_config_disabled_channel(self, mock_process):
         """from_config should handle disabled channel."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         config = Mock()
         config.enabled = False
@@ -319,11 +319,11 @@ class TestVoiceChannelLifecycle:
         voice_channel._config = config
 
         with patch(
-            "qwenpaw.tunnel.CloudflareTunnelDriver",
+            "potato.tunnel.CloudflareTunnelDriver",
             return_value=mock_tunnel_manager,
         ):
             with patch(
-                "qwenpaw.config.utils.read_last_api",
+                "potato.config.utils.read_last_api",
                 return_value=("127.0.0.1", 8088),
             ):
                 await voice_channel.start()
@@ -356,11 +356,11 @@ class TestVoiceChannelLifecycle:
         )
 
         with patch(
-            "qwenpaw.tunnel.CloudflareTunnelDriver",
+            "potato.tunnel.CloudflareTunnelDriver",
             return_value=mock_tunnel_manager,
         ):
             with patch(
-                "qwenpaw.config.utils.read_last_api",
+                "potato.config.utils.read_last_api",
                 return_value=("127.0.0.1", 8088),
             ):
                 # Should not raise
@@ -388,11 +388,11 @@ class TestVoiceChannelLifecycle:
         )
 
         with patch(
-            "qwenpaw.tunnel.CloudflareTunnelDriver",
+            "potato.tunnel.CloudflareTunnelDriver",
             return_value=mock_tunnel_manager,
         ):
             with patch(
-                "qwenpaw.config.utils.read_last_api",
+                "potato.config.utils.read_last_api",
                 return_value=("127.0.0.1", 8088),
             ):
                 # Should not raise

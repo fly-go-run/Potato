@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from qwenpaw.cli.tui.widgets.messages import (
+from potato.cli.tui.widgets.messages import (
     WelcomeMessage,
     _bounce,
     _bright_dot_hex,
@@ -36,14 +36,14 @@ def test_welcome_logo_palette_changes_rendered_colors():
 def test_welcome_message_shows_workspace_and_project_dirs():
     welcome = WelcomeMessage(
         _PALETTE,
-        workspace_dir="/tmp/qwenpaw/workspaces/default",
+        workspace_dir="/tmp/potato/workspaces/default",
         project_dir="/tmp/project",
     )
 
     plain = welcome.content.plain
     assert (
         "Agent directory (sessions, memory & skills): "
-        "/tmp/qwenpaw/workspaces/default"
+        "/tmp/potato/workspaces/default"
     ) in plain
     assert "Project directory: /tmp/project" in plain
 
@@ -94,7 +94,7 @@ def test_welcome_logo_rows_use_a_single_flat_color():
 def test_logo_splits_into_one_segment_per_glyph():
     """The wordmark hops letter by letter, so it must segment cleanly.
 
-    "QwenPaw" is seven glyphs (the paw prints ride on the second "a"), so the
+    "Potato" is seven glyphs (the paw prints ride on the second "a"), so the
     blank-column split must yield exactly seven column spans.
     """
     welcome = WelcomeMessage(_PALETTE)

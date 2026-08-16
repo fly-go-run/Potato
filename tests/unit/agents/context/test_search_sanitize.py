@@ -12,12 +12,12 @@ import sqlite3
 
 import pytest
 
-from qwenpaw.agents.context.scroll.history import HistoryStore
-from qwenpaw.agents.context.scroll.memoryspace import (
+from potato.agents.context.scroll.history import HistoryStore
+from potato.agents.context.scroll.memoryspace import (
     MemorySpace,
     fts_match_query,
 )
-from qwenpaw.agents.context.types import LogEntry
+from potato.agents.context.types import LogEntry
 
 
 def test_fts_match_query_quotes_each_word_token():
@@ -90,7 +90,7 @@ def test_search_falls_back_to_like_on_operationalerror(ms, monkeypatch):
     # engine raises; the backstop should catch it and the LIKE scan should
     # still return the matching row.
     monkeypatch.setattr(
-        "qwenpaw.agents.context.scroll.memoryspace.fts_match_query",
+        "potato.agents.context.scroll.memoryspace.fts_match_query",
         lambda _raw: '"',  # unterminated FTS5 string -> OperationalError
     )
     with pytest.raises(sqlite3.OperationalError):

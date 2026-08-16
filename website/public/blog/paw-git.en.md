@@ -1,20 +1,20 @@
 ---
-title: "PawGit: Recoverable Agent Session State for QwenPaw"
+title: "PawGit: Recoverable Agent Session State for Potato"
 date: 2026-07-07
-author: QwenPaw Team
+author: Potato Team
 tags: [Plugin, SessionVersionControl, StateSnapshots, SessionRewind]
 cover: https://img.alicdn.com/imgextra/i2/O1CN01cdSRbU26gXIFiTRjL_!!6000000007691-2-tps-1254-1254.png
-excerpt: "In long sessions, Agents get dragged down by dirty context. PawGit adds checkpoints, timelines, and rewind for QwenPaw Agent session state—so you can return to a clean point without opening a new window and re-feeding your entire prompt."
+excerpt: "In long sessions, Agents get dragged down by dirty context. PawGit adds checkpoints, timelines, and rewind for Potato Agent session state—so you can return to a clean point without opening a new window and re-feeding your entire prompt."
 related:
   heading: "Related Plugin: PawGit"
-  description: "Version control for QwenPaw sessions and memory, with state snapshots, DAG timelines, session rewind, and state reset."
+  description: "Version control for Potato sessions and memory, with state snapshots, DAG timelines, session rewind, and state reset."
   linkText: "View and install PawGit →"
   linkUrl: "https://platform.agentscope.io/plugins/pawgit"
 ---
 
-# PawGit: Recoverable Agent Session State for QwenPaw
+# PawGit: Recoverable Agent Session State for Potato
 
-If you often use QwenPaw for complex tasks, you probably know this moment well:
+If you often use Potato for complex tasks, you probably know this moment well:
 
 At first, it feels brilliant. You open a fresh session and feed it the project background, directory structure, design goals, constraints, and lessons already learned. It reads carefully and answers on point. You might even feel: this time it's solid—it really gets it.
 
@@ -61,11 +61,11 @@ But when we work with Agents, what changes isn't just code. It's also:
 
 None of this has Git. So we often hit an absurd situation: project files can be restored to 10 minutes ago, but the Agent's "mind" can't go back. It keeps moving forward with that messy context. For ordinary chat, that might be fine. But an Agent is different—it reads files, writes files, calls tools, updates memory, and keeps reasoning on top of existing context. Once a bad state enters later reasoning, it's not just one wrong answer—it becomes context debt.
 
-That's where PawGit comes in. It's not a replacement for project Git. It does something else: **add save points for QwenPaw Agent session state**.
+That's where PawGit comes in. It's not a replacement for project Git. It does something else: **add save points for Potato Agent session state**.
 
 ### 2. How PawGit saves Agent session state
 
-PawGit is a QwenPaw plugin, available on the official platform: [https://platform.agentscope.io/plugins/pawgit](https://platform.agentscope.io/plugins/pawgit).
+PawGit is a Potato plugin, available on the official platform: [https://platform.agentscope.io/plugins/pawgit](https://platform.agentscope.io/plugins/pawgit).
 
 ![PawGit plugin page](https://img.alicdn.com/imgextra/i1/O1CN01d0hBui28YrtUkYTK4_!!6000000007945-2-tps-1366-680.png)
 
@@ -107,7 +107,7 @@ Although an auto snapshot runs after every reply, manual snapshots get human-rea
 
 ![Create a named snapshot before a critical task](https://img.alicdn.com/imgextra/i3/O1CN01Z9WH0k1PROiyJIykS_!!6000000001837-2-tps-853-232.png)
 
-Then I can let QwenPaw read code, compare options, and try implementations without worrying that once the conversation drifts, I'm stuck pushing through dirty context. Named snapshots go into PawGit's permanent snapshot area—they won't be cleared by ordinary GC:
+Then I can let Potato read code, compare options, and try implementations without worrying that once the conversation drifts, I'm stuck pushing through dirty context. Named snapshots go into PawGit's permanent snapshot area—they won't be cleared by ordinary GC:
 
 ```text
 refs/snap/
@@ -192,7 +192,7 @@ This step matters. Between "I want to go back" and "I'm actually back at that st
 
 ### 3. Slash commands, skills, and tools: multiple entry points
 
-You might think: typing commands manually is tedious. PawGit also provides skills and tools. Besides slash commands, you can find them on the Skills and Tools pages. A QwenPaw 2.0 version is in development; on 1.0 the skill is named `pawgit`.
+You might think: typing commands manually is tedious. PawGit also provides skills and tools. Besides slash commands, you can find them on the Skills and Tools pages. A Potato 2.0 version is in development; on 1.0 the skill is named `pawgit`.
 
 ![PawGit skill page](https://img.alicdn.com/imgextra/i2/O1CN016Dta6X1e9jgg24tzt_!!6000000003829-2-tps-1282-812.png)
 

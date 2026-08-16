@@ -9,14 +9,14 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from qwenpaw.sandbox import (
+from potato.sandbox import (
     MountSpec,
     SandboxCapability,
     SandboxConfig,
     SandboxMode,
     probe_sandbox_support,
 )
-from qwenpaw.sandbox.config import (
+from potato.sandbox.config import (
     _probe_linux_landlock,
     _probe_macos_seatbelt,
     detect_platform_mode,
@@ -64,7 +64,7 @@ class TestProbeSandboxSupport:
         assert "4.0" in result.reason
 
     @patch("sys.platform", "win32")
-    @patch("qwenpaw.sandbox.config._probe_windows_appcontainer")
+    @patch("potato.sandbox.config._probe_windows_appcontainer")
     def test_windows_calls_appcontainer_probe(self, mock_probe):
         # Windows sandbox should delegate to _probe_windows_appcontainer.
         mock_probe.return_value = SandboxCapability(
@@ -202,7 +202,7 @@ class TestProbeMacosSeatbelt:
 class TestDetectPlatformMode:
     """Test that detect_platform_mode uses probe results."""
 
-    @patch("qwenpaw.sandbox.config.probe_sandbox_support")
+    @patch("potato.sandbox.config.probe_sandbox_support")
     def test_returns_probe_mode(self, mock_probe):
         mock_probe.return_value = SandboxCapability(
             supported=True,
@@ -212,7 +212,7 @@ class TestDetectPlatformMode:
         )
         assert detect_platform_mode() == SandboxMode.LANDLOCK
 
-    @patch("qwenpaw.sandbox.config.probe_sandbox_support")
+    @patch("potato.sandbox.config.probe_sandbox_support")
     def test_returns_none_when_unsupported(self, mock_probe):
         mock_probe.return_value = SandboxCapability(
             supported=False,
@@ -231,7 +231,7 @@ class TestLinuxSandboxRuleCompilation:
     """Test that Landlock rules are correctly generated from SandboxConfig."""
 
     def test_basic_workspace_mount(self):
-        from qwenpaw.sandbox.linux_sandbox import _generate_sandbox_script
+        from potato.sandbox.linux_sandbox import _generate_sandbox_script
 
         config = SandboxConfig(
             mode=SandboxMode.LANDLOCK,
@@ -251,7 +251,7 @@ class TestLinuxSandboxRuleCompilation:
         assert "exec" in script.lower()
 
     def test_readonly_mount(self):
-        from qwenpaw.sandbox.linux_sandbox import (
+        from potato.sandbox.linux_sandbox import (
             _FS_READ_ACCESS,
             _FS_WRITE_ACCESS,
             _generate_sandbox_script,
@@ -277,7 +277,7 @@ class TestLinuxSandboxRuleCompilation:
         assert "/opt/data" in script
 
     def test_deny_paths_excluded(self):
-        from qwenpaw.sandbox.linux_sandbox import _generate_sandbox_script
+        from potato.sandbox.linux_sandbox import _generate_sandbox_script
 
         config = SandboxConfig(
             mode=SandboxMode.LANDLOCK,
@@ -303,7 +303,7 @@ class TestLinuxSandboxRuleCompilation:
         assert len(lines_with_ssh) == 0
 
     def test_executable_false(self):
-        from qwenpaw.sandbox.linux_sandbox import (
+        from potato.sandbox.linux_sandbox import (
             _FS_EXEC_ACCESS,
             _generate_sandbox_script,
         )
@@ -363,18 +363,18 @@ class TestGovernanceSandboxUnavailable:
             reason="Kernel 5.10 < 5.13, Landlock unavailable",
         )
 
-        from qwenpaw.governance.resource_governor import ResourceGovernor
+        from potato.governance.resource_governor import ResourceGovernor
 
         governor = ResourceGovernor(workspace_dir="/tmp/test_ws")
 
         # Mock policy loading to avoid filesystem operations
         with (
             patch(
-                "qwenpaw.governance.resource_governor.load_governance_policy",
+                "potato.governance.resource_governor.load_governance_policy",
             ) as mock_load,
             patch("pathlib.Path.mkdir"),
             patch(
-                "qwenpaw.governance.resource_governor.probe_sandbox_support",
+                "potato.governance.resource_governor.probe_sandbox_support",
                 return_value=cap,
             ),
         ):

@@ -5,10 +5,10 @@ from typing import Any
 
 import pytest
 
-from qwenpaw.loop.gates.base import StopAction, StopHandlerResult
-from qwenpaw.loop.gates.handler import StopHandler
-from qwenpaw.loop.gates.runner import apply_stop_result, check_pending_gates
-from qwenpaw.modes.goal.gates import GoalTurnGate
+from potato.loop.gates.base import StopAction, StopHandlerResult
+from potato.loop.gates.handler import StopHandler
+from potato.loop.gates.runner import apply_stop_result, check_pending_gates
+from potato.modes.goal.gates import GoalTurnGate
 
 
 def _goal_handler() -> StopHandler:

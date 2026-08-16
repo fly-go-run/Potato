@@ -26,6 +26,7 @@ import { textFromContent } from "../lib/content";
 import { MessageList } from "../components/chat/MessageList";
 import { Banner } from "../components/ui/Banner";
 import { Button, Card, SkeletonRows } from "../components/ui";
+import { chatApi } from "../lib/api";
 import { getChatBanner } from "../lib/chatBanner";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 import { BOTTOM_THRESHOLD_PX } from "../lib/scroll";
@@ -76,6 +77,8 @@ export function ChatView() {
   const sessionId = useChatStore((state) => state.sessionId);
   const pendingApprovals = useChatStore((state) => state.pendingApprovals);
   const openChat = useChatStore((state) => state.openChat);
+  const chats = useChatStore((state) => state.chats);
+  const reconnect = useChatStore((state) => state.reconnect);
   const pollApprovals = useChatStore((state) => state.pollApprovals);
   const switchRateLimitedModel = useChatStore(
     (state) => state.switchRateLimitedModel,
@@ -213,12 +216,12 @@ export function ChatView() {
         const target = document.getElementById(`message-${userId}`);
         if (!target || !scrollRef.current) return;
         const container = scrollRef.current;
-        // 32px 呼吸:问题贴着标题栏会显得局促,留出一行余量。
+        // 48px 呼吸:顶上还有 44px 拖窗/工具条,贴太近会挡住选中。
         const offset =
           container.scrollTop +
           target.getBoundingClientRect().top -
           container.getBoundingClientRect().top -
-          32;
+          48;
         container.scrollTo({
           top: Math.max(0, offset),
           behavior: smooth ? "smooth" : "auto",
@@ -293,6 +296,31 @@ export function ChatView() {
       window.clearInterval(interval);
     };
   }, [isStreaming, pollApprovals, sessionId]);
+
+  useEffect(() => {
+    if (isStreaming || !activeChatId) return;
+    const controller = new AbortController();
+    let polling = false;
+    const poll = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const history = await chatApi.get(activeChatId, controller.signal);
+        if (controller.signal.aborted || history.status !== "running") return;
+        const chat = chats.find((item) => item.id === activeChatId);
+        if (chat) await reconnect(chat);
+      } catch {
+        // Idle watch is best-effort; the next tick retries.
+      } finally {
+        polling = false;
+      }
+    };
+    const interval = window.setInterval(() => void poll(), 2500);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+    };
+  }, [activeChatId, chats, isStreaming, reconnect]);
 
   const scrollToBottom = () => {
     const element = scrollRef.current;

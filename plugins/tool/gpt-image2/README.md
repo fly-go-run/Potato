@@ -1,6 +1,6 @@
 # GPT Image 2 Tool Plugin
 
-A QwenPaw tool plugin that enables image generation and editing using OpenAI's GPT Image 2 model.
+A Potato tool plugin that enables image generation and editing using OpenAI's GPT Image 2 model.
 
 ## Features
 
@@ -14,18 +14,18 @@ A QwenPaw tool plugin that enables image generation and editing using OpenAI's G
 ## Installation
 
 ```bash
-qwenpaw plugin install /path/to/gpt-image2
+potato plugin install /path/to/gpt-image2
 ```
 
 Or from ZIP:
 
 ```bash
-qwenpaw plugin install gpt-image2-tool.zip
+potato plugin install gpt-image2-tool.zip
 ```
 
 ## Configuration
 
-1. Start QwenPaw application
+1. Start Potato application
 2. Navigate to Agent Settings → Tools
 3. Find the GPT Image 2 tools:
    - `generate_image_gpt` (🎨 icon) - Generate images from text
@@ -103,7 +103,7 @@ Edit or generate image using reference images with OpenAI GPT Image 2 model.
 
 ## Requirements
 
-- QwenPaw >= 1.1.6
+- Potato >= 1.1.6
 - httpx >= 0.24.0
 - Valid OpenAI API key with access to GPT Image 2
 
@@ -115,9 +115,9 @@ GPT Image 2 usage is billed by OpenAI. See https://openai.com/pricing for curren
 
 ### Tool not showing up
 
-- Ensure the plugin is installed: `qwenpaw plugin list`
-- Check QwenPaw logs: `~/.qwenpaw/logs/qwenpaw.log`
-- Restart QwenPaw after installation
+- Ensure the plugin is installed: `potato plugin list`
+- Check Potato logs: `~/.potato/logs/potato.log`
+- Restart Potato after installation
 
 ### API errors
 
@@ -127,7 +127,7 @@ GPT Image 2 usage is billed by OpenAI. See https://openai.com/pricing for curren
 
 ### Configuration not saving
 
-- Check file permissions in `~/.qwenpaw/plugins/`
+- Check file permissions in `~/.potato/plugins/`
 - Review logs for error messages
 
 ## Development
@@ -141,8 +141,8 @@ This is a pure backend plugin. To modify:
 
 ## License
 
-Same as QwenPaw
+Same as Potato
 
 ## Support
 
-For issues and feature requests, please use the QwenPaw issue tracker.
+For issues and feature requests, please use the Potato issue tracker.

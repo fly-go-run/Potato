@@ -9,13 +9,13 @@ from typing import Any, AsyncGenerator
 import pytest
 from agentscope.event import EventType
 
-from qwenpaw.runtime.envelope import Envelope, _propagate_event_metadata
-from qwenpaw.runtime.tool_registry import (
+from potato.runtime.envelope import Envelope, _propagate_event_metadata
+from potato.runtime.tool_registry import (
     ToolDescriptor,
     ToolRegistry,
     ToolUISpec,
 )
-from qwenpaw.schemas import ContentType, MessageType, RunStatus, TextContent
+from potato.schemas import ContentType, MessageType, RunStatus, TextContent
 
 
 class _SyntheticEnvelope(Envelope):

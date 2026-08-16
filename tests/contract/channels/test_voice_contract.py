@@ -11,12 +11,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 from tests.contract.channels import ChannelContractTest
 
 if TYPE_CHECKING:
-    from qwenpaw.app.channels.base import BaseChannel
+    from potato.app.channels.base import BaseChannel
 
 
 class TestVoiceChannelContract(ChannelContractTest):
@@ -29,7 +29,7 @@ class TestVoiceChannelContract(ChannelContractTest):
 
     def create_instance(self) -> "BaseChannel":
         """Provide a VoiceChannel instance for contract testing."""
-        from qwenpaw.app.channels.voice.channel import VoiceChannel
+        from potato.app.channels.voice.channel import VoiceChannel
 
         process = AsyncMock()
 

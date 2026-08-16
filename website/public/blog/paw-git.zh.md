@@ -1,20 +1,20 @@
 ---
-title: "PawGit：为 QwenPaw Agent 会话状态提供可恢复性"
+title: "PawGit：为 Potato Agent 会话状态提供可恢复性"
 date: 2026-07-07
-author: QwenPaw Team
+author: Potato Team
 tags: [插件, 会话版本控制, 状态快照, 会话回滚]
 cover: https://img.alicdn.com/imgextra/i2/O1CN01cdSRbU26gXIFiTRjL_!!6000000007691-2-tps-1254-1254.png
-excerpt: "长会话里 Agent 会被脏上下文拖住。PawGit 为 QwenPaw Agent 会话状态提供 checkpoint、timeline 与 rewind，让你在不必新开窗口重喂 prompt 的前提下，回到之前还干净的状态。"
+excerpt: "长会话里 Agent 会被脏上下文拖住。PawGit 为 Potato Agent 会话状态提供 checkpoint、timeline 与 rewind，让你在不必新开窗口重喂 prompt 的前提下，回到之前还干净的状态。"
 related:
   heading: "相关插件：PawGit"
-  description: "QwenPaw 会话与记忆版本控制插件，支持状态快照、DAG 时间线、会话回滚与状态重置。"
+  description: "Potato 会话与记忆版本控制插件，支持状态快照、DAG 时间线、会话回滚与状态重置。"
   linkText: "查看并安装 PawGit →"
   linkUrl: "https://platform.agentscope.io/plugins/pawgit"
 ---
 
-# PawGit：为 QwenPaw Agent 会话状态提供可恢复性
+# PawGit：为 Potato Agent 会话状态提供可恢复性
 
-如果你经常用 QwenPaw 做复杂任务，应该很熟悉这种时刻：
+如果你经常用 Potato 做复杂任务，应该很熟悉这种时刻：
 
 一开始，它非常聪明。你新开了一个会话，把项目背景、目录结构、设计目标、限制条件、已经踩过的坑，一点点喂给它。它读得很认真，回答也很到位。你甚至会有一种错觉：这次稳了，它真的懂了。
 
@@ -61,11 +61,11 @@ related:
 
 这些东西没有 Git。所以我们经常会遇到一种很荒诞的情况：项目文件可以恢复到 10 分钟前，但 Agent 的脑子回不去了。它还是带着刚才那堆混乱上下文继续往前走。如果只是普通聊天，这也许没什么。但 Agent 不一样。Agent 会读文件、写文件、调用工具、修改记忆，还会基于已有上下文继续推理。一旦错误状态进入后续推理，它就不只是一个错误回答，而会变成一笔上下文债务。
 
-PawGit 的切入点就在这里，它不是项目 Git 的替代品，它想做的是另一件事：**给 QwenPaw 的 Agent 会话状态加上存档点**。
+PawGit 的切入点就在这里，它不是项目 Git 的替代品，它想做的是另一件事：**给 Potato 的 Agent 会话状态加上存档点**。
 
 ### 2. PawGit 如何保存 Agent 会话状态
 
-PawGit 是一个 QwenPaw 插件，目前可以在官方 platform 下载：[https://platform.agentscope.io/plugins/pawgit](https://platform.agentscope.io/plugins/pawgit)。
+PawGit 是一个 Potato 插件，目前可以在官方 platform 下载：[https://platform.agentscope.io/plugins/pawgit](https://platform.agentscope.io/plugins/pawgit)。
 
 ![PawGit 插件页面](https://img.alicdn.com/imgextra/i1/O1CN01d0hBui28YrtUkYTK4_!!6000000007945-2-tps-1366-680.png)
 
@@ -97,7 +97,7 @@ PawGit 是一个 QwenPaw 插件，目前可以在官方 platform 下载：[https
 
 ### 1. Snapshot：创建稳定恢复点
 
-有了 PawGit，现在用 QwenPaw 做稍微有风险的 Agent 任务前，我会先打一条命名快照。
+有了 PawGit，现在用 Potato 做稍微有风险的 Agent 任务前，我会先打一条命名快照。
 
 ```bash
 /pawgit snapshot before-runtime-refactor
@@ -107,7 +107,7 @@ PawGit 是一个 QwenPaw 插件，目前可以在官方 platform 下载：[https
 
 ![在关键任务开始前创建命名快照](https://img.alicdn.com/imgextra/i3/O1CN01Z9WH0k1PROiyJIykS_!!6000000001837-2-tps-853-232.png)
 
-接下来我可以放心让 QwenPaw 去读代码、比较方案、尝试实现，而不用担心一旦聊偏，就只能在一团脏上下文里继续硬撑。命名快照会进入 PawGit 的永久快照区域，它不会被普通 GC 清掉：
+接下来我可以放心让 Potato 去读代码、比较方案、尝试实现，而不用担心一旦聊偏，就只能在一团脏上下文里继续硬撑。命名快照会进入 PawGit 的永久快照区域，它不会被普通 GC 清掉：
 
 ```text
 refs/snap/
@@ -192,7 +192,7 @@ dry-run 不会写文件，不会移动 HEAD，也不会真的改变当前会话�
 
 ### 3. Slash Command、Skill 与 Tool：多入口使用 PawGit
 
-看到这里，你可能会觉得：怎么都需要手动输入 command，好麻烦。别着急，PawGit 也提供了 skill 和 tool。除了手动输入这些 slash command，PawGit 也配备了相关的 skill 和 tool，可以在技能和工具页面查看。目前针对 QwenPaw 2.0 的版本正在开发；在 1.0 版本中，skill 的名称为 `pawgit`。
+看到这里，你可能会觉得：怎么都需要手动输入 command，好麻烦。别着急，PawGit 也提供了 skill 和 tool。除了手动输入这些 slash command，PawGit 也配备了相关的 skill 和 tool，可以在技能和工具页面查看。目前针对 Potato 2.0 的版本正在开发；在 1.0 版本中，skill 的名称为 `pawgit`。
 
 ![PawGit skill 页面](https://img.alicdn.com/imgextra/i2/O1CN016Dta6X1e9jgg24tzt_!!6000000003829-2-tps-1282-812.png)
 

@@ -18,8 +18,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.crons.manager import CronManager
-from qwenpaw.app.crons.models import CronJobState, ScheduleSpec
+from potato.app.crons.manager import CronManager
+from potato.app.crons.models import CronJobState, ScheduleSpec
 from tests.unit.app.conftest import (
     InMemoryJobRepository,
     make_cron_job_spec,
@@ -118,11 +118,11 @@ async def test_scheduled_dream_waits_for_random_delay(
 
     with (
         patch(
-            "qwenpaw.app.crons.manager.random.randint",
+            "potato.app.crons.manager.random.randint",
             return_value=42,
         ) as randint_mock,
         patch(
-            "qwenpaw.app.crons.manager.asyncio.sleep",
+            "potato.app.crons.manager.asyncio.sleep",
             new_callable=AsyncMock,
         ) as sleep_mock,
     ):

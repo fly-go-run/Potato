@@ -19,7 +19,7 @@ def default_http_timeout(default: float = 15.0) -> float:
     """Return the per-request HTTP timeout for integration tests.
 
     Falls back to ``default`` unless the
-    ``QWENPAW_INTEGRATION_HTTP_TIMEOUT`` environment variable is set,
+    ``POTATO_INTEGRATION_HTTP_TIMEOUT`` environment variable is set,
     in which case the returned value is ``max(env, default)`` — i.e.
     the env acts as a *floor* and never shortens a per-module default
     that already chose a longer timeout (e.g. plugin/console paths).
@@ -28,7 +28,7 @@ def default_http_timeout(default: float = 15.0) -> float:
     nightly in particular) can lift every HTTP call's timeout in one
     place without each module having to opt in.
     """
-    raw = os.environ.get("QWENPAW_INTEGRATION_HTTP_TIMEOUT")
+    raw = os.environ.get("POTATO_INTEGRATION_HTTP_TIMEOUT")
     if raw:
         try:
             return max(float(raw), default)

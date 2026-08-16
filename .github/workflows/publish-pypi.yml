@@ -50,15 +50,15 @@ jobs:
 
       - name: Copy web app build into package
         run: |
-          rm -rf src/qwenpaw/console/*
-          mkdir -p src/qwenpaw/console
-          cp -R app/dist/* src/qwenpaw/console/
+          rm -rf src/potato/console/*
+          mkdir -p src/potato/console
+          cp -R app/dist/* src/potato/console/
 
       - name: Bundle docs into package
         run: |
-          rm -rf src/qwenpaw/docs
-          mkdir -p src/qwenpaw/docs
-          cp website/public/docs/*.md src/qwenpaw/docs/
+          rm -rf src/potato/docs
+          mkdir -p src/potato/docs
+          cp website/public/docs/*.md src/potato/docs/
 
       - name: Install build dependencies
         run: |
@@ -71,15 +71,15 @@ jobs:
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qwenpaw-dist
+          name: potato-dist
           path: dist/
           retention-days: 30
 
       - name: Upload version metadata
         uses: actions/upload-artifact@v4
         with:
-          name: qwenpaw-version
-          path: src/qwenpaw/__version__.py
+          name: potato-version
+          path: src/potato/__version__.py
           retention-days: 30
 
   # ── Stage 2: Verify installation ───────────────────────────────────────────
@@ -99,7 +99,7 @@ jobs:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
         with:
-          name: qwenpaw-dist
+          name: potato-dist
           path: dist
 
       - name: Publish package to PyPI

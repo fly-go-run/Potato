@@ -4,7 +4,7 @@
 import logging
 from pathlib import Path
 
-logger = logging.getLogger("qwenpaw").getChild("plugin.omp_workflows")
+logger = logging.getLogger("potato").getChild("plugin.omp_workflows")
 
 _PLUGIN_DIR = Path(__file__).parent
 

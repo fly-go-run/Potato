@@ -17,8 +17,8 @@ import httpx
 from agentscope.message import DataBlock, TextBlock, URLSource
 from agentscope.message import ToolResultState
 from agentscope.tool import ToolChunk
-from qwenpaw.constant import DEFAULT_MEDIA_DIR
-from qwenpaw.plugins import get_tool_config
+from potato.constant import DEFAULT_MEDIA_DIR
+from potato.plugins import get_tool_config
 
 logger = logging.getLogger(__name__)
 

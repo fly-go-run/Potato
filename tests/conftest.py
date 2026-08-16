@@ -3,9 +3,9 @@
 # pylint: disable=reimported,unused-argument,unnecessary-pass
 # pylint: disable=wrong-import-position
 """
-Global pytest fixtures for CoPaw test suite.
+Global pytest fixtures for the Potato test suite.
 
-This module provides shared fixtures for testing CoPaw components.
+This module provides shared fixtures for testing Potato components.
 All fixtures are designed to be isolated, safe, and easy to use.
 """
 
@@ -21,24 +21,24 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# ``qwenpaw.constant`` resolves these paths at import time. This conftest
+# ``potato.constant`` resolves these paths at import time. This conftest
 # imports provider code below, before fixtures can run, so establish a test
-# runtime before importing any qwenpaw module. Otherwise a plain
+# runtime before importing any potato module. Otherwise a plain
 # ``pytest tests/unit`` can write config, logs, or provider state under the
-# developer's real ~/.qwenpaw directory.
-_TEST_RUNTIME_DIR = Path(tempfile.mkdtemp(prefix="qwenpaw_pytest_"))
-os.environ["QWENPAW_WORKING_DIR"] = str(_TEST_RUNTIME_DIR / "working")
-os.environ["QWENPAW_SECRET_DIR"] = str(_TEST_RUNTIME_DIR / "secret")
+# developer's real ~/.potato directory.
+_TEST_RUNTIME_DIR = Path(tempfile.mkdtemp(prefix="potato_pytest_"))
+os.environ["POTATO_WORKING_DIR"] = str(_TEST_RUNTIME_DIR / "working")
+os.environ["POTATO_SECRET_DIR"] = str(_TEST_RUNTIME_DIR / "secret")
 
-from qwenpaw.providers import (  # noqa: E402
+from potato.providers import (  # noqa: E402
     provider_manager as _provider_manager_module,
 )
 
 
 @pytest.fixture(autouse=True)
-def capture_qwenpaw_logs(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Let caplog see qwenpaw records despite the app logger handler."""
-    monkeypatch.setattr(logging.getLogger("qwenpaw"), "propagate", True)
+def capture_potato_logs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let caplog see potato records despite the app logger handler."""
+    monkeypatch.setattr(logging.getLogger("potato"), "propagate", True)
 
 
 # =============================================================================
@@ -76,7 +76,7 @@ def temp_workspace() -> Generator[Path, None, None]:
             file_path.write_text("content")
             assert file_path.read_text() == "content"
     """
-    temp_dir = tempfile.mkdtemp(prefix="copaw_test_")
+    temp_dir = tempfile.mkdtemp(prefix="potato_test_")
     try:
         yield Path(temp_dir)
     finally:
@@ -87,14 +87,14 @@ def temp_workspace() -> Generator[Path, None, None]:
 def temp_copaw_home(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[Path, None, None]:
-    """Provide an isolated CoPaw HOME environment.
+    """Provide an isolated legacy CoPaw HOME environment.
 
     Creates a temporary directory and sets it as both HOME and COPAW_HOME
     environment variables. Also clears any sensitive environment variables
     that could interfere with tests.
 
     Yields:
-        Path to the temporary CoPaw home directory.
+        Path to the temporary legacy CoPaw home directory.
 
     Example:
         def test_config_loading(temp_copaw_home):
@@ -434,7 +434,7 @@ def pytest_sessionfinish(
     session: pytest.Session,
     exitstatus: int,
 ) -> None:
-    """Remove the process-local runtime created before qwenpaw imports."""
+    """Remove the process-local runtime created before potato imports."""
     shutil.rmtree(_TEST_RUNTIME_DIR, ignore_errors=True)
 
 
@@ -475,7 +475,7 @@ def isolated_secret_dir(monkeypatch, tmp_path):
     This fixture ensures every test uses a clean temporary directory and
     a fresh ProviderManager singleton.
     """
-    secret_dir = tmp_path / ".qwenpaw.secret"
+    secret_dir = tmp_path / ".potato.secret"
     monkeypatch.setattr(_provider_manager_module, "SECRET_DIR", secret_dir)
     monkeypatch.setattr(
         _provider_manager_module.ProviderManager,

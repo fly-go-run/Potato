@@ -15,18 +15,18 @@ pub(super) fn create(app: &tauri::AppHandle) -> Result<Command, String> {
     let source_path = repo_root.join("src");
     let command = if command_exists("uv") {
         log::info!(
-            "[backend] dev command: uv run python -m qwenpaw.tauri.entry cwd={}",
+            "[backend] dev command: uv run python -m potato.tauri.entry cwd={}",
             repo_root.display(),
         );
         app.shell()
             .command("uv")
-            .args(["run", "python", "-m", "qwenpaw.tauri.entry"])
+            .args(["run", "python", "-m", "potato.tauri.entry"])
             .current_dir(repo_root)
             .env("PYTHONPATH", source_path.display().to_string())
     } else {
         let (python, prefix_args) = python_command(&repo_root);
         let mut args = prefix_args;
-        args.extend(["-m", "qwenpaw.tauri.entry"]);
+        args.extend(["-m", "potato.tauri.entry"]);
         log::info!(
             "[backend] dev command: {} {} cwd={}",
             python,
@@ -65,7 +65,7 @@ pub(super) fn create(app: &tauri::AppHandle) -> Result<Command, String> {
     if let Some(python) = packaged_python_runtime(app) {
         log::info!("[backend] bundled python runtime: {}", python.display());
         command = command.env(
-            "QWENPAW_DESKTOP_PY_RUNTIME",
+            "POTATO_DESKTOP_PY_RUNTIME",
             python.to_string_lossy().to_string(),
         );
     } else {
@@ -77,7 +77,7 @@ pub(super) fn create(app: &tauri::AppHandle) -> Result<Command, String> {
     if let Some(node_runtime) = packaged_node_runtime(app) {
         log::info!("[backend] bundled node runtime: {}", node_runtime.display());
         command = command.env(
-            "QWENPAW_DESKTOP_NODE_RUNTIME",
+            "POTATO_DESKTOP_NODE_RUNTIME",
             node_runtime.to_string_lossy().to_string(),
         );
     } else {
@@ -122,16 +122,16 @@ fn packaged_node_runtime(app: &tauri::AppHandle) -> Option<PathBuf> {
 #[cfg(not(debug_assertions))]
 fn packaged_backend_executable(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let executable_name = if cfg!(windows) {
-        "qwenpaw-backend.exe"
+        "potato-backend.exe"
     } else {
-        "qwenpaw-backend"
+        "potato-backend"
     };
     let path = app
         .path()
         .resource_dir()
         .map_err(|err| format!("failed to resolve resource directory: {err}"))?
         .join("binaries")
-        .join("qwenpaw-backend")
+        .join("potato-backend")
         .join(executable_name);
 
     if path.is_file() {

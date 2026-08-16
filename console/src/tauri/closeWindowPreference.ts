@@ -1,9 +1,16 @@
-export const CLOSE_ACTION_STORAGE_KEY = "qwenpaw.closeWindowAction";
+export const CLOSE_ACTION_STORAGE_KEY = "potato.closeWindowAction";
+const LEGACY_CLOSE_ACTION_STORAGE_KEY = "qwenpaw.closeWindowAction";
 
 export type CloseAction = "minimize-to-tray" | "quit";
 
 export function getRememberedCloseAction(): CloseAction | null {
-  const action = getStorage()?.getItem(CLOSE_ACTION_STORAGE_KEY);
+  const storage = getStorage();
+  const action =
+    storage?.getItem(CLOSE_ACTION_STORAGE_KEY) ??
+    storage?.getItem(LEGACY_CLOSE_ACTION_STORAGE_KEY);
+  if (action && storage?.getItem(CLOSE_ACTION_STORAGE_KEY) === null) {
+    storage.setItem(CLOSE_ACTION_STORAGE_KEY, action);
+  }
   return action === "minimize-to-tray" || action === "quit" ? action : null;
 }
 

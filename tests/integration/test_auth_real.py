@@ -3,7 +3,7 @@
 # -*- coding: utf-8 -*-
 """Auth=true real-link integration tests — Sprint 3.4-A.
 
-Spawns a dedicated subprocess with QWENPAW_AUTH_ENABLED=true and
+Spawns a dedicated subprocess with POTATO_AUTH_ENABLED=true and
 seeded credentials, then exercises:
   A1 GET /api/auth/status reflects auth enabled + has_users
   A2 POST /api/auth/login with correct credentials returns token
@@ -67,7 +67,7 @@ def _tee(stream, buf: list[str]) -> None:
 def auth_app_server(  # pylint: disable=too-many-statements
     tmp_path_factory,
 ) -> Iterator[_AuthAppServer]:
-    """Spawn a qwenpaw app subprocess with auth=true + seeded user."""
+    """Spawn a potato app subprocess with auth=true + seeded user."""
     tmp_path = tmp_path_factory.mktemp("auth_app_server")
     host = "127.0.0.1"
     port = _find_free_port(host)
@@ -86,13 +86,13 @@ def auth_app_server(  # pylint: disable=too-many-statements
         "DASHSCOPE_API_KEY",
     ):
         env.pop(key, None)
-    env["QWENPAW_WORKING_DIR"] = str(working_dir)
-    env["QWENPAW_SECRET_DIR"] = str(secret_dir)
-    env["QWENPAW_BACKUP_DIR"] = str(backups_dir)
-    env["QWENPAW_AUTH_ENABLED"] = "true"
-    env["QWENPAW_AUTH_USERNAME"] = _AUTH_USERNAME
-    env["QWENPAW_AUTH_PASSWORD"] = _AUTH_PASSWORD
-    env["QWENPAW_UPLOAD_MAX_SIZE_MB"] = "10"
+    env["POTATO_WORKING_DIR"] = str(working_dir)
+    env["POTATO_SECRET_DIR"] = str(secret_dir)
+    env["POTATO_BACKUP_DIR"] = str(backups_dir)
+    env["POTATO_AUTH_ENABLED"] = "true"
+    env["POTATO_AUTH_USERNAME"] = _AUTH_USERNAME
+    env["POTATO_AUTH_PASSWORD"] = _AUTH_PASSWORD
+    env["POTATO_UPLOAD_MAX_SIZE_MB"] = "10"
     env["NO_PROXY"] = "*"
     env["PYTHONUNBUFFERED"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
@@ -102,7 +102,7 @@ def auth_app_server(  # pylint: disable=too-many-statements
         [
             sys.executable,
             "-m",
-            "qwenpaw",
+            "potato",
             "app",
             "--host",
             host,
@@ -134,7 +134,7 @@ def auth_app_server(  # pylint: disable=too-many-statements
             while time.time() < deadline:
                 if process.poll() is not None:
                     raise AssertionError(
-                        "qwenpaw app exited during startup\n"
+                        "potato app exited during startup\n"
                         f"logs:\n{''.join(logs)[-3000:]}",
                     )
                 try:

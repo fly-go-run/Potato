@@ -41,7 +41,16 @@ import {
 } from "../../lib/composerTrigger";
 import { useChatStore, type ApprovalLevel } from "../../stores/chat";
 import { useUiPrefs } from "../../stores/uiPrefs";
-import { VoiceInputError, VoiceRecorder } from "../../lib/voiceInput";
+import {
+  isFatalSpeechError,
+  joinVoiceDraft,
+  VoiceInputError,
+  VoiceRecorder,
+} from "../../lib/voiceInput";
+import {
+  openVoiceStream,
+  type VoiceStreamSession,
+} from "../../lib/voiceStream";
 import { ModelPicker } from "./ModelPicker";
 import { ProjectPicker } from "./ProjectPicker";
 import { TriggerPopover, type TriggerItem } from "./TriggerPopover";
@@ -74,10 +83,15 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const isComposingRef = useRef(false);
   const compositionEndAtRef = useRef(Number.NEGATIVE_INFINITY);
   const voiceRecorderRef = useRef<VoiceRecorder | null>(null);
+  const voiceStreamRef = useRef<VoiceStreamSession | null>(null);
+  const stopVoiceRef = useRef<() => void>(() => undefined);
   /** Guards against max-duration auto-stop racing with a manual stop. */
   const voiceResultHandledRef = useRef(false);
   /** Bumped to invalidate in-flight getUserMedia / start() work. */
   const voiceSessionRef = useRef(0);
+  /** Composer text from before this recording; live drafts replace after it. */
+  const voiceBaseTextRef = useRef("");
+  const voiceDraftRef = useRef("");
   /**
    * 后端说语音可用之前不挂麦克风按钮。预配置的安装包(家人那台)如果没
    * 带语音密钥,给一个必定失败的按钮比没有按钮更糟——失败提示还只对
@@ -371,23 +385,6 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     });
   };
 
-  const appendTranscript = useCallback((transcript: string) => {
-    const piece = transcript.trim();
-    if (!piece) return;
-    setText((current) => {
-      if (!current.trim()) return piece;
-      const needsSpace = !/\s$/.test(current);
-      return `${current}${needsSpace ? " " : ""}${piece}`;
-    });
-    requestAnimationFrame(() => {
-      const el = textareaRef.current;
-      if (!el) return;
-      el.focus();
-      const end = el.value.length;
-      el.setSelectionRange(end, end);
-    });
-  }, []);
-
   const mapVoiceError = useCallback(
     (reason: unknown): string => {
       if (reason instanceof VoiceInputError) {
@@ -398,17 +395,26 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         if (reason.code === "empty") return t("composer.voice.empty");
         return t("composer.voice.startFailed");
       }
-      if (reason instanceof ApiError) {
+      const code =
+        reason instanceof ApiError
+          ? reason.code
+          : reason && typeof reason === "object" && "code" in reason
+            ? String((reason as { code: unknown }).code ?? "")
+            : "";
+      if (reason instanceof ApiError || code) {
         // 按后端 detail.code 分支。以前是拿文案做正则,而 ApiError 当时
         // 根本不带 code,那几条 includes 从来没命中过。
         const byCode: Record<string, TranslationKey> = {
           TRANSCRIPTION_DISABLED: "composer.voice.enableInSettings",
           SPEECH_API_KEY_MISSING: "composer.voice.keyMissing",
           AUDIO_CONVERSION_UNAVAILABLE: "composer.voice.ffmpegMissing",
+          TRANSCRIPTION_FAILED: "composer.voice.transcriptionFailed",
         };
-        const key = byCode[reason.code];
+        const key = byCode[code];
         if (key) return t(key);
-        return reason.message || t("composer.voice.transcriptionFailed");
+        if (reason instanceof ApiError) {
+          return reason.message || t("composer.voice.transcriptionFailed");
+        }
       }
       if (reason instanceof Error && reason.message) return reason.message;
       return t("composer.voice.transcriptionFailed");
@@ -442,46 +448,91 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     }
   }, [t]);
 
+  const applyVoiceDraft = useCallback((transcript: string) => {
+    const next = joinVoiceDraft(voiceBaseTextRef.current, transcript);
+    if (next === null) return;
+    voiceDraftRef.current = transcript.trim();
+    setText(next);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
+  }, []);
+
+  const closeVoiceStream = useCallback(() => {
+    voiceStreamRef.current?.cancel();
+    voiceStreamRef.current = null;
+  }, []);
+
   const transcribeFile = useCallback(
     async (file: File) => {
       setVoiceState("transcribing");
       setVoiceError(null);
       try {
-        await ensureVoiceReady();
         const result = await sttApi.transcribe(file);
-        appendTranscript(result.text ?? "");
+        applyVoiceDraft(result.text ?? "");
       } catch (reason) {
-        setVoiceError(mapVoiceError(reason));
+        if (!voiceDraftRef.current) {
+          setVoiceError(mapVoiceError(reason));
+        }
       } finally {
         setVoiceState("idle");
       }
     },
-    [appendTranscript, ensureVoiceReady, mapVoiceError],
-  );
-
-  const handleVoiceFile = useCallback(
-    async (file: File) => {
-      if (voiceResultHandledRef.current) return;
-      voiceResultHandledRef.current = true;
-      voiceRecorderRef.current = null;
-      await transcribeFile(file);
-    },
-    [transcribeFile],
+    [applyVoiceDraft, mapVoiceError],
   );
 
   const startVoice = useCallback(async () => {
     setVoiceError(null);
+    setVoiceState("starting");
+    try {
+      await ensureVoiceReady();
+    } catch (reason) {
+      setVoiceState("idle");
+      setVoiceError(mapVoiceError(reason));
+      return;
+    }
     voiceResultHandledRef.current = false;
+    voiceBaseTextRef.current = textareaRef.current?.value ?? "";
+    voiceDraftRef.current = "";
     const session = ++voiceSessionRef.current;
     const recorder = new VoiceRecorder();
     voiceRecorderRef.current = recorder;
-    setVoiceState("starting");
     try {
-      await recorder.start((file) => {
-        void handleVoiceFile(file);
+      const live = await openVoiceStream({
+        onPartial: applyVoiceDraft,
+        onFinal: applyVoiceDraft,
+        onError: (error) => {
+          if (session !== voiceSessionRef.current) return;
+          if (voiceResultHandledRef.current) return;
+          if (!isFatalSpeechError(error) && voiceDraftRef.current) return;
+          voiceResultHandledRef.current = true;
+          closeVoiceStream();
+          recorder.cancel();
+          if (voiceRecorderRef.current === recorder) {
+            voiceRecorderRef.current = null;
+          }
+          setVoiceState("idle");
+          setVoiceError(mapVoiceError(error));
+        },
       });
-      // Permission dialog / async start may outlive cancel or a newer start.
       if (session !== voiceSessionRef.current) {
+        live.cancel();
+        recorder.cancel();
+        return;
+      }
+      voiceStreamRef.current = live;
+      await recorder.start(
+        () => {
+          stopVoiceRef.current();
+        },
+        (pcm) => live.sendPcm(pcm),
+      );
+      if (session !== voiceSessionRef.current) {
+        live.cancel();
         recorder.cancel();
         if (voiceRecorderRef.current === recorder) {
           voiceRecorderRef.current = null;
@@ -491,36 +542,71 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       setVoiceState("recording");
     } catch (reason) {
       if (session !== voiceSessionRef.current) return;
+      closeVoiceStream();
+      recorder.cancel();
       voiceRecorderRef.current = null;
       setVoiceState("idle");
       setVoiceError(mapVoiceError(reason));
     }
-  }, [handleVoiceFile, mapVoiceError]);
+  }, [
+    applyVoiceDraft,
+    closeVoiceStream,
+    ensureVoiceReady,
+    mapVoiceError,
+  ]);
 
   const stopVoice = useCallback(async () => {
     const recorder = voiceRecorderRef.current;
-    if (!recorder) {
+    const live = voiceStreamRef.current;
+    if (!recorder && !live) {
       setVoiceState("idle");
       return;
     }
+    setVoiceState("transcribing");
     try {
-      const file = await recorder.stop();
-      await handleVoiceFile(file);
+      let file: File | null = null;
+      if (recorder) {
+        file = await recorder.stop();
+      }
+      voiceRecorderRef.current = null;
+      const streamed = live ? await live.stop() : "";
+      voiceStreamRef.current = null;
+      if (voiceResultHandledRef.current) return;
+      voiceResultHandledRef.current = true;
+      if (streamed.trim()) {
+        applyVoiceDraft(streamed);
+        setVoiceState("idle");
+        return;
+      }
+      if (file) {
+        await transcribeFile(file);
+        return;
+      }
+      setVoiceState("idle");
     } catch (reason) {
       if (voiceResultHandledRef.current) return;
       voiceRecorderRef.current = null;
+      voiceStreamRef.current = null;
       setVoiceState("idle");
-      setVoiceError(mapVoiceError(reason));
+      if (!voiceDraftRef.current) {
+        setVoiceError(mapVoiceError(reason));
+      }
     }
-  }, [handleVoiceFile, mapVoiceError]);
+  }, [applyVoiceDraft, mapVoiceError, transcribeFile]);
+  stopVoiceRef.current = () => {
+    void stopVoice();
+  };
 
   const cancelVoice = useCallback(() => {
     voiceSessionRef.current += 1;
     voiceResultHandledRef.current = true;
+    closeVoiceStream();
     voiceRecorderRef.current?.cancel();
     voiceRecorderRef.current = null;
+    setText(voiceBaseTextRef.current);
+    voiceDraftRef.current = "";
     setVoiceState("idle");
-  }, []);
+  }, [closeVoiceStream]);
 
   const toggleVoice = useCallback(() => {
     if (busy || voiceState === "transcribing" || voiceState === "starting") {
@@ -537,10 +623,11 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     return () => {
       voiceSessionRef.current += 1;
       voiceResultHandledRef.current = true;
+      closeVoiceStream();
       voiceRecorderRef.current?.cancel();
       voiceRecorderRef.current = null;
     };
-  }, []);
+  }, [closeVoiceStream]);
 
   useEffect(() => {
     let active = true;
@@ -614,9 +701,9 @@ export function Composer({ wide = false }: { wide?: boolean }) {
     const files = Array.from(event.clipboardData.files);
     if (files.length) addImages(files);
   };
-  const widthClass = wide
-    ? "w-full sm:w-[91%] sm:max-w-[90rem]"
-    : "w-full max-w-[48rem]";
+  // 首页/会话共用阅读列宽度。曾经 wide=91%/90rem,空态被拉成一条扁尺,
+  // 发送后又突然收成 48rem;和 MessageList 对齐后首屏比例正常,进会话也不跳。
+  const widthClass = "w-full max-w-[48rem]";
 
   return (
     <div className="px-4 pb-6 pt-3 sm:px-6">
@@ -715,6 +802,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
               onKeyDown={onKeyDown}
               onPaste={onPaste}
               disabled={busy || voiceState === "transcribing"}
+              readOnly={voiceState === "recording"}
               placeholder={
                 voiceState === "starting"
                   ? t("composer.voice.starting")
@@ -907,6 +995,18 @@ export function Composer({ wide = false }: { wide?: boolean }) {
               role="alert"
             >
               {voiceError}
+            </p>
+          )}
+          {!voiceError && voiceState !== "idle" && (
+            <p
+              data-testid="composer-voice-status"
+              className="mt-2 px-1 text-center text-xs text-ink-tertiary"
+            >
+              {voiceState === "starting"
+                ? t("composer.voice.starting")
+                : voiceState === "recording"
+                  ? t("composer.voice.listening")
+                  : t("composer.voice.transcribing")}
             </p>
           )}
 

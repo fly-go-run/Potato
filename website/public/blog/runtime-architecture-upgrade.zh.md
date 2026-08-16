@@ -1,13 +1,13 @@
 ---
-title: "QwenPaw Runtime 架构升级解析：架构、实现与扩展"
+title: "Potato Runtime 架构升级解析：架构、实现与扩展"
 date: 2026-07-07
-author: QwenPaw Team
-tags: [架构升级, 八阶段编排, Hook机制, QwenPaw2.0]
+author: Potato Team
+tags: [架构升级, 八阶段编排, Hook机制, Potato2.0]
 cover: /blog/runtime-architecture-upgrade-cover.png
-excerpt: "QwenPaw Runtime 从 650 行 god method 重构为 8 阶段编排引擎，通过 Hook、AgentMode 与声明式注册实现「一个功能一个目录、Runtime 零侵入扩展」。"
+excerpt: "Potato Runtime 从 650 行 god method 重构为 8 阶段编排引擎，通过 Hook、AgentMode 与声明式注册实现「一个功能一个目录、Runtime 零侵入扩展」。"
 ---
 
-# QwenPaw Runtime 架构升级解析：架构、实现与扩展
+# Potato Runtime 架构升级解析：架构、实现与扩展
 
 ---
 
@@ -29,7 +29,7 @@ excerpt: "QwenPaw Runtime 从 650 行 god method 重构为 8 阶段编排引擎�
 
 ### 核心痛点
 
-在 Runtime 架构升级之前，QwenPaw 的请求处理集中在一个 `AgentRunner.query_handler()` 方法中——这是一个超过 **650 行的 god method**。每个新功能（任务模式、编程模式、计划模式、定时任务隔离、Skill 注入……）都需要**侵入式修改**这个核心函数，不断增加 if/else 分支和交叉的状态管理。
+在 Runtime 架构升级之前，Potato 的请求处理集中在一个 `AgentRunner.query_handler()` 方法中——这是一个超过 **650 行的 god method**。每个新功能（任务模式、编程模式、计划模式、定时任务隔离、Skill 注入……）都需要**侵入式修改**这个核心函数，不断增加 if/else 分支和交叉的状态管理。
 
 一个具体的例子：当时要加一个 `/mission` 功能，需要改动 **8 个文件**，其中 2 个是核心文件的侵入式修改。每次新增功能，runner.py 都要多出 ~40 行。这样的开发模式带来了严重的维护负担和合并冲突。
 
@@ -94,7 +94,7 @@ AppServiceManager（FastAPI lifespan 级，跨 workspace 共享）
 代码中的实际约束：
 
 ```python
-# src/qwenpaw/app/app_services/app_service_manager.py
+# src/potato/app/app_services/app_service_manager.py
 
 class AppServiceManager:
     __slots__ = (
@@ -112,7 +112,7 @@ class AppServiceManager:
 
 之前的痛点是 runner 是一个 god method。解决方案是把请求处理拆成 **8 个固定阶段**，每个阶段是 hook 的挂载点。
 
-`Runtime` 类（`src/qwenpaw/runtime/runtime.py`）是 per-workspace 的请求编排器。每个请求调用 `run()`，通过 8 阶段生命周期产出 SSE 信封对象。
+`Runtime` 类（`src/potato/runtime/runtime.py`）是 per-workspace 的请求编排器。每个请求调用 `run()`，通过 8 阶段生命周期产出 SSE 信封对象。
 
 ```python
 class Runtime:
@@ -123,7 +123,7 @@ class Runtime:
 
 ### 8 个阶段
 
-定义在 `src/qwenpaw/runtime/phases.py` 中：
+定义在 `src/potato/runtime/phases.py` 中：
 
 ```python
 class Phase(str, Enum):
@@ -161,7 +161,7 @@ class Phase(str, Enum):
 
 ### 三种 Hook 动作
 
-每个 hook 返回 `HookResult`，包含三种动作之一（`src/qwenpaw/runtime/hooks.py`）：
+每个 hook 返回 `HookResult`，包含三种动作之一（`src/potato/runtime/hooks.py`）：
 
 ```python
 class HookAction(str, Enum):
@@ -180,7 +180,7 @@ class HookAction(str, Enum):
 
 ### AgentBuilder — 每个请求的 Agent 组装
 
-`AgentBuilder`（`src/qwenpaw/runtime/builder.py`）负责为每个请求构建一个完整的 `QwenPawAgent`，它整合了：
+`AgentBuilder`（`src/potato/runtime/builder.py`）负责为每个请求构建一个完整的 `PotatoAgent`，它整合了：
 
 | 组件              | 来源                                             | 描述                                                     |
 | ----------------- | ------------------------------------------------ | -------------------------------------------------------- |
@@ -195,9 +195,9 @@ class HookAction(str, Enum):
 
 ### AgentExecutor 与 Envelope
 
-`AgentExecutor`（`src/qwenpaw/runtime/executor.py`）驱动 agent 的 reply stream，并包装心跳机制——确保在长时间空闲期间（如 tool-guard 审批等待），发出 keep-alive 信封而不是让 SSE 连接断开。
+`AgentExecutor`（`src/potato/runtime/executor.py`）驱动 agent 的 reply stream，并包装心跳机制——确保在长时间空闲期间（如 tool-guard 审批等待），发出 keep-alive 信封而不是让 SSE 连接断开。
 
-`Envelope`（`src/qwenpaw/runtime/envelope.py`）是 SSE 状态机，负责将 agentscope 的 `EventType` 事件翻译为前端的流式信封协议，跟踪每个请求的状态（文本块、推理块、工具调用、数据块）并产出正确的事件序列。
+`Envelope`（`src/potato/runtime/envelope.py`）是 SSE 状态机，负责将 agentscope 的 `EventType` 事件翻译为前端的流式信封协议，跟踪每个请求的状态（文本块、推理块、工具调用、数据块）并产出正确的事件序列。
 
 ---
 
@@ -220,7 +220,7 @@ class HookAction(str, Enum):
 
 ### HookRegistry — 拓扑排序
 
-`HookRegistry`（`src/qwenpaw/runtime/hooks.py`）管理 hook 的注册和执行：
+`HookRegistry`（`src/potato/runtime/hooks.py`）管理 hook 的注册和执行：
 
 - Hook 按 `Phase` 分组
 - 同一 phase 内，hook 通过 `before` / `after` 约束**拓扑排序**，priority 作为平局破除
@@ -263,7 +263,7 @@ class HookBase:
 
 ### AgentMode — 功能包
 
-`AgentMode`（`src/qwenpaw/modes/base.py`）是一个**行为包**：命令、工具、hook 和 prompt contributor 打包在一起。
+`AgentMode`（`src/potato/modes/base.py`）是一个**行为包**：命令、工具、hook 和 prompt contributor 打包在一起。
 
 ```python
 class AgentMode:
@@ -290,7 +290,7 @@ class AgentMode:
 
 ### WorkspacePlugins — 注册表容器
 
-所有 per-workspace 的注册表都位于 `WorkspacePlugins`（`src/qwenpaw/app/workspace/workspace_plugins.py`）：
+所有 per-workspace 的注册表都位于 `WorkspacePlugins`（`src/potato/app/workspace/workspace_plugins.py`）：
 
 ```python
 @dataclass
@@ -316,7 +316,7 @@ class WorkspacePlugins:
 
 ### PromptManager — 可组合的 System Prompt
 
-之前 system prompt 构建分散在 mixin、runner 和 env 模块中，新增一个 prompt 片段需要找到正确的注入点。现在，`PromptManager`（`src/qwenpaw/runtime/prompt_manager.py`）从有序的 `PromptContributor` 实例中声明式组装 system prompt：
+之前 system prompt 构建分散在 mixin、runner 和 env 模块中，新增一个 prompt 片段需要找到正确的注入点。现在，`PromptManager`（`src/potato/runtime/prompt_manager.py`）从有序的 `PromptContributor` 实例中声明式组装 system prompt：
 
 ```python
 class PromptContributor:
@@ -354,7 +354,7 @@ class PromptManager:
 
 ### ToolRegistry — 声明式 Tool 注册
 
-之前的痛点是 tool 硬编码在 agent 类中，每次加 tool 必须侵入 agent 类 ~80 行。`ToolRegistry`（`src/qwenpaw/runtime/tool_registry.py`）用声明式、可过滤的注册表替代了旧的硬编码 tool 字典。
+之前的痛点是 tool 硬编码在 agent 类中，每次加 tool 必须侵入 agent 类 ~80 行。`ToolRegistry`（`src/potato/runtime/tool_registry.py`）用声明式、可过滤的注册表替代了旧的硬编码 tool 字典。
 
 每个 tool 由一个 `ToolDescriptor` 描述（以下为核心门控字段，完整定义还包含 `async_execution`、`description`、`metadata` 等）：
 
@@ -386,7 +386,7 @@ async def get_goal(...):
 
 ### SlashCommandRegistry — 统一命令分发
 
-之前 QwenPaw 有**四套并行命令机制**：conversation、control、daemon 和 skill，每个方法手写 3 遍。`SlashCommandRegistry`（`src/qwenpaw/runtime/slash_command_registry.py`）将它们统一为一个分发点。
+之前 Potato 有**四套并行命令机制**：conversation、control、daemon 和 skill，每个方法手写 3 遍。`SlashCommandRegistry`（`src/potato/runtime/slash_command_registry.py`）将它们统一为一个分发点。
 
 ```python
 @dataclass(frozen=True)
@@ -400,7 +400,7 @@ class CommandSpec:
 
 ### @api_action — 三路自动生成
 
-对于之前列出的痛点 "对外接口三套重复"，`@api_action`（`src/qwenpaw/api_action.py`）从根本上解决了这个问题：**一个装饰器，同时生成 HTTP API、CLI 子命令和 slash 命令**。
+对于之前列出的痛点 "对外接口三套重复"，`@api_action`（`src/potato/api_action.py`）从根本上解决了这个问题：**一个装饰器，同时生成 HTTP API、CLI 子命令和 slash 命令**。
 
 ![@api_action — 三路自动生成](https://img.alicdn.com/imgextra/i3/O1CN01x6ttvV1ywYDU1zuDX_!!6000000006643-55-tps-820-410.svg)
 
@@ -442,7 +442,7 @@ class CronManager(ManagerBase):
 
 ### ToolCoordinator — Tool 调用生命周期
 
-`ToolCoordinator`（`src/qwenpaw/tool_calls/`）提供了**单 tool call 粒度**的控制。旧系统中 `/stop` 只能杀掉整个 agent。现在可以追踪、取消或后台化单个 tool 调用。
+`ToolCoordinator`（`src/potato/tool_calls/`）提供了**单 tool call 粒度**的控制。旧系统中 `/stop` 只能杀掉整个 agent。现在可以追踪、取消或后台化单个 tool 调用。
 
 关键组件包括 `ToolCallEntry`（per-call 状态）、`ToolCallStatus`（PENDING → RUNNING → DONE / CANCELLED 状态机）、`ToolCoordinatorMiddleware`（注入 agent 中间件栈）、`ToolResultPruningMiddleware`（工具结果裁剪）、`ToolStream`（流式工具输出）、`ToolCallContext` / `ToolHookRegistry`（HITL 生命周期钩子）等。
 
@@ -452,7 +452,7 @@ class CronManager(ManagerBase):
 
 ### ServiceManager — Per-Agent 资源生命周期
 
-`ServiceManager`（`src/qwenpaw/app/workspace/service_manager.py`）管理 per-agent 服务，支持：
+`ServiceManager`（`src/potato/app/workspace/service_manager.py`）管理 per-agent 服务，支持：
 
 - **声明式描述符** — 每个服务有 `ServiceDescriptor`，包含优先级、依赖、start/stop 方法
 - **基于优先级的并行启动** — 同优先级服务并发启动
@@ -544,7 +544,7 @@ Agent 开始执行，决定调用 `alicloud_cli` 查询 ECS 规格。这个 tool
 
 ### 对比：开发者想新增一个 Mode
 
-假设你是一个开发者，想在 QwenPaw 中新增一个 Mode。你**不需要修改 Runtime 任何一行代码**。
+假设你是一个开发者，想在 Potato 中新增一个 Mode。你**不需要修改 Runtime 任何一行代码**。
 
 以项目中已有的 `GoalMode` 为例，它的目录结构为：
 

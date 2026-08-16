@@ -7,7 +7,7 @@ applied from the stored registration.
 
 The tool is an ``AsyncGenerator`` that yields intermediate
 ``ToolChunk(state=RUNNING, is_last=False)`` chunks as SSE events
-arrive from the remote agent, so the QwenPaw frontend can render
+arrive from the remote agent, so the Potato frontend can render
 incremental progress in real time via the tool renderer.  The final
 chunk carries ``state=SUCCESS, is_last=True``.
 """
@@ -19,7 +19,7 @@ from collections.abc import AsyncGenerator
 from agentscope.message import TextBlock, ToolResultState
 from agentscope.tool import ToolChunk
 
-logger = logging.getLogger("qwenpaw").getChild(
+logger = logging.getLogger("potato").getChild(
     __name__.replace("plugin_cloudpaw.", ""),
 )
 

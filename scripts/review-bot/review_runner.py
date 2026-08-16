@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""QwenPaw AI Review Bot - Main runner script.
+"""Potato AI Review Bot - Main runner script.
 
 This script runs inside GitHub Actions to:
 1. Read PR number and repo from environment variables
-2. Send a task prompt to the local QwenPaw instance
-3. QwenPaw autonomously fetches PR data via `gh` CLI
+2. Send a task prompt to the local Potato instance
+3. Potato autonomously fetches PR data via `gh` CLI
 4. Parse the response and output verdict + review text
 """
 import json
@@ -19,15 +19,15 @@ import httpx
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # pylint: disable=wrong-import-position
 from prompts import build_review_prompt  # noqa: E402
-from qwenpaw.agents.tools.agent_management import (  # noqa: E402
+from potato.agents.tools.agent_management import (  # noqa: E402
     extract_agent_text_content,
     parse_agent_sse_line,
 )
 
 # pylint: enable=wrong-import-position
 
-QWENPAW_URL = "http://localhost:8088"
-CHAT_ENDPOINT = f"{QWENPAW_URL}/api/console/chat"
+POTATO_URL = "http://localhost:8088"
+CHAT_ENDPOINT = f"{POTATO_URL}/api/console/chat"
 MAX_RETRIES = 3
 TIMEOUT_SECONDS = 300
 
@@ -54,8 +54,8 @@ def _extract_stream_text(evt: dict) -> str:
     return fallback if isinstance(fallback, str) else ""
 
 
-def call_qwenpaw(prompt: str, session_id: str) -> str:
-    """Send prompt to QwenPaw console chat API and collect SSE response."""
+def call_potato(prompt: str, session_id: str) -> str:
+    """Send prompt to Potato console chat API and collect SSE response."""
     payload = {
         "channel": "console",
         "user_id": "review-bot",
@@ -65,7 +65,7 @@ def call_qwenpaw(prompt: str, session_id: str) -> str:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            print(f"[attempt {attempt}/{MAX_RETRIES}] Calling QwenPaw...")
+            print(f"[attempt {attempt}/{MAX_RETRIES}] Calling Potato...")
             final_event = None
             stream_errors = []
 
@@ -354,7 +354,7 @@ def write_outputs(verdict_info: dict, review_text: str):
 
 def main():
     print("=" * 60)
-    print("QwenPaw AI Review Bot")
+    print("Potato AI Review Bot")
     print("=" * 60)
 
     pr_number = os.environ.get("PR_NUMBER")
@@ -375,12 +375,12 @@ def main():
 
     session_id = f"pr-review-{pr_number}-{int(time.time())}"
     print(f"Session: {session_id}")
-    print("Sending task to QwenPaw (agent will fetch PR data via gh)...")
+    print("Sending task to Potato (agent will fetch PR data via gh)...")
 
-    response = call_qwenpaw(prompt, session_id)
+    response = call_potato(prompt, session_id)
 
     if not response.strip():
-        print("\n❌ ERROR: Got empty response from QwenPaw")
+        print("\n❌ ERROR: Got empty response from Potato")
         sys.exit(1)
 
     warnings = validate_response(response, pr_number)

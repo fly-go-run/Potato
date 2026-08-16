@@ -1,18 +1,18 @@
 # RESTful API 接口
 
-本文档将指导你如何使用 RESTful API 调用 QwenPaw 的 Agent。
+本文档将指导你如何使用 RESTful API 调用 Potato 的 Agent。
 
-> **协议详情**：QwenPaw 的 API 基于 AgentScope Runtime 协议的拓展。更多详细信息请参考：
+> **协议详情**：Potato 的 API 基于 AgentScope Runtime 协议的拓展。更多详细信息请参考：
 > [AgentScope Runtime 协议文档（中文）](https://runtime.agentscope.io/zh/protocol.html)
 
 > ⚠️ **安全提醒**：
-> 如果您的 QwenPaw 实例对**公网开放**，强烈建议启用 [Web 登录认证](./security#Web-登录认证)！
+> 如果您的 Potato 实例对**公网开放**，强烈建议启用 [Web 登录认证](./security#Web-登录认证)！
 > 未启用认证的公网实例存在严重安全风险，任何人都可以访问和控制您的 Agent。
 > 详见文档末尾的 [Web 认证令牌](#web-认证令牌可选) 章节。
 
 ## 概述
 
-QwenPaw 提供了 RESTful API 接口，允许你通过 HTTP 请求与 Agent 进行交互。通过 API，你可以：
+Potato 提供了 RESTful API 接口，允许你通过 HTTP 请求与 Agent 进行交互。通过 API，你可以：
 
 - 发送消息给 Agent 并获取回复
 - 管理多个 Agent 实例
@@ -49,7 +49,7 @@ POST /api/console/chat
 ⚠️ **重要提示**：
 
 - **来自 `localhost` (127.0.0.1 或 ::1) 的请求会自动跳过 Web 认证**
-- 这是为了方便本地开发和 CLI 工具（`qwenpaw`）使用
+- 这是为了方便本地开发和 CLI 工具（`potato`）使用
 - 即使启用了 Web 认证，本地请求也**不需要**提供 `Authorization` 令牌
 - 如果从**远程机器**访问，则必须提供有效的认证令牌
 
@@ -175,7 +175,7 @@ data: {"sequence_number":0,"object":"response","status":"created",...}
 
 data: {"sequence_number":1,"object":"response","status":"in_progress",...}
 
-data: {"sequence_number":2,"object":"response","status":"in_progress","output":[{"role":"assistant","content":[{"type":"text","text":"你好！我是 QwenPaw..."}]}],...}
+data: {"sequence_number":2,"object":"response","status":"in_progress","output":[{"role":"assistant","content":[{"type":"text","text":"你好！我是 Potato..."}]}],...}
 
 data: {"sequence_number":3,"object":"response","status":"completed",...}
 ```
@@ -200,7 +200,7 @@ data: {"sequence_number":3,"object":"response","status":"completed",...}
 
 ## 多轮对话
 
-QwenPaw 通过 `session_id` 和 `user_id` 自动管理对话上下文。只需在不同的请求中使用相同的 `session_id`，系统会自动保存和加载对话历史：
+Potato 通过 `session_id` 和 `user_id` 自动管理对话上下文。只需在不同的请求中使用相同的 `session_id`，系统会自动保存和加载对话历史：
 
 **第一轮对话**：
 
@@ -605,11 +605,11 @@ curl -X POST http://localhost:8088/api/console/chat \
 
 ### Web 认证令牌（可选）
 
-如果启用了 [Web 登录认证](./security#Web-登录认证)（`QWENPAW_AUTH_ENABLED=true`），所有 API 请求都需要提供身份验证令牌。
+如果启用了 [Web 登录认证](./security#Web-登录认证)（`POTATO_AUTH_ENABLED=true`），所有 API 请求都需要提供身份验证令牌。
 
 #### 注册账号
 
-**首次使用需要先注册管理员账号**（QwenPaw 采用单用户模式）：
+**首次使用需要先注册管理员账号**（Potato 采用单用户模式）：
 
 ```bash
 curl -X POST http://localhost:8088/api/auth/register \
@@ -654,20 +654,20 @@ curl -X POST http://localhost:8088/api/auth/register \
 方法 1：使用 CLI 重置密码
 
 ```bash
-qwenpaw auth reset-password
+potato auth reset-password
 ```
 
 方法 2：删除认证文件后重新注册
 
 ```bash
 # 删除认证文件
-rm ~/.qwenpaw.secret/auth.json
+rm ~/.potato.secret/auth.json
 
-# 或者使用 QWENPAW_SECRET_DIR 环境变量
-rm "${QWENPAW_SECRET_DIR}/auth.json"
+# 或者使用 POTATO_SECRET_DIR 环境变量
+rm "${POTATO_SECRET_DIR}/auth.json"
 
-# 重启 QwenPaw 后重新注册
-qwenpaw app
+# 重启 Potato 后重新注册
+potato app
 ```
 
 **Docker 部署**：
@@ -677,18 +677,18 @@ qwenpaw app
 docker exec -it <容器名> rm /app/working.secret/auth.json
 
 # 或者使用 CLI 重置密码
-docker exec -it <容器名> qwenpaw auth reset-password
+docker exec -it <容器名> potato auth reset-password
 ```
 
 **自动注册**（可选）：
 
-你也可以在启动 QwenPaw 时通过环境变量自动创建账号：
+你也可以在启动 Potato 时通过环境变量自动创建账号：
 
 ```bash
-export QWENPAW_AUTH_ENABLED=true
-export QWENPAW_AUTH_USERNAME=admin
-export QWENPAW_AUTH_PASSWORD=admin123
-qwenpaw app
+export POTATO_AUTH_ENABLED=true
+export POTATO_AUTH_USERNAME=admin
+export POTATO_AUTH_PASSWORD=admin123
+potato app
 ```
 
 这样就无需手动调用注册 API。
@@ -868,21 +868,21 @@ curl -X POST http://localhost:8088/api/auth/update-profile \
 
 ```bash
 # Linux / macOS
-unset QWENPAW_AUTH_ENABLED
-qwenpaw app
+unset POTATO_AUTH_ENABLED
+potato app
 
 # Windows (CMD)
-set QWENPAW_AUTH_ENABLED=
-qwenpaw app
+set POTATO_AUTH_ENABLED=
+potato app
 
 # Windows (PowerShell)
-Remove-Item Env:\QWENPAW_AUTH_ENABLED
-qwenpaw app
+Remove-Item Env:\POTATO_AUTH_ENABLED
+potato app
 ```
 
 **方法 2：Docker 部署**
 
-移除 `-e QWENPAW_AUTH_ENABLED=true` 参数：
+移除 `-e POTATO_AUTH_ENABLED=true` 参数：
 
 ```bash
 docker run -p 127.0.0.1:8088:8088 \
@@ -902,7 +902,7 @@ docker run -p 127.0.0.1:8088:8088 \
 
 ### 无法连接到服务器
 
-确认 QwenPaw 服务正在运行：
+确认 Potato 服务正在运行：
 
 ```bash
 # 检查服务状态
@@ -939,4 +939,4 @@ curl http://localhost:8088/api/version
 
 1. 查看 [FAQ](./faq) 了解常见问题
 2. 加入 [社区](./community) 寻求帮助
-3. 在 GitHub 上提交 [Issue](https://github.com/agentscope-ai/QwenPaw/issues)
+3. 在 GitHub 上提交 [Issue](https://github.com/fly-go-run/Potato/issues)

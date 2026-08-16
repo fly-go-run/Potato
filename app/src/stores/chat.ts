@@ -15,6 +15,7 @@ import {
   filterApprovalsForSession,
   type PendingApproval,
 } from "../lib/approvals";
+import { waitForBackendOrigin } from "../lib/backendOrigin";
 import { t } from "../lib/i18n";
 import { sortChats } from "../lib/chats";
 import { resetMessageTimings, trackMessageTimings } from "../lib/messageTiming";
@@ -111,7 +112,7 @@ interface ChatStore {
 
 const DEFAULT_USER_ID = "default";
 const DEFAULT_CHANNEL = "console";
-const PENDING_SESSION_KEY = "qwenpaw_pending_chat_session";
+const PENDING_SESSION_KEY = "potato_pending_chat_session";
 
 function createSessionId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -147,6 +148,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   requestController: null,
 
   initialize: async () => {
+    try {
+      await waitForBackendOrigin();
+    } catch {
+      set({ error: t("desktop.backend.error") });
+      return;
+    }
     const [initialChats] = await Promise.all([
       get().refreshChats(),
       get().loadActiveModel(),
@@ -321,11 +328,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   sendMessage: async (rawText, navigate) => {
     const text = rawText.trim();
-    const model = get().activeModel?.active_llm;
-    if (!model) {
-      set({ error: t("chat.modelRequired") });
-      return false;
-    }
     if (
       (!text && get().pendingImages.length === 0) ||
       get().isStreaming ||
@@ -344,6 +346,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     const submittedImages = get().pendingImages;
     set({ isSubmitting: true, error: null });
+    try {
+      await waitForBackendOrigin();
+      if (!get().activeModel?.active_llm) await get().loadActiveModel();
+    } catch {
+      set({ isSubmitting: false, error: t("desktop.backend.error") });
+      return false;
+    }
+    if (!get().isSubmitting) return false;
+    const model = get().activeModel?.active_llm;
+    if (!model) {
+      set({ isSubmitting: false, error: t("chat.modelRequired") });
+      return false;
+    }
     let uploadedAttachments: UploadedAttachment[];
     try {
       uploadedAttachments = await uploadPendingFiles(
@@ -398,7 +413,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           request_context: {
             approval_level: get().approvalLevel,
             ...(get().project
-              ? { "qwenpaw.coding_project_dir": get().project?.path }
+              ? { "potato.coding_project_dir": get().project?.path }
               : {}),
           },
         },
@@ -850,8 +865,12 @@ function historyTurnUsage(
     if (!metadata || typeof metadata !== "object") continue;
     const nested = (metadata as { metadata?: unknown }).metadata;
     if (!nested || typeof nested !== "object") continue;
-    const snapshot = (nested as { qwenpaw_turn_usage?: unknown })
-      .qwenpaw_turn_usage;
+    const usageMetadata = nested as {
+      potato_turn_usage?: unknown;
+      qwenpaw_turn_usage?: unknown;
+    };
+    const snapshot =
+      usageMetadata.potato_turn_usage ?? usageMetadata.qwenpaw_turn_usage;
     if (!snapshot || typeof snapshot !== "object") continue;
     const usage = (snapshot as { usage?: unknown }).usage;
     const contextUsage = (snapshot as { context_usage?: unknown })

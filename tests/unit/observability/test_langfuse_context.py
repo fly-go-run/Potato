@@ -10,8 +10,8 @@ pytest.importorskip(
     reason="langfuse SDK required for observability tests",
 )
 
-from qwenpaw.__version__ import __version__
-from qwenpaw.observability import langfuse as lf
+from potato.__version__ import __version__
+from potato.observability import langfuse as lf
 
 
 class FakeObservation:

@@ -48,10 +48,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           shopt -s nullglob
-          mv QwenPaw-Desktop-Tauri-Windows-*/QwenPaw-Tauri-*-Windows-setup.exe . 2>/dev/null || true
-          mv QwenPaw-Desktop-Tauri-macOS-*/QwenPaw-Tauri-*-macOS.zip . 2>/dev/null || true
-          mv tauri-updater-meta-macos/QwenPaw-Tauri-*-macOS.app.tar.gz . 2>/dev/null || true
-          files=(QwenPaw-Tauri-*-Windows-setup.exe QwenPaw-Tauri-*-macOS.zip QwenPaw-Tauri-*-macOS.app.tar.gz)
+          mv Potato-Desktop-Tauri-Windows-*/Potato-Tauri-*-Windows-setup.exe . 2>/dev/null || true
+          mv Potato-Desktop-Tauri-macOS-*/Potato-Tauri-*-macOS.zip . 2>/dev/null || true
+          mv tauri-updater-meta-macos/Potato-Tauri-*-macOS.app.tar.gz . 2>/dev/null || true
+          files=(Potato-Tauri-*-Windows-setup.exe Potato-Tauri-*-macOS.zip Potato-Tauri-*-macOS.app.tar.gz)
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::No desktop installers found to attach to the release"
             exit 1
@@ -107,7 +107,7 @@ jobs:
         # manifest and index are promoted AFTER the release is published — see
         # desktop-promote.yml — so the auto-updater is never pointed at a version
         # whose release/PyPI/Docker publish might still fail.
-        if: hashFiles('QwenPaw-Desktop-Tauri-*/*') != ''
+        if: hashFiles('Potato-Desktop-Tauri-*/*') != ''
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
@@ -144,17 +144,17 @@ jobs:
           }
 
           upload_versioned \
-            "QwenPaw-Desktop-Tauri-Windows-*" \
-            "QwenPaw-Tauri-*-Windows-setup.exe" \
+            "Potato-Desktop-Tauri-Windows-*" \
+            "Potato-Tauri-*-Windows-setup.exe" \
             "win-tauri" \
-            "QwenPaw-Tauri-${VERSION}-Windows-setup.exe" \
+            "Potato-Tauri-${VERSION}-Windows-setup.exe" \
             "win-tauri-metadata.json"
 
           upload_versioned \
-            "QwenPaw-Desktop-Tauri-macOS-*" \
-            "QwenPaw-Tauri-*-macOS.zip" \
+            "Potato-Desktop-Tauri-macOS-*" \
+            "Potato-Tauri-*-macOS.zip" \
             "mac-tauri" \
-            "QwenPaw-Tauri-${VERSION}-macOS.zip" \
+            "Potato-Tauri-${VERSION}-macOS.zip" \
             "mac-tauri-metadata.json"
 
       - name: Upload Tauri macOS updater archive to OSS
@@ -162,18 +162,18 @@ jobs:
         if: hashFiles('tauri-updater-meta-macos/*.app.tar.gz') != ''
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          APP_TAR_GZ=$(find tauri-updater-meta-macos -name "QwenPaw-Tauri-*-macOS.app.tar.gz" | head -1)
+          APP_TAR_GZ=$(find tauri-updater-meta-macos -name "Potato-Tauri-*-macOS.app.tar.gz" | head -1)
           if [ -z "$APP_TAR_GZ" ]; then
             echo "No macOS .app.tar.gz found, skipping"
             exit 0
           fi
           ossutil cp "$APP_TAR_GZ" \
-            "oss://${OSS_BUCKET}/files/apps/desktop/mac-tauri/QwenPaw-Tauri-${VERSION}-macOS.app.tar.gz" \
+            "oss://${OSS_BUCKET}/files/apps/desktop/mac-tauri/Potato-Tauri-${VERSION}-macOS.app.tar.gz" \
             --acl public-read \
             --force
 
       # NOTE: the `latest` files, the updater manifest
-      # (qwenpaw-tauri-latest.json) and the index are intentionally NOT uploaded
+      # (potato-tauri-latest.json) and the index are intentionally NOT uploaded
       # here. They are promoted only AFTER the release is flipped to published —
       # see desktop-promote.yml — so existing users' auto-updater is never
       # pointed at a version whose release might still fail to publish.

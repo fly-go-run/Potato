@@ -3,7 +3,7 @@
 
 import logging
 
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 logger = logging.getLogger(__name__)
 

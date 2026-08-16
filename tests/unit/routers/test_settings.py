@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from qwenpaw.app.routers.settings import router
+from potato.app.routers.settings import router
 
 app = FastAPI()
 app.include_router(router, prefix="/api")
@@ -21,7 +21,7 @@ app.include_router(router, prefix="/api")
 def _use_tmp_settings(tmp_path: Path):
     """Redirect settings file to a temp directory for every test."""
     settings_file = tmp_path / "settings.json"
-    with patch("qwenpaw.app.routers.settings._SETTINGS_FILE", settings_file):
+    with patch("potato.app.routers.settings._SETTINGS_FILE", settings_file):
         yield settings_file
 
 
@@ -141,7 +141,7 @@ async def test_put_language_preserves_other_settings(
 
 async def test_get_upload_limit_uses_effective_default(api_client):
     """The UI should see the same default enforced by upload endpoints."""
-    with patch("qwenpaw.app.routers.settings.UPLOAD_MAX_SIZE_MB", None):
+    with patch("potato.app.routers.settings.UPLOAD_MAX_SIZE_MB", None):
         async with api_client:
             resp = await api_client.get("/api/settings/upload-limit")
 
@@ -151,7 +151,7 @@ async def test_get_upload_limit_uses_effective_default(api_client):
 
 async def test_get_upload_limit_uses_configured_override(api_client):
     """An environment override should replace the 200 MB default."""
-    with patch("qwenpaw.app.routers.settings.UPLOAD_MAX_SIZE_MB", 256):
+    with patch("potato.app.routers.settings.UPLOAD_MAX_SIZE_MB", 256):
         async with api_client:
             resp = await api_client.get("/api/settings/upload-limit")
 

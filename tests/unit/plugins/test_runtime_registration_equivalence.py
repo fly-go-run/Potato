@@ -9,26 +9,26 @@ import sys
 import pytest
 from fastapi import APIRouter, FastAPI
 
-from qwenpaw.app.channels.command_registry import CommandRegistry
-from qwenpaw.app.routers.plugins import _post_load_setup
-from qwenpaw.app.workspace.workspace_plugins import WorkspacePlugins
-from qwenpaw.governance.tool_registry import DEFAULT_REGISTRY
-from qwenpaw.modes.base import AgentMode
-from qwenpaw.plugins.api import PluginApi
-from qwenpaw.plugins.architecture import (
+from potato.app.channels.command_registry import CommandRegistry
+from potato.app.routers.plugins import _post_load_setup
+from potato.app.workspace.workspace_plugins import WorkspacePlugins
+from potato.governance.tool_registry import DEFAULT_REGISTRY
+from potato.modes.base import AgentMode
+from potato.plugins.api import PluginApi
+from potato.plugins.architecture import (
     PluginEntryPoints,
     PluginManifest,
     PluginRecord,
 )
-from qwenpaw.plugins.loader import PluginLoader
-from qwenpaw.plugins.registry import PluginRegistry
-from qwenpaw.providers.provider_manager import ProviderManager
-from qwenpaw.runtime.commands import control
-from qwenpaw.runtime.hooks import HookBase, HookResult
-from qwenpaw.runtime.phases import Phase
-from qwenpaw.runtime.prompt_manager import SyncPromptContributor
-from qwenpaw.runtime.slash_command_registry import CommandSpec
-from qwenpaw.runtime.tool_registry import ToolDescriptor
+from potato.plugins.loader import PluginLoader
+from potato.plugins.registry import PluginRegistry
+from potato.providers.provider_manager import ProviderManager
+from potato.runtime.commands import control
+from potato.runtime.hooks import HookBase, HookResult
+from potato.runtime.phases import Phase
+from potato.runtime.prompt_manager import SyncPromptContributor
+from potato.runtime.slash_command_registry import CommandSpec
+from potato.runtime.tool_registry import ToolDescriptor
 
 
 def _fresh_registry() -> PluginRegistry:
@@ -65,7 +65,7 @@ def _runtime_state(
     workspaces,
     tool_name,
 ) -> tuple:
-    from qwenpaw.agents import tools as tools_module
+    from potato.agents import tools as tools_module
 
     return (
         registry.get_all_providers(),
@@ -114,7 +114,7 @@ async def test_load_unload_restores_all_runtime_registration_surfaces(
     provider_manager.plugin_path = tmp_path
     priority_registry = CommandRegistry()
     monkeypatch.setattr(
-        "qwenpaw.app.channels.command_registry.CommandRegistry",
+        "potato.app.channels.command_registry.CommandRegistry",
         lambda: priority_registry,
     )
 
@@ -126,7 +126,7 @@ async def test_load_unload_restores_all_runtime_registration_surfaces(
     )
     registry.set_workspace_manager(manager)
     monkeypatch.setattr(
-        "qwenpaw.plugins.api._write_tool_config",
+        "potato.plugins.api._write_tool_config",
         lambda *args, **kwargs: None,
     )
 

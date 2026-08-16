@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for the ``qwenpaw agents`` CLI surface."""
+"""Tests for the ``potato agents`` CLI surface."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ from unittest.mock import Mock
 
 from click.testing import CliRunner
 
-from qwenpaw.cli.main import cli
-from qwenpaw.config.config import ModelSlotConfig
+from potato.cli.main import cli
+from potato.config.config import ModelSlotConfig
 
 
 def test_agents_list_uses_shared_tool_helper(monkeypatch) -> None:
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.list_agents_data",
+        "potato.cli.agents_cmd.agent_tools.list_agents_data",
         lambda _base_url: {
             "agents": [
                 {
@@ -37,7 +37,7 @@ def test_agents_list_uses_shared_tool_helper(monkeypatch) -> None:
 
 def test_agents_chat_uses_shared_request_builder(monkeypatch) -> None:
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.build_agent_chat_request",
+        "potato.cli.agents_cmd.agent_tools.build_agent_chat_request",
         lambda *_args, **_kwargs: (
             "sid-123",
             {"session_id": "sid-123", "input": []},
@@ -45,7 +45,7 @@ def test_agents_chat_uses_shared_request_builder(monkeypatch) -> None:
         ),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.collect_final_agent_chat_response",
+        "potato.cli.agents_cmd.agent_tools.collect_final_agent_chat_response",
         lambda *_args, **_kwargs: {
             "output": [
                 {
@@ -94,20 +94,20 @@ def test_agents_create_uses_explicit_agent_id(monkeypatch, tmp_path) -> None:
     )
     saved = {}
 
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
+    monkeypatch.setattr("potato.cli.agents_cmd.load_config", lambda: config)
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_config",
+        "potato.cli.agents_cmd.save_config",
         lambda updated_config: saved.setdefault("config", updated_config),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_agent_config",
+        "potato.cli.agents_cmd.save_agent_config",
         lambda agent_id, agent_config: saved.setdefault(
             "agent_config",
             (agent_id, agent_config),
         ),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd._initialize_new_agent_workspace",
+        "potato.cli.agents_cmd._initialize_new_agent_workspace",
         lambda workspace_dir, skill_names, md_template_id=None: saved.setdefault(  # noqa: E501
             "workspace_init",
             (workspace_dir, skill_names, md_template_id),
@@ -161,7 +161,7 @@ def test_agents_create_rejects_duplicate_explicit_agent_id(
         ),
     )
 
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
+    monkeypatch.setattr("potato.cli.agents_cmd.load_config", lambda: config)
 
     result = CliRunner().invoke(
         cli,
@@ -188,7 +188,7 @@ def test_agents_create_requires_name_without_template(monkeypatch) -> None:
         ),
     )
 
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
+    monkeypatch.setattr("potato.cli.agents_cmd.load_config", lambda: config)
 
     result = CliRunner().invoke(cli, ["agents", "create"])
 
@@ -209,20 +209,20 @@ def test_agents_create_local_template_uses_local_md_template(
     )
     saved = {}
 
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
+    monkeypatch.setattr("potato.cli.agents_cmd.load_config", lambda: config)
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_config",
+        "potato.cli.agents_cmd.save_config",
         lambda updated_config: saved.setdefault("config", updated_config),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_agent_config",
+        "potato.cli.agents_cmd.save_agent_config",
         lambda agent_id, agent_config: saved.setdefault(
             "agent_config",
             (agent_id, agent_config),
         ),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd._initialize_new_agent_workspace",
+        "potato.cli.agents_cmd._initialize_new_agent_workspace",
         lambda workspace_dir, skill_names, md_template_id=None: saved.setdefault(  # noqa: E501
             "workspace_init",
             (workspace_dir, skill_names, md_template_id),
@@ -275,27 +275,27 @@ def test_agents_create_sets_active_model_when_requested(
     )
     saved = {}
 
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
+    monkeypatch.setattr("potato.cli.agents_cmd.load_config", lambda: config)
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_config",
+        "potato.cli.agents_cmd.save_config",
         lambda updated_config: saved.setdefault("config", updated_config),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.save_agent_config",
+        "potato.cli.agents_cmd.save_agent_config",
         lambda agent_id, agent_config: saved.setdefault(
             "agent_config",
             (agent_id, agent_config),
         ),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd._initialize_new_agent_workspace",
+        "potato.cli.agents_cmd._initialize_new_agent_workspace",
         lambda workspace_dir, skill_names, md_template_id=None: saved.setdefault(  # noqa: E501
             "workspace_init",
             (workspace_dir, skill_names, md_template_id),
         ),
     )
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd._build_active_model_config",
+        "potato.cli.agents_cmd._build_active_model_config",
         lambda provider_id, model_id: ModelSlotConfig(
             provider_id=provider_id,
             model=model_id,
@@ -338,7 +338,7 @@ def test_agents_create_requires_provider_and_model_together(
         ),
     )
 
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.load_config", lambda: config)
+    monkeypatch.setattr("potato.cli.agents_cmd.load_config", lambda: config)
 
     result = CliRunner().invoke(
         cli,
@@ -379,7 +379,7 @@ def test_agents_delete_calls_local_api(monkeypatch) -> None:
             return None
 
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.create_agent_api_client",
+        "potato.cli.agents_cmd.agent_tools.create_agent_api_client",
         lambda _base_url: _ClientContext(),
     )
 
@@ -418,7 +418,7 @@ def test_agents_delete_yes_skips_confirmation(monkeypatch) -> None:
             return None
 
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.create_agent_api_client",
+        "potato.cli.agents_cmd.agent_tools.create_agent_api_client",
         lambda _base_url: _ClientContext(),
     )
 
@@ -436,7 +436,7 @@ def test_agents_delete_remove_workspace_deletes_directory(
     monkeypatch,
     tmp_path,
 ) -> None:
-    monkeypatch.setattr("qwenpaw.cli.agents_cmd.WORKING_DIR", tmp_path)
+    monkeypatch.setattr("potato.cli.agents_cmd.WORKING_DIR", tmp_path)
 
     workspace_dir = tmp_path / "nested" / "research"
     workspace_dir.mkdir(parents=True)
@@ -469,7 +469,7 @@ def test_agents_delete_remove_workspace_deletes_directory(
             return None
 
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.create_agent_api_client",
+        "potato.cli.agents_cmd.agent_tools.create_agent_api_client",
         lambda _base_url: _ClientContext(),
     )
 
@@ -495,7 +495,7 @@ def test_agents_delete_rejects_workspace_outside_working_dir(
     allowed_root = tmp_path / "working"
     allowed_root.mkdir()
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.WORKING_DIR",
+        "potato.cli.agents_cmd.WORKING_DIR",
         allowed_root,
     )
 
@@ -519,7 +519,7 @@ def test_agents_delete_rejects_workspace_outside_working_dir(
             return None
 
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.create_agent_api_client",
+        "potato.cli.agents_cmd.agent_tools.create_agent_api_client",
         lambda _base_url: _ClientContext(),
     )
 
@@ -545,7 +545,7 @@ def test_agents_delete_cancelled_before_api_call(monkeypatch) -> None:
             return None
 
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.create_agent_api_client",
+        "potato.cli.agents_cmd.agent_tools.create_agent_api_client",
         lambda _base_url: _ClientContext(),
     )
 
@@ -574,7 +574,7 @@ def test_agents_delete_surfaces_not_found(monkeypatch) -> None:
             return None
 
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.create_agent_api_client",
+        "potato.cli.agents_cmd.agent_tools.create_agent_api_client",
         lambda _base_url: _ClientContext(),
     )
 
@@ -605,7 +605,7 @@ def test_agents_delete_surfaces_api_detail(monkeypatch) -> None:
             return None
 
     monkeypatch.setattr(
-        "qwenpaw.cli.agents_cmd.agent_tools.create_agent_api_client",
+        "potato.cli.agents_cmd.agent_tools.create_agent_api_client",
         lambda _base_url: _ClientContext(),
     )
 

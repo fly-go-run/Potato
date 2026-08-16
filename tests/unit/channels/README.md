@@ -79,7 +79,7 @@ pytest tests/unit/channels/test_feishu.py -v
 
 # Run with coverage
 pytest tests/unit/channels/ \
-    --cov=src/copaw/app/channels \
+    --cov=src/potato/app/channels \
     --cov-report=term-missing
 
 # Check contract coverage status
@@ -112,7 +112,7 @@ Create a new test file following the existing pattern:
 """Unit tests for YourChannel implementation."""
 
 import pytest
-from src.copaw.app.channels.your_channel import YourChannel
+from potato.app.channels.your_channel import YourChannel
 
 
 class TestYourChannel:

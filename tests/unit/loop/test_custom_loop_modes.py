@@ -9,33 +9,33 @@ import pytest
 from agentscope.message import Msg, TextBlock
 from pydantic import ValidationError
 
-from qwenpaw.config.config import (
+from potato.config.config import (
     CustomLoopModeConfig,
     GateInstanceConfig,
     LoopConfig,
     _sanitize_custom_loop_modes,
     _sanitize_loop_config,
 )
-from qwenpaw.loop.catalog import CompletionRubricParams, get_gate_catalog
-from qwenpaw.loop.compiler import compile_loop_mode
-from qwenpaw.loop.gates import (
+from potato.loop.catalog import CompletionRubricParams, get_gate_catalog
+from potato.loop.compiler import compile_loop_mode
+from potato.loop.gates import (
     CompletionRubricGate,
     QualitativeRubricGate,
     StopAction,
 )
-from qwenpaw.loop.gates.limits import (
+from potato.loop.gates.limits import (
     TimeoutGate,
     TokenBudgetGate,
     ToolCallBudgetGate,
 )
-from qwenpaw.modes.custom_loop import (
+from potato.modes.custom_loop import (
     CustomLoopController,
     DeclarativeLoopMode,
     LoopModeActivationStore,
     load_custom_loop_modes,
 )
-from qwenpaw.app.workspace.workspace_plugins import WorkspacePlugins
-from qwenpaw.runtime.slash_command_registry import SlashCommandRegistry
+from potato.app.workspace.workspace_plugins import WorkspacePlugins
+from potato.runtime.slash_command_registry import SlashCommandRegistry
 
 
 def _gate(
@@ -543,7 +543,7 @@ async def test_timeout_gate_stops_only_when_boundary_is_checked(
 ) -> None:
     values = iter([15.0, 16.0])
     monkeypatch.setattr(
-        "qwenpaw.loop.gates.limits.time",
+        "potato.loop.gates.limits.time",
         SimpleNamespace(monotonic=lambda: next(values)),
     )
     gate = TimeoutGate(max_seconds=2)

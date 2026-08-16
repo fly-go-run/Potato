@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from agentscope.message import HintBlock, Msg, TextBlock
 
-from qwenpaw.agents.command_handler import CommandHandler
-from qwenpaw.agents.memory.dummy import NoopMemoryManager
+from potato.agents.command_handler import CommandHandler
+from potato.agents.memory.dummy import NoopMemoryManager
 
 
 def _make_agent():
@@ -20,7 +20,7 @@ def _make_agent():
 
 def _msg(role: str, text: str, *, name: str | None = None, msg_id: str = ""):
     msg = Msg(
-        name=name or ("QwenPaw" if role == "assistant" else "user"),
+        name=name or ("Potato" if role == "assistant" else "user"),
         role=role,
         content=[TextBlock(type="text", text=text)],
     )
@@ -32,7 +32,7 @@ def _msg(role: str, text: str, *, name: str | None = None, msg_id: str = ""):
 @pytest.mark.asyncio
 async def test_process_clear_returns_clear_history_metadata() -> None:
     agent = _make_agent()
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
 
     msg = await handler.handle_command("/clear")
 
@@ -52,7 +52,7 @@ async def test_clear_resets_stop_gates_and_pending_gate_state() -> None:
         agent=agent,
     )
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         prompt_context=ctx,
     )
@@ -68,7 +68,7 @@ async def test_clear_resets_pending_gate_state_without_context() -> None:
     """Conversation reset owns deferred state even without mode context."""
     agent = _make_agent()
     agent._gate_pending_stop = object()
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
 
     await handler.handle_command("/clear")
 
@@ -87,7 +87,7 @@ async def test_new_empty_resets_stop_gates() -> None:
         agent=agent,
     )
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         prompt_context=ctx,
     )
@@ -112,7 +112,7 @@ async def test_new_no_mem_mgr_resets_stop_gates() -> None:
         agent=agent,
     )
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         prompt_context=ctx,
     )
@@ -132,7 +132,7 @@ async def test_system_prompt_command_returns_current_prompt() -> None:
 
     # pylint: disable=protected-access
     agent._get_system_prompt = _get_system_prompt
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
 
     msg = await handler.handle_command("/system_prompt")
 
@@ -146,7 +146,7 @@ async def test_dream_command_runs_auto_dream_with_hint() -> None:
     memory_manager = MagicMock()
     memory_manager.dream = AsyncMock()
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -163,7 +163,7 @@ async def test_dream_command_runs_auto_dream_with_hint() -> None:
 @pytest.mark.asyncio
 async def test_dream_command_requires_memory_manager() -> None:
     agent = _make_agent()
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
 
     msg = await handler.handle_command("/dream")
 
@@ -187,7 +187,7 @@ async def test_reme_status_reports_memory_and_count_warning() -> None:
         ),
     )
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -208,7 +208,7 @@ async def test_reme_status_reports_memory_and_count_warning() -> None:
 @pytest.mark.asyncio
 async def test_reme_status_requires_memory_manager() -> None:
     agent = _make_agent()
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
 
     msg = await handler.handle_command("/reme_status")
 
@@ -223,7 +223,7 @@ async def test_reme_status_reports_disabled_for_noop_manager(tmp_path) -> None:
         agent_id="default",
     )
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -251,7 +251,7 @@ async def test_memorize_defaults_to_latest_reply_group() -> None:
     memory_manager = MagicMock()
     memory_manager.auto_memory = AsyncMock()
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -285,7 +285,7 @@ async def test_memorize_count_selects_latest_reply_groups() -> None:
     memory_manager = MagicMock()
     memory_manager.auto_memory = AsyncMock()
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -319,7 +319,7 @@ async def test_memorize_falls_back_to_assistant_replies_by_role() -> None:
     memory_manager = MagicMock()
     memory_manager.auto_memory = AsyncMock()
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -346,7 +346,7 @@ async def test_memorize_one_matches_explicit_one() -> None:
     memory_manager = MagicMock()
     memory_manager.auto_memory = AsyncMock()
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -367,7 +367,7 @@ async def test_memorize_rejects_invalid_count() -> None:
     memory_manager = MagicMock()
     memory_manager.auto_memory = AsyncMock()
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         agent=agent,
         memory_manager=memory_manager,
     )
@@ -409,7 +409,7 @@ async def test_compact_respects_disabled_config() -> None:
         summary="",
     )
     agent.compress_context = MagicMock()
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
     # pylint: disable=protected-access
     handler._get_agent_config = lambda: _make_config(compact_enabled=False)
 
@@ -436,7 +436,7 @@ async def test_compact_uses_manual_force_context_config() -> None:
     """Under scroll, manual /compact clones the live agent's context_config,
     dropping the auto trigger but leaving the reserve tail untouched so it
     matches the same recent-tail budget as auto compaction."""
-    from qwenpaw.agents.command_handler import _FORCE_TRIGGER_RATIO
+    from potato.agents.command_handler import _FORCE_TRIGGER_RATIO
 
     captured = {}
 
@@ -452,7 +452,7 @@ async def test_compact_uses_manual_force_context_config() -> None:
     )
     agent.context_config = _FakeCtxConfig(trigger_ratio=0.8, reserve_ratio=0.2)
     agent.compress_context = _compress_context
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
     # pylint: disable=protected-access
     handler._get_agent_config = lambda: _make_config(
         reserve_ratio=0.2,
@@ -493,7 +493,7 @@ async def test_scroll_compact_reply_hides_internal_state() -> None:
     agent.context_config = _FakeCtxConfig(trigger_ratio=0.8, reserve_ratio=0.2)
     agent.compress_context = _compress_context
     agent._context_manager = context_manager
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
     handler._get_agent_config = lambda: _make_config(strategy="scroll")
 
     msg = await handler.handle_command("/compact")
@@ -523,7 +523,7 @@ async def test_compact_str_reads_persisted_scroll_summary() -> None:
         },
     }
     handler = CommandHandler(
-        agent_name="QwenPaw",
+        agent_name="Potato",
         state=state,
         scroll_state=scroll_state,
     )
@@ -543,7 +543,7 @@ async def test_compact_under_native_keeps_configured_reserve() -> None:
     reserve: native compaction is lossy (the non-reserved middle is summarized
     away), so it keeps the agent's configured reserve_ratio for the same
     recent-tail continuity as auto compaction."""
-    from qwenpaw.agents.command_handler import _FORCE_TRIGGER_RATIO
+    from potato.agents.command_handler import _FORCE_TRIGGER_RATIO
 
     captured = {}
 
@@ -559,7 +559,7 @@ async def test_compact_under_native_keeps_configured_reserve() -> None:
     )
     agent.context_config = _FakeCtxConfig(trigger_ratio=0.8, reserve_ratio=0.2)
     agent.compress_context = _compress_context
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
     # pylint: disable=protected-access
     handler._get_agent_config = lambda: _make_config(
         reserve_ratio=0.2,
@@ -592,7 +592,7 @@ async def test_compact_forwards_one_shot_redacted_instruction() -> None:
     )
     agent.context_config = _FakeCtxConfig(trigger_ratio=0.8, reserve_ratio=0.2)
     agent.compress_context = _compress_context
-    handler = CommandHandler(agent_name="QwenPaw", agent=agent)
+    handler = CommandHandler(agent_name="Potato", agent=agent)
     handler._get_agent_config = lambda: _make_config(
         reserve_ratio=0.2,
         strategy="native",

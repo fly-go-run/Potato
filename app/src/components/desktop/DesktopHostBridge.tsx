@@ -21,7 +21,7 @@ import {
 } from "../../lib/desktop";
 import { useTranslation } from "../../lib/i18n";
 
-const CLOSE_REQUESTED_EVENT = "qwenpaw-close-requested";
+const CLOSE_REQUESTED_EVENT = "potato-close-requested";
 
 type UpdatePhase =
   | "idle"
@@ -52,9 +52,8 @@ const INITIAL_UPDATE_STATE: UpdateState = {
 };
 
 /**
- * The desktop WebView navigates from its small Tauri bootstrap page to this
- * backend-hosted app. Keep all native-only integration in one mounted bridge
- * so browser users get neither a runtime dependency nor a broken UI.
+ * Desktop-only native integration. Browser builds have no Tauri bridge and
+ * this component renders nothing.
  */
 export function DesktopHostBridge() {
   const { language, t } = useTranslation();

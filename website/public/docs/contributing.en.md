@@ -1,20 +1,20 @@
 # Open Source & Contribution
 
-QwenPaw is open source. The project repository is hosted on GitHub:
+Potato is open source. The project repository is hosted on GitHub:
 
-**https://github.com/agentscope-ai/QwenPaw**
+**https://github.com/fly-go-run/Potato**
 
 ---
 
 ## 🎯 How to Contribute
 
-Thank you for your interest in QwenPaw, and we warmly welcome all forms of contribution! To keep collaboration smooth and maintain quality, please follow these guidelines.
+Thank you for your interest in Potato, and we warmly welcome all forms of contribution! To keep collaboration smooth and maintain quality, please follow these guidelines.
 
 ### 1. Check Existing Plans and Issues
 
 Before starting:
 
-- **Check [Open Issues](https://github.com/agentscope-ai/QwenPaw/issues)** and the [Roadmap](/docs/roadmap)
+- **Check [Open Issues](https://github.com/fly-go-run/Potato/issues)** and the [Roadmap](/docs/roadmap)
 - **If a related issue exists** and is open or unassigned: comment to say you want to work on it to avoid duplicate effort
 - **If no related issue exists**: open a new issue describing your proposal. The maintainers will respond and help align with the project direction
 
@@ -89,8 +89,8 @@ docs(skills): document Skills Hub import
 
 ## 💬 Getting Help
 
-- **Discussions:** [GitHub Discussions](https://github.com/agentscope-ai/QwenPaw/discussions)
-- **Bugs and features:** [GitHub Issues](https://github.com/agentscope-ai/QwenPaw/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/fly-go-run/Potato/discussions)
+- **Bugs and features:** [GitHub Issues](https://github.com/fly-go-run/Potato/issues)
 - **Community and developer groups:** See [Community page](/docs/community)
 
 ---
@@ -101,4 +101,4 @@ Check our [Roadmap](/docs/roadmap) for items marked **Seeking Contributors** (e.
 
 ---
 
-Thank you for contributing to QwenPaw. Your work helps make it a better assistant for everyone. 🐾
+Thank you for contributing to Potato. Your work helps make it a better assistant for everyone. 🐾

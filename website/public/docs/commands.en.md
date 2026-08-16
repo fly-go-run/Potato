@@ -432,7 +432,7 @@ Example: `/model openai:gpt-4o`
 
 - 🖼️ - Supports image input
 - 🎥 - Supports video input
-- _(user-added)_ - User-added model (via `qwenpaw models add-model` command)
+- _(user-added)_ - User-added model (via `potato models add-model` command)
 
 ---
 
@@ -534,9 +534,9 @@ Use `/model openai:gpt-4o` to switch to this model.
 
 ## System Control Commands
 
-Commands for controlling and monitoring QwenPaw's runtime status. These commands execute directly without going through the Agent.
+Commands for controlling and monitoring Potato's runtime status. These commands execute directly without going through the Agent.
 
-Send `/daemon <subcommand>` or short names (e.g., `/status`) in chat, or run `qwenpaw daemon <subcommand>` from the terminal.
+Send `/daemon <subcommand>` or short names (e.g., `/status`) in chat, or run `potato daemon <subcommand>` from the terminal.
 
 | Command                             | Description                                                                               | Chat | Terminal |
 | ----------------------------------- | ----------------------------------------------------------------------------------------- | ---- | -------- |
@@ -546,7 +546,7 @@ Send `/daemon <subcommand>` or short names (e.g., `/status`) in chat, or run `qw
 | `/daemon restart` or `/restart`     | Zero-downtime reload (chat); prints instructions (terminal)                               | ✅   | ✅       |
 | `/daemon reload-config`             | Re-read and validate configuration file                                                   | ✅   | ✅       |
 | `/daemon version`                   | Version number, working directory, and log path                                           | ✅   | ✅       |
-| `/daemon logs` or `/daemon logs 50` | View last N lines of log (default 100, max 2000, from `qwenpaw.log` in working directory) | ✅   | ✅       |
+| `/daemon logs` or `/daemon logs 50` | View last N lines of log (default 100, max 2000, from `potato.log` in working directory) | ✅   | ✅       |
 | `/approval approve [request_id]`    | Approve pending tool execution (or queue head if no ID)                                   | ✅   | ❌       |
 | `/approval deny [request_id]`       | Deny pending tool execution with optional reason                                          | ✅   | ❌       |
 | `/approval list`                    | List all pending approval requests                                                        | ✅   | ❌       |
@@ -579,7 +579,7 @@ Display current runtime status, including configuration, working directory, and 
 
 ```
 /status                    # In chat
-qwenpaw daemon status        # From terminal
+potato daemon status        # From terminal
 ```
 
 ---
@@ -592,7 +592,7 @@ When used in chat, performs zero-downtime reload: reloads channels, cron, and MC
 
 ```
 /restart                   # In chat
-qwenpaw daemon restart       # From terminal (prints instructions only)
+potato daemon restart       # From terminal (prints instructions only)
 ```
 
 > 💡 **Tip**: After modifying channel or MCP configuration, use `/daemon reload-config` first to verify correctness, then use `/daemon restart` to apply changes.
@@ -607,34 +607,34 @@ Re-read and validate the configuration file, but does not reload runtime compone
 
 ```
 /daemon reload-config           # In chat
-qwenpaw daemon reload-config      # From terminal
+potato daemon reload-config      # From terminal
 ```
 
 ---
 
 ### /daemon version - Version Information
 
-Display QwenPaw version number, working directory path, and log file path.
+Display Potato version number, working directory path, and log file path.
 
 **Usage:**
 
 ```
 /daemon version            # In chat
-qwenpaw daemon version       # From terminal
+potato daemon version       # From terminal
 ```
 
 ---
 
 ### /daemon logs - View Logs
 
-View the last N lines of `qwenpaw.log` in the working directory. Default 100 lines, maximum 2000 lines.
+View the last N lines of `potato.log` in the working directory. Default 100 lines, maximum 2000 lines.
 
 **Usage:**
 
 ```
 /daemon logs               # Default 100 lines
 /daemon logs 50            # Specify 50 lines
-qwenpaw daemon logs -n 200   # From terminal, specify 200 lines
+potato daemon logs -n 200   # From terminal, specify 200 lines
 ```
 
 > 💡 **Tip**: For large log files, this command only reads the last 512KB from the end of the file to ensure fast response times.
@@ -673,18 +673,18 @@ Manage tool guard approval requests. When `approval_level` is set to `STRICT` or
 All daemon commands support terminal usage (except `/stop` and `/approval` which only work in chat):
 
 ```bash
-qwenpaw daemon status
-qwenpaw daemon restart
-qwenpaw daemon reload-config
-qwenpaw daemon version
-qwenpaw daemon logs -n 50
+potato daemon status
+potato daemon restart
+potato daemon reload-config
+potato daemon version
+potato daemon logs -n 50
 ```
 
 **Multi-agent support:** All terminal commands support the `--agent-id` parameter (defaults to `default`).
 
 ```bash
-qwenpaw daemon status --agent-id abc123
-qwenpaw daemon version --agent-id abc123
+potato daemon status --agent-id abc123
+potato daemon version --agent-id abc123
 ```
 
 ---

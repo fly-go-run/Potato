@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for qwenpaw.app.channels.command_registry."""
+"""Unit tests for potato.app.channels.command_registry."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from qwenpaw.app.channels.command_registry import CommandRegistry
+from potato.app.channels.command_registry import CommandRegistry
 
 
 @pytest.fixture

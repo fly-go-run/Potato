@@ -6,7 +6,8 @@
 #   对外(零出站流量费,rclone remote 名 "r2")。
 #   更新清单 → g-vps /srv/potato-updates/metadata(Caddy no-store,
 #   充当即时生效的"发版开关")。
-#   应用内 tauri-plugin-updater 轮询 metadata/qwenpaw-tauri-latest.json。
+#   新客户端轮询 metadata/potato-tauri-latest.json；已安装的旧客户端
+#   继续轮询 metadata/qwenpaw-tauri-latest.json，两者发布同一份签名清单。
 #
 # 用法:
 #   release_desktop.sh macos            本地构建 macOS 并暂存产物
@@ -29,13 +30,14 @@ REMOTE_HOST="g-vps"
 REMOTE_ROOT="/srv/potato-updates"
 R2_REMOTE="r2:potato-updates"
 BASE_URL="https://dl.recodex.top/artifacts"
-MANIFEST_NAME="qwenpaw-tauri-latest.json"
+MANIFEST_NAME="potato-tauri-latest.json"
+LEGACY_MANIFEST_NAME="qwenpaw-tauri-latest.json"
 SIGNING_KEY="${TAURI_SIGNING_PRIVATE_KEY_PATH:-$HOME/.tauri/potato-updater.key}"
 TAURI_CONF="$REPO_ROOT/console/src-tauri/tauri.conf.json"
 
 version() {
-  # 与构建脚本同源:src/qwenpaw/__version__.py
-  python3 - "$REPO_ROOT/src/qwenpaw/__version__.py" <<'EOF'
+  # 与构建脚本同源:src/potato/__version__.py
+  python3 - "$REPO_ROOT/src/potato/__version__.py" <<'EOF'
 import re, sys, pathlib
 text = pathlib.Path(sys.argv[1]).read_text()
 match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
@@ -137,7 +139,7 @@ publish() {
     [[ "$artifact" == *.json ]] && continue
     if [[ "$(basename "$artifact")" != *"$ver"* ]]; then
       echo "错误: 暂存产物 $(basename "$artifact") 与当前版本 v$ver 不一致" >&2
-      echo "清理 $STAGE_DIR 后重新 stage,或修正 src/qwenpaw/__version__.py" >&2
+      echo "清理 $STAGE_DIR 后重新 stage,或修正 src/potato/__version__.py" >&2
       exit 1
     fi
   done
@@ -162,11 +164,17 @@ publish() {
   local remote_tmp="/tmp/${MANIFEST_NAME}.${ver}.$$"
   command scp "$STAGE_DIR/$MANIFEST_NAME" "$REMOTE_HOST:$remote_tmp"
   command ssh "$REMOTE_HOST" \
-    "sudo -n install -o root -g root -m 0644 '$remote_tmp' '$REMOTE_ROOT/metadata/$MANIFEST_NAME' && rm -f '$remote_tmp'"
+    "sudo -n install -o root -g root -m 0644 '$remote_tmp' '$REMOTE_ROOT/metadata/$MANIFEST_NAME' && \
+     sudo -n install -o root -g root -m 0644 '$remote_tmp' '$REMOTE_ROOT/metadata/$LEGACY_MANIFEST_NAME' && \
+     rm -f '$remote_tmp'"
 
-  echo "==> 线上验证"
-  curl -fsS "https://chat.recodex.top/potato-updates/metadata/$MANIFEST_NAME" \
-    | python3 -m json.tool | head -20
+  echo "==> 线上验证（新旧更新入口）"
+  local published_manifest
+  for published_manifest in "$MANIFEST_NAME" "$LEGACY_MANIFEST_NAME"; do
+    echo "--- $published_manifest"
+    curl -fsS "https://chat.recodex.top/potato-updates/metadata/$published_manifest" \
+      | python3 -m json.tool | head -20
+  done
   echo "发布完成: v$ver"
 }
 

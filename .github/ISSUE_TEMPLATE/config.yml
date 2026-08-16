@@ -5,8 +5,8 @@ blank_issues_enabled: true
 
 contact_links:
   - name: GitHub Discussions
-    url: https://github.com/agentscope-ai/QwenPaw/discussions
-    about: Ask questions, share ideas, or discuss QwenPaw here.
+    url: https://github.com/fly-go-run/Potato/discussions
+    about: Ask questions, share ideas, or discuss Potato here.
   - name: View docs
     url: https://qwenpaw.agentscope.io/
-    about: QwenPaw docs and guides.
+    about: Potato docs and guides.

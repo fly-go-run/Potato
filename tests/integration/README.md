@@ -2,8 +2,8 @@
 
 [简体中文](README_zh.md)
 
-HTTP smoke tests that exercise the QwenPaw FastAPI app end-to-end via a
-real subprocess. Each test file owns its own QwenPaw app subprocess on a
+HTTP smoke tests that exercise the Potato FastAPI app end-to-end via a
+real subprocess. Each test file owns its own Potato app subprocess on a
 random port, with isolated workspace directories — no real API keys or
 external services required.
 
@@ -131,7 +131,7 @@ Run: `pytest -m p2` (~30 tests).
 ## How `app_server` works
 
 `tests/integration/conftest.py::app_server` is **module-scoped**: each
-test file gets its own QwenPaw app subprocess on a random port, sharing
+test file gets its own Potato app subprocess on a random port, sharing
 the subprocess across all tests within the file. Cross-module isolation
 is achieved by re-launching with a fresh tmp dir.
 
@@ -143,7 +143,7 @@ The fixture:
 
 - Sanitizes 11 sensitive environment variables (`OPENAI_API_KEY`,
   `DASHSCOPE_API_KEY`, IM tokens, etc.) before launching
-- Forces `QWENPAW_AUTH_ENABLED=false` and `NO_PROXY=*`
+- Forces `POTATO_AUTH_ENABLED=false` and `NO_PROXY=*`
 - Allocates a random free port via `socket.bind(0)`
 - Polls `/api/version` for up to 60s as the readiness signal
 - Uses **SIGINT** at teardown so uvicorn's atexit hooks flush state and
@@ -160,13 +160,13 @@ coverage of the actual app. To collect coverage from the **app
 subprocess**:
 
 ```bash
-QWENPAW_INTEGRATION_COVERAGE=1 pytest tests/integration/ --no-cov
+POTATO_INTEGRATION_COVERAGE=1 pytest tests/integration/ --no-cov
 ```
 
 This:
 
 1. Writes a coverage rcfile under `.integration_coverage/` with absolute
-   `source=…/src/qwenpaw`
+   `source=…/src/potato`
 2. Runs each subprocess with `COVERAGE_PROCESS_START` and `COVERAGE_FILE`
 3. After the session, combines parallel data files and writes
    `htmlcov-integration/index.html`

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Chat module P0-level end-to-end test cases.
+Potato Chat module P0-level end-to-end test cases.
 
 P0 criteria:
 - Core user flows

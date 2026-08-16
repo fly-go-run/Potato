@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for qwenpaw.agents.utils.audio_transcription.
+"""Tests for potato.agents.utils.audio_transcription.
 
 Covers:
 - _url_for_provider
@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.agents.utils.audio_transcription import (
+from potato.agents.utils.audio_transcription import (
     _get_configured_provider_creds,
     _get_manager,
     _url_for_provider,
@@ -27,10 +27,10 @@ from qwenpaw.agents.utils.audio_transcription import (
     list_transcription_providers,
     transcribe_audio,
 )
-from qwenpaw.providers.ollama_provider import OllamaProvider
-from qwenpaw.providers.openai_provider import OpenAIProvider
+from potato.providers.ollama_provider import OllamaProvider
+from potato.providers.openai_provider import OpenAIProvider
 
-_MOD = "qwenpaw.agents.utils.audio_transcription"
+_MOD = "potato.agents.utils.audio_transcription"
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ class TestGetManager:
     def test_returns_instance(self):
         mock_instance = MagicMock()
         with patch(
-            "qwenpaw.providers.provider_manager.ProviderManager.get_instance",
+            "potato.providers.provider_manager.ProviderManager.get_instance",
             return_value=mock_instance,
         ):
             result = _get_manager()
@@ -149,7 +149,7 @@ class TestGetManager:
     def test_import_failure_returns_none(self):
         with patch.dict(
             "sys.modules",
-            {"qwenpaw.providers.provider_manager": None},
+            {"potato.providers.provider_manager": None},
         ):
             _get_manager()
             # May return None or raise depending on import state
@@ -220,7 +220,7 @@ class TestGetConfiguredTranscriptionProviderId:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_id = "my-provider"
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ):
             assert get_configured_transcription_provider_id() == "my-provider"
@@ -263,7 +263,7 @@ class TestGetConfiguredProviderCreds:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_id = ""
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ):
             assert _get_configured_provider_creds() is None
@@ -272,7 +272,7 @@ class TestGetConfiguredProviderCreds:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_id = "p1"
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ), patch(
             f"{_MOD}._get_manager",
@@ -286,7 +286,7 @@ class TestGetConfiguredProviderCreds:
         mock_manager = MagicMock()
         mock_manager.get_provider.return_value = None
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ), patch(
             f"{_MOD}._get_manager",
@@ -308,7 +308,7 @@ class TestTranscribeAudio:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_type = "disabled"
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ):
             result = await transcribe_audio("/tmp/audio.wav")
@@ -319,7 +319,7 @@ class TestTranscribeAudio:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_type = "local_whisper"
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ), patch(
             f"{_MOD}._transcribe_local_whisper",
@@ -334,7 +334,7 @@ class TestTranscribeAudio:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_type = "whisper_api"
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ), patch(
             f"{_MOD}._transcribe_whisper_api",
@@ -349,7 +349,7 @@ class TestTranscribeAudio:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_type = "doubao_asr"
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ), patch(
             f"{_MOD}._transcribe_doubao",
@@ -364,7 +364,7 @@ class TestTranscribeAudio:
         mock_config = MagicMock()
         mock_config.agents.transcription_provider_type = "unknown"
         with patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ):
             result = await transcribe_audio("/tmp/audio.wav")
@@ -389,7 +389,7 @@ class TestTranscribeLocalWhisper:
                 "whisper_installed": False,
             },
         ):
-            from qwenpaw.agents.utils.audio_transcription import (
+            from potato.agents.utils.audio_transcription import (
                 _transcribe_local_whisper,
             )
 
@@ -412,7 +412,7 @@ class TestTranscribeLocalWhisper:
             f"{_MOD}._get_local_whisper_model",
             return_value=mock_model,
         ):
-            from qwenpaw.agents.utils.audio_transcription import (
+            from potato.agents.utils.audio_transcription import (
                 _transcribe_local_whisper,
             )
 
@@ -440,7 +440,7 @@ class TestTranscribeLocalWhisper:
             f"{_MOD}._get_local_whisper_model",
             return_value=mock_model,
         ):
-            from qwenpaw.agents.utils.audio_transcription import (
+            from potato.agents.utils.audio_transcription import (
                 _transcribe_local_whisper,
             )
 
@@ -462,7 +462,7 @@ class TestTranscribeWhisperApi:
             f"{_MOD}._get_configured_provider_creds",
             return_value=None,
         ):
-            from qwenpaw.agents.utils.audio_transcription import (
+            from potato.agents.utils.audio_transcription import (
                 _transcribe_whisper_api,
             )
 
@@ -494,13 +494,13 @@ class TestTranscribeWhisperApi:
             f"{_MOD}._get_configured_provider_creds",
             return_value=("http://api/v1", "sk-test"),
         ), patch(
-            "qwenpaw.config.load_config",
+            "potato.config.load_config",
             return_value=mock_config,
         ), patch(
             "openai.AsyncOpenAI",
             return_value=mock_client,
         ):
-            from qwenpaw.agents.utils.audio_transcription import (
+            from potato.agents.utils.audio_transcription import (
                 _transcribe_whisper_api,
             )
 

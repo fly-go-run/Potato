@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for ``qwenpaw.app.routers.messages``.
+"""Unit tests for ``potato.app.routers.messages``.
 
 These tests use FastAPI's ``TestClient`` against a synthetic app whose
 ``app.state.multi_agent_manager`` is a MagicMock — the shared mocks
@@ -16,13 +16,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from qwenpaw.exceptions import AppBaseException
+from potato.exceptions import AppBaseException
 
 
 @pytest.fixture
 def app(manager_mock) -> FastAPI:
     """A fresh FastAPI app mounting only the messages router under /api."""
-    from qwenpaw.app.routers.messages import router as messages_router
+    from potato.app.routers.messages import router as messages_router
 
     application = FastAPI()
     application.state.multi_agent_manager = manager_mock
@@ -187,7 +187,7 @@ def test_send_message_validation_error_on_missing_field(client):
 def test_send_message_returns_500_when_manager_not_in_state():
     # Build an app WITHOUT setting app.state.multi_agent_manager so the
     # ``_get_multi_agent_manager`` guard raises 500.
-    from qwenpaw.app.routers.messages import router
+    from potato.app.routers.messages import router
 
     bare_app = FastAPI()
     bare_app.include_router(router, prefix="/api")

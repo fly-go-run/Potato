@@ -14,11 +14,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from qwenpaw.agents.tools import _hosted_search as hs
+from potato.agents.tools import _hosted_search as hs
 
 # ``tools/__init__`` re-exports the *function* ``web_search``, which shadows
 # the module of the same name on the package. Reach for the module itself.
-ws = importlib.import_module("qwenpaw.agents.tools.web_search")
+ws = importlib.import_module("potato.agents.tools.web_search")
 
 
 def _agents_config(**overrides):
@@ -34,7 +34,7 @@ def _agents_config(**overrides):
 
 def _patch_config(monkeypatch, agents):
     monkeypatch.setattr(
-        "qwenpaw.config.load_config",
+        "potato.config.load_config",
         lambda: SimpleNamespace(agents=agents),
     )
 
@@ -73,6 +73,8 @@ def _text_of(chunk) -> str:
 class TestBackendSelection:
     def test_auto_picks_hosted_when_a_key_exists(self, monkeypatch):
         _patch_config(monkeypatch, _agents_config())
+        monkeypatch.delenv("EXA_API_KEY", raising=False)
+        monkeypatch.delenv("POTATO_EXA_API_KEY", raising=False)
         monkeypatch.setattr(hs, "is_available", lambda _pid: True)
 
         backend, settings = ws._resolve_backend()
@@ -81,8 +83,28 @@ class TestBackendSelection:
         # Auto is not an explicit choice, so a failure may fall back.
         assert settings.explicit is False
 
+    def test_auto_picks_exa_when_an_exa_key_exists(self, monkeypatch):
+        _patch_config(monkeypatch, _agents_config())
+        monkeypatch.setenv("EXA_API_KEY", "exa-test")
+        monkeypatch.setattr(hs, "is_available", lambda _pid: True)
+
+        backend, _ = ws._resolve_backend()
+
+        assert backend == "exa"
+
+    def test_explicit_exa_skips_hosted(self, monkeypatch):
+        _patch_config(monkeypatch, _agents_config(web_search_backend="exa"))
+        monkeypatch.delenv("EXA_API_KEY", raising=False)
+        monkeypatch.setattr(hs, "is_available", lambda _pid: True)
+
+        backend, _ = ws._resolve_backend()
+
+        assert backend == "exa"
+
     def test_auto_falls_back_to_tavily_without_a_key(self, monkeypatch):
         _patch_config(monkeypatch, _agents_config())
+        monkeypatch.delenv("EXA_API_KEY", raising=False)
+        monkeypatch.delenv("POTATO_EXA_API_KEY", raising=False)
         monkeypatch.setattr(hs, "is_available", lambda _pid: False)
 
         backend, _ = ws._resolve_backend()
@@ -126,7 +148,9 @@ class TestBackendSelection:
         def _boom():
             raise RuntimeError("config on fire")
 
-        monkeypatch.setattr("qwenpaw.config.load_config", _boom)
+        monkeypatch.setattr("potato.config.load_config", _boom)
+        monkeypatch.delenv("EXA_API_KEY", raising=False)
+        monkeypatch.delenv("POTATO_EXA_API_KEY", raising=False)
         monkeypatch.setattr(hs, "is_available", lambda _pid: True)
 
         backend, settings = ws._resolve_backend()
@@ -562,7 +586,7 @@ class TestResolveCredentials:
             ),
         }
         with patch(
-            "qwenpaw.providers.provider_manager.ProviderManager.get_instance",
+            "potato.providers.provider_manager.ProviderManager.get_instance",
             return_value=self._manager(providers),
         ):
             base, key = hs.resolve_credentials()
@@ -580,7 +604,7 @@ class TestResolveCredentials:
             ),
         }
         with patch(
-            "qwenpaw.providers.provider_manager.ProviderManager.get_instance",
+            "potato.providers.provider_manager.ProviderManager.get_instance",
             return_value=self._manager(providers),
         ):
             _, key = hs.resolve_credentials()
@@ -589,7 +613,7 @@ class TestResolveCredentials:
 
     def test_no_key_anywhere_raises_with_actionable_text(self):
         with patch(
-            "qwenpaw.providers.provider_manager.ProviderManager.get_instance",
+            "potato.providers.provider_manager.ProviderManager.get_instance",
             return_value=self._manager({}),
         ):
             with pytest.raises(hs.HostedSearchUnavailable) as excinfo:
@@ -609,7 +633,7 @@ class TestResolveCredentials:
             ),
         }
         with patch(
-            "qwenpaw.providers.provider_manager.ProviderManager.get_instance",
+            "potato.providers.provider_manager.ProviderManager.get_instance",
             return_value=self._manager(providers),
         ):
             base, key = hs.resolve_credentials("my-gateway")
@@ -618,7 +642,7 @@ class TestResolveCredentials:
 
     def test_is_available_is_false_when_unconfigured(self):
         with patch(
-            "qwenpaw.providers.provider_manager.ProviderManager.get_instance",
+            "potato.providers.provider_manager.ProviderManager.get_instance",
             return_value=self._manager({}),
         ):
             assert hs.is_available() is False

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Desktop release verification script.
 
-Drives a running QwenPaw desktop backend (either Tauri packaging flavour:
+Drives a running Potato desktop backend (either Tauri packaging flavour:
 tauri-win / tauri-mac) end-to-end:
 
 1. ``GET /api/version`` — health + version match.
@@ -144,10 +144,10 @@ def verify_frontend(base_url: str) -> None:
             f"Frontend root did not return HTML (first 200 chars): "
             f"{body[:200]}",
         )
-    # 品牌可为 Potato(新前端)或 QwenPaw(历史包)
-    if "potato" not in lower and "qwenpaw" not in lower:
+    # 品牌可为 Potato(新前端)或 Potato(历史包)
+    if "potato" not in lower and "potato" not in lower:
         raise RuntimeError(
-            "Frontend HTML mentions neither Potato nor QwenPaw — "
+            "Frontend HTML mentions neither Potato nor Potato — "
             "wrong bundle?",
         )
     print("PASS  GET / -> frontend HTML served")
@@ -396,7 +396,7 @@ class PlaywrightDriver(UIDriver):
       if (btn.hasAttribute('disabled')) return true;
       if (btn.getAttribute('aria-disabled') === 'true') return true;
       const cls = btn.className || '';
-      if (/qwenpaw-btn-disabled|qwenpaw-btn-loading|is-disabled|is-loading/.test(cls)) {
+      if (/potato-btn-disabled|potato-btn-loading|is-disabled|is-loading/.test(cls)) {
         return true;
       }
       return false;
@@ -439,7 +439,7 @@ class PlaywrightDriver(UIDriver):
       let btnDisabled = true;
       if (btn) {
         const cls = btn.className || '';
-        const disabledByCls = /qwenpaw-btn-disabled|qwenpaw-btn-loading|is-disabled|is-loading/.test(cls);
+        const disabledByCls = /potato-btn-disabled|potato-btn-loading|is-disabled|is-loading/.test(cls);
         const disabledByAttr = btn.disabled === true
           || btn.hasAttribute('disabled')
           || btn.getAttribute('aria-disabled') === 'true';
@@ -450,7 +450,7 @@ class PlaywrightDriver(UIDriver):
       // state during this round. Path A only fires after a full
       // disabled -> enabled transition, not when the button simply
       // hasn't been disabled yet (which looks the same as "enabled").
-      const stateKey = '__qwenpaw_btn_was_disabled__';
+      const stateKey = '__potato_btn_was_disabled__';
       if (btnDisabled) {
         window[stateKey] = true;
       }
@@ -473,7 +473,7 @@ class PlaywrightDriver(UIDriver):
 
       let contentStable = false;
       if (hasRealText) {
-        const key = '__qwenpaw_ai_stable_cache__';
+        const key = '__potato_ai_stable_cache__';
         const now = Date.now();
         const cache = window[key] || {};
         if (cache.text !== raw) {
@@ -514,7 +514,7 @@ class PlaywrightDriver(UIDriver):
   if (btn) {
     const cls = btn.className || '';
     const disabledByCls =
-      /qwenpaw-btn-disabled|qwenpaw-btn-loading|is-disabled|is-loading/.test(cls);
+      /potato-btn-disabled|potato-btn-loading|is-disabled|is-loading/.test(cls);
     const disabledByAttr = btn.disabled === true
       || btn.hasAttribute('disabled')
       || btn.getAttribute('aria-disabled') === 'true';
@@ -526,7 +526,7 @@ class PlaywrightDriver(UIDriver):
   if (aiMsgs.length === 0) return true;
   const last = aiMsgs[aiMsgs.length - 1];
   const raw = (last.innerText || '').trim();
-  const key = '__qwenpaw_send_idle_cache__';
+  const key = '__potato_send_idle_cache__';
   const now = Date.now();
   const cache = window[key] || {};
   if (cache.text !== raw) {
@@ -544,7 +544,7 @@ class PlaywrightDriver(UIDriver):
             try:
                 self._page.evaluate(
                     "() => { try { delete window."
-                    "__qwenpaw_send_idle_cache__; } catch(e) {} }",
+                    "__potato_send_idle_cache__; } catch(e) {} }",
                 )
             except Exception:  # noqa: BLE001
                 pass
@@ -571,8 +571,8 @@ class PlaywrightDriver(UIDriver):
         # stable cache must not carry over).
         try:
             self._page.evaluate(
-                "() => { delete window.__qwenpaw_btn_was_disabled__;"
-                " delete window.__qwenpaw_ai_stable_cache__; }",
+                "() => { delete window.__potato_btn_was_disabled__;"
+                " delete window.__potato_ai_stable_cache__; }",
             )
         except Exception:  # noqa: BLE001
             pass
@@ -866,7 +866,7 @@ def _start_ui_and_verify_loaded(
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Verify a running QwenPaw desktop backend end-to-end: API "
+            "Verify a running Potato desktop backend end-to-end: API "
             "health + provider config + single-round UI chat."
         ),
     )
@@ -885,9 +885,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--api-key",
-        default=os.environ.get("QWENPAW_DASHSCOPE_API_KEY", ""),
+        default=os.environ.get("POTATO_DASHSCOPE_API_KEY", ""),
         help="DashScope API key. Falls back to env "
-        "QWENPAW_DASHSCOPE_API_KEY. Empty value -> auto skip-chat.",
+        "POTATO_DASHSCOPE_API_KEY. Empty value -> auto skip-chat.",
     )
     parser.add_argument(
         "--provider",

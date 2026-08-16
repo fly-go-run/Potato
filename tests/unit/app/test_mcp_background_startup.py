@@ -12,20 +12,20 @@ import pytest
 # pylint: disable=no-name-in-module
 # flake8: noqa: E402,E501
 pytest.importorskip(
-    "qwenpaw.app.mcp.manager",
+    "potato.app.mcp.manager",
     reason=(
-        "qwenpaw.app.mcp.manager (MCPClientManager) was removed in "
+        "potato.app.mcp.manager (MCPClientManager) was removed in "
         "AgentScope 2.0; MCP lifecycle is handled by the workspace layer"
     ),
 )
-from qwenpaw.app.mcp.manager import (  # type: ignore[import]
+from potato.app.mcp.manager import (  # type: ignore[import]
     MCPClientManager,
 )
-from qwenpaw.app.workspace.service_factories import (  # type: ignore[import]
+from potato.app.workspace.service_factories import (  # type: ignore[import]
     create_mcp_service,
 )
-from qwenpaw.app.workspace.workspace import Workspace
-from qwenpaw.config.config import MCPClientConfig, MCPConfig
+from potato.app.workspace.workspace import Workspace
+from potato.config.config import MCPClientConfig, MCPConfig
 
 
 class _Runner:

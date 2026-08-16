@@ -21,8 +21,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from qwenpaw.sandbox import MountSpec, SandboxConfig, SandboxMode
-from qwenpaw.sandbox.windows_restricted_sandbox import (
+from potato.sandbox import MountSpec, SandboxConfig, SandboxMode
+from potato.sandbox.windows_restricted_sandbox import (
     WindowsRestrictedSandbox,
     _AclEntry,
     _build_shell_command_line,
@@ -35,7 +35,7 @@ from qwenpaw.sandbox.windows_restricted_sandbox import (
     _sandboxes_dir,
     _verify_acl_removed_sync,
 )
-from qwenpaw.sandbox.windows_sandbox import (
+from potato.sandbox.windows_sandbox import (
     _is_cmd_exe,
     _is_powershell_exe,
 )
@@ -50,7 +50,7 @@ class TestFactoryRouting:
 
     def test_allow_read_all_true_routes_to_restricted(self):
         """allow_read_all=True → WindowsRestrictedSandbox."""
-        from qwenpaw.sandbox import create_sandbox
+        from potato.sandbox import create_sandbox
 
         config = SandboxConfig(
             mode=SandboxMode.APPCONTAINER,
@@ -62,8 +62,8 @@ class TestFactoryRouting:
 
     def test_allow_read_all_false_does_not_route_here(self):
         """allow_read_all=False → WindowsSandbox (not this backend)."""
-        from qwenpaw.sandbox import create_sandbox
-        from qwenpaw.sandbox.windows_sandbox import WindowsSandbox
+        from potato.sandbox import create_sandbox
+        from potato.sandbox.windows_sandbox import WindowsSandbox
 
         config = SandboxConfig(
             mode=SandboxMode.APPCONTAINER,
@@ -338,22 +338,22 @@ class TestUserProvisioning:
         pw2 = _random_password()
         assert pw1 != pw2
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_netapi32")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_netapi32")
     def test_ensure_local_user_creates_new(self, mock_netapi32_fn):
         """NetUserAdd succeeds → returns True."""
         mock_netapi32 = MagicMock()
         mock_netapi32.NetUserAdd.return_value = 0  # NERR_Success
         mock_netapi32_fn.return_value = mock_netapi32
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _ensure_local_user,
         )
 
-        result = _ensure_local_user("qwenpaw_test", "P@ssw0rd!")
+        result = _ensure_local_user("potato_test", "P@ssw0rd!")
         assert result is True
         mock_netapi32.NetUserAdd.assert_called_once()
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_netapi32")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_netapi32")
     def test_ensure_local_user_updates_existing(self, mock_netapi32_fn):
         """Existing user → updates password via NetUserSetInfo."""
         mock_netapi32 = MagicMock()
@@ -361,15 +361,15 @@ class TestUserProvisioning:
         mock_netapi32.NetUserSetInfo.return_value = 0  # NERR_Success
         mock_netapi32_fn.return_value = mock_netapi32
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _ensure_local_user,
         )
 
-        result = _ensure_local_user("qwenpaw_existing", "NewP@ss!")
+        result = _ensure_local_user("potato_existing", "NewP@ss!")
         assert result is True
         mock_netapi32.NetUserSetInfo.assert_called_once()
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_netapi32")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_netapi32")
     def test_ensure_local_user_both_fail(self, mock_netapi32_fn):
         """Both create and update fail → returns False."""
         mock_netapi32 = MagicMock()
@@ -377,28 +377,28 @@ class TestUserProvisioning:
         mock_netapi32.NetUserSetInfo.return_value = 5  # Access denied
         mock_netapi32_fn.return_value = mock_netapi32
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _ensure_local_user,
         )
 
-        result = _ensure_local_user("qwenpaw_fail", "P@ss!")
+        result = _ensure_local_user("potato_fail", "P@ss!")
         assert result is False
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_netapi32")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_netapi32")
     def test_ensure_local_group_success(self, mock_netapi32_fn):
         """NetLocalGroupAdd succeeds → returns True."""
         mock_netapi32 = MagicMock()
         mock_netapi32.NetLocalGroupAdd.return_value = 0
         mock_netapi32_fn.return_value = mock_netapi32
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _ensure_local_group,
         )
 
-        result = _ensure_local_group("QwenpawUsers", "Test group")
+        result = _ensure_local_group("PotatoUsers", "Test group")
         assert result is True
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_netapi32")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_netapi32")
     def test_ensure_local_group_already_exists(self, mock_netapi32_fn):
         """NetLocalGroupAdd returns ERROR_ALIAS_EXISTS → still True."""
         mock_netapi32 = MagicMock()
@@ -406,25 +406,25 @@ class TestUserProvisioning:
         mock_netapi32.NetLocalGroupAdd.return_value = 1379
         mock_netapi32_fn.return_value = mock_netapi32
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _ensure_local_group,
         )
 
-        result = _ensure_local_group("QwenpawUsers", "Test group")
+        result = _ensure_local_group("PotatoUsers", "Test group")
         assert result is True
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_netapi32")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_netapi32")
     def test_ensure_local_group_failure(self, mock_netapi32_fn):
         """NetLocalGroupAdd returns unexpected error → False."""
         mock_netapi32 = MagicMock()
         mock_netapi32.NetLocalGroupAdd.return_value = 5  # ACCESS_DENIED
         mock_netapi32_fn.return_value = mock_netapi32
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _ensure_local_group,
         )
 
-        result = _ensure_local_group("QwenpawUsers", "Test group")
+        result = _ensure_local_group("PotatoUsers", "Test group")
         assert result is False
 
 
@@ -441,12 +441,12 @@ class TestWFPNetworkFiltering:
         """PowerShell rule creation succeeds → returns True."""
         mock_run.return_value = MagicMock(returncode=0)
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _install_wfp_block_filters,
         )
 
         result = _install_wfp_block_filters(
-            "qwenpaw_abc",
+            "potato_abc",
             "S-1-5-21-111-222-333-444",
         )
         assert result is True
@@ -465,31 +465,31 @@ class TestWFPNetworkFiltering:
             stderr=b"Access denied",
         )
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _install_wfp_block_filters,
         )
 
         result = _install_wfp_block_filters(
-            "qwenpaw_abc",
+            "potato_abc",
             "S-1-5-21-111-222-333-444",
         )
         assert result is False
 
     @patch("subprocess.run")
     def test_install_wfp_rule_names(self, mock_run):
-        """Firewall rules are named QwenPaw_Block_{username}_{In|Out}."""
+        """Firewall rules are named Potato_Block_{username}_{In|Out}."""
         mock_run.return_value = MagicMock(returncode=0)
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import (
+        from potato.sandbox.windows_restricted_sandbox import (
             _install_wfp_block_filters,
         )
 
-        _install_wfp_block_filters("qwenpaw_xyz", "S-1-5-21-111-222-333-444")
+        _install_wfp_block_filters("potato_xyz", "S-1-5-21-111-222-333-444")
 
         call_args = mock_run.call_args[0][0]
         ps_command = call_args[-1]  # Last argument is the PowerShell command
-        assert "QwenPaw_Block_qwenpaw_xyz_Out" in ps_command
-        assert "QwenPaw_Block_qwenpaw_xyz_In" in ps_command
+        assert "Potato_Block_potato_xyz_Out" in ps_command
+        assert "Potato_Block_potato_xyz_In" in ps_command
 
 
 # ============================================================================
@@ -500,19 +500,19 @@ class TestWFPNetworkFiltering:
 class TestACLApplication:
     """Test _apply_all_acls logic with mocked Win32 ACL APIs."""
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._allow_null_device")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_deny_all_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_read_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._allow_null_device")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_deny_all_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_read_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_ace")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._ensure_python_dir_group_acl",
     )
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox._get_python_install_dir",
+        "potato.sandbox.windows_restricted_sandbox._get_python_install_dir",
     )
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._string_to_sid")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_kernel32")
+    @patch("potato.sandbox.windows_restricted_sandbox._string_to_sid")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_kernel32")
     @patch("os.path.exists", return_value=True)
     @patch("os.path.isdir", return_value=True)
     def test_workspace_gets_full_access(
@@ -542,7 +542,7 @@ class TestACLApplication:
             allow_read_all=True,
         )
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import _apply_all_acls
+        from potato.sandbox.windows_restricted_sandbox import _apply_all_acls
 
         entries = _apply_all_acls(config, "S-1-5-21-cap", "S-1-5-21-user")
 
@@ -557,19 +557,19 @@ class TestACLApplication:
             for e in ws_entries
         )
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._allow_null_device")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_deny_all_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_read_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._allow_null_device")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_deny_all_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_read_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_ace")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._ensure_python_dir_group_acl",
     )
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox._get_python_install_dir",
+        "potato.sandbox.windows_restricted_sandbox._get_python_install_dir",
     )
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._string_to_sid")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_kernel32")
+    @patch("potato.sandbox.windows_restricted_sandbox._string_to_sid")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_kernel32")
     @patch("os.path.exists", return_value=True)
     @patch("os.path.isdir", return_value=True)
     def test_readonly_mount_gets_read_ace(
@@ -600,7 +600,7 @@ class TestACLApplication:
             mounts=[MountSpec(path=r"C:\readonly", writable=False)],
         )
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import _apply_all_acls
+        from potato.sandbox.windows_restricted_sandbox import _apply_all_acls
 
         entries = _apply_all_acls(config, "S-1-5-21-cap", "S-1-5-21-user")
 
@@ -614,19 +614,19 @@ class TestACLApplication:
             for e in mount_entries
         )
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._allow_null_device")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_deny_all_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_read_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._allow_null_device")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_deny_all_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_read_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_ace")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._ensure_python_dir_group_acl",
     )
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox._get_python_install_dir",
+        "potato.sandbox.windows_restricted_sandbox._get_python_install_dir",
     )
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._string_to_sid")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_kernel32")
+    @patch("potato.sandbox.windows_restricted_sandbox._string_to_sid")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_kernel32")
     @patch("os.path.exists", return_value=True)
     @patch("os.path.isdir", return_value=True)
     def test_deny_path_gets_deny_ace(
@@ -658,7 +658,7 @@ class TestACLApplication:
             deny_paths=[r"C:\Users\testuser\.ssh"],
         )
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import _apply_all_acls
+        from potato.sandbox.windows_restricted_sandbox import _apply_all_acls
 
         entries = _apply_all_acls(config, "S-1-5-21-cap", "S-1-5-21-user")
 
@@ -667,19 +667,19 @@ class TestACLApplication:
         assert deny_entries[0].sid_type == "user"
         assert r".ssh" in deny_entries[0].path
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._allow_null_device")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_deny_all_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_read_ace")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._add_allow_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._allow_null_device")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_deny_all_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_read_ace")
+    @patch("potato.sandbox.windows_restricted_sandbox._add_allow_ace")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._ensure_python_dir_group_acl",
     )
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox._get_python_install_dir",
+        "potato.sandbox.windows_restricted_sandbox._get_python_install_dir",
     )
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._string_to_sid")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_kernel32")
+    @patch("potato.sandbox.windows_restricted_sandbox._string_to_sid")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_kernel32")
     @patch("os.path.exists", return_value=True)
     @patch("os.path.isdir", return_value=True)
     def test_writable_mount_gets_full_access(
@@ -710,7 +710,7 @@ class TestACLApplication:
             mounts=[MountSpec(path=r"C:\shared", writable=True)],
         )
 
-        from qwenpaw.sandbox.windows_restricted_sandbox import _apply_all_acls
+        from potato.sandbox.windows_restricted_sandbox import _apply_all_acls
 
         entries = _apply_all_acls(config, "S-1-5-21-cap", "S-1-5-21-user")
 
@@ -736,7 +736,7 @@ class TestSandboxMetadata:
     def test_sandboxes_dir(self):
         """_sandboxes_dir returns state_dir / 'sandboxes'."""
         with tempfile.TemporaryDirectory() as tmp:
-            state_dir = Path(tmp) / ".qwenpaw"
+            state_dir = Path(tmp) / ".potato"
             result = _sandboxes_dir(state_dir)
             assert result == state_dir / "sandboxes"
             assert result.name == "sandboxes"
@@ -776,15 +776,15 @@ class TestWindowsRestrictedSandboxExecute:
         """Creates a mock _SandboxInstance for testing."""
         instance = MagicMock()
         instance.h_token = MagicMock()
-        instance.username = "qwenpaw_test"
-        instance.profile_dir = r"C:\Users\qwenpaw_test"
-        instance.sandbox_id = "qwenpaw_test"
+        instance.username = "potato_test"
+        instance.profile_dir = r"C:\Users\potato_test"
+        instance.sandbox_id = "potato_test"
         instance.config_fingerprint = "abc123"
         return instance
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._wait_and_read_process")
+    @patch("potato.sandbox.windows_restricted_sandbox._wait_and_read_process")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_success(self, mock_create, mock_wait):
@@ -811,9 +811,9 @@ class TestWindowsRestrictedSandboxExecute:
         assert result.sandbox_violation is None
         assert result.timed_out is False
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._wait_and_read_process")
+    @patch("potato.sandbox.windows_restricted_sandbox._wait_and_read_process")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_violation_detected(self, mock_create, mock_wait):
@@ -839,9 +839,9 @@ class TestWindowsRestrictedSandboxExecute:
         assert result.sandbox_violation is not None
         assert "Access is denied" in result.sandbox_violation
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._wait_and_read_process")
+    @patch("potato.sandbox.windows_restricted_sandbox._wait_and_read_process")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_timeout(self, mock_create, mock_wait):
@@ -866,7 +866,7 @@ class TestWindowsRestrictedSandboxExecute:
         assert result.timed_out is True
 
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_oserror(self, mock_create):
@@ -883,9 +883,9 @@ class TestWindowsRestrictedSandboxExecute:
         assert result.exit_code == -1
         assert "CreateProcess failed" in result.stderr
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._wait_and_read_process")
+    @patch("potato.sandbox.windows_restricted_sandbox._wait_and_read_process")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_violation_stdout_fail(self, mock_create, mock_wait):
@@ -910,9 +910,9 @@ class TestWindowsRestrictedSandboxExecute:
         assert result.sandbox_violation is not None
         assert "error 5" in result.sandbox_violation
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._wait_and_read_process")
+    @patch("potato.sandbox.windows_restricted_sandbox._wait_and_read_process")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_chinese_violation(self, mock_create, mock_wait):
@@ -936,9 +936,9 @@ class TestWindowsRestrictedSandboxExecute:
 
         assert result.sandbox_violation is not None
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._wait_and_read_process")
+    @patch("potato.sandbox.windows_restricted_sandbox._wait_and_read_process")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_env_overrides(self, mock_create, mock_wait):
@@ -960,12 +960,12 @@ class TestWindowsRestrictedSandboxExecute:
         sandbox._instance = self._make_mock_instance()
         asyncio.run(sandbox.execute("whoami"))
 
-        assert captured_env["USERNAME"] == "qwenpaw_test"
-        assert r"qwenpaw_test" in captured_env["USERPROFILE"]
+        assert captured_env["USERNAME"] == "potato_test"
+        assert r"potato_test" in captured_env["USERPROFILE"]
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._wait_and_read_process")
+    @patch("potato.sandbox.windows_restricted_sandbox._wait_and_read_process")
     @patch(
-        "qwenpaw.sandbox.windows_restricted_sandbox"
+        "potato.sandbox.windows_restricted_sandbox"
         "._create_process_with_token",
     )
     def test_execute_custom_cwd(self, mock_create, mock_wait):
@@ -998,8 +998,8 @@ class TestWindowsRestrictedSandboxExecute:
 class TestWindowsRestrictedSandboxStop:
     """Test stop() and async context manager cleanup."""
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._release_sandbox")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_kernel32")
+    @patch("potato.sandbox.windows_restricted_sandbox._release_sandbox")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_kernel32")
     def test_stop_terminates_job(self, mock_kernel32_fn, mock_release):
         """stop() calls TerminateJobObject when job_handle is present."""
         mock_kernel32 = MagicMock()
@@ -1026,8 +1026,8 @@ class TestWindowsRestrictedSandboxStop:
         assert sandbox._job_handle is None
         assert sandbox._process_id is None
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._release_sandbox")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_kernel32")
+    @patch("potato.sandbox.windows_restricted_sandbox._release_sandbox")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_kernel32")
     def test_stop_without_job_terminates_process(
         self,
         mock_kernel32_fn,
@@ -1058,8 +1058,8 @@ class TestWindowsRestrictedSandboxStop:
         mock_kernel32.OpenProcess.assert_called_once()
         mock_kernel32.TerminateProcess.assert_called_once()
 
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._release_sandbox")
-    @patch("qwenpaw.sandbox.windows_restricted_sandbox._get_kernel32")
+    @patch("potato.sandbox.windows_restricted_sandbox._release_sandbox")
+    @patch("potato.sandbox.windows_restricted_sandbox._get_kernel32")
     def test_stop_releases_instance(self, mock_kernel32_fn, mock_release):
         """stop() releases the sandbox instance reference."""
         mock_kernel32 = MagicMock()
@@ -1099,7 +1099,7 @@ class TestShutdownBudget:
 
     def test_remaining_budget_no_deadline_returns_large_value(self):
         """When no deadline is set, _remaining_budget returns 3600s."""
-        import qwenpaw.sandbox.windows_restricted_sandbox as wrs
+        import potato.sandbox.windows_restricted_sandbox as wrs
 
         old_deadline = wrs._SHUTDOWN_ACL_DEADLINE
         try:
@@ -1112,7 +1112,7 @@ class TestShutdownBudget:
         """When deadline is in the future, returns positive remaining."""
         import time
 
-        import qwenpaw.sandbox.windows_restricted_sandbox as wrs
+        import potato.sandbox.windows_restricted_sandbox as wrs
 
         old_deadline = wrs._SHUTDOWN_ACL_DEADLINE
         try:
@@ -1126,7 +1126,7 @@ class TestShutdownBudget:
         """When deadline has passed, returns 0.0."""
         import time
 
-        import qwenpaw.sandbox.windows_restricted_sandbox as wrs
+        import potato.sandbox.windows_restricted_sandbox as wrs
 
         old_deadline = wrs._SHUTDOWN_ACL_DEADLINE
         try:
@@ -1137,7 +1137,7 @@ class TestShutdownBudget:
 
     def test_run_icacls_sync_returns_false_when_budget_exhausted(self):
         """_run_icacls_sync must return False when budget is 0."""
-        import qwenpaw.sandbox.windows_restricted_sandbox as wrs
+        import potato.sandbox.windows_restricted_sandbox as wrs
 
         old_deadline = wrs._SHUTDOWN_ACL_DEADLINE
         try:
@@ -1155,7 +1155,7 @@ class TestShutdownBudget:
         """_run_icacls_sync caps timeout at min(180, remaining_budget)."""
         import time
 
-        import qwenpaw.sandbox.windows_restricted_sandbox as wrs
+        import potato.sandbox.windows_restricted_sandbox as wrs
 
         old_deadline = wrs._SHUTDOWN_ACL_DEADLINE
         captured_timeouts = []
@@ -1168,7 +1168,7 @@ class TestShutdownBudget:
             # Set deadline 2 seconds in the future
             wrs._SHUTDOWN_ACL_DEADLINE = time.monotonic() + 2.0
             with patch(
-                "qwenpaw.sandbox.windows_restricted_sandbox._run_cmd_sync",
+                "potato.sandbox.windows_restricted_sandbox._run_cmd_sync",
                 side_effect=fake_run_cmd,
             ):
                 _run_icacls_sync(["C:\\fake_path"])
@@ -1183,7 +1183,7 @@ class TestShutdownBudget:
         """_verify_acl_removed_sync must return False when budget is 0."""
         import time
 
-        import qwenpaw.sandbox.windows_restricted_sandbox as wrs
+        import potato.sandbox.windows_restricted_sandbox as wrs
 
         old_deadline = wrs._SHUTDOWN_ACL_DEADLINE
         try:

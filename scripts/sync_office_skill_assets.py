@@ -4,8 +4,8 @@
 
 Examples:
   python scripts/sync_office_skill_assets.py --check-source
-  python scripts/sync_office_skill_assets.py --sync /tmp/build/qwenpaw/agents/skills
-  python scripts/sync_office_skill_assets.py --check-materialized /tmp/build/qwenpaw/agents/skills
+  python scripts/sync_office_skill_assets.py --sync /tmp/build/potato/agents/skills
+  python scripts/sync_office_skill_assets.py --check-materialized /tmp/build/potato/agents/skills
 """
 
 from __future__ import annotations
@@ -15,9 +15,9 @@ import runpy
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SOURCE_SKILLS_DIR = REPO_ROOT / "src" / "qwenpaw" / "agents" / "skills"
+SOURCE_SKILLS_DIR = REPO_ROOT / "src" / "potato" / "agents" / "skills"
 _HELPERS = runpy.run_path(
-    str(REPO_ROOT / "src" / "qwenpaw" / "agents" / "office_skill_assets.py"),
+    str(REPO_ROOT / "src" / "potato" / "agents" / "office_skill_assets.py"),
 )
 
 

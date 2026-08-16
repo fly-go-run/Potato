@@ -59,7 +59,7 @@ def _provider_plugin_zip(plugin_id: str) -> bytes:
     """Plugin that registers a custom provider via OpenAIProvider."""
     backend = (
         "# -*- coding: utf-8 -*-\n"
-        "from qwenpaw.providers.openai_provider import OpenAIProvider\n"
+        "from potato.providers.openai_provider import OpenAIProvider\n"
         "\n"
         "\n"
         "class _MockProviderPlugin:\n"
@@ -83,7 +83,7 @@ def _provider_plugin_zip(plugin_id: str) -> bytes:
         "plugin_type": "provider",
         "entry": {"backend": "plugin.py"},
         "meta": {"provider_id": f"{plugin_id}-prov"},
-        "qwenpaw_version": {"min": "2.0.0", "max": "2.1.0"},
+        "potato_version": {"min": "2.0.0", "max": "2.1.0"},
     }
     return _build_zip(plugin_id, manifest, {"plugin.py": backend})
 
@@ -114,15 +114,15 @@ def _hook_plugin_zip(plugin_id: str) -> bytes:
         "        )\n"
         "\n"
         "    async def _on_start(self):\n"
-        "        marker = Path(os.environ.get('QWENPAW_WORKING_DIR', '.'))\n"
+        "        marker = Path(os.environ.get('POTATO_WORKING_DIR', '.'))\n"
         f'        (marker / "{plugin_id}.startup").touch()\n'
         "\n"
         "    async def _on_stop(self):\n"
-        "        marker = Path(os.environ.get('QWENPAW_WORKING_DIR', '.'))\n"
+        "        marker = Path(os.environ.get('POTATO_WORKING_DIR', '.'))\n"
         f'        (marker / "{plugin_id}.shutdown").touch()\n'
         "\n"
         "    async def _on_uninstall(self, **kwargs):\n"
-        "        marker = Path(os.environ.get('QWENPAW_WORKING_DIR', '.'))\n"
+        "        marker = Path(os.environ.get('POTATO_WORKING_DIR', '.'))\n"
         f'        (marker / "{plugin_id}.uninstall").touch()\n'
         "\n"
         "\n"
@@ -135,7 +135,7 @@ def _hook_plugin_zip(plugin_id: str) -> bytes:
         "plugin_type": "hook",
         "entry": {"backend": "plugin.py"},
         "meta": {"hook_type": "startup"},
-        "qwenpaw_version": {"min": "2.0.0", "max": "2.1.0"},
+        "potato_version": {"min": "2.0.0", "max": "2.1.0"},
     }
     return _build_zip(plugin_id, manifest, {"plugin.py": backend})
 
@@ -144,7 +144,7 @@ def _command_plugin_zip(plugin_id: str) -> bytes:
     """Plugin that registers a /slash control command."""
     backend = (
         "# -*- coding: utf-8 -*-\n"
-        "from qwenpaw.runtime.commands.control.base import (\n"
+        "from potato.runtime.commands.control.base import (\n"
         "    BaseControlCommandHandler,\n"
         ")\n"
         "\n"
@@ -174,7 +174,7 @@ def _command_plugin_zip(plugin_id: str) -> bytes:
         "plugin_type": "command",
         "entry": {"backend": "plugin.py"},
         "meta": {"command_name": f"/{plugin_id}-cmd"},
-        "qwenpaw_version": {"min": "2.0.0", "max": "2.1.0"},
+        "potato_version": {"min": "2.0.0", "max": "2.1.0"},
     }
     return _build_zip(plugin_id, manifest, {"plugin.py": backend})
 
@@ -210,7 +210,7 @@ def _http_router_plugin_zip(plugin_id: str) -> bytes:
         "name": plugin_id,
         "plugin_type": "general",
         "entry": {"backend": "plugin.py"},
-        "qwenpaw_version": {"min": "2.0.0", "max": "2.1.0"},
+        "potato_version": {"min": "2.0.0", "max": "2.1.0"},
     }
     return _build_zip(plugin_id, manifest, {"plugin.py": backend})
 
@@ -239,7 +239,7 @@ def _frontend_plugin_zip(plugin_id: str) -> bytes:
             "backend": "plugin.py",
             "frontend": "dist/index.js",
         },
-        "qwenpaw_version": {"min": "2.0.0", "max": "2.1.0"},
+        "potato_version": {"min": "2.0.0", "max": "2.1.0"},
     }
     return _build_zip(
         plugin_id,
@@ -967,7 +967,7 @@ def _composite_plugin_zip(plugin_id: str) -> bytes:
             "backend": "plugin.py",
             "frontend": "dist/index.js",
         },
-        "qwenpaw_version": {"min": "2.0.0", "max": "2.1.0"},
+        "potato_version": {"min": "2.0.0", "max": "2.1.0"},
     }
     return _build_zip(
         plugin_id,
@@ -984,7 +984,7 @@ def _no_entry_plugin_zip(plugin_id: str) -> bytes:
         "name": plugin_id,
         "plugin_type": "general",
         "entry": {},  # empty — no backend nor frontend
-        "qwenpaw_version": {"min": "2.0.0", "max": "2.1.0"},
+        "potato_version": {"min": "2.0.0", "max": "2.1.0"},
     }
     return _build_zip(plugin_id, manifest, {})
 

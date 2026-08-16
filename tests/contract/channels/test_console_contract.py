@@ -13,12 +13,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 from tests.contract.channels import ChannelContractTest
 
 if TYPE_CHECKING:
-    from qwenpaw.app.channels.base import BaseChannel
+    from potato.app.channels.base import BaseChannel
 
 
 def create_mock_process_handler():
@@ -48,7 +48,7 @@ class TestConsoleChannelContract(ChannelContractTest):
 
     def create_instance(self) -> "BaseChannel":
         """Provide a ConsoleChannel instance for contract testing."""
-        from qwenpaw.app.channels.console.channel import ConsoleChannel
+        from potato.app.channels.console.channel import ConsoleChannel
 
         process = create_mock_process_handler()
         return ConsoleChannel(
@@ -82,7 +82,7 @@ def test_all_channel_subclasses_have_contract_tests():
     Run periodically in CI to ensure completeness.
     """
     import inspect
-    from qwenpaw.app.channels.base import BaseChannel
+    from potato.app.channels.base import BaseChannel
 
     # Get all concrete ChannelContractTest implementations
     tested_classes = set()

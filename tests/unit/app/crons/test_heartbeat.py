@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from qwenpaw.app.crons.heartbeat import (
+from potato.app.crons.heartbeat import (
     is_cron_expression,
     parse_heartbeat_every,
 )

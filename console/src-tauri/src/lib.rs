@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::webview::PageLoadEvent;
 use tauri::{Manager, RunEvent, WebviewWindow, WindowEvent};
 
-/// Whether the launch reveal (bootstrap splash) has already happened.
+/// Whether the launch reveal (bundled app first paint) has already happened.
 /// Once true, no later automatic path (frontend_ready after a backend
 /// restart, the startup watchdog) may show or focus the window again —
 /// the user has seen the app and may have deliberately hidden it.
@@ -48,7 +48,7 @@ pub fn run() {
     // Keep one desktop shell per app identifier. Without this guard, launching
     // a second copy starts another backend on the stable desktop port; the old
     // WebView can remain visible after its backend is reclaimed, leaving a
-    // misleading blank QwenPaw window behind the real Potato window.
+    // misleading blank Potato window behind the real Potato window.
     let mut builder = tauri::Builder::default();
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
     {
@@ -111,13 +111,11 @@ pub fn run() {
             Ok(())
         })
         .on_page_load(|webview, payload| {
-            // Reveal the window as soon as the bundled bootstrap splash has
-            // painted, instead of staying invisible for the whole backend
-            // cold start (~4s warm, 20s+ cold). Launch-time activation is
-            // user-initiated, so macOS grants focus here; a reveal delayed
-            // until `frontend_ready` arrives after the user has moved on and
-            // modern macOS refuses the focus steal, leaving the window
-            // buried. Claim the startup reveal so the later
+            // Reveal as soon as the bundled Potato app has painted. The
+            // sidecar keeps starting in the background; waiting for it
+            // would leave the window invisible for the whole cold start.
+            // Launch-time activation is user-initiated, so macOS grants
+            // focus here. Claim the startup reveal so later
             // `frontend_ready` / watchdog paths never yank focus again.
             if !matches!(payload.event(), PageLoadEvent::Finished) {
                 return;
@@ -189,7 +187,7 @@ pub fn run() {
             });
         }
         Err(err) => {
-            eprintln!("[QwenPaw Desktop] Fatal startup error: {err}");
+            eprintln!("[Potato Desktop] Fatal startup error: {err}");
             std::process::exit(1);
         }
     }

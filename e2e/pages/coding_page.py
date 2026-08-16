@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Coding Mode page object.
+Potato Coding Mode page object.
 
 Wraps the Coding Mode entry / exit toggle, the project-select modal,
 the IDE shell file tree / editor tabs, and a small set of backend API
@@ -21,7 +21,7 @@ Notes
 - The browser context locale is ``en-US`` (see ``fixtures/__init__.py``),
   so we anchor on English UI copy from ``console/src/locales/en.json``.
 - First-time activation triggers an "Experimental Feature" confirmation
-  modal gated by ``localStorage["qwenpaw-coding-mode-confirmed"]``. To
+  modal gated by ``localStorage["potato-coding-mode-confirmed"]``. To
   keep tests deterministic we always pre-set that key before toggling.
 """
 from __future__ import annotations
@@ -40,16 +40,16 @@ logger = logging.getLogger(__name__)
 
 
 class CodingPage(BasePage):
-    """Page object for QwenPaw Coding Mode."""
+    """Page object for Potato Coding Mode."""
 
-    PAGE_TITLE = "QwenPaw Console"
+    PAGE_TITLE = "Potato Console"
     PAGE_URL = f"{config.base_url}/chat"
     CODING_URL = f"{config.base_url}/coding"
 
     # ========== Selectors ==========
 
     # Toggle button — aria-label is i18n driven. The browser context is
-    # forced to ``en-US`` in fixtures, but the QwenPaw frontend keeps a
+    # forced to ``en-US`` in fixtures, but the Potato frontend keeps a
     # user-preference language that overrides locale, so both Chinese and
     # English copy show up in real envs. Match either.
     TOGGLE_ENTER = (
@@ -100,12 +100,12 @@ class CodingPage(BasePage):
     EDITOR_TAB = '[role="tab"]'
 
     # localStorage key used by the toggle to remember the confirm dialog.
-    LS_KEY_CONFIRMED = "qwenpaw-coding-mode-confirmed"
+    LS_KEY_CONFIRMED = "potato-coding-mode-confirmed"
 
     # Agent identity helpers — see ``console/src/stores/agentStore.ts``.
     # The frontend remembers the last-used agent across browser sessions
-    # via ``qwenpaw-last-used-agent`` (localStorage) and the persisted
-    # zustand state under ``qwenpaw-agent-storage`` (both local and
+    # via ``potato-last-used-agent`` (localStorage) and the persisted
+    # zustand state under ``potato-agent-storage`` (both local and
     # session). On a developer machine these can carry an unrelated
     # agent (e.g. ``cloud-orchestrator``) into the e2e browser context,
     # which then disagrees with our API calls that use ``default``.
@@ -137,8 +137,8 @@ class CodingPage(BasePage):
         zustand's ``persist`` middleware re-hydrates from storage on
         every fresh document load. To pin the agent to ``default`` we
         register an init-script (runs *before* any page script) that
-        rewrites both the legacy ``qwenpaw-last-used-agent`` key and the
-        persisted ``qwenpaw-agent-storage`` blob in localStorage and
+        rewrites both the legacy ``potato-last-used-agent`` key and the
+        persisted ``potato-agent-storage`` blob in localStorage and
         sessionStorage. The script is idempotent and installed once per
         Page instance.
         """
@@ -153,9 +153,9 @@ class CodingPage(BasePage):
             "      state: { selectedAgent: a, agents: [], lastChatIdByAgent: {} },"
             "      version: 0"
             "    });"
-            "    try { localStorage.setItem('qwenpaw-last-used-agent', a); } catch (e) {}"
-            "    try { localStorage.setItem('qwenpaw-agent-storage', blob); } catch (e) {}"
-            "    try { sessionStorage.setItem('qwenpaw-agent-storage', blob); } catch (e) {}"
+            "    try { localStorage.setItem('potato-last-used-agent', a); } catch (e) {}"
+            "    try { localStorage.setItem('potato-agent-storage', blob); } catch (e) {}"
+            "    try { sessionStorage.setItem('potato-agent-storage', blob); } catch (e) {}"
             "  } catch (e) {}"
             "})();"
         )

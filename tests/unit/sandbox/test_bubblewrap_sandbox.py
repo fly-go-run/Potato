@@ -8,18 +8,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from qwenpaw.sandbox import (
+from potato.sandbox import (
     MountSpec,
     SandboxCapability,
     SandboxConfig,
     SandboxMode,
     create_sandbox,
 )
-from qwenpaw.sandbox.bubblewrap_sandbox import (
+from potato.sandbox.bubblewrap_sandbox import (
     BubblewrapSandbox,
     _BWRAP_VIOLATION_RE,
 )
-from qwenpaw.sandbox.config import _probe_linux_bubblewrap
+from potato.sandbox.config import _probe_linux_bubblewrap
 
 
 # ============================================================================
@@ -229,7 +229,7 @@ class TestProbeSandboxSupportLinuxBwrap:
     @pytest.fixture(autouse=True)
     def _clear_probe_cache(self):
         """Clear lru_cache so each test starts fresh."""
-        from qwenpaw.sandbox.config import probe_sandbox_support
+        from potato.sandbox.config import probe_sandbox_support
 
         probe_sandbox_support.cache_clear()
         yield
@@ -237,20 +237,20 @@ class TestProbeSandboxSupportLinuxBwrap:
 
     @patch("sys.platform", "linux")
     @patch(
-        "qwenpaw.sandbox.config._probe_linux_bubblewrap",
+        "potato.sandbox.config._probe_linux_bubblewrap",
         return_value=SandboxCapability(
             supported=True,
             mode=SandboxMode.BUBBLEWRAP,
             reason="bubblewrap available with user namespaces",
         ),
     )
-    @patch("qwenpaw.sandbox.config._probe_linux_landlock")
+    @patch("potato.sandbox.config._probe_linux_landlock")
     def test_bwrap_available_skips_landlock(
         self,
         mock_landlock,
         mock_bwrap,
     ):
-        from qwenpaw.sandbox import probe_sandbox_support
+        from potato.sandbox import probe_sandbox_support
 
         result = probe_sandbox_support()
         assert result.mode == SandboxMode.BUBBLEWRAP
@@ -258,7 +258,7 @@ class TestProbeSandboxSupportLinuxBwrap:
 
     @patch("sys.platform", "linux")
     @patch(
-        "qwenpaw.sandbox.config._probe_linux_bubblewrap",
+        "potato.sandbox.config._probe_linux_bubblewrap",
         return_value=SandboxCapability(
             supported=False,
             mode=SandboxMode.NONE,
@@ -266,7 +266,7 @@ class TestProbeSandboxSupportLinuxBwrap:
         ),
     )
     @patch(
-        "qwenpaw.sandbox.config._probe_linux_landlock",
+        "potato.sandbox.config._probe_linux_landlock",
         return_value=SandboxCapability(
             supported=True,
             mode=SandboxMode.LANDLOCK,
@@ -279,7 +279,7 @@ class TestProbeSandboxSupportLinuxBwrap:
         mock_landlock,
         mock_bwrap,
     ):
-        from qwenpaw.sandbox import probe_sandbox_support
+        from potato.sandbox import probe_sandbox_support
 
         result = probe_sandbox_support()
         assert result.mode == SandboxMode.LANDLOCK

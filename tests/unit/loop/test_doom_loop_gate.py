@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
-from qwenpaw.loop.gates.base import StopAction
-from qwenpaw.loop.gates.doom_loop import DoomLoopGate
+from potato.loop.gates.base import StopAction
+from potato.loop.gates.doom_loop import DoomLoopGate
 
 
 def _stage(after, action="stop", prompt="stop"):
@@ -23,7 +23,7 @@ def _stage(after, action="stop", prompt="stop"):
 @pytest.fixture(autouse=True)
 def _force_session_id():
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="test-session",
     ):
         yield
@@ -119,7 +119,7 @@ async def test_session_isolation():
         ],
     )
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="s1",
     ):
         g._ensure_state()
@@ -127,21 +127,21 @@ async def test_session_isolation():
         g.record("t", "h")
 
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="s2",
     ):
         g._ensure_state()
         g.record("t", "h")
 
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="s1",
     ):
         g.reset_turn()
         assert len(g._state().history) == 0
 
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="s2",
     ):
         assert len(g._state().history) == 1

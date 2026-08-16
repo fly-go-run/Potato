@@ -24,7 +24,7 @@ function formatViewCount(n: number, locale: string): string {
   }
 }
 
-const DEVELOPER_DAY_COLLECTION_SLUG = "qwenpaw-developer-day-collection";
+const DEVELOPER_DAY_COLLECTION_SLUG = "potato-developer-day-collection";
 
 async function fetchBlogPost(
   slug: string,

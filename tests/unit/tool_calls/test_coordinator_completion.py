@@ -11,15 +11,15 @@ import pytest
 from agentscope.message import TextBlock, ToolResultBlock, ToolResultState
 from agentscope.tool import ToolChunk, ToolResponse
 
-from qwenpaw.runtime.tool_meta import build_qp_meta
-from qwenpaw.tool_calls import (
+from potato.runtime.tool_meta import build_qp_meta
+from potato.tool_calls import (
     OffloadUnavailableError,
     ToolCoordinator,
     ToolCoordinatorMiddleware,
 )
-from qwenpaw.tool_calls._context import ToolCallContext
-from qwenpaw.tool_calls._entry import ToolCallEntry
-from qwenpaw.tool_calls._stream import ToolStream
+from potato.tool_calls._context import ToolCallContext
+from potato.tool_calls._entry import ToolCallEntry
+from potato.tool_calls._stream import ToolStream
 
 
 @dataclass

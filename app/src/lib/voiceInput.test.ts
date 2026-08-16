@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "./api";
 import {
   encodeWav,
+  floatToPcm16,
+  isBenignSpeechMiss,
+  isFatalSpeechError,
+  joinVoiceDraft,
   resampleTo,
   TARGET_SAMPLE_RATE,
   VoiceInputError,
@@ -273,5 +278,98 @@ describe("VoiceRecorder concurrency", () => {
     // 不能留下「界面显示没在录、麦克风却被占着」的状态。
     expect(recorder.recording).toBe(false);
     expect(stream.tracks[0]!.stopped).toBe(true);
+  });
+});
+
+describe("VoiceRecorder.snapshot", () => {
+  it("returns null when idle or nothing has been captured yet", async () => {
+    installWebAudio();
+    const recorder = new VoiceRecorder();
+    expect(recorder.snapshot()).toBeNull();
+
+    await recorder.start();
+    expect(recorder.snapshot()).toBeNull();
+    recorder.cancel();
+  });
+
+  it("encodes audio so far without stopping the microphone", async () => {
+    const stream = installWebAudio();
+    const recorder = new VoiceRecorder();
+    await recorder.start();
+    const context = FakeContext.last!;
+    context.processor.emit(0.5);
+
+    const file = recorder.snapshot();
+    expect(file).not.toBeNull();
+    expect(file!.name).toMatch(/^voice-partial-\d+\.wav$/);
+    expect(file!.type).toBe("audio/wav");
+    expect(file!.size).toBeGreaterThan(44);
+    expect(recorder.recording).toBe(true);
+    expect(stream.tracks[0]!.stopped).toBe(false);
+
+    context.processor.emit(0.25);
+    const later = recorder.snapshot();
+    expect(later!.size).toBeGreaterThan(file!.size);
+    expect(recorder.recording).toBe(true);
+
+    recorder.cancel();
+  });
+
+  it("emits resampled pcm packets without stopping", async () => {
+    installWebAudio();
+    const received: ArrayBuffer[] = [];
+    const recorder = new VoiceRecorder();
+    await recorder.start(undefined, (pcm) => received.push(pcm));
+    const context = FakeContext.last!;
+    // 48k context: 200ms ≈ 9600 frames before a live packet is flushed.
+    context.processor.emit(0.2, 9600);
+    expect(received.length).toBeGreaterThan(0);
+    expect(received[0]!.byteLength).toBeGreaterThan(0);
+    expect(recorder.recording).toBe(true);
+    recorder.cancel();
+  });
+});
+
+describe("floatToPcm16", () => {
+  it("writes little-endian int16 samples", () => {
+    const view = new DataView(floatToPcm16(new Float32Array([0, 1, -1])));
+    expect(view.getInt16(0, true)).toBe(0);
+    expect(view.getInt16(2, true)).toBe(32767);
+    expect(view.getInt16(4, true)).toBe(-32767);
+  });
+});
+
+describe("joinVoiceDraft", () => {
+  it("replaces an empty composer with the transcript", () => {
+    expect(joinVoiceDraft("", "  今天天气  ")).toBe("今天天气");
+    expect(joinVoiceDraft("   ", "hello")).toBe("hello");
+  });
+
+  it("appends after existing text without duplicating the base", () => {
+    expect(joinVoiceDraft("已有草稿", "继续说")).toBe("已有草稿 继续说");
+    expect(joinVoiceDraft("已有草稿  ", "继续说")).toBe("已有草稿 继续说");
+  });
+
+  it("ignores empty snapshots", () => {
+    expect(joinVoiceDraft("已有草稿", "   ")).toBeNull();
+    expect(joinVoiceDraft("", "")).toBeNull();
+  });
+});
+
+describe("speech error classification", () => {
+  it("treats missing-key style errors as fatal", () => {
+    const reason = new ApiError("no key", 400, "SPEECH_API_KEY_MISSING");
+    expect(isFatalSpeechError(reason)).toBe(true);
+    expect(isBenignSpeechMiss(reason)).toBe(false);
+  });
+
+  it("does not abort live listening on empty-speech replies", () => {
+    const reason = new ApiError(
+      "no valid speech in audio",
+      500,
+      "TRANSCRIPTION_FAILED",
+    );
+    expect(isFatalSpeechError(reason)).toBe(false);
+    expect(isBenignSpeechMiss(reason)).toBe(true);
   });
 });

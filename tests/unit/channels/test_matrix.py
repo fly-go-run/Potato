@@ -19,15 +19,15 @@ from nio import (
 )
 from nio.responses import WhoamiResponse
 
-from qwenpaw.schemas import (
+from potato.schemas import (
     AgentRequest,
     ContentType,
     ImageContent,
     TextContent,
 )
-from qwenpaw.app.channels.matrix.channel import MatrixChannel
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
-from qwenpaw.config.config import MatrixConfig
+from potato.app.channels.matrix.channel import MatrixChannel
+from potato.app.channels.renderer import ChannelDisplayConfig
+from potato.config.config import MatrixConfig
 
 
 @pytest.fixture
@@ -165,8 +165,8 @@ class TestMatrixChannelBoundedState:
         matrix_channel,
         monkeypatch,
     ):
-        from qwenpaw.app.channels.matrix import channel as matrix_module
-        from qwenpaw.app.channels.matrix.channel import HistoryEntry
+        from potato.app.channels.matrix import channel as matrix_module
+        from potato.app.channels.matrix.channel import HistoryEntry
 
         monkeypatch.setattr(matrix_module, "ROOM_HISTORY_MAX_ROOMS", 2)
         for room_id in ("!one", "!two", "!three"):
@@ -182,7 +182,7 @@ class TestMatrixChannelBoundedState:
         matrix_channel,
         monkeypatch,
     ):
-        from qwenpaw.app.channels.matrix import channel as matrix_module
+        from potato.app.channels.matrix import channel as matrix_module
 
         monkeypatch.setattr(matrix_module, "DM_ROOM_CACHE_MAX_ENTRIES", 2)
         matrix_channel._dm_room_cache.update(
@@ -204,7 +204,7 @@ class TestMatrixChannelBoundedState:
         matrix_channel,
         monkeypatch,
     ):
-        from qwenpaw.app.channels.matrix import channel as matrix_module
+        from potato.app.channels.matrix import channel as matrix_module
 
         monkeypatch.setattr(matrix_module, "VERIFICATION_STATE_MAX_ENTRIES", 1)
         matrix_channel._remember_verification_peer("old", "@old", "D1")
@@ -762,7 +762,7 @@ class TestMatrixChannelStartStop:
     ):
         """Test that start creates and configures AsyncClient."""
         with patch(
-            "qwenpaw.app.channels.matrix.channel.AsyncClient",
+            "potato.app.channels.matrix.channel.AsyncClient",
             return_value=mock_async_client,
         ):
             await matrix_channel.start()
@@ -778,7 +778,7 @@ class TestMatrixChannelStartStop:
     ):
         """Test that start creates sync task."""
         with patch(
-            "qwenpaw.app.channels.matrix.channel.AsyncClient",
+            "potato.app.channels.matrix.channel.AsyncClient",
             return_value=mock_async_client,
         ):
             await matrix_channel.start()
@@ -793,7 +793,7 @@ class TestMatrixChannelStartStop:
     ):
         """Test that stop cancels sync task."""
         with patch(
-            "qwenpaw.app.channels.matrix.channel.AsyncClient",
+            "potato.app.channels.matrix.channel.AsyncClient",
             return_value=mock_async_client,
         ):
             await matrix_channel.start()
@@ -806,7 +806,7 @@ class TestMatrixChannelStartStop:
     async def test_stop_closes_client(self, matrix_channel, mock_async_client):
         """Test that stop closes the client."""
         with patch(
-            "qwenpaw.app.channels.matrix.channel.AsyncClient",
+            "potato.app.channels.matrix.channel.AsyncClient",
             return_value=mock_async_client,
         ):
             await matrix_channel.start()
@@ -1088,7 +1088,7 @@ class TestMatrixChannelSendMedia:
         tmp_path,
     ):
         """Test sending video media type."""
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             VideoContent,
         )
 
@@ -1120,7 +1120,7 @@ class TestMatrixChannelSendMedia:
         tmp_path,
     ):
         """Test sending audio media type."""
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             AudioContent,
         )
 
@@ -1177,7 +1177,7 @@ class TestMatrixChannelSendMedia:
         )
         mock_async_client.room_send = AsyncMock(return_value=MagicMock())
 
-        from qwenpaw.schemas import FileContent
+        from potato.schemas import FileContent
 
         part = FileContent(
             type=ContentType.FILE,

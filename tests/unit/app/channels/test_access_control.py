@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for qwenpaw.app.channels.access_control."""
+"""Unit tests for potato.app.channels.access_control."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.app.channels.access_control import (
+from potato.app.channels.access_control import (
     ACCESS_CONTROL_FILE,
     AccessControlStore,
     ChannelACL,

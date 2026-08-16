@@ -140,6 +140,36 @@ export function buildTimeline(messages: StreamMessage[]): TimelineSlot[] {
   return slots;
 }
 
+/** Copy target: final-answer narration only. Process asides stay out. */
+export function copyAnswerText(
+  messages: StreamMessage[],
+  slots: TimelineSlot[],
+): string {
+  const answerIds = new Set(
+    slots
+      .filter((slot) => slot.kind === "narration" && slot.role === "answer")
+      .map((slot) => slot.messageId),
+  );
+  const picked = messages.filter((message) => answerIds.has(message.id));
+  return joinAssistantText(picked.length > 0 ? picked : messages);
+}
+
+function joinAssistantText(messages: StreamMessage[]): string {
+  return messages
+    .filter(
+      (message) =>
+        message.role !== "user" &&
+        message.type !== "reasoning" &&
+        message.type !== "progress" &&
+        !isToolCallType(message.type) &&
+        !isToolOutputType(message.type),
+    )
+    .map((message) => textFromContent(message.content).trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
 /**
  * 「实质工作」判定,决定其前方叙述是否折叠。工具名可能只出现在 output
  * 上;名字仍未知(还在流式)时按非工作处理——此时不折叠是保守选择,

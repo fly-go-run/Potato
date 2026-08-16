@@ -11,7 +11,7 @@ import { useUiStore } from "../../stores/ui";
 export const chromeIconClass =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-icon transition-colors duration-[150ms] ease-out hover:bg-fill-hover hover:text-icon-strong active:bg-fill-active";
 
-/** 红绿灯右侧并排：侧栏开关 / 新建。搜索走侧栏导航行或 ⌘K。 */
+/** 侧栏收起时贴在左上：展开 + 新建。展开态的新建走侧栏导航行。 */
 export function ChromeActions({
   sidebarCollapsed,
 }: {

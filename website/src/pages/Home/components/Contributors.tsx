@@ -10,9 +10,9 @@ type Contributor = {
 
 const ROW_COUNT = 3;
 const ROW_DIRECTIONS = [
-  "qwenpaw-channels-marquee-left",
-  "qwenpaw-channels-marquee-right",
-  "qwenpaw-channels-marquee-left",
+  "potato-channels-marquee-left",
+  "potato-channels-marquee-right",
+  "potato-channels-marquee-left",
 ] as const;
 
 /** Calibrated for w-20 items: ~41 items/row at 121 contributors ≈ 80s per cycle. */
@@ -119,11 +119,11 @@ export function Contributors() {
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.2 }}
-        aria-labelledby="qwenpaw-contributors-heading"
+        aria-labelledby="potato-contributors-heading"
       >
         <div className="mx-auto max-w-7xl text-center">
           <motion.h2
-            id="qwenpaw-contributors-heading"
+            id="potato-contributors-heading"
             className="font-newsreader text-3xl font-semibold leading-[1.2] text-(--color-text) md:text-4xl"
             variants={itemVariants}
           >
@@ -210,7 +210,7 @@ export function Contributors() {
 
         <div className="mx-auto max-w-7xl text-center">
           <div
-            className="pointer-events-none relative left-1/2 mt-10 h-px w-screen -translate-x-1/2 animate-[qwenpaw-dash-move-right_1s_linear_infinite]"
+            className="pointer-events-none relative left-1/2 mt-10 h-px w-screen -translate-x-1/2 animate-[potato-dash-move-right_1s_linear_infinite]"
             style={{
               background:
                 "repeating-linear-gradient(to right, rgba(255,157,77,0.45) 0 8px, transparent 8px 16px)",
@@ -235,12 +235,12 @@ export function Contributors() {
             <p>
               {t("contributors.noteLine2Prefix")}
               <a
-                href="https://github.com/agentscope-ai/QwenPaw"
+                href="https://github.com/fly-go-run/Potato"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-(--color-primary) ml-1"
               >
-                agentscope-ai/QwenPaw
+                fly-go-run/Potato
               </a>
               .
             </p>

@@ -34,24 +34,8 @@ export function AppShell() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
 
   useEffect(() => {
-    let active = true;
-    const startup = Promise.allSettled([initialize()]);
-    // 首屏数据通常会在这段时间内就绪；但任何接口悬挂都不能让原生窗口
-    // 永久隐藏。超时后先展示可交互壳层，数据仍在后台继续加载。
-    const revealTimer = window.setTimeout(() => {
-      if (active) void notifyDesktopReady();
-    }, 1500);
-    void startup.finally(() => {
-      window.clearTimeout(revealTimer);
-      if (!active) return;
-      window.requestAnimationFrame(() => {
-        if (active) void notifyDesktopReady();
-      });
-    });
-    return () => {
-      active = false;
-      window.clearTimeout(revealTimer);
-    };
+    void notifyDesktopReady();
+    void initialize();
   }, [initialize]);
 
   useEffect(() => {

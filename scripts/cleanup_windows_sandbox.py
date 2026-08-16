@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Cleanup script: removes all QwenPaw sandbox profiles, ACLs, users, and state.
+"""Cleanup script: removes all Potato sandbox profiles, ACLs, users, and state.
 
 Run on Windows with administrator privileges:
     python scripts/cleanup_windows_sandbox.py
@@ -7,14 +7,14 @@ Run on Windows with administrator privileges:
 This script performs cleanup for BOTH sandbox backends:
 
   A. AppContainer sandboxes (allow_read_all=False):
-     For each container metadata file in ~/.qwenpaw/containers/*.json:
+     For each container metadata file in ~/.potato/containers/*.json:
         1. Removes ACLs (icacls /remove) from known paths
         2. Removes the associated NTFS junction
         3. Deletes the AppContainer profile via userenv.dll
         4. Deletes the metadata JSON file
 
   B. Restricted-token sandboxes (allow_read_all=True):
-     For each sandbox metadata file in ~/.qwenpaw/sandboxes/*.json:
+     For each sandbox metadata file in ~/.potato/sandboxes/*.json:
         1. Removes ACLs for capability SID and user SID from recorded paths
         2. Verifies ACL removal succeeded (re-checks each path)
         3. Removes Windows Firewall block rules for the sandbox user
@@ -23,8 +23,8 @@ This script performs cleanup for BOTH sandbox backends:
         6. Deletes the metadata JSON file
 
   After all entries are processed:
-     - Removes any remaining NTFS junctions in ~/.qwenpaw/junctions/
-     - Removes the QwenpawUsers local group (if empty)
+     - Removes any remaining NTFS junctions in ~/.potato/junctions/
+     - Removes the PotatoUsers local group (if empty)
      - Removes empty state directories
 
 This per-file approach allows the script to be interrupted and resumed
@@ -53,10 +53,10 @@ def _is_admin() -> bool:
 
 
 def _get_state_dir() -> Path:
-    """Returns the QwenPaw state directory (~/.qwenpaw)."""
+    """Returns the Potato state directory (~/.potato)."""
     return (
         Path(os.environ.get("USERPROFILE", os.path.expanduser("~")))
-        / ".qwenpaw"
+        / ".potato"
     )
 
 
@@ -397,8 +397,8 @@ def _remove_firewall_rules(username: str) -> bool:
 
     Returns True if removal succeeded (or rules did not exist).
     """
-    rule_name_out = f"QwenPaw_Block_{username}_Out"
-    rule_name_in = f"QwenPaw_Block_{username}_In"
+    rule_name_out = f"Potato_Block_{username}_Out"
+    rule_name_in = f"Potato_Block_{username}_In"
 
     ps_script = (
         f"Remove-NetFirewallRule -DisplayName '{rule_name_out}' "
@@ -693,10 +693,10 @@ def _cleanup_single_restricted_sandbox(  # pylint: disable=too-many-branches,too
 
 
 def _remove_python_dir_acl_marker() -> None:
-    """Removes the .qwenpaw_acl_granted marker from the Python install directory.
+    """Removes the .potato_acl_granted marker from the Python install directory.
 
     This marker is written by _ensure_python_dir_group_acl() after granting
-    RX to QwenpawUsers on the Python dir. When cleanup removes the group
+    RX to PotatoUsers on the Python dir. When cleanup removes the group
     (and its ACL is gone), the marker must also be removed so that the next
     sandbox creation will re-grant the ACL properly.
     """
@@ -704,7 +704,7 @@ def _remove_python_dir_acl_marker() -> None:
     if os.path.basename(python_dir).lower() == "scripts":
         python_dir = os.path.dirname(python_dir)
 
-    marker = os.path.join(python_dir, ".qwenpaw_acl_granted")
+    marker = os.path.join(python_dir, ".potato_acl_granted")
     if os.path.exists(marker):
         try:
             os.remove(marker)
@@ -716,17 +716,17 @@ def _remove_python_dir_acl_marker() -> None:
 
 
 def _cleanup_sandbox_group() -> None:
-    """Removes the QwenpawUsers local group if it exists."""
-    print("\n  Removing QwenpawUsers group...")
-    ok = _delete_local_group("QwenpawUsers")
+    """Removes the PotatoUsers local group if it exists."""
+    print("\n  Removing PotatoUsers group...")
+    ok = _delete_local_group("PotatoUsers")
     if ok:
         print("    Group deleted.")
     else:
         print("    Group deletion failed (may not exist or not empty).")
 
-    # Remove the .qwenpaw_acl_granted marker from Python directory.
+    # Remove the .potato_acl_granted marker from Python directory.
     # Without this, the next sandbox creation would see the stale marker
-    # and skip re-granting the ACL to the (re-created) QwenpawUsers group.
+    # and skip re-granting the ACL to the (re-created) PotatoUsers group.
     _remove_python_dir_acl_marker()
 
 
@@ -773,7 +773,7 @@ def _cleanup_state_dirs(state_dir: Path) -> None:
             except OSError as e:
                 print(f"    WARNING: Failed to remove {d}: {e}")
 
-    # Remove any remaining files in .qwenpaw (stray files, logs, etc.)
+    # Remove any remaining files in .potato (stray files, logs, etc.)
     if state_dir.is_dir():
         remaining = list(state_dir.iterdir())
         if not remaining:
@@ -814,7 +814,7 @@ def main() -> None:  # pylint: disable=too-many-statements
         restricted_count = len(list(sandboxes_dir.glob("*.json")))
 
     print("=" * 60)
-    print("WARNING: This will clean up ALL QwenPaw sandboxes,")
+    print("WARNING: This will clean up ALL Potato sandboxes,")
     print("including any that are currently RUNNING.")
     print()
     print(f"  AppContainer sandboxes found:       {appcontainer_count}")
@@ -823,7 +823,7 @@ def main() -> None:  # pylint: disable=too-many-statements
     print("The following actions will be performed:")
     print("  - Remove filesystem ACLs set by sandboxes")
     print("  - Delete AppContainer profiles")
-    print("  - Delete local sandbox user accounts (qwenpaw_*)")
+    print("  - Delete local sandbox user accounts (potato_*)")
     print("  - Remove firewall block rules")
     print("  - Remove user profile directories")
     print("  - Delete sandbox metadata files")
@@ -838,7 +838,7 @@ def main() -> None:  # pylint: disable=too-many-statements
     print()
 
     print("=" * 60)
-    print("QwenPaw Sandbox Cleanup")
+    print("Potato Sandbox Cleanup")
     print("=" * 60)
     print(f"  State directory: {state_dir}")
     print()

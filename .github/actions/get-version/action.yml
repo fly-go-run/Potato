@@ -1,5 +1,5 @@
-name: Get QwenPaw Version
-description: Extract __version__ from src/qwenpaw/__version__.py
+name: Get Potato Version
+description: Extract __version__ from src/potato/__version__.py
 
 outputs:
   version:
@@ -13,9 +13,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        version=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/qwenpaw/__version__.py)
+        version=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/potato/__version__.py)
         if [ -z "$version" ]; then
-          echo "::error::Failed to extract __version__ from src/qwenpaw/__version__.py"
+          echo "::error::Failed to extract __version__ from src/potato/__version__.py"
           exit 1
         fi
         echo "version=$version" >> "$GITHUB_OUTPUT"

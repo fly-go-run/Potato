@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING, Optional
 
 from agentscope.message import Msg, TextBlock
 
-from qwenpaw.modes.base import AgentMode
-from qwenpaw.runtime.slash_command_registry import CommandSpec
+from potato.modes.base import AgentMode
+from potato.runtime.slash_command_registry import CommandSpec
 
 if TYPE_CHECKING:
-    from qwenpaw.runtime.hooks import HookContext
+    from potato.runtime.hooks import HookContext
 
-logger = logging.getLogger("qwenpaw").getChild(
+logger = logging.getLogger("potato").getChild(
     __name__.replace("plugin_cloudpaw.", ""),
 )
 

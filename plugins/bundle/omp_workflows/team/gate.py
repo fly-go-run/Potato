@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from qwenpaw.loop.gates.base import StopAction, StopHandlerResult
-from qwenpaw.loop.gates.loop_gate import LoopGate
+from potato.loop.gates.base import StopAction, StopHandlerResult
+from potato.loop.gates.loop_gate import LoopGate
 
 from ..shared.constants import (
     TEAM_MAX_FIX_ATTEMPTS,
@@ -56,7 +56,7 @@ class TeamPipelineGate(LoopGate):
         agent_role: str = "executor",
     ) -> Path:
         try:
-            from qwenpaw.agents.fork_project import begin_fork_scope
+            from potato.agents.fork_project import begin_fork_scope
 
             begin_fork_scope(workspace_dir)
         except ImportError:

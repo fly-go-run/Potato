@@ -97,7 +97,7 @@ jobs:
         timeout-minutes: 20
         uses: ./.github/actions/verify-tauri-macos
         with:
-          dashscope-api-key: ${{ secrets.QWENPAW_DASHSCOPE_API_KEY }}
+          dashscope-api-key: ${{ secrets.POTATO_DASHSCOPE_API_KEY }}
           allow-flaky-llm: "true"
 
       # 验证脚本把 UI 截图/失败诊断图写到 RUNNER_TEMP
@@ -112,11 +112,11 @@ jobs:
       - name: Stop desktop server
         if: always()
         run: |
-          pkill -f "QwenPaw Desktop" 2>/dev/null || true
-          pkill -f "qwenpaw-backend" 2>/dev/null || true
+          pkill -f "Potato Desktop" 2>/dev/null || true
+          pkill -f "potato-backend" 2>/dev/null || true
           sleep 2
-          pkill -9 -f "QwenPaw Desktop" 2>/dev/null || true
-          pkill -9 -f "qwenpaw-backend" 2>/dev/null || true
+          pkill -9 -f "Potato Desktop" 2>/dev/null || true
+          pkill -9 -f "potato-backend" 2>/dev/null || true
 
   tauri-windows:
     if: >-
@@ -181,7 +181,7 @@ jobs:
             --bundle-dir console/src-tauri/target/release/bundle/nsis `
             --pattern '*-setup.exe' `
             --target windows-x86_64 `
-            --output "dist/QwenPaw-Tauri-${{ steps.version.outputs.version }}-Windows-setup.exe" `
+            --output "dist/Potato-Tauri-${{ steps.version.outputs.version }}-Windows-setup.exe" `
             --pubkey-config console/src-tauri/tauri.version.conf.json
 
       # 上传放在 verify 之前:验证失败不应扣押安装包
@@ -191,8 +191,8 @@ jobs:
         with:
           name: potato-windows-${{ steps.version.outputs.version }}
           path: |
-            dist/QwenPaw-Tauri-*-Windows-setup.exe
-            dist/QwenPaw-Tauri-*-Windows-setup.exe.sig
+            dist/Potato-Tauri-*-Windows-setup.exe
+            dist/Potato-Tauri-*-Windows-setup.exe.sig
             dist/tauri-windows-*-updater.json
           if-no-files-found: error
 
@@ -201,7 +201,7 @@ jobs:
         timeout-minutes: 20
         uses: ./.github/actions/verify-tauri-windows
         with:
-          dashscope-api-key: ${{ secrets.QWENPAW_DASHSCOPE_API_KEY }}
+          dashscope-api-key: ${{ secrets.POTATO_DASHSCOPE_API_KEY }}
           allow-flaky-llm: "true"
 
       # 验证脚本把 UI 截图/失败诊断图写到 RUNNER_TEMP
@@ -218,13 +218,13 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Continue"
-          Get-Process -Name "qwenpaw-desktop" -ErrorAction SilentlyContinue |
+          Get-Process -Name "potato-desktop" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
-          Get-Process -Name "qwenpaw-backend" -ErrorAction SilentlyContinue |
+          Get-Process -Name "potato-backend" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 2
-          Get-Process -Name "qwenpaw-desktop" -ErrorAction SilentlyContinue |
+          Get-Process -Name "potato-desktop" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
-          Get-Process -Name "qwenpaw-backend" -ErrorAction SilentlyContinue |
+          Get-Process -Name "potato-backend" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
           exit 0

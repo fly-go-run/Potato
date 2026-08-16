@@ -3,10 +3,10 @@
   "productName": "Potato",
   "identifier": "io.agentscope.qwenpaw.desktop",
   "build": {
-    "frontendDist": "../dist-tauri",
-    "devUrl": "http://localhost:5173/tauri.html",
-    "beforeDevCommand": "vite --mode tauri",
-    "beforeBuildCommand": "npm run build:tauri-bootstrap"
+    "frontendDist": "../../app/dist",
+    "devUrl": "http://localhost:5174",
+    "beforeDevCommand": "npm --prefix ../app run dev",
+    "beforeBuildCommand": "npm --prefix ../app run build"
   },
   "app": {
     "withGlobalTauri": false,
@@ -33,7 +33,7 @@
         "script-src": "'self'",
         "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src": "'self' https://fonts.gstatic.com",
-        "img-src": "'self' asset: http://asset.localhost blob: data: https:"
+        "img-src": "'self' asset: http://asset.localhost http://127.0.0.1:* blob: data: https:"
       }
     }
   },
@@ -45,7 +45,7 @@
       "../../scripts/pack/assets/icon.ico"
     ],
     "resources": [
-      "binaries/qwenpaw-backend",
+      "binaries/potato-backend",
       "binaries/python-runtime",
       "binaries/node-runtime"
     ],
@@ -84,6 +84,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDRjU1RTE4NTRBNTZGMzQKUldRMGI2VlVHRjcxdkhBNk1yMmkvdTlpd2dDY2duU3hJMlp4cnFEUmJyTVp0eUkzb0JBcGhWaXYK",
       "endpoints": [
+        "https://chat.recodex.top/potato-updates/metadata/potato-tauri-latest.json",
         "https://chat.recodex.top/potato-updates/metadata/qwenpaw-tauri-latest.json"
       ],
       "windows": {

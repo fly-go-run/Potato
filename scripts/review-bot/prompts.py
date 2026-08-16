@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Review prompt templates for QwenPaw AI Review Bot.
+"""Review prompt templates for Potato AI Review Bot.
 
 The review methodology, coding standards, and anti-pattern checklist
 live in the workspace persona files (SOUL.md, AGENTS.md) written by
@@ -11,7 +11,7 @@ that tells the agent which PR to review and what output format to use.
 def build_review_prompt(pr_number: int, repo: str) -> str:
     """Build a task-oriented review prompt.
 
-    Instead of embedding the full diff in the prompt, we tell QwenPaw
+    Instead of embedding the full diff in the prompt, we tell Potato
     to fetch the PR data itself using ``gh`` CLI commands.
 
     Args:

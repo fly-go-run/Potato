@@ -182,6 +182,31 @@ function progress(id: string): ProcessEntry {
   };
 }
 
+function aside(id: string, text: string): ProcessEntry {
+  return {
+    kind: "narration",
+    key: id,
+    message: {
+      id,
+      type: "message",
+      role: "assistant",
+      status: "completed",
+      metadata: null,
+      content: [
+        {
+          object: "content",
+          type: "text",
+          delta: false,
+          index: 0,
+          status: "completed",
+          msg_id: id,
+          text,
+        },
+      ],
+    },
+  };
+}
+
 function foldRowsOf(entries: ProcessEntry[]): FoldRow[] {
   return materializeRun(entries)
     .filter(
@@ -205,6 +230,23 @@ describe("toolFamily", () => {
     expect(toolFamily("skill")).toBe("skill");
     expect(toolFamily("mcp__web_search")).toBe("search");
     expect(toolFamily("send_file_to_user")).toBe("other");
+  });
+});
+
+describe("materializeRun asides", () => {
+  it("keeps fold-role narration as its own row", () => {
+    const rows = foldRowsOf([
+      aside("n1", "我查一下北京今天的实时天气和预报。"),
+      successPair("s1", "web_search", { search_term: "北京今天" }),
+    ]);
+    expect(rows[0]).toMatchObject({
+      type: "aside",
+      key: "n1",
+    });
+    expect(rows[1]).toMatchObject({
+      type: "group",
+      family: "search",
+    });
   });
 });
 

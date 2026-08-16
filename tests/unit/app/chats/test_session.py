@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for ``qwenpaw.app.chats.session``.
+"""Unit tests for ``potato.app.chats.session``.
 
 Covers:
 - ``_safe_json_loads`` recovery from corrupted JSON
@@ -18,14 +18,14 @@ from pathlib import Path
 
 import pytest
 
-import qwenpaw.app.chats.session as session_mod
-from qwenpaw.app.chats.session import (
+import potato.app.chats.session as session_mod
+from potato.app.chats.session import (
     SafeJSONSession,
     _safe_json_loads,
     migrate_legacy_weixin_session_files,
     sanitize_filename,
 )
-from qwenpaw.exceptions import AgentStateError
+from potato.exceptions import AgentStateError
 
 
 class _StateModule:
@@ -263,7 +263,7 @@ async def test_update_session_state_empty_key_path_rejected(session, tmp_path):
     # exercise deterministic).
     (tmp_path / "u_sess-4.json").write_text("{}", encoding="utf-8")
 
-    from qwenpaw.exceptions import ConfigurationException
+    from potato.exceptions import ConfigurationException
 
     with pytest.raises(ConfigurationException):
         await session.update_session_state(

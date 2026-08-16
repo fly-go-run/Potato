@@ -31,9 +31,9 @@ const DOC_SLUGS = [
 async function main() {
   const indexHtml = await readFile(join(distDir, "index.html"), "utf-8");
   const BLOG_SLUGS = [
-    "introducing-qwenpaw-driver",
-    "qwenpaw-developer-day-collection",
-    "play-with-qwenpaw-pet",
+    "introducing-potato-driver",
+    "potato-developer-day-collection",
+    "play-with-potato-pet",
   ];
   const paths = [
     "docs",

@@ -28,8 +28,8 @@ from acp.schema import (
     UsageUpdate,
 )
 
-from qwenpaw.cli.tui import events as E
-from qwenpaw.cli.tui.normalize import normalize_update
+from potato.cli.tui import events as E
+from potato.cli.tui.normalize import normalize_update
 
 pytestmark = [pytest.mark.unit, pytest.mark.p1]
 
@@ -47,7 +47,7 @@ def test_message_chunk_with_error_meta_is_transport_error():
     chunk = AgentMessageChunk(
         sessionUpdate="agent_message_chunk",
         content=text_block("Error: bad key"),
-        field_meta={"qwenpaw.error": True},
+        field_meta={"potato.error": True},
     )
     assert normalize_update(chunk) == [E.TransportError("Error: bad key")]
 

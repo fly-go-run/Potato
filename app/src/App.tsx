@@ -9,6 +9,10 @@ import {
 import { DesktopHostBridge } from "./components/desktop/DesktopHostBridge";
 import { AppShell } from "./components/layout/AppShell";
 import { authApi, getAuthToken } from "./lib/api";
+import {
+  ensureBackendOriginResolver,
+  waitForBackendOrigin,
+} from "./lib/backendOrigin";
 import { notifyDesktopReady } from "./lib/desktop";
 import { useTranslation } from "./lib/i18n";
 import { useThemeInit } from "./lib/theme";
@@ -38,6 +42,10 @@ const MemoryView = lazy(() =>
 
 export function App() {
   useThemeInit();
+  useEffect(() => {
+    ensureBackendOriginResolver();
+    void notifyDesktopReady();
+  }, []);
   return (
     <HashRouter>
       <DesktopHostBridge />
@@ -133,53 +141,27 @@ function SettingsLoading() {
 
 function AuthGate({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const [state, setState] = useState<"checking" | "allowed" | "login">(
-    "checking",
-  );
+  const [loginRequired, setLoginRequired] = useState(false);
 
   useEffect(() => {
     let active = true;
-    let settled = false;
-    // 后端已通过 native health check 才会导航到这里；认证状态接口若异常
-    // 悬挂，不应让 WebView 永远保持空白。超时后进入壳层，受保护接口仍会
-    // 自己返回 401 并统一跳转登录。
-    const fallback = window.setTimeout(() => {
-      if (!active || settled) return;
-      settled = true;
-      setState("allowed");
-    }, 3000);
-    void authApi
-      .status()
-      .then((status) => {
-        if (!active || settled) return;
-        settled = true;
-        window.clearTimeout(fallback);
-        setState(!status.enabled || getAuthToken() ? "allowed" : "login");
-      })
-      .catch(() => {
-        if (!active || settled) return;
-        settled = true;
-        window.clearTimeout(fallback);
-        setState("allowed");
-      });
+    void (async () => {
+      try {
+        await waitForBackendOrigin();
+        if (!active) return;
+        const status = await authApi.status();
+        if (!active) return;
+        setLoginRequired(Boolean(status.enabled && !getAuthToken()));
+      } catch {
+        if (active) setLoginRequired(false);
+      }
+    })();
     return () => {
       active = false;
-      window.clearTimeout(fallback);
     };
   }, [location.pathname]);
 
-  useEffect(() => {
-    if (state !== "login" || location.pathname !== "/login") return;
-    const frame = window.requestAnimationFrame(() => {
-      void notifyDesktopReady();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [location.pathname, state]);
-
-  if (state === "checking") {
-    return null;
-  }
-  if (state === "login" && !getAuthToken() && location.pathname !== "/login") {
+  if (loginRequired && !getAuthToken() && location.pathname !== "/login") {
     return <Navigate to="/login" replace />;
   }
   return children;

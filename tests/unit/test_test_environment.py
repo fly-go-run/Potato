@@ -4,9 +4,9 @@
 from pathlib import Path
 
 
-def test_qwenpaw_default_storage_is_not_the_user_home() -> None:
+def test_potato_default_storage_is_not_the_user_home() -> None:
     """Business-module imports during unit tests must use a tmp runtime."""
-    from qwenpaw.constant import SECRET_DIR, WORKING_DIR
+    from potato.constant import SECRET_DIR, WORKING_DIR
 
-    assert WORKING_DIR != Path.home() / ".qwenpaw"
-    assert SECRET_DIR != Path.home() / ".qwenpaw.secret"
+    assert WORKING_DIR != Path.home() / ".potato"
+    assert SECRET_DIR != Path.home() / ".potato.secret"

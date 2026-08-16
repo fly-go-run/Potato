@@ -21,16 +21,16 @@ FROM ${NODE_IMAGE}
 # ENV variables
 ENV NODE_ENV=production
 ENV WORKSPACE_DIR=/app
-ENV QWENPAW_WORKING_DIR=/app/working
-ENV QWENPAW_SECRET_DIR=/app/working.secret
-ENV QWENPAW_BACKUP_DIR=/app/working.backups
+ENV POTATO_WORKING_DIR=/app/working
+ENV POTATO_SECRET_DIR=/app/working.secret
+ENV POTATO_BACKUP_DIR=/app/working.backups
 
-# Channel filtering: use QWENPAW_DISABLED_CHANNELS (exclusion, recommended)
-# or QWENPAW_ENABLED_CHANNELS (whitelist). Override at runtime with -e.
-ARG QWENPAW_DISABLED_CHANNELS="imessage"
-ENV QWENPAW_DISABLED_CHANNELS=${QWENPAW_DISABLED_CHANNELS}
-ARG QWENPAW_ENABLED_CHANNELS=""
-ENV QWENPAW_ENABLED_CHANNELS=${QWENPAW_ENABLED_CHANNELS}
+# Channel filtering: use POTATO_DISABLED_CHANNELS (exclusion, recommended)
+# or POTATO_ENABLED_CHANNELS (whitelist). Override at runtime with -e.
+ARG POTATO_DISABLED_CHANNELS="imessage"
+ENV POTATO_DISABLED_CHANNELS=${POTATO_DISABLED_CHANNELS}
+ARG POTATO_ENABLED_CHANNELS=""
+ENV POTATO_ENABLED_CHANNELS=${POTATO_ENABLED_CHANNELS}
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -83,7 +83,7 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 # Avoid Playwright downloading its own browser when executable_path is used.
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 # Indicate running in container (used e.g. for Chromium --no-sandbox).
-ENV QWENPAW_RUNNING_IN_CONTAINER=1
+ENV POTATO_RUNNING_IN_CONTAINER=1
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -92,17 +92,17 @@ ENV PATH="/app/venv/bin:$PATH"
 
 COPY pyproject.toml setup.py README.md ./
 COPY src ./src
-COPY website/public/docs/ ./src/qwenpaw/docs/
-# Stage the default web UI in the historical qwenpaw/console package-data
+COPY website/public/docs/ ./src/potato/docs/
+# Stage the default web UI in the historical potato/console package-data
 # location used by the backend's /console route.
-COPY --from=web-app-builder /app/app/dist/ ./src/qwenpaw/console/
+COPY --from=web-app-builder /app/app/dist/ ./src/potato/console/
 # Speed up Python package installation with uv.
 COPY --from=uv-src /uv /bin/uv
 RUN uv pip install --no-cache-dir . && rm -rf ./build
 
 
-# QwenPaw app port (default 8088). Override at runtime with -e QWENPAW_PORT=3000.
-ENV QWENPAW_PORT=8088
+# Potato app port (default 8088). Override at runtime with -e POTATO_PORT=3000.
+ENV POTATO_PORT=8088
 
 COPY deploy/config/supervisord.conf.template /etc/supervisor/conf.d/supervisord.conf.template
 COPY --chmod=755 deploy/entrypoint.sh /entrypoint.sh

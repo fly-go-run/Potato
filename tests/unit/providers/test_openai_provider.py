@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 from agentscope.model import OpenAIChatModel
 
-import qwenpaw.providers.openai_provider as openai_provider_module
-from qwenpaw.providers.openai_provider import OpenAIProvider
-from qwenpaw.providers.provider import ModelInfo
+import potato.providers.openai_provider as openai_provider_module
+from potato.providers.openai_provider import OpenAIProvider
+from potato.providers.provider import ModelInfo
 
 
 def _make_provider(is_custom: bool = False) -> OpenAIProvider:

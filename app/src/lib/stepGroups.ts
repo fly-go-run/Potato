@@ -11,6 +11,7 @@ import type { StreamMessage } from "./stream";
 export type ProcessEntry =
   | { kind: "reasoning"; key: string; message: StreamMessage }
   | { kind: "progress"; key: string; message: StreamMessage }
+  | { kind: "narration"; key: string; message: StreamMessage }
   | { kind: "pair"; key: string; pair: ToolPair };
 
 export type ToolFamily =
@@ -61,7 +62,13 @@ export type ProgressRow = {
   message: StreamMessage;
 };
 
-export type FoldRow = ToolGroupRow | ThinkingRow | ProgressRow;
+export type AsideRow = {
+  type: "aside";
+  key: string;
+  message: StreamMessage;
+};
+
+export type FoldRow = ToolGroupRow | ThinkingRow | ProgressRow | AsideRow;
 
 export type MaterializedItem =
   | { kind: "fold"; row: FoldRow }
@@ -214,6 +221,14 @@ export function materializeRun(entries: ProcessEntry[]): MaterializedItem[] {
       items.push({
         kind: "fold",
         row: { type: "progress", key: entry.key, message: entry.message },
+      });
+      index += 1;
+      continue;
+    }
+    if (entry.kind === "narration") {
+      items.push({
+        kind: "fold",
+        row: { type: "aside", key: entry.key, message: entry.message },
       });
       index += 1;
       continue;

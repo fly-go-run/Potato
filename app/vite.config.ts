@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function readProductVersion(): string {
-  const versionFile = path.resolve(__dirname, "../src/qwenpaw/__version__.py");
+  const versionFile = path.resolve(__dirname, "../src/potato/__version__.py");
   try {
     const match = /__version__\s*=\s*["']([^"']+)["']/.exec(
       readFileSync(versionFile, "utf8"),
@@ -26,7 +26,7 @@ function readProductVersion(): string {
     : "2.0.5";
 }
 
-// 后端同源托管：build 产物放 app/dist，可由 QWENPAW_WEB_STATIC_DIR 覆盖。
+// 后端同源托管：build 产物放 app/dist，可由 POTATO_WEB_STATIC_DIR 覆盖。
 // dev 模式下 /api 代理到本地后端（默认 8088，与旧 console 一致）。
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss()],
@@ -42,9 +42,10 @@ export default defineConfig(({ command }) => ({
     port: 5174,
     proxy: {
       "/api": {
-        // 桌面版后端端口随机，联调时用 QWENPAW_DEV_BACKEND 覆盖
-        target: process.env.QWENPAW_DEV_BACKEND || "http://localhost:8088",
+        // 桌面版后端端口随机，联调时用 POTATO_DEV_BACKEND 覆盖
+        target: process.env.POTATO_DEV_BACKEND || "http://localhost:8088",
         changeOrigin: false,
+        ws: true,
       },
     },
   },

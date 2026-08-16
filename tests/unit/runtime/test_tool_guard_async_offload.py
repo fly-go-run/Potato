@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.security.tool_guard.models import ToolGuardResult
+from potato.security.tool_guard.models import ToolGuardResult
 
 
 @pytest.mark.asyncio
 async def test_guarded_permissions_offloads_engine_guard():
     """Async permission adapter must not call engine.guard on the loop."""
-    from qwenpaw.runtime.tool_guard import _guarded_tool_check_permissions
+    from potato.runtime.tool_guard import _guarded_tool_check_permissions
 
     engine = MagicMock()
     engine.enabled = True
@@ -33,11 +33,11 @@ async def test_guarded_permissions_offloads_engine_guard():
 
     with (
         patch(
-            "qwenpaw.security.tool_guard.engine.get_guard_engine",
+            "potato.security.tool_guard.engine.get_guard_engine",
             return_value=engine,
         ),
         patch(
-            "qwenpaw.runtime.tool_guard.asyncio.to_thread",
+            "potato.runtime.tool_guard.asyncio.to_thread",
             new_callable=AsyncMock,
         ) as to_thread,
     ):

@@ -20,25 +20,25 @@ html2text_stub = types.ModuleType("html2text")
 html2text_stub.HTML2Text = type("HTML2Text", (), {})
 sys.modules.setdefault("html2text", html2text_stub)
 
-from qwenpaw.agents.middlewares import (  # noqa: E402
+from potato.agents.middlewares import (  # noqa: E402
     ToolResultPruningMiddleware,
 )
-from qwenpaw.agents.tools.utils import (  # noqa: E402
+from potato.agents.tools.utils import (  # noqa: E402
     build_truncation_metadata,
     MAX_TRUNCATION_NOTICE_BYTES,
     ToolResultPruner,
     truncate_text_output,
     TRUNCATION_METADATA_KEY,
 )
-from qwenpaw.config.config import (  # noqa: E402
+from potato.config.config import (  # noqa: E402
     LightContextConfig,
     ScrollContextConfig,
     ToolResultPruningConfig,
 )
-from qwenpaw.constant import TRUNCATION_NOTICE_MARKER  # noqa: E402
-from qwenpaw.runtime.builder import AgentBuilder  # noqa: E402
-from qwenpaw.agents.react_agent import QwenPawAgent  # noqa: E402
-from qwenpaw.tool_calls import (  # noqa: E402
+from potato.constant import TRUNCATION_NOTICE_MARKER  # noqa: E402
+from potato.runtime.builder import AgentBuilder  # noqa: E402
+from potato.agents.react_agent import PotatoAgent  # noqa: E402
+from potato.tool_calls import (  # noqa: E402
     ToolCoordinator,
     ToolCoordinatorMiddleware,
 )
@@ -84,12 +84,12 @@ async def test_scroll_artifact_retention_uses_tool_result_setting():
         ),
     )
 
-    await QwenPawAgent.close(agent)
+    await PotatoAgent.close(agent)
     assert offloader.retention_days == [7]
 
     lcc.scroll_config.history_retention_days = 0
     offloader.retention_days.clear()
-    await QwenPawAgent.close(agent)
+    await PotatoAgent.close(agent)
     assert offloader.retention_days == [7]
 
 
@@ -164,7 +164,7 @@ async def test_tool_response_write_failure_fails_open(
         raise OSError("disk full")
 
     monkeypatch.setattr(
-        "qwenpaw.agents.tools.utils.save_text_output",
+        "potato.agents.tools.utils.save_text_output",
         fail_save,
     )
 
@@ -692,7 +692,7 @@ async def test_oversized_agentscope_split_preserves_qp_metadata(
     )
 
     reserved, offloaded = (
-        await QwenPawAgent._split_tool_result_for_compression(shim, result)
+        await PotatoAgent._split_tool_result_for_compression(shim, result)
     )
 
     assert offloaded is not None
@@ -706,10 +706,10 @@ def test_explicit_legacy_scroll_tool_cap_warns_once_and_is_not_saved(
     caplog,
     monkeypatch,
 ):
-    import qwenpaw.config.config as config_module
+    import potato.config.config as config_module
 
     monkeypatch.setattr(config_module, "_legacy_scroll_tool_cap_warned", False)
-    with caplog.at_level(logging.WARNING, logger="qwenpaw.config.config"):
+    with caplog.at_level(logging.WARNING, logger="potato.config.config"):
         config = LightContextConfig(
             strategy="scroll",
             scroll_config={"tool_output_token_cap": 1200},
@@ -727,7 +727,7 @@ def test_explicit_legacy_scroll_tool_cap_warns_once_and_is_not_saved(
 
 
 def test_default_legacy_scroll_tool_cap_does_not_warn(caplog):
-    with caplog.at_level(logging.WARNING, logger="qwenpaw.config.config"):
+    with caplog.at_level(logging.WARNING, logger="potato.config.config"):
         LightContextConfig(strategy="scroll")
 
     assert "tool_output_token_cap is deprecated and ignored" not in caplog.text

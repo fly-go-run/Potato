@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  getDesktopBackendPort,
   getDesktopWindowStatePreference,
   hasDesktopHostBridge,
+  isDesktopShell,
   listenDesktopEvent,
   resetDesktopWindowState,
   runDesktopCloseAction,
@@ -25,7 +27,11 @@ function installDesktopHost(
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      location: { search: "?desktop=1" },
+      location: {
+        protocol: "http:",
+        hostname: "localhost",
+        search: "?desktop=1",
+      },
       __TAURI_INTERNALS__: { invoke, transformCallback },
       __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: vi.fn() },
     },
@@ -36,10 +42,25 @@ describe("desktop host bridge", () => {
   it("does not enable desktop behavior for a normal browser page", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
-      value: { location: { search: "" } },
+      value: { location: { protocol: "http:", hostname: "localhost", search: "" } },
     });
 
     expect(hasDesktopHostBridge()).toBe(false);
+  });
+
+  it("treats an injected Tauri bridge as the desktop shell", async () => {
+    const invoke = vi.fn(async () => 8090);
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: { protocol: "http:", hostname: "localhost", search: "" },
+        __TAURI_INTERNALS__: { invoke },
+      },
+    });
+
+    expect(isDesktopShell()).toBe(true);
+    await expect(getDesktopBackendPort()).resolves.toBe(8090);
+    expect(invoke).toHaveBeenCalledWith("backend_port", undefined);
   });
 
   it("registers and removes Tauri events through the injected bridge", async () => {
@@ -55,12 +76,12 @@ describe("desktop host bridge", () => {
     const received = vi.fn();
 
     const unlisten = await listenDesktopEvent<string>(
-      "qwenpaw-close-requested",
+      "potato-close-requested",
       received,
     );
 
     expect(invoke).toHaveBeenCalledWith("plugin:event|listen", {
-      event: "qwenpaw-close-requested",
+      event: "potato-close-requested",
       target: { kind: "Any" },
       handler: 9,
     });
@@ -70,7 +91,7 @@ describe("desktop host bridge", () => {
     unlisten?.();
     await Promise.resolve();
     expect(invoke).toHaveBeenCalledWith("plugin:event|unlisten", {
-      event: "qwenpaw-close-requested",
+      event: "potato-close-requested",
       eventId: 42,
     });
   });

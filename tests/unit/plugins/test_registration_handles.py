@@ -7,19 +7,19 @@ from pathlib import Path
 import pytest
 from fastapi import APIRouter, FastAPI
 
-from qwenpaw.app.workspace.workspace_plugins import WorkspacePlugins
-from qwenpaw.app.channels.command_registry import CommandRegistry
-from qwenpaw.plugins.api import PluginApi
-from qwenpaw.plugins.architecture import (
+from potato.app.workspace.workspace_plugins import WorkspacePlugins
+from potato.app.channels.command_registry import CommandRegistry
+from potato.plugins.api import PluginApi
+from potato.plugins.architecture import (
     PluginEntryPoints,
     PluginManifest,
     PluginRecord,
 )
-from qwenpaw.plugins.loader import PluginLoader
-from qwenpaw.plugins.registry import PluginRegistry, ProviderRegistration
-from qwenpaw.runtime.hooks import HookBase, HookRegistry, HookResult
-from qwenpaw.runtime.phases import Phase
-from qwenpaw.runtime.slash_command_registry import CommandSpec
+from potato.plugins.loader import PluginLoader
+from potato.plugins.registry import PluginRegistry, ProviderRegistration
+from potato.runtime.hooks import HookBase, HookRegistry, HookResult
+from potato.runtime.phases import Phase
+from potato.runtime.slash_command_registry import CommandSpec
 
 
 def _fresh_plugin_registry() -> PluginRegistry:
@@ -139,7 +139,7 @@ async def test_plugin_api_scope_owns_delayed_workspace_registrations() -> None:
 
 
 def test_control_command_handles_preserve_replacements() -> None:
-    from qwenpaw.runtime.commands import control
+    from potato.runtime.commands import control
 
     first = SimpleNamespace(command_name="owned")
     second = SimpleNamespace(command_name="owned")

@@ -1,28 +1,28 @@
 <div align="center">
 
-# QwenPaw
+# Potato
 
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-black.svg?logo=github)](https://github.com/agentscope-ai/QwenPaw)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-black.svg?logo=github)](https://github.com/fly-go-run/Potato)
 [![PyPI](https://img.shields.io/pypi/v/qwenpaw?color=3775A9&label=PyPI&logo=pypi)](https://pypi.org/project/qwenpaw/)
 [![Documentation](https://img.shields.io/badge/Docs-Website-green.svg?logo=readthedocs&label=Docs)](https://qwenpaw.agentscope.io/)
 [![Python Version](https://img.shields.io/badge/python-3.11%20~%20%3C3.14-blue.svg?logo=python&label=Python)](https://www.python.org/downloads/)
-[![Last Commit](https://img.shields.io/github/last-commit/agentscope-ai/QwenPaw)](https://github.com/agentscope-ai/QwenPaw)
+[![Last Commit](https://img.shields.io/github/last-commit/fly-go-run/Potato)](https://github.com/fly-go-run/Potato)
 [![License](https://img.shields.io/badge/license-Apache%202.0-red.svg?logo=apache&label=License)](LICENSE)
 [![Code Style](https://img.shields.io/badge/code%20style-black-black.svg?logo=python&label=CodeStyle)](https://github.com/psf/black)
-[![GitHub Stars](https://img.shields.io/github/stars/agentscope-ai/QwenPaw?style=flat&logo=github&color=yellow&label=Stars)](https://github.com/agentscope-ai/QwenPaw/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/agentscope-ai/QwenPaw?style=flat&logo=github&color=purple&label=Forks)](https://github.com/agentscope-ai/QwenPaw/network)
-[![DeepWiki](https://img.shields.io/badge/DeepWiki-Ask_Devin-navy.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/agentscope-ai/QwenPaw)
+[![GitHub Stars](https://img.shields.io/github/stars/fly-go-run/Potato?style=flat&logo=github&color=yellow&label=Stars)](https://github.com/fly-go-run/Potato/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/fly-go-run/Potato?style=flat&logo=github&color=purple&label=Forks)](https://github.com/fly-go-run/Potato/network)
+[![DeepWiki](https://img.shields.io/badge/DeepWiki-Ask_Devin-navy.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/fly-go-run/Potato)
 [![Discord](https://img.shields.io/badge/Discord-Join_Us-blueviolet.svg?logo=discord)](https://discord.gg/eYMpfnkG8h)
 [![X](https://img.shields.io/badge/X-Follow_Us-black.svg?logo=x)](https://x.com/agentscope_ai)
 [![DingTalk](https://img.shields.io/badge/DingTalk-Join_Us-orange.svg)](https://qr.dingtalk.com/action/joingroup?code=v1,k1,OmDlBXpjW+I2vWjKDsjvI9dhcXjGZi3bQiojOq3dlDw=&_dt_no_comment=1&origin=11)
 [![AgentScope Platform](https://img.shields.io/badge/%E2%98%81_AgentScope_Platform-%F0%9F%90%BE_7%2F24_Online_%26_Free-FF6B2B.svg)](https://platform.agentscope.io/)
 
-<a href="https://trendshift.io/repositories/25882" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/25882/daily" alt="agentscope-ai%2FQwenPaw | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/25882" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/25882/daily" alt="agentscope-ai%2FPotato | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 [[Документация](https://qwenpaw.agentscope.io/)] [[English](README.md)] [[中文](README_zh.md)] [[日本語](README_ja.md)]
 
 <p align="center">
-  <img src="https://gw.alicdn.com/imgextra/i1/O1CN01sens5C1TuwioeGexL_!!6000000002443-55-tps-771-132.svg" alt="QwenPaw Logo" width="120">
+  <img src="https://gw.alicdn.com/imgextra/i1/O1CN01sens5C1TuwioeGexL_!!6000000002443-55-tps-771-132.svg" alt="Potato Logo" width="120">
 </p>
 
 <p align="center"><b>Понимает вас, всегда с вами.</b></p>
@@ -34,7 +34,7 @@
 | | |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Никогда не забывает**                   | Трёхуровневая память — рабочий контекст в реальном времени, полная дословная история и дистиллированные знания. Старые реплики вытесняются, но доступны по запросу; ничего не суммируется и не теряется.     |
-| **Локально или в облаке, бесплатно**      | Модели QwenPaw-Flash (2B / 4B / 9B), обученные для агентных задач. Встроенный рантайм QwenPaw Local — без API-ключа, без зависимости от облака. Также работает с Ollama, LM Studio и 14+ облачными провайдерами.   |
+| **Локально или в облаке, бесплатно**      | Модели QwenPaw-Flash (2B / 4B / 9B), обученные для агентных задач. Встроенный рантайм Potato Local — без API-ключа, без зависимости от облака. Также работает с Ollama, LM Studio и 14+ облачными провайдерами.   |
 | **Безопасность из коробки**               | Песочница на уровне ядра, Tool Guard, File Guard и Skill Scanner. Опасные команды блокируются до выполнения.                                            |
 | **Мультиагентность и параллелизм**        | Создавайте независимых агентов со своей памятью и навыками. Субагенты во время выполнения. Agent Communication Protocol (ACP) для кросс-системной оркестрации.                               |
 | **Coding Mode**                           | Трёхпанельная Web IDE с деревом файлов, предпросмотром diff и чатом. Переход к определению, поиск ссылок и структурный поиск по коду встроены.                                              |
@@ -43,7 +43,7 @@
 | **Ваш, не наш**                           | Развертывание локально — данные остаются на вашей машине. Без стороннего хостинга, без загрузки данных.                                                                         |
 
 > <details>
-> <summary><b>Что можно делать с QwenPaw</b></summary>
+> <summary><b>Что можно делать с Potato</b></summary>
 >
 > <br>
 >
@@ -62,7 +62,7 @@
 
 - [2026-07-24] **v2.0.1** | Платформа мини-приложений PawApp, редактируемые Agent Mode, Oh-My-Paw plugins, улучшения памяти ReMe, улучшения UX десктопа и др. [v2.0.1 Release Notes →](https://qwenpaw.agentscope.io/release-notes#v2.0.1)
 
-- [2026-07-10] **v2.0.0 — QwenPaw 2.0 Official Release** 🎉 | Полностью переписанный на основе AgentScope 2.0: архитектура Agent OS, Loop Engineering, Scroll Context, ReMe v0.4.0 Long-term Memory и встроенный TUI.
+- [2026-07-10] **v2.0.0 — Potato 2.0 Official Release** 🎉 | Полностью переписанный на основе AgentScope 2.0: архитектура Agent OS, Loop Engineering, Scroll Context, ReMe v0.4.0 Long-term Memory и встроенный TUI.
 
   | Основное | Что нового |
   |----------|-----------|
@@ -73,11 +73,11 @@
   | **ReMe v0.4.0 Long-term Memory** | Авто-трекинг по ходам, поиск с учётом использования, бэкенд-специфичные эмбеддинги. |
   | **Terminal UI (TUI)** | Полноэкранный терминальный чат — тот же агент, память и сессии, что в Console и каналах. |
 
-  На базе Agent OS мы будем выпускать готовые к использованию приложения QwenPaw — такие как **QwenPaw Creator** и **QwenPaw Insight** — следите за обновлениями. [v2.0.0 Release Notes →](https://qwenpaw.agentscope.io/release-notes#v2.0.0)
+  На базе Agent OS мы будем выпускать готовые к использованию приложения Potato — такие как **Potato Creator** и **Potato Insight** — следите за обновлениями. [v2.0.0 Release Notes →](https://qwenpaw.agentscope.io/release-notes#v2.0.0)
 
 - [2026-06-17] **v1.1.12 — Обновление страницы моделей и Простой режим** | Новый дизайн страницы моделей с агрегацией провайдеров; Простой режим для упрощённой навигации. [v1.1.12 Release Notes →](https://qwenpaw.agentscope.io/release-notes#v1.1.12)
 
-- [2026-06-11] **Запуск платформы AgentScope** — Бесплатный деплой QwenPaw, обмен плагинами и маркет Skill. [Попробовать →](https://platform.agentscope.io/)
+- [2026-06-11] **Запуск платформы AgentScope** — Бесплатный деплой Potato, обмен плагинами и маркет Skill. [Попробовать →](https://platform.agentscope.io/)
 
 - [2026-06-10] **v1.1.11** — Бесплатные модели OAuth, Маркет плагинов, Белый список MCP. [v1.1.11 Release Notes →](https://qwenpaw.agentscope.io/release-notes#v1.1.11)
 
@@ -97,7 +97,7 @@
 - [Дорожная карта](#дорожная-карта)
 - [Участие в проекте](#участие-в-проекте)
 - [Установка из исходников](#установка-из-исходников)
-- [Почему QwenPaw?](#почему-qwenpaw)
+- [Почему Potato?](#почему-potato)
 - [Кто разрабатывает](#кто-разрабатывает)
 - [Лицензия](#лицензия)
 
@@ -111,8 +111,8 @@
 
 ```bash
 pip install qwenpaw
-qwenpaw init --defaults
-qwenpaw app
+potato init --defaults
+potato app
 ```
 
 Затем откройте консоль в браузере: **http://127.0.0.1:8088/** и настройте модель. Для чата в DingTalk, Lark, WeChat и других приложениях см. документацию [Настройка каналов](https://qwenpaw.agentscope.io/docs/channels).
@@ -123,7 +123,7 @@ qwenpaw app
 
 ### Вариант 2: Установка через скрипт
 
-Не требуется ручная настройка Python — одна команда устанавливает всё. Скрипт автоматически загрузит uv (менеджер пакетов Python), создаст виртуальное окружение и установит QwenPaw со всеми зависимостями (включая Node.js и frontend-ресурсы). Примечание: может не работать в ограниченных сетевых окружениях или при корпоративном контроле доступа.
+Не требуется ручная настройка Python — одна команда устанавливает всё. Скрипт автоматически загрузит uv (менеджер пакетов Python), создаст виртуальное окружение и установит Potato со всеми зависимостями (включая Node.js и frontend-ресурсы). Примечание: может не работать в ограниченных сетевых окружениях или при корпоративном контроле доступа.
 
 **macOS / Linux:**
 
@@ -152,9 +152,9 @@ irm https://qwenpaw.agentscope.io/install.ps1 | iex
 >
 >    Скрипт завершает установку файлов. Из-за **режима ограниченного языка** он не может автоматически обновить переменные окружения. Настройте вручную следующим образом:
 >    - **Найдите директорию установки**:
->      - Проверьте доступность `uv`: Введите `uv --version` в CMD. Если отображается номер версии, **настройте только путь QwenPaw**. Если появляется сообщение `'uv' is not recognized as an internal or external command, operable program or batch file,` настройте оба пути.
+>      - Проверьте доступность `uv`: Введите `uv --version` в CMD. Если отображается номер версии, **настройте только путь Potato**. Если появляется сообщение `'uv' is not recognized as an internal or external command, operable program or batch file,` настройте оба пути.
 >      - Путь uv (выберите один в зависимости от места установки; используйте, если `uv` недоступен): Обычно `%USERPROFILE%\.local\bin`, `%USERPROFILE%\AppData\Local\uv` или папка `Scripts` в директории установки Python
->      - Путь QwenPaw: Обычно находится в `%USERPROFILE%\.qwenpaw\bin`.
+>      - Путь Potato: Обычно находится в `%USERPROFILE%\.potato\bin`.
 >    - **Вручную добавьте в системную переменную окружения Path**:
 >      - Нажмите `Win + R`, введите `sysdm.cpl` и нажмите Enter, чтобы открыть свойства системы.
 >      - Нажмите «Дополнительно» → «Переменные среды».
@@ -164,15 +164,15 @@ irm https://qwenpaw.agentscope.io/install.ps1 | iex
 >
 >   Из-за **режима ограниченного языка** скрипт может не суметь автоматически загрузить `uv`.
 >   - **Установите uv вручную**: Обратитесь к [GitHub Release](https://github.com/astral-sh/uv/releases), загрузите `uv.exe` и поместите его в `%USERPROFILE%\.local\bin` или `%USERPROFILE%\AppData\Local\uv`; или убедитесь, что Python установлен, и выполните `python -m pip install -U uv`.
->   - **Настройте переменные окружения `uv`**: Добавьте директорию `uv` и `%USERPROFILE%\.qwenpaw\bin` в системную переменную `Path`.
->   - **Повторно запустите установку**: Откройте новый терминал и снова выполните скрипт установки для завершения установки `QwenPaw`.
->   - **Настройте переменную окружения `QwenPaw`**: Добавьте `%USERPROFILE%\.qwenpaw\bin` в системную переменную `Path`.
+>   - **Настройте переменные окружения `uv`**: Добавьте директорию `uv` и `%USERPROFILE%\.potato\bin` в системную переменную `Path`.
+>   - **Повторно запустите установку**: Откройте новый терминал и снова выполните скрипт установки для завершения установки `Potato`.
+>   - **Настройте переменную окружения `Potato`**: Добавьте `%USERPROFILE%\.potato\bin` в системную переменную `Path`.
 
 После установки откройте новый терминал и выполните:
 
 ```bash
-qwenpaw init --defaults   # или: qwenpaw init (интерактивный)
-qwenpaw app
+potato init --defaults   # или: potato init (интерактивный)
+potato app
 ```
 
 <details>
@@ -191,8 +191,8 @@ curl -fsSL ... | bash -s -- --from-source
 curl -fsSL ... | bash
 
 # Удаление
-qwenpaw uninstall          # сохраняет конфигурацию и данные
-qwenpaw uninstall --purge  # удаляет всё
+potato uninstall          # сохраняет конфигурацию и данные
+potato uninstall --purge  # удаляет всё
 ```
 
 **Windows (PowerShell):**
@@ -208,8 +208,8 @@ irm ... | iex; .\install.ps1 -Version 1.1.12
 irm ... | iex
 
 # Удаление
-qwenpaw uninstall          # сохраняет конфигурацию и данные
-qwenpaw uninstall --purge  # удаляет всё
+potato uninstall          # сохраняет конфигурацию и данные
+potato uninstall --purge  # удаляет всё
 ```
 
 </details>
@@ -236,7 +236,7 @@ docker run -p 127.0.0.1:8088:8088 \
 
 > **Подключение к Ollama или другим сервисам на хост-машине**
 >
-> Внутри Docker-контейнера `localhost` указывает на сам контейнер, а не на хост-машину. Если Ollama (или другие модельные сервисы) запущены на хосте и вы хотите, чтобы QwenPaw в Docker мог к ним обращаться, используйте один из следующих подходов:
+> Внутри Docker-контейнера `localhost` указывает на сам контейнер, а не на хост-машину. Если Ollama (или другие модельные сервисы) запущены на хосте и вы хотите, чтобы Potato в Docker мог к ним обращаться, используйте один из следующих подходов:
 >
 > **Вариант A** — Явная привязка к хосту (все платформы):
 > ```bash
@@ -247,7 +247,7 @@ docker run -p 127.0.0.1:8088:8088 \
 >   -v qwenpaw-backups:/app/working.backups \
 >   agentscope/qwenpaw:latest
 > ```
-> Затем в QwenPaw **Настройки → Модели** измените Base URL на `http://host.docker.internal:<порт>` — например, `http://host.docker.internal:11434` для Ollama или `http://host.docker.internal:1234/v1` для LM Studio.
+> Затем в Potato **Настройки → Модели** измените Base URL на `http://host.docker.internal:<порт>` — например, `http://host.docker.internal:11434` для Ollama или `http://host.docker.internal:1234/v1` для LM Studio.
 >
 > **Вариант B** — Сеть хоста (только Linux):
 > ```bash
@@ -266,19 +266,19 @@ docker run -p 127.0.0.1:8088:8088 \
 
 ### Вариант 4: Развертывание на Alibaba Cloud ECS
 
-Для запуска QwenPaw на Alibaba Cloud (ECS) используйте развертывание в один клик: откройте [ссылку развертывания QwenPaw на Alibaba Cloud ECS](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-1ed84201799f40879884) и следуйте инструкциям. Пошаговые инструкции см. в [Сообщество разработчиков Alibaba Cloud: Развертывание вашего AI-ассистента за 3 минуты](https://developer.aliyun.com/article/1713682).
+Для запуска Potato на Alibaba Cloud (ECS) используйте развертывание в один клик: откройте [ссылку развертывания Potato на Alibaba Cloud ECS](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-1ed84201799f40879884) и следуйте инструкциям. Пошаговые инструкции см. в [Сообщество разработчиков Alibaba Cloud: Развертывание вашего AI-ассистента за 3 минуты](https://developer.aliyun.com/article/1713682).
 
 ---
 
 ### Вариант 5: AgentScope Platform
 
-[AgentScope Platform](https://platform.agentscope.io/) обеспечивает развертывание QwenPaw в облаке в один клик, обмен плагинами и маркет Skill. Бесплатно, работает 7/24 онлайн.
+[AgentScope Platform](https://platform.agentscope.io/) обеспечивает развертывание Potato в облаке в один клик, обмен плагинами и маркет Skill. Бесплатно, работает 7/24 онлайн.
 
 ---
 
 ### Вариант 6: Использование ModelScope
 
-[ModelScope Studio](https://modelscope.cn/studios/fork?target=AgentScope/QwenPaw) также поддерживает облачное развертывание QwenPaw. Примечание: установите свою студию как **непубличную**, иначе другие смогут управлять вашим QwenPaw.
+[ModelScope Studio](https://modelscope.cn/studios/fork?target=AgentScope/QwenPaw) также поддерживает облачное развертывание Potato. Примечание: установите свою студию как **непубличную**, иначе другие смогут управлять вашим Potato.
 
 ---
 
@@ -289,13 +289,13 @@ docker run -p 127.0.0.1:8088:8088 \
 > - **Возможны проблемы с производительностью**: Время запуска, использование памяти и другие аспекты производительности могут требовать дополнительной оптимизации
 > - **Функции продолжают совершенствоваться**: Некоторые функции могут быть нестабильными или отсутствовать
 
-Если вы не привыкли использовать командную строку, можете загрузить и использовать десктопную версию QwenPaw без ручной настройки Python-окружения или выполнения команд.
+Если вы не привыкли использовать командную строку, можете загрузить и использовать десктопную версию Potato без ручной настройки Python-окружения или выполнения команд.
 
 #### Загрузка
 
 Загрузите десктопное приложение (сборка Tauri) с [официальной страницы загрузки](https://qwenpaw.agentscope.io/downloads):
-- **Windows**: `QwenPaw-Tauri-<version>-Windows-setup.exe`
-- **macOS**: `QwenPaw-Tauri-<version>-macOS.zip` (рекомендуется для Apple Silicon)
+- **Windows**: `Potato-Tauri-<version>-Windows-setup.exe`
+- **macOS**: `Potato-Tauri-<version>-macOS.zip` (рекомендуется для Apple Silicon)
 
 #### Особенности
 
@@ -310,17 +310,17 @@ docker run -p 127.0.0.1:8088:8088 \
 
 #### macOS: Обход системных ограничений безопасности
 
-Когда вы загружаете приложение QwenPaw для macOS, macOS может отобразить: *«Apple не может проверить, что "QwenPaw" не содержит вредоносного ПО»*. Это происходит потому, что приложение не нотаризовано. Вы все равно можете открыть его следующими способами:
+Когда вы загружаете приложение Potato для macOS, macOS может отобразить: *«Apple не может проверить, что "Potato" не содержит вредоносного ПО»*. Это происходит потому, что приложение не нотаризовано. Вы все равно можете открыть его следующими способами:
 
 - **Открытие через правый клик (рекомендуется)**
-  Щелкните правой кнопкой (или Control + щелчок) по приложению QwenPaw → **«Открыть»** → в диалоговом окне снова нажмите **«Открыть»**. Это сообщит Gatekeeper, что вы доверяете приложению; после этого можно запускать его двойным щелчком как обычно.
+  Щелкните правой кнопкой (или Control + щелчок) по приложению Potato → **«Открыть»** → в диалоговом окне снова нажмите **«Открыть»**. Это сообщит Gatekeeper, что вы доверяете приложению; после этого можно запускать его двойным щелчком как обычно.
 
 - **Разрешить в системных настройках**
-  Если всё ещё заблокировано, перейдите в **Системные настройки → Конфиденциальность и безопасность**, прокрутите до сообщения типа *«"QwenPaw" заблокирован, так как невозможно проверить разработчика»*, и нажмите **«Всё равно открыть»** или **«Разрешить»**.
+  Если всё ещё заблокировано, перейдите в **Системные настройки → Конфиденциальность и безопасность**, прокрутите до сообщения типа *«"Potato" заблокирован, так как невозможно проверить разработчика»*, и нажмите **«Всё равно открыть»** или **«Разрешить»**.
 
 - **Удалить атрибут карантина (не рекомендуется для большинства пользователей)**
   В терминале выполните:
-  `xattr -cr "/Applications/QwenPaw Desktop.app"`
+  `xattr -cr "/Applications/Potato Desktop.app"`
   (или используйте путь к `.app` после распаковки). Это очистит флаг карантина «загружено из интернета», поэтому предупреждение обычно не появляется, но это менее безопасно и контролируемо, чем использование **Правый клик → Открыть**.
 
 Подробные инструкции, устранение неполадок и частые вопросы см. в [Руководстве по десктопному приложению](https://qwenpaw.agentscope.io/docs/desktop).
@@ -341,43 +341,43 @@ docker run -p 127.0.0.1:8088:8088 \
 
 ## Терминальный интерфейс (TUI)
 
-Предпочитаете оставаться в терминале? Запустите `qwenpaw` для полноэкранного чата в **TUI**, который управляет _тем же_ агентом, что и Консоль и IM-каналы — та же память, навыки, MCP-инструменты и сессии — без отрыва от клавиатуры.
+Предпочитаете оставаться в терминале? Запустите `potato` для полноэкранного чата в **TUI**, который управляет _тем же_ агентом, что и Консоль и IM-каналы — та же память, навыки, MCP-инструменты и сессии — без отрыва от клавиатуры.
 
 ```bash
-qwenpaw                     # открыть чат с активным агентом
-qwenpaw tui --resume <id>   # возобновить предыдущую сессию
-qwenpaw .                   # начать в текущем репозитории (Coding Mode)
+potato                     # открыть чат с активным агентом
+potato tui --resume <id>   # возобновить предыдущую сессию
+potato .                   # начать в текущем репозитории (Coding Mode)
 ```
 
 Поддерживаются потоковые ответы, slash-команды (`/help`, `/resume`, `/theme`, а также собственные команды агента `/model`, `/clear`, …), вставка файлов/длинного текста как вложений и inline-запросы разрешений на инструменты. Подробности см. в [руководстве по Terminal UI](https://qwenpaw.agentscope.io/docs/tui).
 
-![QwenPaw TUI](https://img.alicdn.com/imgextra/i2/O1CN01IULzib1TRAzigIcqG_!!6000000002378-2-tps-2350-1312.png)
+![Potato TUI](https://img.alicdn.com/imgextra/i2/O1CN01IULzib1TRAzigIcqG_!!6000000002378-2-tps-2350-1312.png)
 
 ---
 
 ## API Key
 
-Если вы используете **облачный API для LLM** (например, DashScope / Qwen, OpenAI, Anthropic, Google Gemini, DeepSeek, Kimi, OpenRouter и другие), перед началом диалога необходимо настроить API Key. До настройки действительного ключа QwenPaw не будет работать. Подробности см. в [официальной документации](https://qwenpaw.agentscope.io/docs/models).
+Если вы используете **облачный API для LLM** (например, DashScope / Qwen, OpenAI, Anthropic, Google Gemini, DeepSeek, Kimi, OpenRouter и другие), перед началом диалога необходимо настроить API Key. До настройки действительного ключа Potato не будет работать. Подробности см. в [официальной документации](https://qwenpaw.agentscope.io/docs/models).
 
 **Способы настройки:**
 
-1. **Консоль (рекомендуется)** — После запуска `qwenpaw app` откройте **http://127.0.0.1:8088/** → **Настройки** → **Модели**. Выберите провайдера, введите **API Key** и активируйте этого провайдера и модель.
-2. **`qwenpaw init`** — При запуске `qwenpaw init` вас проведут через настройку LLM-провайдера и API Key. Следуйте подсказкам, выберите провайдера и введите ключ.
+1. **Консоль (рекомендуется)** — После запуска `potato app` откройте **http://127.0.0.1:8088/** → **Настройки** → **Модели**. Выберите провайдера, введите **API Key** и активируйте этого провайдера и модель.
+2. **`potato init`** — При запуске `potato init` вас проведут через настройку LLM-провайдера и API Key. Следуйте подсказкам, выберите провайдера и введите ключ.
 3. **Переменная окружения** — Для DashScope можно установить `DASHSCOPE_API_KEY` в терминале или в файле `.env` в рабочей директории.
 
 Ключи для других инструментов (например, `TAVILY_API_KEY` для веб-поиска) можно настроить в консоли **Настройки → Переменные окружения**, подробности см. в [Конфигурация](https://qwenpaw.agentscope.io/docs/config).
 
-> **Используете только локальные модели?** Если вы используете [Локальные модели](#локальные-модели) (QwenPaw Local / Ollama / LM Studio), вам **не нужен** никакой API Key.
+> **Используете только локальные модели?** Если вы используете [Локальные модели](#локальные-модели) (Potato Local / Ollama / LM Studio), вам **не нужен** никакой API Key.
 
 ## Локальные модели
 
-QwenPaw может полностью запускать LLM на вашей машине — без API-ключей и облачных сервисов. Подробности см. в [официальной документации](https://qwenpaw.agentscope.io/docs/models).
+Potato может полностью запускать LLM на вашей машине — без API-ключей и облачных сервисов. Подробности см. в [официальной документации](https://qwenpaw.agentscope.io/docs/models).
 
-QwenPaw также предоставляет серию **QwenPaw-Flash** — специально обученные модели 2B / 4B / 9B для агентных сценариев с квантизациями Q4 и Q8. Доступны на [ModelScope](https://www.modelscope.cn/organization/AgentScope?tab=model) и [Hugging Face](https://huggingface.co/agentscope-ai/models).
+Potato также предоставляет серию **QwenPaw-Flash** — специально обученные модели 2B / 4B / 9B для агентных сценариев с квантизациями Q4 и Q8. Доступны на [ModelScope](https://www.modelscope.cn/organization/AgentScope?tab=model) и [Hugging Face](https://huggingface.co/agentscope-ai/models).
 
 | Бэкенд              | Подходит для                             | Установка                                                                 |
 | ------------------- | ---------------------------------------- | ------------------------------------------------------------------------- |
-| **QwenPaw Local** (llama.cpp) | Кроссплатформенный (macOS / Linux / Windows) | Встроен; нажмите «Download» в веб-интерфейсе. Поддержка QwenPaw-Flash с рекомендациями с учётом железа. |
+| **Potato Local** (llama.cpp) | Кроссплатформенный (macOS / Linux / Windows) | Встроен; нажмите «Download» в веб-интерфейсе. Поддержка QwenPaw-Flash с рекомендациями с учётом железа. |
 | **Ollama**          | Кроссплатформенный (требуется сервис Ollama) | Установите и запустите Ollama; установите длину контекста ≥ 32k. |
 | **LM Studio**       | Кроссплатформенный (требуется LM Studio) | Установите и запустите LM Studio; включите Local Server. |
 
@@ -385,11 +385,11 @@ QwenPaw также предоставляет серию **QwenPaw-Flash** — �
 
 ## Функции безопасности
 
-QwenPaw включает четыре основных уровня безопасности:
+Potato включает четыре основных уровня безопасности:
 
 - **Sandbox** — Изоляция выполнения на уровне ядра с помощью Seatbelt (macOS), Bubblewrap / Landlock (Linux) и AppContainer (Windows). Shell-команды выполняются в ограниченном представлении файловой системы.
 - **Tool Guard** — YAML-движок правил с `ShellEvasionGuardian` проверяет каждый вызов инструмента перед выполнением, обнаруживая инъекции команд, обход путей, reverse shells и обфусцированные атаки. Настраиваемые уровни одобрения: STRICT / SMART / AUTO / OFF.
-- **File Guard** — Независимо от Tool Guard; блокирует доступ агента к чувствительным файлам и директориям (по умолчанию защищает `~/.qwenpaw.secret/`, `~/.ssh` и т.д.).
+- **File Guard** — Независимо от Tool Guard; блокирует доступ агента к чувствительным файлам и директориям (по умолчанию защищает `~/.potato.secret/`, `~/.ssh` и т.д.).
 - **Skill Scanner** — Сканирование перед активацией с режимами block / warn / off и поддержкой белого списка. Обнаруживает инъекции промптов, жёстко закодированные секреты, утечку данных и другое.
 - **Access Policy** — Декларативные правила доступа: разрешение, запрет или запрос подтверждения для каждого вызова с гранулярностью до уровня инструмента и учётом источника запроса.
 
@@ -401,7 +401,7 @@ QwenPaw включает четыре основных уровня безопа
 
 | Тема                                                                 | Описание                                        |
 | -------------------------------------------------------------------- | ----------------------------------------------- |
-| [Введение](https://qwenpaw.agentscope.io/docs/intro)                 | Что такое QwenPaw и как его использовать         |
+| [Введение](https://qwenpaw.agentscope.io/docs/intro)                 | Что такое Potato и как его использовать         |
 | [Быстрый старт](https://qwenpaw.agentscope.io/docs/quickstart)       | Установка и запуск (локально или ModelScope Studio) |
 | [Консоль](https://qwenpaw.agentscope.io/docs/console)                | Веб-интерфейс: чат и конфигурация агента        |
 | [Terminal UI (TUI)](https://qwenpaw.agentscope.io/docs/tui)          | Полноэкранный терминальный чат, тот же агент, что и в Консоли |
@@ -448,8 +448,8 @@ QwenPaw включает четыре основных уровня безопа
 | **Модели**                                      | Переключение между несколькими моделями                                                                     | В работе        |
 | **Browser-use**                                 | Поддержка расширения Chrome                                                                                 | В работе        |
 | **Долговременная память**                       | Персональная база знаний                                                                                    | В работе        |
-| **Приложение QwenPaw**                          | QwenPaw Creator                                                                                             | В работе        |
-|                                                 | QwenPaw Insight                                                                                             | В работе        |
+| **Приложение Potato**                          | Potato Creator                                                                                             | В работе        |
+|                                                 | Potato Insight                                                                                             | В работе        |
 | **Мультиагенты**                                | Совместимость с существующими агентами (напр. Claude Code)                                                  | Запланировано   |
 |                                                 | Групповой чат                                                                                               | Запланировано   |
 |                                                 | Визуализация Subagent                                                                                       | Запланировано   |
@@ -460,43 +460,43 @@ _Статусы:_ **В работе** — активно ведётся разр
 
 ## Участие в проекте
 
-QwenPaw развивается через открытую совместную работу, и мы приветствуем любые формы участия! Ознакомьтесь с [Дорожной картой](#дорожная-карта) выше (особенно с пунктами, отмеченными как **Ищем участников**), чтобы найти интересующие вас области, и прочитайте [CONTRIBUTING](https://github.com/agentscope-ai/QwenPaw/blob/main/CONTRIBUTING.md), чтобы начать. Мы особенно приветствуем:
+Potato развивается через открытую совместную работу, и мы приветствуем любые формы участия! Ознакомьтесь с [Дорожной картой](#дорожная-карта) выше (особенно с пунктами, отмеченными как **Ищем участников**), чтобы найти интересующие вас области, и прочитайте [CONTRIBUTING](https://github.com/fly-go-run/Potato/blob/main/CONTRIBUTING.md), чтобы начать. Мы особенно приветствуем:
 
 - **Горизонтальное расширение** — новые каналы, провайдеры моделей, Skills, MCP.
 - **Расширение и улучшение существующих функций** — оптимизация отображения и взаимодействия, подсказки при загрузке, совместимость путей Windows и т.д.
 
-Присоединяйтесь к обсуждениям на [GitHub Discussions](https://github.com/agentscope-ai/QwenPaw/discussions), чтобы обсуждать идеи или браться за задачи.
+Присоединяйтесь к обсуждениям на [GitHub Discussions](https://github.com/fly-go-run/Potato/discussions), чтобы обсуждать идеи или браться за задачи.
 
 ---
 
 ## Установка из исходников
 
 ```bash
-git clone https://github.com/agentscope-ai/QwenPaw.git
-cd QwenPaw
+git clone https://github.com/fly-go-run/Potato.git
+cd Potato
 
 # Сначала соберите frontend консоли (необходимо для веб-интерфейса)
 cd console && npm ci && npm run build
 cd ..
 
 # Скопируйте результат сборки консоли в директорию пакета
-mkdir -p src/qwenpaw/console
-cp -R console/dist/. src/qwenpaw/console/
+mkdir -p src/potato/console
+cp -R console/dist/. src/potato/console/
 
 # Установите Python-пакет
 pip install -e .
 ```
 
 - **Разработка** (тесты, форматирование): `pip install -e ".[dev,full]"`
-- **Затем**: Выполните `qwenpaw init --defaults`, затем `qwenpaw app`.
+- **Затем**: Выполните `potato init --defaults`, затем `potato app`.
 
-> **Примечание при обновлении:** При обновлении до новой мажорной версии после `git pull` пересоберите frontend, переустановите пакет (`pip install -e .`), перезапустите `qwenpaw app` и очистите кэш браузера (`Ctrl+Shift+R` или `Cmd+Shift+R` на macOS).
+> **Примечание при обновлении:** При обновлении до новой мажорной версии после `git pull` пересоберите frontend, переустановите пакет (`pip install -e .`), перезапустите `potato app` и очистите кэш браузера (`Ctrl+Shift+R` или `Cmd+Shift+R` на macOS).
 
 ---
 
-## Почему QwenPaw?
+## Почему Potato?
 
-QwenPaw расшифровывается как Qwen Personal Agent Workstation и воплощает мудрость Qwen и теплоту Paw. Мы хотим, чтобы это был не холодный инструмент, а умная и тёплая «маленькая лапка», всегда готовая прийти на помощь — самый интуитивный партнёр в вашей цифровой жизни.
+Potato расшифровывается как Qwen Personal Agent Workstation и воплощает мудрость Qwen и теплоту Paw. Мы хотим, чтобы это был не холодный инструмент, а умная и тёплая «маленькая лапка», всегда готовая прийти на помощь — самый интуитивный партнёр в вашей цифровой жизни.
 
 ---
 
@@ -516,21 +516,21 @@ QwenPaw расшифровывается как Qwen Personal Agent Workstation 
 
 ## Будьте в курсе
 
-<a href="https://github.com/agentscope-ai/QwenPaw">
-  <img src="https://img.alicdn.com/imgextra/i1/O1CN01V8HYv61By0HYcIDaq_!!6000000000013-1-tps-1698-954.gif" width="600" alt="Star QwenPaw" />
+<a href="https://github.com/fly-go-run/Potato">
+  <img src="https://img.alicdn.com/imgextra/i1/O1CN01V8HYv61By0HYcIDaq_!!6000000000013-1-tps-1698-954.gif" width="600" alt="Star Potato" />
 </a>
 
-Поставьте звезду QwenPaw на GitHub, чтобы мгновенно получать уведомления о новых релизах.
+Поставьте звезду Potato на GitHub, чтобы мгновенно получать уведомления о новых релизах.
 
 ---
 
 ## Телеметрия
 
-QwenPaw собирает **анонимные** данные об использовании при выполнении `qwenpaw init`, чтобы помочь нам понять пользовательскую базу и расставить приоритеты улучшений. Данные отправляются **один раз на версию** — при обновлении QwenPaw телеметрия собирается повторно для отслеживания распространения версий.
+Potato собирает **анонимные** данные об использовании при выполнении `potato init`, чтобы помочь нам понять пользовательскую базу и расставить приоритеты улучшений. Данные отправляются **один раз на версию** — при обновлении Potato телеметрия собирается повторно для отслеживания распространения версий.
 
 **Собираемая информация:**
 
-- Версия QwenPaw (например, 1.1.12)
+- Версия Potato (например, 1.1.12)
 - Способ установки (pip, Docker или десктопное приложение)
 - Операционная система и версия (например, macOS 14.0, Ubuntu 22.04)
 - Версия Python (например, 3.13)
@@ -539,20 +539,20 @@ QwenPaw собирает **анонимные** данные об использ
 
 **Не собирается:** Никакие персональные данные, файлы, ключи, IP-адреса или идентифицируемая информация.
 
-При интерактивном запуске `qwenpaw init` вас спросят о согласии. При использовании `--defaults` согласие даётся автоматически. Запрос появляется один раз на версию и не влияет на функциональность QwenPaw.
+При интерактивном запуске `potato init` вас спросят о согласии. При использовании `--defaults` согласие даётся автоматически. Запрос появляется один раз на версию и не влияет на функциональность Potato.
 
 ---
 
 ## Лицензия
 
-QwenPaw выпускается под лицензией [Apache License 2.0](LICENSE).
+Potato выпускается под лицензией [Apache License 2.0](LICENSE).
 
 ---
 
 ## Участники
 
-Благодарим всех, кто внёс вклад в развитие QwenPaw:
+Благодарим всех, кто внёс вклад в развитие Potato:
 
-<a href="https://github.com/agentscope-ai/QwenPaw/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=agentscope-ai/QwenPaw" alt="Участники" />
+<a href="https://github.com/fly-go-run/Potato/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=fly-go-run/Potato" alt="Участники" />
 </a>

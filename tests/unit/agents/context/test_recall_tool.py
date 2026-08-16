@@ -17,15 +17,15 @@ from pathlib import Path
 import pytest
 from agentscope.message import ToolResultState
 
-from qwenpaw.agents.context.scroll.history import HistoryStore
-from qwenpaw.agents.context.scroll.memoryspace import MemorySpace
-from qwenpaw.agents.context.scroll.recall_tool import (
+from potato.agents.context.scroll.history import HistoryStore
+from potato.agents.context.scroll.memoryspace import MemorySpace
+from potato.agents.context.scroll.recall_tool import (
     RECALL_PAGE_METADATA_KEY,
     RecallLoopGuard,
     _render_page,
     make_recall_history,
 )
-from qwenpaw.agents.context.types import LogEntry
+from potato.agents.context.types import LogEntry
 
 
 @pytest.fixture
@@ -298,7 +298,7 @@ async def test_large_historical_tool_result_exposes_artifact_on_first_page(
             tool_call_id="call-large",
             content="preview line\n" * 5000,
             metadata={
-                "qwenpaw_truncation": {
+                "potato_truncation": {
                     "0": {
                         "file_path": str(artifact),
                         "start_line": 37,
@@ -594,7 +594,7 @@ def test_descriptor_needs_no_sandbox(tool):
 def test_governance_registers_internal_type():
     """RecallHistory is an internal governance type: policy Phase 0 allows it
     outright — no deep scan, no sandbox fallback, no approval prompt."""
-    from qwenpaw.governance.tool_registry import DEFAULT_REGISTRY
+    from potato.governance.tool_registry import DEFAULT_REGISTRY
 
     assert DEFAULT_REGISTRY.get_type("RecallHistory") == "internal"
     assert (

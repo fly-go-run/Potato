@@ -7,7 +7,7 @@ import urllib.request
 
 from click.testing import CliRunner
 
-from qwenpaw.cli import desktop_cmd
+from potato.cli import desktop_cmd
 
 
 class _Response(io.BytesIO):
@@ -24,7 +24,7 @@ def test_legacy_desktop_requires_explicit_extra(monkeypatch) -> None:
     result = CliRunner().invoke(desktop_cmd.desktop_cmd)
 
     assert result.exit_code != 0
-    assert "qwenpaw[legacy-desktop]" in result.output
+    assert "potato[legacy-desktop]" in result.output
 
 
 def test_save_file_passes_headers_to_download_request(

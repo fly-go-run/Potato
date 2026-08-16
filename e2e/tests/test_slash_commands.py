@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Slash command e2e cases.
 
-These cases drive QwenPaw's slash commands purely through the chat
+These cases drive Potato's slash commands purely through the chat
 input box (textarea + send button). The assertion path is the AI
 bubble's rendered text — the same DOM elements a real user sees.
 
@@ -24,8 +24,8 @@ from pages.chat_page import ChatPage
 logger = logging.getLogger(__name__)
 
 
-SEND_BTN = "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
-AI_BUBBLE = ".qwenpaw-bubble.qwenpaw-bubble-start"
+SEND_BTN = "button.potato-sender-actions-btn.potato-btn-primary"
+AI_BUBBLE = ".potato-bubble.potato-bubble-start"
 
 
 def _wait_session_ready(page) -> None:

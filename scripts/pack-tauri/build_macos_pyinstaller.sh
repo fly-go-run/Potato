@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# Build QwenPaw with Tauri for macOS (PyInstaller backend)
+# Build Potato with Tauri for macOS (PyInstaller backend)
 # Creates a self-contained desktop app with bundled Python backend
 #
 # Usage:
 #   ./scripts/pack-tauri/build_macos_pyinstaller.sh
 #
 # Optional local-build controls:
-#   QWENPAW_FAST=1                 Keep PyInstaller's analysis cache.
-#   QWENPAW_FORCE_NPM_CI=1         Reinstall frontend dependencies explicitly.
-#   QWENPAW_FORCE_PYINSTALLER=1    Rebuild the backend even when inputs match.
-#   QWENPAW_STAGE_APP=1            Keep a copied app under dist/tauri-macos.
+#   POTATO_FAST=1                 Keep PyInstaller's analysis cache.
+#   POTATO_FORCE_NPM_CI=1         Reinstall frontend dependencies explicitly.
+#   POTATO_FORCE_PYINSTALLER=1    Rebuild the backend even when inputs match.
+#   POTATO_STAGE_APP=1            Keep a copied app under dist/tauri-macos.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-VERSION=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/qwenpaw/__version__.py)
+VERSION=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/potato/__version__.py)
 
 echo "========================================="
-echo "QwenPaw Tauri Build - macOS (PyInstaller)"
+echo "Potato Tauri Build - macOS (PyInstaller)"
 echo "========================================="
 echo "Version: ${VERSION}"
 echo ""
@@ -34,7 +34,7 @@ ensure_npm_dependencies() {
     local required_binary="$2"
     local hidden_lock="${package_dir}/node_modules/.package-lock.json"
 
-    if [[ "${QWENPAW_FORCE_NPM_CI:-0}" == "1" ||
+    if [[ "${POTATO_FORCE_NPM_CI:-0}" == "1" ||
         ! -x "${package_dir}/node_modules/.bin/${required_binary}" ||
         ! -f "${hidden_lock}" ||
         "${package_dir}/package.json" -nt "${hidden_lock}" ||
@@ -144,7 +144,7 @@ else
 fi
 echo "Syncing Tauri version..."
 (cd "${CONSOLE_DIR}" && node ../scripts/pack-tauri/sync_tauri_version.mjs)
-echo "Console bootstrap will be built once by Tauri's beforeBuildCommand"
+echo "Bundled Potato app will be built once by Tauri's beforeBuildCommand"
 echo ""
 
 # Step 2: Build PyInstaller backend
@@ -154,13 +154,13 @@ echo "PyInstaller backend built"
 echo ""
 
 BACKEND_BINARIES_DIR="${REPO_ROOT}/console/src-tauri/binaries"
-BACKEND_REBUILT_MARKER="${BACKEND_BINARIES_DIR}/.qwenpaw-backend-rebuilt"
-BACKEND_PENDING_STAMP="${BACKEND_BINARIES_DIR}/.qwenpaw-backend-pending.stamp"
-BACKEND_SIGNED_STAMP="${BACKEND_BINARIES_DIR}/.qwenpaw-backend-signed.stamp"
+BACKEND_REBUILT_MARKER="${BACKEND_BINARIES_DIR}/.potato-backend-rebuilt"
+BACKEND_PENDING_STAMP="${BACKEND_BINARIES_DIR}/.potato-backend-pending.stamp"
+BACKEND_SIGNED_STAMP="${BACKEND_BINARIES_DIR}/.potato-backend-signed.stamp"
 if [ -f "${BACKEND_REBUILT_MARKER}" ]; then
     echo "== Step 2b: Signing PyInstaller Backend =="
     bash "${SIGN_MACOS_BUNDLE}" \
-        "${BACKEND_BINARIES_DIR}/qwenpaw-backend" \
+        "${BACKEND_BINARIES_DIR}/potato-backend" \
         "${APPLE_SIGNING_IDENTITY}"
     mv -f "${BACKEND_PENDING_STAMP}" "${BACKEND_SIGNED_STAMP}"
     echo "PyInstaller backend signed"
@@ -184,7 +184,7 @@ echo "Tauri app built"
 echo ""
 
 # Keep the staged app name in sync with the desktop shell's public product name.
-# Leaving the old QwenPaw Desktop path here makes it very easy to launch a stale
+# Leaving the old Potato Desktop path here makes it very easy to launch a stale
 # bundle (and, in particular, its old opaque menu-bar icon) after a rebuild.
 APP_NAME="Potato"
 APP_PATH="${BUNDLE_DIR}/macos/${APP_NAME}.app"
@@ -210,20 +210,20 @@ else
 fi
 DIST_DIR="${DIST_ROOT}/tauri-macos"
 ARCHIVE_SOURCE="${APP_PATH}"
-if [[ "${QWENPAW_STAGE_APP:-0}" == "1" ]]; then
+if [[ "${POTATO_STAGE_APP:-0}" == "1" ]]; then
     rm -rf "${DIST_DIR}"
     mkdir -p "${DIST_DIR}"
     cp -R "${APP_PATH}" "${DIST_DIR}/"
     ARCHIVE_SOURCE="${DIST_DIR}/$(basename "${APP_PATH}")"
     echo ".app copied to ${ARCHIVE_SOURCE}"
 else
-    echo "Archiving Tauri app in place (set QWENPAW_STAGE_APP=1 to copy it)"
+    echo "Archiving Tauri app in place (set POTATO_STAGE_APP=1 to copy it)"
 fi
 
 # Match the legacy macOS package shape: one zip containing one .app bundle.
 
 # Create ZIP archive
-ZIP_NAME="${DIST_ROOT}/QwenPaw-Tauri-${VERSION}-macOS.zip"
+ZIP_NAME="${DIST_ROOT}/Potato-Tauri-${VERSION}-macOS.zip"
 if [ -f "${ZIP_NAME}" ]; then
     rm -f "${ZIP_NAME}"
 fi
@@ -244,7 +244,7 @@ else
 fi
 echo ""
 
-UPDATER_NAME="${DIST_ROOT}/QwenPaw-Tauri-${VERSION}-macOS.app.tar.gz"
+UPDATER_NAME="${DIST_ROOT}/Potato-Tauri-${VERSION}-macOS.app.tar.gz"
 case "$(uname -m)" in
     arm64 | aarch64) UPDATER_TARGET="darwin-aarch64" ;;
     *) UPDATER_TARGET="darwin-x86_64" ;;
@@ -268,10 +268,10 @@ echo "========================================="
 echo "Build Complete!"
 echo "========================================="
 echo "App:          ${APP_PATH}"
-if [[ "${QWENPAW_STAGE_APP:-0}" == "1" ]]; then
+if [[ "${POTATO_STAGE_APP:-0}" == "1" ]]; then
     echo "Staged app:   ${ARCHIVE_SOURCE}"
 else
-    echo "Staged app:   (disabled; set QWENPAW_STAGE_APP=1 to create one)"
+    echo "Staged app:   (disabled; set POTATO_STAGE_APP=1 to create one)"
 fi
 echo "Archive:      ${ZIP_NAME}"
 echo "Updater:      ${UPDATER_NAME}"

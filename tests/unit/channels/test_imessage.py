@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 # Platform check for macOS-specific tests
 IS_DARWIN = sys.platform == "darwin"
@@ -75,7 +75,7 @@ def imessage_channel(
     temp_media_dir: str,
 ):
     """Create IMessageChannel instance for testing."""
-    from qwenpaw.app.channels.imessage.channel import IMessageChannel
+    from potato.app.channels.imessage.channel import IMessageChannel
 
     channel = IMessageChannel(
         process=mock_process_handler,
@@ -98,7 +98,7 @@ class TestIMessageChannelInit:
         temp_media_dir: str,
     ):
         """Constructor should store basic configuration parameters."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -133,7 +133,7 @@ class TestIMessageChannelInit:
         tmp_path: Path,
     ):
         """Constructor should create media directory."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         media_dir = tmp_path / "media" / "imessage"
         assert not media_dir.exists()
@@ -156,7 +156,7 @@ class TestIMessageChannelInit:
         temp_media_dir: str,
     ):
         """Constructor should expand user directory path."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -179,7 +179,7 @@ class TestIMessageChannelInit:
         temp_media_dir: str,
     ):
         """Constructor should initialize internal data structures."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -209,7 +209,7 @@ class TestIMessageChannelFactoryMethods:
         temp_media_dir: str,
     ):
         """from_env should read environment variables correctly."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         monkeypatch.setenv("IMESSAGE_CHANNEL_ENABLED", "0")
         monkeypatch.setenv("IMESSAGE_DB_PATH", "/custom/path/chat.db")
@@ -229,7 +229,7 @@ class TestIMessageChannelFactoryMethods:
         monkeypatch: pytest.MonkeyPatch,
     ):
         """from_env should use defaults when variables are missing."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         monkeypatch.delenv("IMESSAGE_CHANNEL_ENABLED", raising=False)
         monkeypatch.delenv("IMESSAGE_DB_PATH", raising=False)
@@ -251,8 +251,8 @@ class TestIMessageChannelFactoryMethods:
         temp_media_dir: str,
     ):
         """from_config should use config object values."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.config.config import IMessageChannelConfig
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.config.config import IMessageChannelConfig
 
         config = IMessageChannelConfig(
             enabled=True,
@@ -283,8 +283,8 @@ class TestIMessageChannelFactoryMethods:
         mock_process_handler: AsyncMock,
     ):
         """from_config should use default db_path."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.config.config import IMessageChannelConfig
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.config.config import IMessageChannelConfig
 
         config = IMessageChannelConfig(
             enabled=True,
@@ -310,7 +310,7 @@ class TestIMessageChannelProperties:
         temp_media_dir: str,
     ):
         """channel type should be imessage."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -387,7 +387,7 @@ class TestIMessageChannelUtilityMethods:
         imessage_channel,
     ):
         """_extract_url_and_filename should handle image type correctly."""
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             ImageContent,
             ContentType,
         )
@@ -414,7 +414,7 @@ class TestIMessageChannelUtilityMethods:
         imessage_channel,
     ):
         """_extract_url_and_filename should handle video type correctly."""
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             VideoContent,
             ContentType,
         )
@@ -441,7 +441,7 @@ class TestIMessageChannelUtilityMethods:
         imessage_channel,
     ):
         """_get_file_extension should extract extension from filename."""
-        from qwenpaw.schemas import ContentType
+        from potato.schemas import ContentType
 
         ext = imessage_channel._get_file_extension(
             ContentType.IMAGE,
@@ -454,7 +454,7 @@ class TestIMessageChannelUtilityMethods:
         imessage_channel,
     ):
         """_get_file_extension returns default ext based on content type."""
-        from qwenpaw.schemas import ContentType
+        from potato.schemas import ContentType
 
         assert (
             imessage_channel._get_file_extension(ContentType.IMAGE, "photo")
@@ -483,7 +483,7 @@ class TestIMessageChannelAsyncLifecycle:
         temp_media_dir: str,
     ):
         """start should not perform operations when disabled."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -507,7 +507,7 @@ class TestIMessageChannelAsyncLifecycle:
         temp_media_dir: str,
     ):
         """stop should not perform operations when disabled."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -526,7 +526,7 @@ class TestIMessageChannelAsyncLifecycle:
         self,
     ):
         """start should set imsg path correctly."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=AsyncMock(),
@@ -557,7 +557,7 @@ class TestIMessageChannelSend:
         temp_media_dir: str,
     ):
         """send should not perform operations when disabled."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -574,8 +574,8 @@ class TestIMessageChannelSend:
 
     def test_send_sync_raises_when_not_initialized(self):
         """_send_sync should raise ChannelError when not initialized."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.exceptions import ChannelError
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.exceptions import ChannelError
 
         channel = IMessageChannel(
             process=AsyncMock(),
@@ -596,8 +596,8 @@ class TestIMessageChannelSend:
         temp_media_dir: str,
     ):
         """send_content_parts should handle text-only parts."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.schemas import (
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.schemas import (
             TextContent,
             ContentType,
         )
@@ -632,7 +632,7 @@ class TestIMessageChannelSend:
         temp_media_dir: str,
     ):
         """send_content_parts should handle empty parts list."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -657,8 +657,8 @@ class TestIMessageChannelMedia:
         temp_media_dir: str,
     ):
         """send_media should not perform operations when disabled."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.schemas import (
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.schemas import (
             ImageContent,
             ContentType,
         )
@@ -688,7 +688,7 @@ class TestIMessageChannelMedia:
         caplog: pytest.LogCaptureFixture,
     ):
         """send_media should handle missing URL."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -720,7 +720,7 @@ class TestIMessageChannelMedia:
         tmp_path: Path,
     ):
         """_handle_local_file should handle file:// URL."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -747,7 +747,7 @@ class TestIMessageChannelMedia:
         tmp_path: Path,
     ):
         """_handle_local_file should handle plain path."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -774,7 +774,7 @@ class TestIMessageChannelMedia:
         caplog: pytest.LogCaptureFixture,
     ):
         """_handle_local_file should handle non-existent file."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -796,8 +796,8 @@ class TestIMessageChannelMedia:
         temp_media_dir: str,
     ):
         """_handle_data_url should handle valid base64 data URL."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.schemas import ContentType
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.schemas import ContentType
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -831,8 +831,8 @@ class TestIMessageChannelMedia:
         caplog: pytest.LogCaptureFixture,
     ):
         """_handle_data_url should handle invalid base64 data."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.schemas import ContentType
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.schemas import ContentType
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -861,8 +861,8 @@ class TestIMessageChannelMedia:
         caplog: pytest.LogCaptureFixture,
     ):
         """_handle_data_url should handle oversized base64 data."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.schemas import ContentType
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.schemas import ContentType
 
         # Set small limit for testing
         channel = IMessageChannel(
@@ -895,8 +895,8 @@ class TestIMessageChannelMedia:
         caplog: pytest.LogCaptureFixture,
     ):
         """_handle_data_url should handle non-base64 format data URL."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.schemas import ContentType
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.schemas import ContentType
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -929,8 +929,8 @@ class TestIMessageChannelRequestBuilder:
         temp_media_dir: str,
     ):
         """build_agent_request_from_native should build request from native."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
-        from qwenpaw.schemas import (
+        from potato.app.channels.imessage.channel import IMessageChannel
+        from potato.schemas import (
             TextContent,
             ContentType,
         )
@@ -967,7 +967,7 @@ class TestIMessageChannelRequestBuilder:
         temp_media_dir: str,
     ):
         """build_agent_request_from_native should handle empty payload."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,
@@ -992,7 +992,7 @@ class TestIMessageChannelErrorHandling:
         temp_media_dir: str,
     ):
         """_on_consume_error should send error message."""
-        from qwenpaw.app.channels.imessage.channel import IMessageChannel
+        from potato.app.channels.imessage.channel import IMessageChannel
 
         channel = IMessageChannel(
             process=mock_process_handler,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for qwenpaw.utils.platform helpers."""
+"""Tests for potato.utils.platform helpers."""
 from __future__ import annotations
 
 import logging
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from qwenpaw.utils.platform import (
+from potato.utils.platform import (
     auto_disable_sandbox_on_windows,
     is_windows_admin,
 )
@@ -16,16 +16,16 @@ from qwenpaw.utils.platform import (
 
 @pytest.fixture()
 def _platform_caplog(caplog: pytest.LogCaptureFixture):
-    """Capture logs from qwenpaw.utils.platform.
+    """Capture logs from potato.utils.platform.
 
-    The project logger sets propagate=False on the qwenpaw namespace,
+    The project logger sets propagate=False on the potato namespace,
     so caplog (which hooks the root logger) won't see records unless we
     temporarily re-enable propagation.
     """
-    target = logging.getLogger("qwenpaw")
+    target = logging.getLogger("potato")
     old_propagate = target.propagate
     target.propagate = True
-    with caplog.at_level("WARNING", logger="qwenpaw.utils.platform"):
+    with caplog.at_level("WARNING", logger="potato.utils.platform"):
         yield
     target.propagate = old_propagate
 
@@ -100,7 +100,7 @@ class TestAutoDisableSandboxOnWindows:
         with (
             patch.object(sys, "platform", "win32"),
             patch(
-                "qwenpaw.utils.platform.is_windows_admin",
+                "potato.utils.platform.is_windows_admin",
                 return_value=True,
             ),
         ):
@@ -118,11 +118,11 @@ class TestAutoDisableSandboxOnWindows:
         with (
             patch.object(sys, "platform", "win32"),
             patch(
-                "qwenpaw.utils.platform.is_windows_admin",
+                "potato.utils.platform.is_windows_admin",
                 return_value=False,
             ),
             patch(
-                "qwenpaw.config.load_config",
+                "potato.config.load_config",
                 return_value=mock_config,
             ),
         ):
@@ -144,11 +144,11 @@ class TestAutoDisableSandboxOnWindows:
         with (
             patch.object(sys, "platform", "win32"),
             patch(
-                "qwenpaw.utils.platform.is_windows_admin",
+                "potato.utils.platform.is_windows_admin",
                 return_value=False,
             ),
             patch(
-                "qwenpaw.config.load_config",
+                "potato.config.load_config",
                 return_value=mock_config,
             ),
         ):
@@ -167,11 +167,11 @@ class TestAutoDisableSandboxOnWindows:
         with (
             patch.object(sys, "platform", "win32"),
             patch(
-                "qwenpaw.utils.platform.is_windows_admin",
+                "potato.utils.platform.is_windows_admin",
                 return_value=False,
             ),
             patch(
-                "qwenpaw.config.load_config",
+                "potato.config.load_config",
                 side_effect=RuntimeError("config broken"),
             ),
         ):

@@ -13,12 +13,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from qwenpaw.providers.context_windows import (
+from potato.providers.context_windows import (
     DEFAULT_CONTEXT_WINDOW,
     known_context_size,
     resolve_context_window,
 )
-from qwenpaw.providers.provider import ModelInfo, Provider
+from potato.providers.provider import ModelInfo, Provider
 
 
 @pytest.mark.parametrize(
@@ -165,7 +165,7 @@ def test_custom_provider_does_not_inherit_official_windows():
 
 def test_builtin_provider_resolution_uses_its_scoped_catalog():
     """The static provider catalogs must reach the common resolver path."""
-    from qwenpaw.providers.provider_manager import (
+    from potato.providers.provider_manager import (
         PROVIDER_DASHSCOPE,
         PROVIDER_GEMINI,
         PROVIDER_OPENAI,
@@ -274,7 +274,7 @@ def test_private_alias_still_works():
 
 
 def _make_ollama(**kw):
-    from qwenpaw.providers.ollama_provider import OllamaProvider
+    from potato.providers.ollama_provider import OllamaProvider
 
     return OllamaProvider(
         id="ollama",
@@ -317,7 +317,7 @@ def _openrouter_payload(*rows):
 
 
 def test_openrouter_reads_context_length():
-    from qwenpaw.providers.openrouter_provider import OpenRouterProvider
+    from potato.providers.openrouter_provider import OpenRouterProvider
 
     payload = _openrouter_payload(
         SimpleNamespace(
@@ -356,7 +356,7 @@ def test_get_model_max_input_length_uses_provider_resolution(monkeypatch):
     """/history, usage%%, and daemon status must report the same window the
     compaction trigger uses — the display path delegates to
     Provider.get_context_size instead of reading the raw field."""
-    from qwenpaw.config import config as config_mod
+    from potato.config import config as config_mod
 
     class _Provider:
         def get_context_size(self, model_id):
@@ -368,7 +368,7 @@ def test_get_model_max_input_length_uses_provider_resolution(monkeypatch):
             return _Provider()
 
     monkeypatch.setattr(
-        "qwenpaw.providers.ProviderManager.get_instance",
+        "potato.providers.ProviderManager.get_instance",
         staticmethod(_Manager),
     )
     agent_config = SimpleNamespace(

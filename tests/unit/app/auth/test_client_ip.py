@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.auth import (
+from potato.app.auth import (
     _ip_in_networks,
     _normalize_ip,
     _parse_networks,
@@ -128,14 +128,14 @@ def _make_config_return(trusted_proxies=None, allow_no_auth_hosts=None):
 class TestResolveClientIp:
     """Core vulnerability regression tests."""
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_vuln_regression_xff_spoofed_no_trusted_proxies(self, mock_cfg):
         """CVE scenario: attacker spoofs XFF, no trusted_proxies configured."""
         mock_cfg.return_value = _make_config_return(trusted_proxies=[])
         req = _make_request("1.2.3.4", xff="127.0.0.1")
         assert _resolve_client_ip(req) == "1.2.3.4"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_vuln_regression_real_ip_spoofed_no_trusted_proxies(
         self,
         mock_cfg,
@@ -145,7 +145,7 @@ class TestResolveClientIp:
         req = _make_request("1.2.3.4", real_ip="127.0.0.1")
         assert _resolve_client_ip(req) == "1.2.3.4"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_single_trusted_proxy(self, mock_cfg):
         """Legitimate single-tier proxy: returns real client IP from XFF."""
         mock_cfg.return_value = _make_config_return(
@@ -154,7 +154,7 @@ class TestResolveClientIp:
         req = _make_request("10.0.0.1", xff="8.8.8.8")
         assert _resolve_client_ip(req) == "8.8.8.8"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_attacker_prepends_loopback_in_xff(self, mock_cfg):
         """Attacker prepends 127.0.0.1 in XFF; right-to-left skips trusted."""
         mock_cfg.return_value = _make_config_return(
@@ -163,7 +163,7 @@ class TestResolveClientIp:
         req = _make_request("10.0.0.1", xff="127.0.0.1, 8.8.8.8")
         assert _resolve_client_ip(req) == "8.8.8.8"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_all_xff_are_trusted_falls_back_to_direct(self, mock_cfg):
         """When all XFF entries are trusted proxies, fall back to direct_ip."""
         mock_cfg.return_value = _make_config_return(
@@ -173,7 +173,7 @@ class TestResolveClientIp:
         # All XFF are trusted → falls through to X-Real-IP or direct_ip
         assert _resolve_client_ip(req) == "10.0.0.1"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_cidr_trusted_proxy(self, mock_cfg):
         """CIDR matching for trusted proxy (Docker/K8s scenarios)."""
         mock_cfg.return_value = _make_config_return(
@@ -182,7 +182,7 @@ class TestResolveClientIp:
         req = _make_request("172.17.0.5", xff="8.8.8.8")
         assert _resolve_client_ip(req) == "8.8.8.8"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_direct_not_trusted_ignores_xff(self, mock_cfg):
         """Direct connection NOT in trusted_proxies: XFF is ignored."""
         mock_cfg.return_value = _make_config_return(
@@ -191,7 +191,7 @@ class TestResolveClientIp:
         req = _make_request("1.2.3.4", xff="127.0.0.1")
         assert _resolve_client_ip(req) == "1.2.3.4"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_unparseable_xff_token_stops_parsing(self, mock_cfg):
         """Junk tokens in XFF abort parsing to prevent injection."""
         mock_cfg.return_value = _make_config_return(
@@ -205,7 +205,7 @@ class TestResolveClientIp:
         # Falls through to X-Real-IP or direct_ip
         assert _resolve_client_ip(req) == "10.0.0.1"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_x_real_ip_used_when_xff_empty(self, mock_cfg):
         """X-Real-IP is used when no XFF and direct is trusted."""
         mock_cfg.return_value = _make_config_return(
@@ -214,7 +214,7 @@ class TestResolveClientIp:
         req = _make_request("10.0.0.1", real_ip="203.0.113.7")
         assert _resolve_client_ip(req) == "203.0.113.7"
 
-    @patch("qwenpaw.app.auth._get_config_cached")
+    @patch("potato.app.auth._get_config_cached")
     def test_localhost_direct_no_proxy_headers(self, mock_cfg):
         """Local CLI: direct loopback, no proxy headers → returns 127.0.0.1."""
         mock_cfg.return_value = _make_config_return(trusted_proxies=[])
@@ -230,11 +230,11 @@ class TestResolveClientIp:
 class TestShouldSkipAuthDefenseInDepth:
     """Verify loopback whitelist requires direct peer also be loopback."""
 
-    @patch("qwenpaw.app.auth._get_config_cached")
-    @patch("qwenpaw.app.auth.is_auth_enabled", return_value=True)
-    @patch("qwenpaw.app.auth.has_registered_users", return_value=True)
+    @patch("potato.app.auth._get_config_cached")
+    @patch("potato.app.auth.is_auth_enabled", return_value=True)
+    @patch("potato.app.auth.has_registered_users", return_value=True)
     def test_loopback_direct_passes(self, _a, _b, mock_cfg):
-        from qwenpaw.app.auth import AuthMiddleware  # noqa: F811
+        from potato.app.auth import AuthMiddleware  # noqa: F811
 
         mock_cfg.return_value = _make_config_return()
         req = _make_request("127.0.0.1")
@@ -244,12 +244,12 @@ class TestShouldSkipAuthDefenseInDepth:
         # pylint: disable=protected-access
         assert AuthMiddleware._should_skip_auth(req) is True
 
-    @patch("qwenpaw.app.auth._get_config_cached")
-    @patch("qwenpaw.app.auth.is_auth_enabled", return_value=True)
-    @patch("qwenpaw.app.auth.has_registered_users", return_value=True)
+    @patch("potato.app.auth._get_config_cached")
+    @patch("potato.app.auth.is_auth_enabled", return_value=True)
+    @patch("potato.app.auth.has_registered_users", return_value=True)
     def test_loopback_via_proxy_blocked(self, _a, _b, mock_cfg):
         """test resolved IP=127.0.0.1 but direct peer is external."""
-        from qwenpaw.app.auth import AuthMiddleware  # noqa: F811
+        from potato.app.auth import AuthMiddleware  # noqa: F811
 
         mock_cfg.return_value = _make_config_return(
             trusted_proxies=["10.0.0.1"],

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for qwenpaw.agents.tools.file_io.
+"""Tests for potato.agents.tools.file_io.
 
 Covers:
 - _resolve_file_path
@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 import pytest
 
-from qwenpaw.agents.tools.file_io import (
+from potato.agents.tools.file_io import (
     _get_encoding_for_file,
     _resolve_file_path,
     append_file,
@@ -28,7 +28,7 @@ from qwenpaw.agents.tools.file_io import (
     read_file,
     write_file,
 )
-from qwenpaw.agents.tools.utils import (
+from potato.agents.tools.utils import (
     TRUNCATION_METADATA_KEY,
     read_file_safe,
 )
@@ -42,7 +42,7 @@ from qwenpaw.agents.tools.utils import (
 class TestResolveFilePath:
     """Tests for _resolve_file_path."""
 
-    @patch("qwenpaw.agents.tools.file_io.get_current_workspace_dir")
+    @patch("potato.agents.tools.file_io.get_current_workspace_dir")
     def test_absolute_path_unchanged(self, mock_ws):
         import sys
 
@@ -55,7 +55,7 @@ class TestResolveFilePath:
         else:
             assert result == "/tmp/test.txt"
 
-    @patch("qwenpaw.agents.tools.file_io.get_current_workspace_dir")
+    @patch("potato.agents.tools.file_io.get_current_workspace_dir")
     def test_relative_path_resolved(self, mock_ws):
         from pathlib import Path
 
@@ -63,14 +63,14 @@ class TestResolveFilePath:
         result = _resolve_file_path("subdir/file.txt")
         assert result == str(Path("/workspace/subdir/file.txt"))
 
-    @patch("qwenpaw.agents.tools.file_io.get_current_workspace_dir")
+    @patch("potato.agents.tools.file_io.get_current_workspace_dir")
     def test_tilde_expansion(self, mock_ws):
         mock_ws.return_value = None
         result = _resolve_file_path("~/test.txt")
         assert "~" not in result
         assert result.endswith("test.txt")
 
-    @patch("qwenpaw.agents.tools.file_io.get_current_workspace_dir")
+    @patch("potato.agents.tools.file_io.get_current_workspace_dir")
     def test_workspace_fallback_to_working_dir(self, mock_ws):
         mock_ws.return_value = None
         # When workspace is None, WORKING_DIR is used
@@ -411,7 +411,7 @@ class TestAppendFile:
                 active -= 1
 
         with patch(
-            "qwenpaw.agents.tools.file_io._append_text_locked",
+            "potato.agents.tools.file_io._append_text_locked",
             delayed_append,
         ):
             await asyncio.gather(

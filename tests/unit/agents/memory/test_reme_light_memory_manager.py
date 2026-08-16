@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from agentscope.message import Msg, TextBlock
 
-from qwenpaw.agents.memory.reme_light_memory_manager import (
+from potato.agents.memory.reme_light_memory_manager import (
     ReMeLightMemoryManager,
 )
-from qwenpaw.config.config import (
+from potato.config.config import (
     AgentProfileConfig,
     AgentsRunningConfig,
     AutoMemorySearchConfig,
@@ -22,7 +22,7 @@ from qwenpaw.config.config import (
 def manager():
     """A manager instance without the embedded ReMe app."""
     mgr = object.__new__(ReMeLightMemoryManager)
-    mgr.working_dir = "/tmp/qwenpaw-agent"
+    mgr.working_dir = "/tmp/potato-agent"
     mgr.agent_id = "agent-1"
     mgr._reme = None
     return mgr
@@ -56,7 +56,7 @@ class TestAutoMemorySearchDedup:
         with (
             patch.object(manager, "_run_reme_job", job),
             patch(
-                "qwenpaw.agents.memory.reme_light_memory_manager"
+                "potato.agents.memory.reme_light_memory_manager"
                 ".load_agent_config",
                 return_value=_agent_config(),
             ),
@@ -81,7 +81,7 @@ class TestAutoMemorySearchDedup:
         with (
             patch.object(manager, "_run_reme_job", job),
             patch(
-                "qwenpaw.agents.memory.reme_light_memory_manager"
+                "potato.agents.memory.reme_light_memory_manager"
                 ".load_agent_config",
                 return_value=_agent_config(),
             ),
@@ -98,7 +98,7 @@ class TestAutoMemorySearchDedup:
         with (
             patch.object(manager, "_run_reme_job", job),
             patch(
-                "qwenpaw.agents.memory.reme_light_memory_manager"
+                "potato.agents.memory.reme_light_memory_manager"
                 ".load_agent_config",
                 return_value=_agent_config(),
             ),
@@ -157,7 +157,7 @@ class TestAutoMemorySearchDedup:
         with (
             patch.object(manager, "_run_reme_job", job),
             patch(
-                "qwenpaw.agents.memory.reme_light_memory_manager"
+                "potato.agents.memory.reme_light_memory_manager"
                 ".load_agent_config",
                 return_value=_agent_config(enabled=False),
             ),

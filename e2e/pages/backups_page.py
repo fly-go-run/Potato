@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Backups page object.
+Potato Backups page object.
 
 Wraps all interactions on the backup management page and exposes business-level
 methods.
@@ -30,27 +30,27 @@ class BackupsPage(BasePage):
     - Delete and export backup
     """
 
-    PAGE_TITLE = "QwenPaw Console"
+    PAGE_TITLE = "Potato Console"
     PAGE_URL = f"{config.base_url}/backups"
 
     # ========== Selector definitions ==========
 
     # Page container and loading markers
     PAGE_CONTAINER = 'div[class*="backups"], div[class*="Backups"], [class*="backup"]'
-    PAGE_LOAD_INDICATOR = '.qwenpaw-table, [class*="backup"]'
+    PAGE_LOAD_INDICATOR = '.potato-table, [class*="backup"]'
     BREADCRUMB_PARENT = 'span[class*="breadcrumbParent"]'
     BREADCRUMB_CURRENT = 'span[class*="breadcrumbCurrent"]'
 
     # Backup list table
-    BACKUP_TABLE = ".qwenpaw-table"
-    BACKUP_TABLE_ROW = ".qwenpaw-table-tbody tr"
-    BACKUP_TABLE_HEADER = ".qwenpaw-table-thead th"
-    EMPTY_STATE = ".qwenpaw-empty, [class*='empty']"
+    BACKUP_TABLE = ".potato-table"
+    BACKUP_TABLE_ROW = ".potato-table-tbody tr"
+    BACKUP_TABLE_HEADER = ".potato-table-thead th"
+    EMPTY_STATE = ".potato-empty, [class*='empty']"
 
     # Action buttons
     CREATE_BACKUP_BUTTON = 'button:has-text("Create Backup"), button:has-text("创建备份")'
     IMPORT_BUTTON = 'button:has-text("Import"), button:has-text("导入")'
-    SEARCH_INPUT = '.qwenpaw-input-search input, input[placeholder*="search"], input[placeholder*="搜索"], input[placeholder*="Search"]'
+    SEARCH_INPUT = '.potato-input-search input, input[placeholder*="search"], input[placeholder*="搜索"], input[placeholder*="Search"]'
 
     # Row-level actions
     EXPORT_BUTTON = 'button:has-text("Export"), button:has-text("导出"), [class*="export"]'
@@ -58,38 +58,38 @@ class BackupsPage(BasePage):
     DELETE_BUTTON = 'button:has-text("Delete"), button:has-text("删除")'
 
     # Modal
-    MODAL = ".qwenpaw-modal"
-    MODAL_TITLE = ".qwenpaw-modal-title"
-    MODAL_OK_BUTTON = '.qwenpaw-modal-footer button.qwenpaw-btn-primary, .qwenpaw-modal-footer button:has-text("OK"), .qwenpaw-modal-footer button:has-text("确定")'
-    MODAL_CANCEL_BUTTON = '.qwenpaw-modal-footer button:has-text("Cancel"), .qwenpaw-modal-footer button:has-text("取消")'
-    MODAL_CLOSE = ".qwenpaw-modal-close"
+    MODAL = ".potato-modal"
+    MODAL_TITLE = ".potato-modal-title"
+    MODAL_OK_BUTTON = '.potato-modal-footer button.potato-btn-primary, .potato-modal-footer button:has-text("OK"), .potato-modal-footer button:has-text("确定")'
+    MODAL_CANCEL_BUTTON = '.potato-modal-footer button:has-text("Cancel"), .potato-modal-footer button:has-text("取消")'
+    MODAL_CLOSE = ".potato-modal-close"
 
     # Create backup modal
-    CREATE_MODAL = '.qwenpaw-modal:has-text("Create Backup"), .qwenpaw-modal:has-text("创建备份")'
+    CREATE_MODAL = '.potato-modal:has-text("Create Backup"), .potato-modal:has-text("创建备份")'
     FULL_BACKUP_OPTION = 'label:has-text("Full"), label:has-text("全量"), [data-value="full"]'
     PARTIAL_BACKUP_OPTION = 'label:has-text("Partial"), label:has-text("部分"), [data-value="partial"]'
-    BACKUP_NAME_INPUT = 'input[placeholder*="name"], input[placeholder*="名称"], .qwenpaw-modal input.qwenpaw-input'
-    AGENT_SELECT = '.qwenpaw-modal [class*="agent"] .qwenpaw-select, .qwenpaw-modal [class*="Agent"]'
-    PROGRESS_BAR = '.qwenpaw-progress, [class*="progress"]'
+    BACKUP_NAME_INPUT = 'input[placeholder*="name"], input[placeholder*="名称"], .potato-modal input.potato-input'
+    AGENT_SELECT = '.potato-modal [class*="agent"] .potato-select, .potato-modal [class*="Agent"]'
+    PROGRESS_BAR = '.potato-progress, [class*="progress"]'
 
     # Restore backup modal
-    RESTORE_MODAL = '.qwenpaw-modal:has-text("Restore"), .qwenpaw-modal:has-text("恢复")'
+    RESTORE_MODAL = '.potato-modal:has-text("Restore"), .potato-modal:has-text("恢复")'
     FULL_RESTORE_OPTION = 'label:has-text("Full"), label:has-text("全量恢复")'
     CUSTOM_RESTORE_OPTION = 'label:has-text("Custom"), label:has-text("自定义")'
-    PRE_RESTORE_CONFIRM = '.qwenpaw-modal:has-text("snapshot"), .qwenpaw-modal:has-text("快照")'
+    PRE_RESTORE_CONFIRM = '.potato-modal:has-text("snapshot"), .potato-modal:has-text("快照")'
 
     # Import conflict modal
-    CONFLICT_MODAL = '.qwenpaw-modal:has-text("conflict"), .qwenpaw-modal:has-text("冲突"), .qwenpaw-modal:has-text("Conflict")'
+    CONFLICT_MODAL = '.potato-modal:has-text("conflict"), .potato-modal:has-text("冲突"), .potato-modal:has-text("Conflict")'
     OVERWRITE_BUTTON = 'button:has-text("Overwrite"), button:has-text("覆盖")'
 
     # Toast messages
-    SUCCESS_TOAST = '.qwenpaw-message-success, .qwenpaw-notification-success'
-    ERROR_TOAST = '.qwenpaw-message-error, .qwenpaw-notification-error'
+    SUCCESS_TOAST = '.potato-message-success, .potato-notification-success'
+    ERROR_TOAST = '.potato-message-error, .potato-notification-error'
 
     # Generic switch and loading
-    SWITCH = ".qwenpaw-switch"
-    CHECKBOX = ".qwenpaw-checkbox"
-    SPIN = ".qwenpaw-spin"
+    SWITCH = ".potato-switch"
+    CHECKBOX = ".potato-checkbox"
+    SPIN = ".potato-spin"
 
     # ========== Initialization ==========
 

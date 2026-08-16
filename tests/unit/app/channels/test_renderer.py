@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for qwenpaw.app.channels.renderer + streaming chunk splitting.
+"""Unit tests for potato.app.channels.renderer + streaming chunk splitting.
 
 Covers:
 - RenderStyle configuration & MessageRenderer.message_to_parts
@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from qwenpaw.app.channels.renderer import (
+from potato.app.channels.renderer import (
     MessageRenderer,
     RenderStyle,
     ChannelDisplayConfig,
@@ -27,7 +27,7 @@ from qwenpaw.app.channels.renderer import (
     _fmt_tool_call,
     _fmt_tool_output_label,
 )
-from qwenpaw.schemas import (
+from potato.schemas import (
     AudioContent,
     ContentType,
     DataContent,
@@ -462,7 +462,7 @@ class TestPartsToText:
 
 @pytest.fixture
 def streaming_channel(tmp_path):
-    from qwenpaw.app.channels.console.channel import ConsoleChannel
+    from potato.app.channels.console.channel import ConsoleChannel
 
     class SpyChannel(ConsoleChannel):
         def __init__(self, *a, **kw):

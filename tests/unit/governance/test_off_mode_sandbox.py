@@ -11,11 +11,25 @@ from __future__ import annotations
 
 # pylint: disable=protected-access
 
+from pathlib import Path
 from types import SimpleNamespace
 
-from qwenpaw.governance import tool_adapter
-from qwenpaw.governance.resource_governor import ResourceGovernor
-from qwenpaw.governance.tool_registry import DEFAULT_REGISTRY
+from potato.governance import tool_adapter
+from potato.governance.resource_governor import ResourceGovernor
+from potato.governance.tool_registry import DEFAULT_REGISTRY
+
+
+def test_execution_level_off_reads_legacy_qwenpaw_policy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """An upgraded install keeps honoring its old governance policy."""
+    policy_path = tmp_path / ".qwenpaw" / "policy.yaml"
+    policy_path.parent.mkdir(parents=True)
+    policy_path.write_text('execution_level: "off"\n', encoding="utf-8")
+    monkeypatch.setattr("potato.constant.WORKING_DIR", tmp_path)
+
+    assert tool_adapter._is_execution_level_off() is True
 
 
 class _FakeGovernor:
@@ -184,7 +198,7 @@ class TestSandboxSwitchHotReload:
 
     @staticmethod
     def _patch_switch(monkeypatch, state: dict) -> None:
-        import qwenpaw.config as config_mod
+        import potato.config as config_mod
 
         monkeypatch.setattr(
             config_mod,

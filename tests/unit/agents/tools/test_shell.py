@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for qwenpaw.agents.tools.shell.
+"""Tests for potato.agents.tools.shell.
 
 Covers:
 - _collapse_newlines_outside_quotes
@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.agents.tools.shell import (
+from potato.agents.tools.shell import (
     _collapse_embedded_newlines,
     _collapse_newlines_outside_quotes,
     _execute_in_sandbox,
@@ -40,7 +40,7 @@ from qwenpaw.agents.tools.shell import (
     execute_shell_command,
     smart_decode,
 )
-from qwenpaw.sandbox import (
+from potato.sandbox import (
     ExecutionResult,
     MountSpec,
     SandboxConfig,
@@ -165,7 +165,7 @@ def test_windows_taskkill_args_targets_entire_process_tree():
 
 
 def test_windows_sync_cancel_kills_process_tree(monkeypatch, tmp_path):
-    from qwenpaw.agents.tools import shell
+    from potato.agents.tools import shell
 
     process = MagicMock(pid=4321, returncode=None)
     cancel_event = threading.Event()
@@ -250,7 +250,7 @@ class TestCollapseEmbeddedNewlines:
             _collapse_embedded_newlines(command, "powershell.exe") == command
         )
 
-    @patch("qwenpaw.agents.tools.shell.sys")
+    @patch("potato.agents.tools.shell.sys")
     def test_windows_cmd_collapses_all(self, mock_sys):
         mock_sys.platform = "win32"
         result = _collapse_embedded_newlines(
@@ -259,7 +259,7 @@ class TestCollapseEmbeddedNewlines:
         )
         assert result == 'echo "hello world"'
 
-    @patch("qwenpaw.agents.tools.shell.sys")
+    @patch("potato.agents.tools.shell.sys")
     def test_windows_default_shell_collapses_all(self, mock_sys):
         mock_sys.platform = "win32"
         result = _collapse_embedded_newlines('echo "hello\nworld"')
@@ -267,7 +267,7 @@ class TestCollapseEmbeddedNewlines:
 
     @pytest.mark.parametrize("shell", ["powershell.exe", "pwsh.exe"])
     @pytest.mark.parametrize("newline", ["\n", "\r\n"])
-    @patch("qwenpaw.agents.tools.shell.sys")
+    @patch("potato.agents.tools.shell.sys")
     def test_windows_powershell_preserves_here_string(
         self,
         mock_sys,
@@ -281,7 +281,7 @@ class TestCollapseEmbeddedNewlines:
         )
         assert _collapse_embedded_newlines(command, shell) == command
 
-    @patch("qwenpaw.agents.tools.shell.sys")
+    @patch("potato.agents.tools.shell.sys")
     def test_unix_preserves_quoted_newlines(self, mock_sys):
         mock_sys.platform = "linux"
         command = 'echo "hello\nworld"'
@@ -493,8 +493,8 @@ class TestExecuteShellCommand:
 
     @pytest.mark.asyncio
     async def test_windows_cancel_signals_sync_worker(self, monkeypatch):
-        from qwenpaw.agents.tools import shell
-        from qwenpaw.tool_calls import (
+        from potato.agents.tools import shell
+        from potato.tool_calls import (
             ToolCallContext,
             reset_call_context,
             set_call_context,
@@ -548,9 +548,9 @@ class TestExecuteShellCommand:
         assert "cancelled" in result.content[0].text.lower()
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
-    @patch("qwenpaw.agents.tools.shell.get_current_workspace_dir")
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_executable")
+    @patch("potato.agents.tools.shell.get_current_shell_command_timeout")
+    @patch("potato.agents.tools.shell.get_current_workspace_dir")
+    @patch("potato.agents.tools.shell.get_current_shell_command_executable")
     async def test_simple_command_success(
         self,
         mock_shell_exe,
@@ -568,11 +568,11 @@ class TestExecuteShellCommand:
 
         with (
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.create_subprocess_shell",
+                "potato.agents.tools.shell.asyncio.create_subprocess_shell",
                 AsyncMock(return_value=mock_proc),
             ),
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.wait_for",
+                "potato.agents.tools.shell.asyncio.wait_for",
                 side_effect=fake_wait_for,
             ),
         ):
@@ -588,9 +588,9 @@ class TestExecuteShellCommand:
             }
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
-    @patch("qwenpaw.agents.tools.shell.get_current_workspace_dir")
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_executable")
+    @patch("potato.agents.tools.shell.get_current_shell_command_timeout")
+    @patch("potato.agents.tools.shell.get_current_workspace_dir")
+    @patch("potato.agents.tools.shell.get_current_shell_command_executable")
     async def test_command_failure(
         self,
         mock_shell_exe,
@@ -608,11 +608,11 @@ class TestExecuteShellCommand:
 
         with (
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.create_subprocess_shell",
+                "potato.agents.tools.shell.asyncio.create_subprocess_shell",
                 AsyncMock(return_value=mock_proc),
             ),
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.wait_for",
+                "potato.agents.tools.shell.asyncio.wait_for",
                 side_effect=fake_wait_for,
             ),
         ):
@@ -627,7 +627,7 @@ class TestExecuteShellCommand:
 
     @pytest.mark.asyncio
     async def test_blocked_command_omits_unavailable_exit_code(self):
-        from qwenpaw.agents.tools.shell import execute_shell_command
+        from potato.agents.tools.shell import execute_shell_command
 
         result = await execute_shell_command(f"kill {os.getpid()}")
 
@@ -639,9 +639,9 @@ class TestExecuteShellCommand:
         }
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
-    @patch("qwenpaw.agents.tools.shell.get_current_workspace_dir")
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_executable")
+    @patch("potato.agents.tools.shell.get_current_shell_command_timeout")
+    @patch("potato.agents.tools.shell.get_current_workspace_dir")
+    @patch("potato.agents.tools.shell.get_current_shell_command_executable")
     async def test_empty_command(
         self,
         mock_shell_exe,
@@ -659,11 +659,11 @@ class TestExecuteShellCommand:
 
         with (
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.create_subprocess_shell",
+                "potato.agents.tools.shell.asyncio.create_subprocess_shell",
                 AsyncMock(return_value=mock_proc),
             ),
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.wait_for",
+                "potato.agents.tools.shell.asyncio.wait_for",
                 side_effect=fake_wait_for,
             ),
         ):
@@ -672,9 +672,9 @@ class TestExecuteShellCommand:
             assert "successfully" in text.lower()
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
-    @patch("qwenpaw.agents.tools.shell.get_current_workspace_dir")
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_executable")
+    @patch("potato.agents.tools.shell.get_current_shell_command_timeout")
+    @patch("potato.agents.tools.shell.get_current_workspace_dir")
+    @patch("potato.agents.tools.shell.get_current_shell_command_executable")
     async def test_timeout_string_converted(
         self,
         mock_shell_exe,
@@ -692,11 +692,11 @@ class TestExecuteShellCommand:
 
         with (
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.create_subprocess_shell",
+                "potato.agents.tools.shell.asyncio.create_subprocess_shell",
                 AsyncMock(return_value=mock_proc),
             ),
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.wait_for",
+                "potato.agents.tools.shell.asyncio.wait_for",
                 side_effect=fake_wait_for,
             ),
         ):
@@ -705,9 +705,9 @@ class TestExecuteShellCommand:
             assert result.content is not None
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_timeout")
-    @patch("qwenpaw.agents.tools.shell.get_current_workspace_dir")
-    @patch("qwenpaw.agents.tools.shell.get_current_shell_command_executable")
+    @patch("potato.agents.tools.shell.get_current_shell_command_timeout")
+    @patch("potato.agents.tools.shell.get_current_workspace_dir")
+    @patch("potato.agents.tools.shell.get_current_shell_command_executable")
     async def test_invalid_timeout_defaults(
         self,
         mock_shell_exe,
@@ -725,11 +725,11 @@ class TestExecuteShellCommand:
 
         with (
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.create_subprocess_shell",
+                "potato.agents.tools.shell.asyncio.create_subprocess_shell",
                 AsyncMock(return_value=mock_proc),
             ),
             patch(
-                "qwenpaw.agents.tools.shell.asyncio.wait_for",
+                "potato.agents.tools.shell.asyncio.wait_for",
                 side_effect=fake_wait_for,
             ),
         ):
@@ -750,7 +750,7 @@ class TestExecuteShellCommand:
         monkeypatch,
         tmp_path,
     ):
-        from qwenpaw.agents.tools.shell import execute_shell_command
+        from potato.agents.tools.shell import execute_shell_command
 
         system_bin = tmp_path / "system-bin"
         system_bin.mkdir()
@@ -800,7 +800,7 @@ class TestExecuteShellCommand:
         context_manager.__aexit__ = AsyncMock(return_value=None)
 
         with patch(
-            "qwenpaw.sandbox.create_sandbox",
+            "potato.sandbox.create_sandbox",
             return_value=context_manager,
         ) as create_sandbox:
             await _execute_in_sandbox(

@@ -7,17 +7,17 @@ export type BlogPostMeta = {
 /** Display order is determined by frontmatter `date` (newest first). */
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
-    slug: "qwenpaw-developer-day-collection",
+    slug: "potato-developer-day-collection",
     cover:
       "https://img.alicdn.com/imgextra/i1/O1CN01x0yknl1moyGt1kpxU_!!6000000005002-2-tps-1224-696.png",
   },
   {
-    slug: "introducing-qwenpaw-driver",
+    slug: "introducing-potato-driver",
     cover:
       "https://img.alicdn.com/imgextra/i2/O1CN01IHOJzn1Jm6wO0Jy9L_!!6000000001070-2-tps-1224-696.png",
   },
   {
-    slug: "play-with-qwenpaw-pet",
+    slug: "play-with-potato-pet",
     cover:
       "https://img.alicdn.com/imgextra/i3/O1CN01eC3Ngx1Tzz5zy5VCX_!!6000000002454-2-tps-1536-1024.png",
   },
@@ -32,7 +32,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
       "https://img.alicdn.com/imgextra/i1/O1CN01eByOkk1h3Gwf2q0It_!!6000000004221-2-tps-1536-1024.png",
   },
   {
-    slug: "qwenpaw-plugin-picks-1",
+    slug: "potato-plugin-picks-1",
     cover:
       "https://img.alicdn.com/imgextra/i1/6000000004826/O1CN014843Da1lWMZIlKBgv_!!6000000004826-0-tbvideo.jpg",
   },

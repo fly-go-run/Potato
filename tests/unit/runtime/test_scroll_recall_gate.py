@@ -20,7 +20,7 @@ sandbox.
 
 from types import SimpleNamespace
 
-from qwenpaw.runtime.builder import AgentBuilder
+from potato.runtime.builder import AgentBuilder
 
 
 def _agent_config(allow_unsandboxed: bool) -> SimpleNamespace:
@@ -45,7 +45,7 @@ def test_runnable_when_unsandboxed_opt_in(monkeypatch):
     # No governor, but the deployment opted into unsandboxed recall — which
     # needs BOTH the env var and the per-agent flag (agent.json alone can't
     # bypass the sandbox).
-    monkeypatch.setenv("QWENPAW_ALLOW_UNSANDBOXED_RECALL", "1")
+    monkeypatch.setenv("POTATO_ALLOW_UNSANDBOXED_RECALL", "1")
     cfg = _agent_config(allow_unsandboxed=True)
     assert AgentBuilder._scroll_recall_runnable(cfg, governor=None) is True
 
@@ -89,7 +89,7 @@ def test_repl_omitted_when_governor_present_but_no_sandbox():
 
 def test_repl_offered_when_unsandboxed_opt_in(monkeypatch):
     # No sandbox, but the operator explicitly opted into unsandboxed recall.
-    monkeypatch.setenv("QWENPAW_ALLOW_UNSANDBOXED_RECALL", "1")
+    monkeypatch.setenv("POTATO_ALLOW_UNSANDBOXED_RECALL", "1")
     cfg = _agent_config(allow_unsandboxed=True)
     assert AgentBuilder._scroll_repl_runnable(cfg, _governor(False)) is True
 

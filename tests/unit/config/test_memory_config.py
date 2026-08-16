@@ -3,8 +3,8 @@
 
 from types import SimpleNamespace
 
-import qwenpaw.config.utils as config_utils
-from qwenpaw.config.config import ADBPGMemoryConfig, ReMeLightMemoryConfig
+import potato.config.utils as config_utils
+from potato.config.config import ADBPGMemoryConfig, ReMeLightMemoryConfig
 
 
 def test_adbpg_auto_memory_search_defaults():

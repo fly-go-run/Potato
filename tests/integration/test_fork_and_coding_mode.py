@@ -3,9 +3,9 @@
 (Sprint 4.2).
 
 Target routers:
-  - src/qwenpaw/app/routers/coding_mode.py (GET + POST /api/coding-mode)
-  - src/qwenpaw/app/routers/fork.py         (POST /api/fork/agent)
-  - src/qwenpaw/app/routers/agent_status.py (GET agent-scoped)
+  - src/potato/app/routers/coding_mode.py (GET + POST /api/coding-mode)
+  - src/potato/app/routers/fork.py         (POST /api/fork/agent)
+  - src/potato/app/routers/agent_status.py (GET agent-scoped)
 
 Coverage strategy (happy path first):
   - coding-mode: GET default state, POST toggle on/off with GET roundtrip

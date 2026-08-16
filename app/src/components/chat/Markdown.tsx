@@ -60,10 +60,10 @@ export function Markdown({
             <h3 className="mb-2 mt-4 font-semibold first:mt-0">{value}</h3>
           ),
           ul: ({ children: value }) => (
-            <ul className="my-2 list-disc space-y-1 pl-5">{value}</ul>
+            <ul className="my-2 list-disc space-y-1 pl-5 last:mb-0">{value}</ul>
           ),
           ol: ({ children: value }) => (
-            <ol className="my-2 list-decimal space-y-1 pl-5">{value}</ol>
+            <ol className="my-2 list-decimal space-y-1 pl-5 last:mb-0">{value}</ol>
           ),
           blockquote: ({ children: value }) => (
             <blockquote className="my-3 border-l-2 border-line-strong pl-4 text-ink-secondary">

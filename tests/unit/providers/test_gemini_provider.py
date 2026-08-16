@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 from google.genai import errors as genai_errors
 
-import qwenpaw.providers.gemini_provider as gemini_provider_module
-from qwenpaw.providers.gemini_provider import GeminiProvider
+import potato.providers.gemini_provider as gemini_provider_module
+from potato.providers.gemini_provider import GeminiProvider
 
 
 def _make_provider() -> GeminiProvider:
@@ -402,7 +402,7 @@ def test_normalize_models_display_name_with_models_prefix() -> None:
 
 
 def test_sanitize_replaces_standalone_null_type() -> None:
-    from qwenpaw.providers.gemini_provider import _sanitize_schema_for_gemini
+    from potato.providers.gemini_provider import _sanitize_schema_for_gemini
 
     schema = {
         "type": "object",
@@ -417,7 +417,7 @@ def test_sanitize_replaces_standalone_null_type() -> None:
 
 
 def test_sanitize_handles_anyOf_with_null() -> None:
-    from qwenpaw.providers.gemini_provider import _sanitize_schema_for_gemini
+    from potato.providers.gemini_provider import _sanitize_schema_for_gemini
 
     schema = {
         "type": "object",
@@ -432,7 +432,7 @@ def test_sanitize_handles_anyOf_with_null() -> None:
 
 
 def test_sanitize_handles_anyOf_with_annotated_null() -> None:
-    from qwenpaw.providers.gemini_provider import _sanitize_schema_for_gemini
+    from potato.providers.gemini_provider import _sanitize_schema_for_gemini
 
     schema = {
         "type": "object",
@@ -450,7 +450,7 @@ def test_sanitize_handles_anyOf_with_annotated_null() -> None:
 
 
 def test_sanitize_nested_standalone_null() -> None:
-    from qwenpaw.providers.gemini_provider import _sanitize_schema_for_gemini
+    from potato.providers.gemini_provider import _sanitize_schema_for_gemini
 
     schema = {
         "type": "object",
@@ -470,7 +470,7 @@ def test_sanitize_nested_standalone_null() -> None:
 
 
 def test_sanitize_removes_additional_properties() -> None:
-    from qwenpaw.providers.gemini_provider import _sanitize_schema_for_gemini
+    from potato.providers.gemini_provider import _sanitize_schema_for_gemini
 
     schema = {
         "type": "object",
@@ -482,7 +482,7 @@ def test_sanitize_removes_additional_properties() -> None:
 
 
 def test_sanitize_all_null_anyOf_becomes_object() -> None:
-    from qwenpaw.providers.gemini_provider import _sanitize_schema_for_gemini
+    from potato.providers.gemini_provider import _sanitize_schema_for_gemini
 
     schema = {
         "anyOf": [{"type": "null"}, {"type": "null"}],

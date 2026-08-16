@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Integration tests for /api/workspace/git/* (Sprint 4.3).
 
-Target router: src/qwenpaw/app/routers/git.py (11 routes, 0 cov)
+Target router: src/potato/app/routers/git.py (11 routes, 0 cov)
 Backing: real ``git`` binary via ``_git()`` shelling out; the endpoints
 operate on ``get_coding_dir(workspace)`` which, for the default agent,
 resolves to ``<working_dir>/workspaces/default``.

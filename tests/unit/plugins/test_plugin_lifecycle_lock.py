@@ -10,29 +10,29 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.routers.plugins import (
+from potato.app.routers.plugins import (
     _finish_plugin_install_after_load,
     _tool_names_from_meta,
 )
-from qwenpaw.governance.tool_registry import (
+from potato.governance.tool_registry import (
     DEFAULT_REGISTRY,
     register_tool_governance,
 )
-from qwenpaw.plugins.api import (
+from potato.plugins.api import (
     _TOOL_PLUGIN_OWNERS,
     release_tool_ownership_for_plugin,
 )
-from qwenpaw.plugins.architecture import (
+from potato.plugins.architecture import (
     PluginEntryPoints,
     PluginManifest,
     PluginRecord,
 )
-from qwenpaw.plugins.loader import (
+from potato.plugins.loader import (
     PluginLoader,
     _norm_realpath,
     resolved_plugin_manifest_path,
 )
-from qwenpaw.plugins.registry import PluginRegistry
+from potato.plugins.registry import PluginRegistry
 
 
 def test_tool_names_from_meta_supports_legacy_and_multi():
@@ -106,19 +106,19 @@ async def test_force_reinstall_removes_obsolete_tools_before_reload():
 
     with (
         patch(
-            "qwenpaw.app.routers.plugins._post_load_setup",
+            "potato.app.routers.plugins._post_load_setup",
             new=AsyncMock(side_effect=_fake_post_load),
         ),
         patch(
-            "qwenpaw.app.routers.plugins._remove_named_tools_from_agents",
+            "potato.app.routers.plugins._remove_named_tools_from_agents",
             side_effect=_fake_remove,
         ),
         patch(
-            "qwenpaw.app.routers.plugins._schedule_all_agents_reload",
+            "potato.app.routers.plugins._schedule_all_agents_reload",
             new=AsyncMock(side_effect=_fake_reload),
         ),
         patch(
-            "qwenpaw.app.routers.plugins.asyncio.to_thread",
+            "potato.app.routers.plugins.asyncio.to_thread",
             new=AsyncMock(
                 side_effect=lambda fn, *args: fn(*args),
             ),

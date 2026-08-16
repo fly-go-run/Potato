@@ -29,9 +29,9 @@ export interface DirectoryListing {
   selectable?: boolean;
 }
 
-const SESSION_PREFIX = "qwenpaw_project_session:";
-const LAST_PROJECT_KEY = "qwenpaw_project_last";
-const RECENT_PROJECTS_KEY = "qwenpaw_project_recent";
+const SESSION_PREFIX = "potato_project_session:";
+const LAST_PROJECT_KEY = "potato_project_last";
+const RECENT_PROJECTS_KEY = "potato_project_recent";
 const RECENT_LIMIT = 8;
 
 function parseBinding(raw: string | null): ProjectBinding | null {

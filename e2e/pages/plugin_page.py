@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Plugin Manager page object.
+Potato Plugin Manager page object.
 
 Wraps:
 - Navigation to ``/plugin-manager``
@@ -47,12 +47,12 @@ class PluginPage(BasePage):
         'button:has-text("安装插件")'
     )
     TAB_INSTALLED = (
-        '.qwenpaw-tabs-tab:has-text("Installed"), '
-        '.qwenpaw-tabs-tab:has-text("已安装")'
+        '.potato-tabs-tab:has-text("Installed"), '
+        '.potato-tabs-tab:has-text("已安装")'
     )
     TAB_OFFICIAL = (
-        '.qwenpaw-tabs-tab:has-text("Official"), '
-        '.qwenpaw-tabs-tab:has-text("官方")'
+        '.potato-tabs-tab:has-text("Official"), '
+        '.potato-tabs-tab:has-text("官方")'
     )
 
     # Empty-state text inside the installed table
@@ -80,9 +80,9 @@ class PluginPage(BasePage):
             "      state: { selectedAgent: a, agents: [], lastChatIdByAgent: {} },"
             "      version: 0"
             "    });"
-            "    try { localStorage.setItem('qwenpaw-last-used-agent', a); } catch (e) {}"
-            "    try { localStorage.setItem('qwenpaw-agent-storage', blob); } catch (e) {}"
-            "    try { sessionStorage.setItem('qwenpaw-agent-storage', blob); } catch (e) {}"
+            "    try { localStorage.setItem('potato-last-used-agent', a); } catch (e) {}"
+            "    try { localStorage.setItem('potato-agent-storage', blob); } catch (e) {}"
+            "    try { sessionStorage.setItem('potato-agent-storage', blob); } catch (e) {}"
             "  } catch (e) {}"
             "})();"
         )

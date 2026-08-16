@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # pylint:disable=too-many-statements
 """
-Create a temporary conda env, install QwenPaw from a wheel, run conda-pack.
+Create a temporary conda env, install Potato from a wheel, run conda-pack.
 Used by build_macos.sh and build_win.ps1. Run from repo root.
 """
 from __future__ import annotations
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ENV_PREFIX = "qwenpaw_pack_"
+ENV_PREFIX = "potato_pack_"
 
 # Packages affected by conda-unpack bug on Windows (conda-pack Issue #154)
 # conda-unpack modifies Python source files to replace path prefixes, but uses
@@ -74,7 +74,7 @@ def _pick_wheel(wheel_arg: str | None) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Conda-pack QwenPaw (temp env).",
+        description="Conda-pack Potato (temp env).",
     )
     parser.add_argument(
         "--output",
@@ -138,7 +138,8 @@ def main() -> int:
                 "-y",
             ],
         )
-        # Install qwenpaw with all dependencies
+        # Install Potato with all dependencies. The wheel's stable external
+        # distribution name remains qwenpaw even though it exposes potato.
         # Scope CMAKE_ARGS to this specific command to avoid affecting other
         # CMake-based packages. Only set if we need to compile from source.
         install_env = {}

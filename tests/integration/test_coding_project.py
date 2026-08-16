@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Integration tests for /api/workspace/coding-project/* (Sprint 4.3).
 
-Target router: src/qwenpaw/app/routers/coding_project.py (8 routes, 0 cov)
+Target router: src/potato/app/routers/coding_project.py (8 routes, 0 cov)
 
 Coverage strategy (happy path first):
   - GET (root): read the active coding dir metadata (no side effects).

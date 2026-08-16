@@ -3,7 +3,7 @@
  *
  * Loaded by the host via usePluginLoader (same-origin Blob URL + dynamic
  * import). Self-registers a React route at /apps/agent-kanban. React and
- * antd come from window.QwenPaw.host (no bundler in this context).
+ * antd come from window.Potato.host (no bundler in this context).
  *
  * Light, Linear-style board:
  * - 5 columns with soft per-status vertical gradient tints
@@ -13,13 +13,13 @@
  * - assign an agent, "运行" dispatches to the assignee, 4s polling
  */
 (function () {
-  var QwenPaw = window.QwenPaw;
-  if (!QwenPaw || !QwenPaw.host || !QwenPaw.registerRoutes) {
-    console.error("[agent-kanban] window.QwenPaw not ready — cannot register.");
+  var Potato = window.Potato;
+  if (!Potato || !Potato.host || !Potato.registerRoutes) {
+    console.error("[agent-kanban] window.Potato not ready — cannot register.");
     return;
   }
 
-  var host = QwenPaw.host;
+  var host = Potato.host;
   var React = host.React;
   var antd = host.antd;
   var h = React.createElement;
@@ -1534,7 +1534,7 @@
   }
 
   // ── Self-register route ─────────────────────────────────────────────────
-  QwenPaw.registerRoutes("agent-kanban", [
+  Potato.registerRoutes("agent-kanban", [
     {
       path: "/apps/agent-kanban",
       component: KanbanBoard,

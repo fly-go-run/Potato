@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from qwenpaw.app.utils import save_upload_with_limit
+from potato.app.utils import save_upload_with_limit
 
 
 class _Upload:

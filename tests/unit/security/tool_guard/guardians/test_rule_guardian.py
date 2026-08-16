@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for qwenpaw.security.tool_guard.guardians.rule_guardian."""
+"""Tests for potato.security.tool_guard.guardians.rule_guardian."""
 # pylint: disable=redefined-outer-name,unused-argument
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+from potato.security.tool_guard.guardians.rule_guardian import (
     GuardRule,
     RuleBasedToolGuardian,
     _check_rm_targets_outside_workspace,
@@ -20,7 +20,7 @@ from qwenpaw.security.tool_guard.guardians.rule_guardian import (
     load_rules_from_directory,
     load_rules_from_yaml,
 )
-from qwenpaw.security.tool_guard.models import (
+from potato.security.tool_guard.models import (
     GuardSeverity,
     GuardThreatCategory,
 )
@@ -35,7 +35,7 @@ from qwenpaw.security.tool_guard.models import (
 def mock_config_rules():
     """Patch _load_config_rules to return empty rules and no disabled IDs."""
     with patch(
-        "qwenpaw.security.tool_guard.guardians.rule_guardian"
+        "potato.security.tool_guard.guardians.rule_guardian"
         "._load_config_rules",
         return_value=([], set()),
     ):
@@ -46,7 +46,7 @@ def mock_config_rules():
 def mock_workspace_root(tmp_path):
     """Patch _get_workspace_root to return tmp_path."""
     with patch(
-        "qwenpaw.security.tool_guard.guardians.rule_guardian"
+        "potato.security.tool_guard.guardians.rule_guardian"
         "._get_workspace_root",
         return_value=tmp_path,
     ):
@@ -691,7 +691,7 @@ class TestRuleBasedToolGuardianInit:
             yaml.dump([sample_rule_data]),
         )
         with patch(
-            "qwenpaw.security.tool_guard.guardians.rule_guardian"
+            "potato.security.tool_guard.guardians.rule_guardian"
             "._load_config_rules",
             return_value=([], {"TEST_001"}),
         ):
@@ -990,7 +990,7 @@ class TestSharedSafetyChecksIntegration:
     ):
         """_is_outside_workspace uses is_path_outside_boundary."""
         with patch(
-            "qwenpaw.security.tool_guard.guardians.rule_guardian"
+            "potato.security.tool_guard.guardians.rule_guardian"
             ".is_path_outside_boundary",
             return_value=True,
         ) as mock_boundary:
@@ -1006,7 +1006,7 @@ class TestSharedSafetyChecksIntegration:
 
     def test_guard_emits_shared_destructive_finding(self):
         """Catastrophic hits produce SAFETY_CHECKS_DESTRUCTIVE_COMMAND."""
-        from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+        from potato.security.tool_guard.guardians.rule_guardian import (
             SharedSafetyToolGuardian,
         )
 
@@ -1023,7 +1023,7 @@ class TestSharedSafetyChecksIntegration:
 
     def test_guard_emits_system_power_finding_not_catastrophic(self):
         """reboot is surfaced for approval, not as catastrophic auto-deny."""
-        from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+        from potato.security.tool_guard.guardians.rule_guardian import (
             SharedSafetyToolGuardian,
         )
 
@@ -1038,7 +1038,7 @@ class TestSharedSafetyChecksIntegration:
         )
 
     def test_always_run_is_enabled(self):
-        from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+        from potato.security.tool_guard.guardians.rule_guardian import (
             SharedSafetyToolGuardian,
         )
 
@@ -1046,7 +1046,7 @@ class TestSharedSafetyChecksIntegration:
 
     def test_guard_skips_shared_check_for_tmp_path(self):
         """rm -rf /tmp must not hit the shared catastrophic rule."""
-        from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+        from potato.security.tool_guard.guardians.rule_guardian import (
             SharedSafetyToolGuardian,
         )
 
@@ -1075,7 +1075,7 @@ class TestSharedSafetyChecksIntegration:
         command: str,
     ):
         """Windows catastrophic commands hit the shared CRITICAL finding."""
-        from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+        from potato.security.tool_guard.guardians.rule_guardian import (
             SharedSafetyToolGuardian,
         )
 
@@ -1092,7 +1092,7 @@ class TestSharedSafetyChecksIntegration:
 
     def test_guard_skips_shared_check_for_safe_command(self):
         """Safe shell commands do not get the shared destructive finding."""
-        from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+        from potato.security.tool_guard.guardians.rule_guardian import (
             SharedSafetyToolGuardian,
         )
 
@@ -1112,7 +1112,7 @@ class TestSharedSafetyChecksIntegration:
 
     def test_guard_skips_shared_check_for_non_shell_tools(self):
         """Non-shell tools are not scanned by the shared hard-check."""
-        from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+        from potato.security.tool_guard.guardians.rule_guardian import (
             SharedSafetyToolGuardian,
         )
 

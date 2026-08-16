@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Tests for launching the bundled TUI (`qwenpaw` / `qwenpaw tui`).
+"""Tests for launching the bundled TUI (`potato` / `potato tui`).
 
 Replaces paw's old ``test_cli.py`` + ``test_resolve.py``: the standalone
 ``paw`` command and PATH-based resolution were dropped when the TUI moved into
-QwenPaw. The TUI now spawns ``qwenpaw acp`` using the *current* interpreter.
+Potato. The TUI now spawns ``potato acp`` using the *current* interpreter.
 """
 
 from __future__ import annotations
@@ -18,29 +18,29 @@ import pytest
 
 from click.testing import CliRunner
 
-from qwenpaw.cli.tui import launch
-from qwenpaw.cli.tui.launch import _build_transport, _resolve_workspace_dir
-from qwenpaw.cli.tui.launch import _resume_command
-from qwenpaw.cli.tui.launch import tui_cmd
+from potato.cli.tui import launch
+from potato.cli.tui.launch import _build_transport, _resolve_workspace_dir
+from potato.cli.tui.launch import _resume_command
+from potato.cli.tui.launch import tui_cmd
 
 pytestmark = [pytest.mark.unit, pytest.mark.p1]
 
 
 def test_default_transport_targets_current_interpreter(tmp_path, monkeypatch):
-    """Default spawns this very ``python -m qwenpaw acp`` (no PATH lookup)."""
+    """Default spawns this very ``python -m potato acp`` (no PATH lookup)."""
     monkeypatch.chdir(tmp_path)
     transport, description = _build_transport(agent=None, resume=None)
     assert transport._command == [
         sys.executable,
         "-m",
-        "qwenpaw",
+        "potato",
         "acp",
         "--local-diagnostics",
     ]
     project_dir = str(tmp_path.resolve())
     assert transport._cwd == project_dir
     assert transport._project_dir == project_dir
-    assert "qwenpaw acp" in description
+    assert "potato acp" in description
     assert "--local-diagnostics" in description
     assert f"cwd={project_dir}" in description
 
@@ -51,7 +51,7 @@ def test_default_transport_appends_agent_once():
     assert transport._command == [
         sys.executable,
         "-m",
-        "qwenpaw",
+        "potato",
         "acp",
         "--local-diagnostics",
         "--agent",
@@ -119,7 +119,7 @@ def test_resume_command_quotes_agent_session_and_project_path(monkeypatch):
     )
 
     assert command == (
-        "qwenpaw tui --agent writer --resume 'sess abc' "
+        "potato tui --agent writer --resume 'sess abc' "
         "'/tmp/project with spaces'"
     )
 
@@ -133,7 +133,7 @@ def test_resume_command_uses_windows_quoting(monkeypatch):
         project_dir=r"C:\Project Dir",
     )
 
-    assert command == r'qwenpaw tui --resume "sess abc" "C:\Project Dir"'
+    assert command == r'potato tui --resume "sess abc" "C:\Project Dir"'
 
 
 def test_resume_command_quotes_windows_project_path_with_shell_meta(
@@ -147,7 +147,7 @@ def test_resume_command_quotes_windows_project_path_with_shell_meta(
         project_dir=r"C:\A&B",
     )
 
-    assert command == r'qwenpaw tui --resume sess-abc "C:\A&B"'
+    assert command == r'potato tui --resume sess-abc "C:\A&B"'
 
 
 def test_resume_command_quotes_windows_project_path_trailing_backslash(
@@ -161,7 +161,7 @@ def test_resume_command_quotes_windows_project_path_trailing_backslash(
         project_dir="C:\\",
     )
 
-    assert command == r'qwenpaw tui --resume sess-abc "C:\\"'
+    assert command == r'potato tui --resume sess-abc "C:\\"'
 
 
 def test_run_tui_prints_resume_hint(monkeypatch, capsys, tmp_path):
@@ -182,7 +182,7 @@ def test_run_tui_prints_resume_hint(monkeypatch, capsys, tmp_path):
         "_build_transport",
         lambda **_: (FakeTransport(), "fake transport"),
     )
-    monkeypatch.setattr("qwenpaw.cli.tui.app.PawApp", FakeApp)
+    monkeypatch.setattr("potato.cli.tui.app.PawApp", FakeApp)
 
     launch.run_tui(agent="writer")
 
@@ -212,7 +212,7 @@ def test_run_tui_applies_textual_compat_before_app_runs(monkeypatch):
             calls.append("app-ran")
 
     monkeypatch.setattr(
-        "qwenpaw.cli.tui.compat.apply_textual_compat",
+        "potato.cli.tui.compat.apply_textual_compat",
         lambda: calls.append("compat"),
     )
     monkeypatch.setattr(
@@ -220,7 +220,7 @@ def test_run_tui_applies_textual_compat_before_app_runs(monkeypatch):
         "_build_transport",
         lambda **_: (FakeTransport(), "fake transport"),
     )
-    monkeypatch.setattr("qwenpaw.cli.tui.app.PawApp", FakeApp)
+    monkeypatch.setattr("potato.cli.tui.app.PawApp", FakeApp)
 
     launch.run_tui()
 
@@ -235,84 +235,58 @@ def test_tui_help():
     assert "[PROJECT]" in result.output
 
 
-def test_tui_cmd_invokes_run_tui(monkeypatch):
-    calls = {}
-
-    def fake_run_tui(*, agent, resume, project):
-        calls["agent"] = agent
-        calls["resume"] = resume
-        calls["project"] = project
-
-    monkeypatch.setattr("qwenpaw.cli.tui.launch.run_tui", fake_run_tui)
-    result = CliRunner().invoke(tui_cmd, ["--agent", "writer"])
-    assert result.exit_code == 0
-    assert calls == {
-        "agent": "writer",
-        "resume": None,
-        "project": None,
-    }
-
-
-def test_tui_cmd_accepts_project(monkeypatch, tmp_path):
-    calls = {}
-
-    def fake_run_tui(*, agent, resume, project):
-        calls["agent"] = agent
-        calls["resume"] = resume
-        calls["project"] = project
-
-    monkeypatch.setattr("qwenpaw.cli.tui.launch.run_tui", fake_run_tui)
-    result = CliRunner().invoke(tui_cmd, [str(tmp_path)])
-    assert result.exit_code == 0
-    assert calls == {
-        "agent": None,
-        "resume": None,
-        "project": str(tmp_path),
-    }
-
-
-def test_bare_qwenpaw_launches_tui(monkeypatch):
-    """Bare ``qwenpaw`` (no subcommand) opens the TUI."""
-    from qwenpaw.cli.main import cli
-
-    launched = {}
-
-    def fake_run_tui(*args, **kwargs):
-        launched["called"] = True
-        launched["kwargs"] = kwargs
-
-    monkeypatch.setattr("qwenpaw.cli.tui.launch.run_tui", fake_run_tui)
-    result = CliRunner().invoke(cli, [])
-    assert result.exit_code == 0
-    assert launched["called"] is True
-    assert launched["kwargs"]["project"] is None
-
-
-def test_bare_qwenpaw_project_launches_tui(monkeypatch):
-    """``qwenpaw .`` opens the TUI with the current directory as project."""
-    from qwenpaw.cli.main import cli
-
-    launched = {}
-
-    def fake_run_tui(*args, **kwargs):
-        launched["called"] = True
-        launched["kwargs"] = kwargs
-
-    monkeypatch.setattr("qwenpaw.cli.tui.launch.run_tui", fake_run_tui)
-    result = CliRunner().invoke(cli, ["."])
-    assert result.exit_code == 0
-    assert launched["called"] is True
-    assert launched["kwargs"]["project"] == "."
-
-
-def test_bare_qwenpaw_unknown_command_still_errors(monkeypatch):
-    """Only path-like unknown args are treated as TUI project paths."""
-    from qwenpaw.cli.main import cli
-
+def test_tui_cmd_refuses_to_launch(monkeypatch):
     monkeypatch.setattr(
-        "qwenpaw.cli.tui.launch.run_tui",
+        "potato.cli.tui.launch.run_tui",
         pytest.fail,
     )
-    result = CliRunner().invoke(cli, ["__missing_qwenpaw_command__"])
+    result = CliRunner().invoke(tui_cmd, ["--agent", "writer"])
+    assert result.exit_code == 2
+    assert "desktop app" in result.output
+
+
+def test_tui_cmd_is_hidden_from_help():
+    from potato.cli.main import cli
+
+    result = CliRunner().invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    assert "tui" not in result.output
+
+
+def test_bare_potato_does_not_launch_tui(monkeypatch):
+    """Bare ``potato`` points at the desktop app instead of the TUI."""
+    from potato.cli.main import DESKTOP_ONLY_HINT, cli
+
+    monkeypatch.setattr(
+        "potato.cli.tui.launch.run_tui",
+        pytest.fail,
+    )
+    result = CliRunner().invoke(cli, [])
+    assert result.exit_code == 0
+    assert DESKTOP_ONLY_HINT in result.output
+    assert "Usage:" in result.output
+
+
+def test_bare_potato_project_is_unknown_command(monkeypatch):
+    """``potato .`` is no longer treated as a TUI project path."""
+    from potato.cli.main import cli
+
+    monkeypatch.setattr(
+        "potato.cli.tui.launch.run_tui",
+        pytest.fail,
+    )
+    result = CliRunner().invoke(cli, ["."])
+    assert result.exit_code != 0
+    assert "No such command" in result.output
+
+
+def test_bare_potato_unknown_command_still_errors(monkeypatch):
+    from potato.cli.main import cli
+
+    monkeypatch.setattr(
+        "potato.cli.tui.launch.run_tui",
+        pytest.fail,
+    )
+    result = CliRunner().invoke(cli, ["__missing_potato_command__"])
     assert result.exit_code != 0
     assert "No such command" in result.output

@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from qwenpaw.agents.acp.client import ACPHostedClient
-from qwenpaw.config.config import ACPAgentConfig
+from potato.agents.acp.client import ACPHostedClient
+from potato.config.config import ACPAgentConfig
 
 
 class TestACPHostedClientTrustedAutoApprove:

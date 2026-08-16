@@ -3,7 +3,7 @@
 
 Running recall without a sandbox executes model-authored Python as the agent
 user. ``scroll_unsandboxed_allowed`` must require BOTH the per-agent config
-flag AND the deployment-layer ``QWENPAW_ALLOW_UNSANDBOXED_RECALL`` env var, so
+flag AND the deployment-layer ``POTATO_ALLOW_UNSANDBOXED_RECALL`` env var, so
 an untrusted agent.json / API payload can never bypass the sandbox on its own.
 """
 
@@ -11,9 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from qwenpaw.agents.context import scroll_unsandboxed_allowed
+from potato.agents.context import scroll_unsandboxed_allowed
 
-_ENV = "QWENPAW_ALLOW_UNSANDBOXED_RECALL"
+_ENV = "POTATO_ALLOW_UNSANDBOXED_RECALL"
 
 
 def _cfg(flag: bool) -> SimpleNamespace:

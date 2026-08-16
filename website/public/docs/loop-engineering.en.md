@@ -22,7 +22,7 @@ Loop Engineering lets the Agent **keep working across multiple turns** until the
 
 ## Loop Settings in Normal Mode
 
-Even without Goal Mode or Mission Mode, QwenPaw has loop control mechanisms that protect Agent behavior. You can configure these in the Console under **Runtime Config → Agent Loop Settings**.
+Even without Goal Mode or Mission Mode, Potato has loop control mechanisms that protect Agent behavior. You can configure these in the Console under **Runtime Config → Agent Loop Settings**.
 
 ### Loop Templates
 
@@ -231,7 +231,7 @@ Mission Status — mission-20260415-123456
 
 > The following content is for plugin developers. If you only use Goal Mode or Mission Mode, the sections above are sufficient.
 
-QwenPaw's loop system is fully pluggable. You can register custom loop behavior through the plugin API, implementing your own "when to stop, when to continue" logic.
+Potato's loop system is fully pluggable. You can register custom loop behavior through the plugin API, implementing your own "when to stop, when to continue" logic.
 
 ### Core Concept
 
@@ -246,7 +246,7 @@ The first Gate that returns STOP or CONTINUE determines the result for that turn
 ### Writing a Gate
 
 ```python
-from qwenpaw.loop.gates.base import (
+from potato.loop.gates.base import (
     StopAction,
     StopGate,
     StopHandlerResult,
@@ -294,8 +294,8 @@ class TimeoutGate(StopGate):
 ### Registering in a Plugin
 
 ```python
-from qwenpaw.loop.gates import StopHandler
-from qwenpaw.plugins.api import PluginAPI
+from potato.loop.gates import StopHandler
+from potato.plugins.api import PluginAPI
 
 
 class MyLoopPlugin(PluginAPI):
@@ -310,7 +310,7 @@ class MyLoopPlugin(PluginAPI):
         )
 ```
 
-Once registered, your Gate runs at the end of every ReAct iteration alongside built-in Gates. Loop plugins you develop can be published to the QwenPaw plugin marketplace, letting other users install new loop capabilities with one click — such as controlling loops based on external API status, deciding whether to continue based on code coverage, or integrating custom quality evaluation services.
+Once registered, your Gate runs at the end of every ReAct iteration alongside built-in Gates. Loop plugins you develop can be published to the Potato plugin marketplace, letting other users install new loop capabilities with one click — such as controlling loops based on external API status, deciding whether to continue based on code coverage, or integrating custom quality evaluation services.
 
 ### Scope Isolation
 
@@ -328,7 +328,7 @@ You can set `scope` during registration to control when the handler activates:
 
 ### Gate System
 
-QwenPaw uses a **Gate system** to manage loop termination logic. Think of Gates as quality checkpoints on an assembly line — after each round of work, all Gates are checked in sequence.
+Potato uses a **Gate system** to manage loop termination logic. Think of Gates as quality checkpoints on an assembly line — after each round of work, all Gates are checked in sequence.
 
 ```
 Agent completes one round of work

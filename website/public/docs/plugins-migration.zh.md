@@ -1,6 +1,6 @@
 # 插件系统迁移指南
 
-QwenPaw 新版保留了旧版插件系统的大部分公开 API。旧版公开 API 多数签名保持兼容，可以继续调用；但如果插件依赖 agent 状态、workspace 信息、runtime helper、工具配置结构或前端页面结构，仍需要在新版环境中验证实际行为。
+Potato 新版保留了旧版插件系统的大部分公开 API。旧版公开 API 多数签名保持兼容，可以继续调用；但如果插件依赖 agent 状态、workspace 信息、runtime helper、工具配置结构或前端页面结构，仍需要在新版环境中验证实际行为。
 
 ## 适用范围
 
@@ -8,7 +8,7 @@ QwenPaw 新版保留了旧版插件系统的大部分公开 API。旧版公开 A
 
 - 基于旧版官方文档开发的后端插件
 - 通过 `PluginApi` 注册 provider、hook、tool、HTTP API 或 command 的插件
-- 使用 `window.QwenPaw.*` Host SDK 的前端插件
+- 使用 `window.Potato.*` Host SDK 的前端插件
 
 ## 迁移前检查
 
@@ -46,11 +46,11 @@ plugin = MyPlugin()
 
 在旧版中，`min_version` 主要是清单元数据，加载器不会用它阻止插件加载。新版会在导入插件前检查版本兼容性。不兼容的插件会被记录为 `enabled=false`，并且不会执行后端入口的 `register()`。
 
-新版推荐使用 `qwenpaw_version`：
+新版推荐使用 `potato_version`：
 
 ```json
 {
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "2.0.0",
     "max": "2.1.0"
   }
@@ -64,16 +64,16 @@ plugin = MyPlugin()
 | `"min": "2.0.0"`  | `>=2.0.0, <2.1.0`  |
 | `"min": "1.1.10"` | `>=1.1.10, <1.2.0` |
 
-因此，把旧版插件原样放到新版时，如果只保留 `"min_version": "1.1.10"`，新版会将它解释为 `>=1.1.10, <1.2.0`，在 QwenPaw 2.0.x 下会被判定为不兼容。
+因此，把旧版插件原样放到新版时，如果只保留 `"min_version": "1.1.10"`，新版会将它解释为 `>=1.1.10, <1.2.0`，在 Potato 2.0.x 下会被判定为不兼容。
 
 ### 清单字段说明
 
 | 字段                                                                                                                | 类型     | 旧版                   | 新版                                                  | 迁移建议                         |
 | ------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------- | ----------------------------------------------------- | -------------------------------- |
-| `qwenpaw_version`                                                                                                   | `object` | 未定义，会被忽略       | 新增，推荐使用                                        | 新版插件建议增加该字段           |
-| `qwenpaw_version.min`                                                                                               | `string` | 未定义                 | 最低兼容 QwenPaw 版本，包含该版本                     | 写为实际验证过的最低新版版本     |
-| `qwenpaw_version.max`                                                                                               | `string` | 未定义                 | 最高兼容 QwenPaw 版本，不包含该版本                   | 建议显式填写                     |
-| `min_version`                                                                                                       | `string` | 支持，但不用于加载拦截 | 遗留字段，仅在没有 `qwenpaw_version` 时参与兼容性判断 | 需要兼容旧版时可以保留           |
+| `potato_version`                                                                                                   | `object` | 未定义，会被忽略       | 新增，推荐使用                                        | 新版插件建议增加该字段           |
+| `potato_version.min`                                                                                               | `string` | 未定义                 | 最低兼容 Potato 版本，包含该版本                     | 写为实际验证过的最低新版版本     |
+| `potato_version.max`                                                                                               | `string` | 未定义                 | 最高兼容 Potato 版本，不包含该版本                   | 建议显式填写                     |
+| `min_version`                                                                                                       | `string` | 支持，但不用于加载拦截 | 遗留字段，仅在没有 `potato_version` 时参与兼容性判断 | 需要兼容旧版时可以保留           |
 | `max_version`                                                                                                       | `string` | 未定义                 | 遗留字段，配合 `min_version` 使用                     | 仅旧清单兼容场景使用             |
 | `id`、`version`、`name`、`type`、`description`、`author`、`entry.backend`、`entry.frontend`、`dependencies`、`meta` | —        | 支持                   | 继续支持                                              | 保持不变                         |
 | `entry_point`                                                                                                       | `string` | 遗留字段               | 继续兼容                                              | 新插件仍建议使用 `entry.backend` |
@@ -83,14 +83,14 @@ plugin = MyPlugin()
 ```json
 {
   "min_version": "1.1.10",
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "2.0.0",
     "max": "2.1.0"
   }
 }
 ```
 
-旧版会忽略未知的 `qwenpaw_version` 字段。新版会优先读取 `qwenpaw_version`，只有该字段不存在时才回退到 `min_version` / `max_version`。
+旧版会忽略未知的 `potato_version` 字段。新版会优先读取 `potato_version`，只有该字段不存在时才回退到 `min_version` / `max_version`。
 
 ## 检查后端插件代码
 
@@ -288,16 +288,16 @@ api.unregister_skill_provider()
 
 ## 检查前端插件代码
 
-新版继续支持已有的 `window.QwenPaw.*` 前端 Host SDK。使用旧版已有前端 API 的插件通常可以直接运行。
+新版继续支持已有的 `window.Potato.*` 前端 Host SDK。使用旧版已有前端 API 的插件通常可以直接运行。
 
 | API                                                            | 类型 | 用途                                             | 迁移建议                               |
 | -------------------------------------------------------------- | ---- | ------------------------------------------------ | -------------------------------------- |
-| `window.QwenPaw.host`                                          | 兼容 | 访问 React、Ant Design、API helper、运行时状态等 | 接口保留，需验证 hook 返回值和状态对象 |
-| `window.QwenPaw.menu`                                          | 兼容 | 注册侧边栏菜单                                   | 接口保留，需验证菜单位置和路由         |
-| `window.QwenPaw.route`                                         | 兼容 | 注册页面路由                                     | 接口保留，需验证页面加载和卸载         |
-| `window.QwenPaw.slot`                                          | 兼容 | 注册 UI 插槽                                     | 接口保留，需验证插槽位置               |
-| `window.QwenPaw.chat.requestPayload.add(pluginId, fn, opts?)`  | 新增 | 在聊天请求发送前追加或改写请求体字段             | 需要改写请求体时使用                   |
-| `window.QwenPaw.chat.response.set(pluginId, { avatar, nick })` | 新增 | 设置默认 AI 回复卡片的头像和昵称                 | 需要统一回复头像或昵称时使用           |
+| `window.Potato.host`                                          | 兼容 | 访问 React、Ant Design、API helper、运行时状态等 | 接口保留，需验证 hook 返回值和状态对象 |
+| `window.Potato.menu`                                          | 兼容 | 注册侧边栏菜单                                   | 接口保留，需验证菜单位置和路由         |
+| `window.Potato.route`                                         | 兼容 | 注册页面路由                                     | 接口保留，需验证页面加载和卸载         |
+| `window.Potato.slot`                                          | 兼容 | 注册 UI 插槽                                     | 接口保留，需验证插槽位置               |
+| `window.Potato.chat.requestPayload.add(pluginId, fn, opts?)`  | 新增 | 在聊天请求发送前追加或改写请求体字段             | 需要改写请求体时使用                   |
+| `window.Potato.chat.response.set(pluginId, { avatar, nick })` | 新增 | 设置默认 AI 回复卡片的头像和昵称                 | 需要统一回复头像或昵称时使用           |
 
 ## 检查依赖安装
 
@@ -329,27 +329,27 @@ api.unregister_skill_provider()
 
 ## 发布到插件市场
 
-新版插件市场目录会按 QwenPaw 版本过滤插件条目。过滤规则与加载器一致。
+新版插件市场目录会按 Potato 版本过滤插件条目。过滤规则与加载器一致。
 
 | 字段                  | 类型     | 读取优先级 | 说明                                      |
 | --------------------- | -------- | ---------- | ----------------------------------------- |
-| `qwenpaw_version`     | `object` | 1          | 推荐字段，格式与插件清单一致              |
-| `qwenpaw_version.min` | `string` | 1          | 最低兼容 QwenPaw 版本，包含该版本         |
-| `qwenpaw_version.max` | `string` | 1          | 最高兼容 QwenPaw 版本，不包含该版本       |
-| `min_version`         | `string` | 2          | 旧字段，仅在没有 `qwenpaw_version` 时使用 |
-| `max_version`         | `string` | 2          | 旧字段，仅在没有 `qwenpaw_version` 时使用 |
+| `potato_version`     | `object` | 1          | 推荐字段，格式与插件清单一致              |
+| `potato_version.min` | `string` | 1          | 最低兼容 Potato 版本，包含该版本         |
+| `potato_version.max` | `string` | 1          | 最高兼容 Potato 版本，不包含该版本       |
+| `min_version`         | `string` | 2          | 旧字段，仅在没有 `potato_version` 时使用 |
+| `max_version`         | `string` | 2          | 旧字段，仅在没有 `potato_version` 时使用 |
 | 无版本约束            | -        | 3          | 会被视为兼容，但发布时不建议省略          |
 
-发布新版插件时，建议插件包内的 `plugin.json` 与市场索引条目使用一致的版本约束。如果旧条目只写了 `"min_version": "1.1.10"`，在 QwenPaw 2.0.x 下可能会被过滤。
+发布新版插件时，建议插件包内的 `plugin.json` 与市场索引条目使用一致的版本约束。如果旧条目只写了 `"min_version": "1.1.10"`，在 Potato 2.0.x 下可能会被过滤。
 
 ## 迁移步骤
 
-1. 更新 `plugin.json`，增加 `qwenpaw_version`，并设置明确的 `max`。
+1. 更新 `plugin.json`，增加 `potato_version`，并设置明确的 `max`。
 2. 确认后端入口导出了 `plugin = MyPlugin()`。
 3. 搜索 `register_prompt_section`，将调用改为关键字参数形式，并显式传入 `after`。
 4. 如果插件提供 skill，验证用户手动修改开关后的持久化行为。
 5. 在新版环境执行插件安装和校验。
-6. 启动 QwenPaw，检查日志中是否有 `is incompatible` 或插件注册失败信息。
+6. 启动 Potato，检查日志中是否有 `is incompatible` 或插件注册失败信息。
 7. 如果发布到插件市场，同步更新市场索引中的版本约束。
 
 ## 常见问题
@@ -376,12 +376,12 @@ api.register_prompt_section(
 
 ### 同一份插件能否同时支持旧版和新版
 
-可以。插件代码只使用两边都存在的 API，或者在调用新版新增 API 前做版本判断。清单中可以同时保留 `min_version` 和 `qwenpaw_version`：
+可以。插件代码只使用两边都存在的 API，或者在调用新版新增 API 前做版本判断。清单中可以同时保留 `min_version` 和 `potato_version`：
 
 ```json
 {
   "min_version": "1.1.10",
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "2.0.0",
     "max": "2.1.0"
   }
@@ -392,6 +392,6 @@ api.register_prompt_section(
 
 不需要。`register_control_command()` 在新版中继续可用。只有新插件需要 workspace 级命令注册能力时，才建议使用 `register_slash_command()`。
 
-### 能否省略 `qwenpaw_version.max`
+### 能否省略 `potato_version.max`
 
 可以，但省略后会自动推导到下一个 minor 版本。若插件已经验证可跨多个 minor 版本运行，建议显式写出更宽的 `max`。

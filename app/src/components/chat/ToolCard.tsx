@@ -23,7 +23,6 @@ import { skillDisplayName } from "../../lib/skillPresentation";
 import {
   extractPairObject,
   skillNameOf,
-  stepVerbKey,
   toolFamily,
   type ToolFamily,
 } from "../../lib/stepGroups";
@@ -185,7 +184,6 @@ function GenericToolCard({
   const family = toolFamily(pair.name);
   const Icon = FAMILY_ICONS[family];
   const object = pairObjectLabel(pair, family, language, t);
-  const verb = t(stepVerbKey(family));
 
   const detail = (
     <div className="space-y-3">
@@ -233,7 +231,6 @@ function GenericToolCard({
       )}
       <span className={shimmer ? "qp-shimmer min-w-0 truncate" : "min-w-0 truncate"}>
         <TrackSummary
-          verb={verb}
           object={object}
           shimmer={shimmer}
           failed={failed}

@@ -2,7 +2,7 @@
 """Tests for SlashCommandRegistry.advertisable_commands()."""
 from __future__ import annotations
 
-from qwenpaw.runtime.slash_command_registry import (
+from potato.runtime.slash_command_registry import (
     CommandSpec,
     SlashCommandRegistry,
 )

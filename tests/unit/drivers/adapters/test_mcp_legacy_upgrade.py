@@ -14,14 +14,14 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.drivers.adapters.mcp_legacy_config import (
+from potato.drivers.adapters.mcp_legacy_config import (
     upgrade_legacy_mcp_credentials,
 )
-from qwenpaw.drivers.contracts import CredentialRef, DriverCard, PolicyRule
-from qwenpaw.drivers.credentials.store import AsyncCredentialStore
-from qwenpaw.drivers.credentials.types import CredentialRecord
-from qwenpaw.drivers.manager import DriverManager
-from qwenpaw.drivers.storage import card_path, dump_card, load_card
+from potato.drivers.contracts import CredentialRef, DriverCard, PolicyRule
+from potato.drivers.credentials.store import AsyncCredentialStore
+from potato.drivers.credentials.types import CredentialRecord
+from potato.drivers.manager import DriverManager
+from potato.drivers.storage import card_path, dump_card, load_card
 
 
 def _write_card(

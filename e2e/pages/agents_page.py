@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Agents management page object.
+Potato Agents management page object.
 
 Wraps all interactions on the agent management page and exposes business-level
 methods.
@@ -33,7 +33,7 @@ class AgentsPage(BasePage):
     - Manage agent files
     """
 
-    PAGE_TITLE = "QwenPaw Console"
+    PAGE_TITLE = "Potato Console"
     PAGE_URL = f"{config.base_url}/agents"
 
     # ========== Selector definitions ==========
@@ -43,23 +43,23 @@ class AgentsPage(BasePage):
     BREADCRUMB = 'span[class*="breadcrumbCurrent"]:has-text("智能体")'
 
     # Agent list (table structure)
-    AGENT_TABLE = '.qwenpaw-table'
-    AGENT_LIST = '.qwenpaw-table-tbody'
-    AGENT_ITEM = '.qwenpaw-table-tbody tr.qwenpaw-table-row'
+    AGENT_TABLE = '.potato-table'
+    AGENT_LIST = '.potato-table-tbody'
+    AGENT_ITEM = '.potato-table-tbody tr.potato-table-row'
     # Table column order: drag handle (1) | Name (2) | ID (3) | Description (4) | Workspace (5) | Model (6) | Actions (7)
-    AGENT_NAME_CELL = 'td.qwenpaw-table-cell:nth-child(2)'
-    AGENT_ID_CELL = 'td.qwenpaw-table-cell:nth-child(3)'
-    AGENT_DESC_CELL = 'td.qwenpaw-table-cell:nth-child(4)'
-    AGENT_WORKSPACE_CELL = 'td.qwenpaw-table-cell:nth-child(5)'
-    AGENT_MODEL_CELL = 'td.qwenpaw-table-cell:nth-child(6)'
-    AGENT_ACTIONS_CELL = 'td.qwenpaw-table-cell:nth-child(7)'
+    AGENT_NAME_CELL = 'td.potato-table-cell:nth-child(2)'
+    AGENT_ID_CELL = 'td.potato-table-cell:nth-child(3)'
+    AGENT_DESC_CELL = 'td.potato-table-cell:nth-child(4)'
+    AGENT_WORKSPACE_CELL = 'td.potato-table-cell:nth-child(5)'
+    AGENT_MODEL_CELL = 'td.potato-table-cell:nth-child(6)'
+    AGENT_ACTIONS_CELL = 'td.potato-table-cell:nth-child(7)'
     # Post-#6198 the name cell shows an AgentStatusIndicator dot exposing a
     # ``data-status`` attribute (disabled/pending/starting/running/failed)
     # instead of a "Disabled" Tag.
     AGENT_STATUS = '[data-status]'
 
     # Action buttons
-    CREATE_AGENT_BTN = 'button:has-text("创建智能体"), button:has-text("Create Agent"), .qwenpaw-btn-primary'
+    CREATE_AGENT_BTN = 'button:has-text("创建智能体"), button:has-text("Create Agent"), .potato-btn-primary'
     # Inline action buttons in a table row. Post-redesign (upstream #6198) the
     # actions are 4 icon buttons in order: Pin | Edit | Toggle | Delete. Anchor
     # on the icon (not Space position) so the added Pin button can't shift us:
@@ -67,35 +67,35 @@ class AgentsPage(BasePage):
     #   Toggle = lucide Eye/EyeOff    -> svg.lucide-eye / svg.lucide-eye-off
     #   Delete = antd DeleteOutlined  -> .anticon-delete (danger button)
     EDIT_BTN = 'button:has(.anticon-edit)'
-    TOGGLE_BTN = 'button:has(svg.lucide-eye-off), button:has(svg.lucide-eye), .qwenpaw-space-item:nth-child(3) button'
-    DELETE_BTN = 'button.qwenpaw-btn-dangerous, button:has(.anticon-delete)'
-    ENABLE_TOGGLE = 'button:has(svg.lucide-eye-off), button:has(svg.lucide-eye), .qwenpaw-space-item:nth-child(3) button'
+    TOGGLE_BTN = 'button:has(svg.lucide-eye-off), button:has(svg.lucide-eye), .potato-space-item:nth-child(3) button'
+    DELETE_BTN = 'button.potato-btn-dangerous, button:has(.anticon-delete)'
+    ENABLE_TOGGLE = 'button:has(svg.lucide-eye-off), button:has(svg.lucide-eye), .potato-space-item:nth-child(3) button'
     REFRESH_BTN = 'button:has(.anticon-reload), button:has(.spark-icon-spark-refresh-line)'
 
     # Create/edit form
-    FORM_DIALOG = '.qwenpaw-modal, [role="dialog"]'
-    FORM_TITLE = '.qwenpaw-modal-header-title, .qwenpaw-spark-title'
+    FORM_DIALOG = '.potato-modal, [role="dialog"]'
+    FORM_TITLE = '.potato-modal-header-title, .potato-spark-title'
     FORM_NAME_INPUT = 'input#name, input[placeholder*="My Agent"]'
     FORM_DESC_INPUT = 'textarea#description, textarea[placeholder*="describe"]'
     FORM_WORKSPACE_INPUT = 'input#workspace_dir'
-    FORM_SKILLS_SELECT = '.qwenpaw-form-item:has-text("Skills") .qwenpaw-select-selector'
-    FORM_SUBMIT_BTN = '.qwenpaw-modal-footer button.qwenpaw-btn-primary, button:has-text("保存"), button:has-text("Save")'
-    FORM_CANCEL_BTN = '.qwenpaw-modal-footer button.qwenpaw-btn-default, button:has-text("取消"), button:has-text("Cancel")'
+    FORM_SKILLS_SELECT = '.potato-form-item:has-text("Skills") .potato-select-selector'
+    FORM_SUBMIT_BTN = '.potato-modal-footer button.potato-btn-primary, button:has-text("保存"), button:has-text("Save")'
+    FORM_CANCEL_BTN = '.potato-modal-footer button.potato-btn-default, button:has-text("取消"), button:has-text("Cancel")'
 
     # Delete confirmation (Popconfirm bubble)
-    DELETE_CONFIRM_DIALOG = '.qwenpaw-popconfirm'
-    DELETE_CONFIRM_BTN = '.qwenpaw-popconfirm-buttons button.qwenpaw-btn-primary'
-    DELETE_CANCEL_BTN = '.qwenpaw-popconfirm-buttons button.qwenpaw-btn-default'
+    DELETE_CONFIRM_DIALOG = '.potato-popconfirm'
+    DELETE_CONFIRM_BTN = '.potato-popconfirm-buttons button.potato-btn-primary'
+    DELETE_CANCEL_BTN = '.potato-popconfirm-buttons button.potato-btn-default'
 
     # Agent detail
-    AGENT_DETAIL_TAB = '.qwenpaw-tabs-tab-btn'
-    AGENT_DETAIL_PANEL = '.qwenpaw-tabs-tabpane-active'
-    AGENT_FILES_LIST = '[class*=fileList], .qwenpaw-list'
-    AGENT_FILE_ITEM = '[class*=fileItem], .qwenpaw-list-item'
+    AGENT_DETAIL_TAB = '.potato-tabs-tab-btn'
+    AGENT_DETAIL_PANEL = '.potato-tabs-tabpane-active'
+    AGENT_FILES_LIST = '[class*=fileList], .potato-list'
+    AGENT_FILE_ITEM = '[class*=fileItem], .potato-list-item'
 
     # Empty state
-    EMPTY_STATE = '.qwenpaw-empty, [class*=empty]'
-    EMPTY_STATE_TEXT = '.qwenpaw-empty-description, .qwenpaw-empty-desc'
+    EMPTY_STATE = '.potato-empty, [class*=empty]'
+    EMPTY_STATE_TEXT = '.potato-empty-description, .potato-empty-desc'
 
     # Toast messages (inherited from BasePage, no redefinition needed)
 

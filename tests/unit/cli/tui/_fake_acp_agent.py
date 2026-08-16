@@ -7,7 +7,7 @@ Run as ``python _fake_acp_agent.py`` (stdio). It speaks just enough ACP to:
 * request permission when the prompt text contains ``need-permission``
 * honour ``cancel``
 
-This lets the transport be tested end-to-end without the heavy QwenPaw
+This lets the transport be tested end-to-end without the heavy Potato
 backend (agentscope, etc.).
 """
 

@@ -1,7 +1,7 @@
 /**
  * 后端 SSE 流协议类型（唯一权威定义，Phase 1 的 stream.ts 必须以此为准）。
  *
- * 来源：src/qwenpaw/schemas.py + src/qwenpaw/runtime/envelope.py
+ * 来源：src/potato/schemas.py + src/potato/runtime/envelope.py
  * 文档与样本：app/docs/api-contract.md、app/fixtures/sse/
  *
  * 每个 SSE 帧是一行 `data: <json>`。JSON 分四类：

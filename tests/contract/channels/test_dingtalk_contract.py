@@ -19,12 +19,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 from tests.contract.channels import ChannelContractTest
 
 if TYPE_CHECKING:
-    from qwenpaw.app.channels.base import BaseChannel
+    from potato.app.channels.base import BaseChannel
 
 
 class TestDingTalkChannelContract(ChannelContractTest):
@@ -53,7 +53,7 @@ class TestDingTalkChannelContract(ChannelContractTest):
 
         Uses mocks to avoid requiring real DingTalk credentials.
         """
-        from qwenpaw.app.channels.dingtalk.channel import DingTalkChannel
+        from potato.app.channels.dingtalk.channel import DingTalkChannel
 
         process = AsyncMock()
 

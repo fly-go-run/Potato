@@ -35,7 +35,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 from tests.fixtures.channels.mock_http import MockAiohttpSession
 
@@ -81,7 +81,7 @@ def wechat_channel(
     temp_media_dir,
 ) -> Generator:
     """Create a WeChatChannel instance for testing."""
-    from qwenpaw.app.channels.wechat.channel import WeChatChannel
+    from potato.app.channels.wechat.channel import WeChatChannel
 
     channel = WeChatChannel(
         process=mock_process_handler,
@@ -152,7 +152,7 @@ class TestWeChatChannelInit:
         temp_media_dir,
     ):
         """Constructor should store all basic configuration parameters."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         channel = WeChatChannel(
             process=mock_process_handler,
@@ -177,7 +177,7 @@ class TestWeChatChannelInit:
         temp_media_dir,
     ):
         """Constructor should store advanced configuration parameters."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         channel = WeChatChannel(
             process=mock_process_handler,
@@ -207,7 +207,7 @@ class TestWeChatChannelInit:
 
     def test_init_creates_required_data_structures(self, mock_process_handler):
         """Constructor should initialize required internal data structures."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         channel = WeChatChannel(
             process=mock_process_handler,
@@ -228,7 +228,7 @@ class TestWeChatChannelInit:
 
     def test_init_creates_locks(self, mock_process_handler):
         """Constructor should create required locks for thread safety."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         channel = WeChatChannel(
             process=mock_process_handler,
@@ -254,7 +254,7 @@ class TestWeChatChannelFromEnv:
         monkeypatch,
     ):
         """from_env should read basic environment variables."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         monkeypatch.setenv("WECHAT_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("WECHAT_BOT_TOKEN", "env_token_123")
@@ -274,7 +274,7 @@ class TestWeChatChannelFromEnv:
         monkeypatch,
     ):
         """from_env should read advanced environment variables."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         monkeypatch.setenv("WECHAT_BOT_TOKEN_FILE", "/env/token/file.txt")
         monkeypatch.setenv("WECHAT_MEDIA_DIR", "/env/media")
@@ -298,7 +298,7 @@ class TestWeChatChannelFromEnv:
         monkeypatch,
     ):
         """from_env should parse WECHAT_ALLOW_FROM correctly."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         monkeypatch.setenv("WECHAT_ALLOW_FROM", "user1,user2,user3")
 
@@ -314,7 +314,7 @@ class TestWeChatChannelFromEnv:
         monkeypatch,
     ):
         """from_env should handle empty WECHAT_ALLOW_FROM."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         monkeypatch.setenv("WECHAT_ALLOW_FROM", "")
 
@@ -324,7 +324,7 @@ class TestWeChatChannelFromEnv:
 
     def test_from_env_defaults(self, mock_process_handler, monkeypatch):
         """from_env should use sensible defaults."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         monkeypatch.delenv("WECHAT_CHANNEL_ENABLED", raising=False)
         monkeypatch.delenv("WECHAT_BOT_PREFIX", raising=False)
@@ -344,7 +344,7 @@ class TestWeChatChannelFromConfig:
 
     def test_from_config_uses_config_values(self, mock_process_handler):
         """from_config should use values from config object."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         class MockConfig:
             enabled = True
@@ -372,7 +372,7 @@ class TestWeChatChannelFromConfig:
 
     def test_from_config_handles_none_values(self, mock_process_handler):
         """from_config should handle None values gracefully."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         class MockConfig:
             enabled = False  # Use False instead of None
@@ -505,7 +505,7 @@ class TestWeChatTokenPersistence:
         temp_token_dir,
     ):
         """Should load token from file when available."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         token_file = temp_token_dir / "wechat_bot_token"
         token_file.write_text("persisted_token_123", encoding="utf-8")
@@ -526,7 +526,7 @@ class TestWeChatTokenPersistence:
         temp_token_dir,
     ):
         """Should return empty string when file doesn't exist."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         channel = WeChatChannel(
             process=mock_process_handler,
@@ -544,7 +544,7 @@ class TestWeChatTokenPersistence:
         temp_token_dir,
     ):
         """Should create token file with correct content."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         token_file = temp_token_dir / "wechat_bot_token"
         channel = WeChatChannel(
@@ -564,7 +564,7 @@ class TestWeChatTokenPersistence:
         tmp_path,
     ):
         """Should create parent directories if needed."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         deep_path = tmp_path / "deep" / "nested" / "dir" / "token"
         channel = WeChatChannel(
@@ -583,7 +583,7 @@ class TestWeChatTokenPersistence:
         temp_token_dir,
     ):
         """Should load context tokens from file."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         context_file = temp_token_dir / "wechat_context_tokens.json"
         data = {"user1": "token1", "user2": "token2"}
@@ -607,7 +607,7 @@ class TestWeChatTokenPersistence:
         temp_token_dir,
     ):
         """Should save context tokens to file."""
-        from qwenpaw.app.channels.wechat.channel import WeChatChannel
+        from potato.app.channels.wechat.channel import WeChatChannel
 
         channel = WeChatChannel(
             process=mock_process_handler,
@@ -694,7 +694,7 @@ class TestWeChatBuildAgentRequest:
 
     def test_build_agent_request_from_native(self, wechat_channel):
         """Should create AgentRequest from native payload."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         payload = {
             "channel_id": "wechat",
@@ -717,7 +717,7 @@ class TestWeChatBuildAgentRequest:
 
     def test_build_agent_request_auto_session(self, wechat_channel):
         """Should auto-generate session_id when not provided."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         payload = {
             "channel_id": "wechat",
@@ -734,7 +734,7 @@ class TestWeChatBuildAgentRequest:
 
     def test_merge_native_items(self, wechat_channel):
         """Should merge multiple native payloads."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         items = [
             {
@@ -832,7 +832,7 @@ class TestWeChatSendMethods:
         mock_ilink_client,
     ):
         """Successfully send content parts."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         wechat_channel._client = mock_ilink_client
 
@@ -859,7 +859,7 @@ class TestWeChatSendMethods:
         mock_ilink_client,
     ):
         """Should include bot_prefix in message."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         wechat_channel._client = mock_ilink_client
 
@@ -884,7 +884,7 @@ class TestWeChatSendMethods:
         mock_ilink_client,
     ):
         """Should do nothing when channel is disabled."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         wechat_channel.enabled = False
         wechat_channel._client = mock_ilink_client
@@ -905,7 +905,7 @@ class TestWeChatSendMethods:
         mock_ilink_client,
     ):
         """Should skip sending when body is empty."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         wechat_channel._client = mock_ilink_client
 
@@ -925,7 +925,7 @@ class TestWeChatSendMethods:
         mock_ilink_client,
     ):
         """Should do nothing when to_user_id cannot be resolved."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         wechat_channel._client = mock_ilink_client
 
@@ -1353,7 +1353,7 @@ class TestWeChatLifecycle:
         wechat_channel.bot_token = "existing_token"
 
         with patch(
-            "qwenpaw.app.channels.wechat.channel.ILinkClient",
+            "potato.app.channels.wechat.channel.ILinkClient",
             return_value=mock_ilink_client,
         ):
             await wechat_channel.start()
@@ -1379,7 +1379,7 @@ class TestWeChatLifecycle:
         wechat_channel._bot_token_file = temp_token_dir / "wechat_bot_token"
 
         with patch(
-            "qwenpaw.app.channels.wechat.channel.ILinkClient",
+            "potato.app.channels.wechat.channel.ILinkClient",
             return_value=mock_ilink_client,
         ):
             await wechat_channel.start()
@@ -1406,7 +1406,7 @@ class TestWeChatLifecycle:
         wechat_channel._bot_token_file = token_file
 
         with patch(
-            "qwenpaw.app.channels.wechat.channel.ILinkClient",
+            "potato.app.channels.wechat.channel.ILinkClient",
             return_value=mock_ilink_client,
         ):
             await wechat_channel.start()
@@ -1492,7 +1492,7 @@ class TestWeChatEdgeCases:
         mock_ilink_client,
     ):
         """Long text should be split into chunks."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         wechat_channel._client = mock_ilink_client
 
@@ -1552,7 +1552,7 @@ class TestWeChatEdgeCases:
 
     def test_build_agent_request_with_varied_content(self, wechat_channel):
         """Should handle different content types in build_agent_request."""
-        from qwenpaw.app.channels.base import ImageContent, ContentType
+        from potato.app.channels.base import ImageContent, ContentType
 
         payload = {
             "channel_id": "wechat",

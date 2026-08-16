@@ -1,10 +1,10 @@
 # 安全
 
-QwenPaw 内置了安全功能，保护你的 Agent 在运行过程中产生的不安全行为和不安全技能的影响。这些功能在控制台 **设置 → 安全** 中配置，也可以通过 `config.json` 进行设置。
+Potato 内置了安全功能，保护你的 Agent 在运行过程中产生的不安全行为和不安全技能的影响。这些功能在控制台 **设置 → 安全** 中配置，也可以通过 `config.json` 进行设置。
 
 ## 概述
 
-QwenPaw 的安全系统由五个核心安全层组成:
+Potato 的安全系统由五个核心安全层组成:
 
 ```
 安全架构:
@@ -86,7 +86,7 @@ QwenPaw 的安全系统由五个核心安全层组成:
 
 | 字段                   | 说明                                                                                                                                                                                                                                                                                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `enabled`              | 启用或禁用工具守卫。也可通过环境变量 `QWENPAW_TOOL_GUARD_ENABLED` 设置(优先级高于配置文件)。                                                                                                                                                                                                                                               |
+| `enabled`              | 启用或禁用工具守卫。也可通过环境变量 `POTATO_TOOL_GUARD_ENABLED` 设置(优先级高于配置文件)。                                                                                                                                                                                                                                               |
 | `guarded_tools`        | 指定守护范围:<br>• `null`(默认) — 守护所有内置工具<br>• `[]` — 不守护任何工具<br>• `["tool_a", "tool_b"]` — 仅守护列出的工具                                                                                                                                                                                                               |
 | `denied_tools`         | 无条件阻止的工具列表:列在其中的工具**无论参数如何**均不可调用(自动拒绝,不提供审批)。                                                                                                                                                                                                                                                       |
 | `custom_rules`         | 用户自定义正则规则(格式见下文)。                                                                                                                                                                                                                                                                                                           |
@@ -293,7 +293,7 @@ QwenPaw 的安全系统由五个核心安全层组成:
 4. **目录递归保护** — 以 `/` 结尾的路径视为目录,其下所有文件和子目录都会被递归阻止
 5. **阻止机制** — 发现匹配时,工具调用以 HIGH 级别发现被阻止
 
-**默认保护**: `{WORKING_DIR}.secret/` 目录(存储 API 密钥、认证凭据和提供商配置)默认包含在敏感文件列表中。默认情况下,`WORKING_DIR` 为 `~/.qwenpaw/`,完整路径为 `~/.qwenpaw.secret/`。
+**默认保护**: `{WORKING_DIR}.secret/` 目录(存储 API 密钥、认证凭据和提供商配置)默认包含在敏感文件列表中。默认情况下,`WORKING_DIR` 为 `~/.potato/`,完整路径为 `~/.potato.secret/`。
 
 ### 配置
 
@@ -304,7 +304,7 @@ QwenPaw 的安全系统由五个核心安全层组成:
   "security": {
     "file_guard": {
       "enabled": true,
-      "sensitive_files": ["~/.ssh/", "/etc/passwd", "~/.qwenpaw.secret/"]
+      "sensitive_files": ["~/.ssh/", "/etc/passwd", "~/.potato.secret/"]
     }
   }
 }
@@ -370,7 +370,7 @@ QwenPaw 的安全系统由五个核心安全层组成:
 
 ### 支持平台
 
-QwenPaw 在启动时自动检测最佳可用的沙箱后端：
+Potato 在启动时自动检测最佳可用的沙箱后端：
 
 | 平台    | 后端                                          | 机制                                             | 检测方式                                             |
 | ------- | --------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------- |
@@ -433,7 +433,7 @@ QwenPaw 在启动时自动检测最佳可用的沙箱后端：
 
 ### 违规检测
 
-当沙箱内的命令尝试访问其允许视图之外的路径时，操作系统内核会阻止该操作。QwenPaw 通过匹配 stderr 模式来检测这些违规：
+当沙箱内的命令尝试访问其允许视图之外的路径时，操作系统内核会阻止该操作。Potato 通过匹配 stderr 模式来检测这些违规：
 
 | 平台             | 检测模式                                                                                 |
 | ---------------- | ---------------------------------------------------------------------------------------- |
@@ -482,13 +482,13 @@ cat /proc/sys/kernel/unprivileged_userns_clone
 bwrap --ro-bind / / --dev /dev --unshare-user --unshare-pid --proc /proc -- /bin/echo OK
 ```
 
-如果 user namespace 被禁用（Docker 容器、部分安全加固内核），QwenPaw 会自动回退到 Landlock。
+如果 user namespace 被禁用（Docker 容器、部分安全加固内核），Potato 会自动回退到 Landlock。
 
 **Windows: AppContainer ACL 设置失败**
 
 AppContainer（`allow_read_all=False`）的 `icacls` ACL 操作需要管理员权限。如果看到 ACL 设置失败的警告：
 
-1. 以管理员身份运行 QwenPaw（右键 → 以管理员身份运行）
+1. 以管理员身份运行 Potato（右键 → 以管理员身份运行）
 2. 确认 `icacls.exe` 在 PATH 中（所有 Windows 版本均自带）
 3. 使用 `scripts/cleanup_windows_sandbox.py` 清理旧的 AppContainer profile 和 ACL
 
@@ -496,19 +496,19 @@ AppContainer（`allow_read_all=False`）的 `icacls` ACL 操作需要管理员�
 
 Restricted_token（`allow_read_all=True`）创建专用本地用户和管理 WFP 防火墙规则需要管理员权限。如果看到用户创建或防火墙设置相关错误：
 
-1. 以管理员身份运行 QwenPaw（右键 → 以管理员身份运行）
+1. 以管理员身份运行 Potato（右键 → 以管理员身份运行）
 2. 使用 `scripts/cleanup_windows_sandbox.py` 清理旧的沙箱用户和防火墙规则
 
 **Windows: 不满足最低版本要求**
 
-两种 Windows 沙箱后端均需要 Windows 10（build 10240）或更高版本。如果探测输出中出现 `"AppContainer requires Windows 10+"` 消息，说明当前运行的 Windows 版本不受支持。请升级到 Windows 10 或更高版本以使用沙箱隔离。在旧版系统上，QwenPaw 将回退到 `mode=none`（无内核隔离）。
+两种 Windows 沙箱后端均需要 Windows 10（build 10240）或更高版本。如果探测输出中出现 `"AppContainer requires Windows 10+"` 消息，说明当前运行的 Windows 版本不受支持。请升级到 Windows 10 或更高版本以使用沙箱隔离。在旧版系统上，Potato 将回退到 `mode=none`（无内核隔离）。
 
 **Windows: 系统目录（如 Program Files）ACL 授权失败**
 
 如果看到 `icacls` 对 `C:\Program Files` 或 `C:\Windows` 等路径报告警告，这是正常现象（仅 AppContainer 模式）。这些目录由 TrustedInstaller 拥有并受 Windows 资源保护（WRP）——即使管理员也无法修改其 ACL。
 **确认沙箱是否激活**
 
-检查治理日志（`qwenpaw.log`）中是否包含：
+检查治理日志（`potato.log`）中是否包含：
 
 ```
 governance decision: tool=Bash target="..." action=sandbox_fallback sandbox=bubblewrap ...
@@ -547,7 +547,7 @@ governance decision: tool=Bash target="..." action=sandbox_fallback sandbox=bubb
 | **仅提醒(Warn)** | 扫描并记录发现,但允许技能继续使用。显示警告通知,记录到扫描告警中。(默认) |
 | **关闭(Off)**    | 完全禁用扫描,所有技能直接通过。                                          |
 
-**配置优先级**: 环境变量 `QWENPAW_SKILL_SCAN_MODE` > 控制台设置 > `config.json`
+**配置优先级**: 环境变量 `POTATO_SKILL_SCAN_MODE` > 控制台设置 > `config.json`
 
 可选值: `block`、`warn`、`off`
 
@@ -622,11 +622,11 @@ governance decision: tool=Bash target="..." action=sandbox_fallback sandbox=bubb
 
 对于需要深度定制的场景,扫描器支持编程方式配置:
 
-扫描器使用 `src/qwenpaw/security/skill_scanner/rules/signatures/` 中的 YAML 规则文件。你可以通过 YAML 策略文件自定义扫描策略:
+扫描器使用 `src/potato/security/skill_scanner/rules/signatures/` 中的 YAML 规则文件。你可以通过 YAML 策略文件自定义扫描策略:
 
 ```python
-from qwenpaw.security.skill_scanner import SkillScanner
-from qwenpaw.security.skill_scanner.scan_policy import ScanPolicy
+from potato.security.skill_scanner import SkillScanner
+from potato.security.skill_scanner.scan_policy import ScanPolicy
 
 policy = ScanPolicy.from_yaml("my_org_policy.yaml")
 scanner = SkillScanner(policy=policy)
@@ -881,7 +881,7 @@ policy:
       "enabled": true,
       "sensitive_files": [
         "~/.ssh/",
-        "~/.qwenpaw.secret/",
+        "~/.potato.secret/",
         "/etc/passwd",
         "/etc/shadow",
         ".env",
@@ -907,13 +907,13 @@ policy:
 
 ## Web 登录认证
 
-QwenPaw 支持可选的 Web 登录认证,保护控制台免受未授权访问。认证**默认关闭**,需要通过 `QWENPAW_AUTH_ENABLED` 环境变量显式启用。
+Potato 支持可选的 Web 登录认证,保护控制台免受未授权访问。认证**默认关闭**,需要通过 `POTATO_AUTH_ENABLED` 环境变量显式启用。
 
 ![login](https://img.alicdn.com/imgextra/i4/O1CN01VdXCuP1tWpsl0TlQ5_!!6000000005910-2-tps-3822-2070.png)
 
 ### 工作原理
 
-1. **启用认证** — 设置 `QWENPAW_AUTH_ENABLED=true` 并启动 QwenPaw
+1. **启用认证** — 设置 `POTATO_AUTH_ENABLED=true` 并启动 Potato
 2. **注册流程**:
    - 首次访问时,控制台显示**注册页面**
    - 创建唯一的管理员账户(用户名 + 密码)
@@ -923,10 +923,10 @@ QwenPaw 支持可选的 Web 登录认证,保护控制台免受未授权访问。
    - 输入凭据后,生成签名令牌(有效期 7 天)
    - 令牌存储在浏览器 localStorage,自动附加到所有 API 请求
 4. **自动注册**(可选):
-   - 设置 `QWENPAW_AUTH_USERNAME` 和 `QWENPAW_AUTH_PASSWORD` 环境变量
-   - QwenPaw 启动时自动创建管理员账户,跳过网页注册
+   - 设置 `POTATO_AUTH_USERNAME` 和 `POTATO_AUTH_PASSWORD` 环境变量
+   - Potato 启动时自动创建管理员账户,跳过网页注册
    - 适用于 Docker、Kubernetes、服务器管理面板等自动化部署场景
-5. **本地免认证** — 来自本地(`127.0.0.1` / `::1`)的请求自动跳过认证,CLI 命令(`qwenpaw app`、`qwenpaw chat` 等)无需令牌即可正常工作
+5. **本地免认证** — 来自本地(`127.0.0.1` / `::1`)的请求自动跳过认证,CLI 命令(`potato app`、`potato chat` 等)无需令牌即可正常工作
 
 **安全特性**:
 
@@ -939,9 +939,9 @@ QwenPaw 支持可选的 Web 登录认证,保护控制台免受未授权访问。
 
 | 变量                    | 说明                         | 是否必填 |
 | ----------------------- | ---------------------------- | -------- |
-| `QWENPAW_AUTH_ENABLED`  | 设为 `true` 启用认证         | **是**   |
-| `QWENPAW_AUTH_USERNAME` | 自动注册时预设的管理员用户名 | 可选     |
-| `QWENPAW_AUTH_PASSWORD` | 自动注册时预设的管理员密码   | 可选     |
+| `POTATO_AUTH_ENABLED`  | 设为 `true` 启用认证         | **是**   |
+| `POTATO_AUTH_USERNAME` | 自动注册时预设的管理员用户名 | 可选     |
+| `POTATO_AUTH_PASSWORD` | 自动注册时预设的管理员密码   | 可选     |
 
 ### 认证豁免主机白名单
 
@@ -965,8 +965,8 @@ QwenPaw 支持可选的 Web 登录认证,保护控制台免受未授权访问。
 
 **配置说明**:
 
-- `QWENPAW_AUTH_ENABLED=true` 是启用认证的唯一必需变量
-- `QWENPAW_AUTH_USERNAME` 和 `QWENPAW_AUTH_PASSWORD` 成对使用:
+- `POTATO_AUTH_ENABLED=true` 是启用认证的唯一必需变量
+- `POTATO_AUTH_USERNAME` 和 `POTATO_AUTH_PASSWORD` 成对使用:
   - 两者都设置 → 启动时自动创建管理员账户(适用于自动化部署)
   - 不设置或只设置其一 → 首次访问通过网页注册(交互式部署)
 - 如果已有注册用户,自动注册环境变量会被忽略
@@ -981,14 +981,14 @@ QwenPaw 支持可选的 Web 登录认证,保护控制台免受未授权访问。
 
 ```bash
 # 基础启用(网页注册)
-export QWENPAW_AUTH_ENABLED=true
-qwenpaw app
+export POTATO_AUTH_ENABLED=true
+potato app
 
 # 或: 自动注册模式
-export QWENPAW_AUTH_ENABLED=true
-export QWENPAW_AUTH_USERNAME=admin
-export QWENPAW_AUTH_PASSWORD=mypassword
-qwenpaw app
+export POTATO_AUTH_ENABLED=true
+export POTATO_AUTH_USERNAME=admin
+export POTATO_AUTH_PASSWORD=mypassword
+potato app
 ```
 
 如需永久生效,将 `export` 行添加到 `~/.bashrc`、`~/.zshrc` 或等效文件中。
@@ -996,21 +996,21 @@ qwenpaw app
 **Windows (CMD):**
 
 ```cmd
-set QWENPAW_AUTH_ENABLED=true
+set POTATO_AUTH_ENABLED=true
 rem 可选: 自动注册
-rem set QWENPAW_AUTH_USERNAME=admin
-rem set QWENPAW_AUTH_PASSWORD=mypassword
-qwenpaw app
+rem set POTATO_AUTH_USERNAME=admin
+rem set POTATO_AUTH_PASSWORD=mypassword
+potato app
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-$env:QWENPAW_AUTH_ENABLED = "true"
+$env:POTATO_AUTH_ENABLED = "true"
 # 可选: 自动注册
-# $env:QWENPAW_AUTH_USERNAME = "admin"
-# $env:QWENPAW_AUTH_PASSWORD = "mypassword"
-qwenpaw app
+# $env:POTATO_AUTH_USERNAME = "admin"
+# $env:POTATO_AUTH_PASSWORD = "mypassword"
+potato app
 ```
 
 #### Docker
@@ -1018,9 +1018,9 @@ qwenpaw app
 通过 `-e` 传递环境变量(推荐使用自动注册):
 
 ```bash
-docker run -e QWENPAW_AUTH_ENABLED=true \
-  -e QWENPAW_AUTH_USERNAME=admin \
-  -e QWENPAW_AUTH_PASSWORD=mypassword \
+docker run -e POTATO_AUTH_ENABLED=true \
+  -e POTATO_AUTH_USERNAME=admin \
+  -e POTATO_AUTH_PASSWORD=mypassword \
   -p 127.0.0.1:8088:8088 \
   -v qwenpaw-data:/app/working \
   -v qwenpaw-secrets:/app/working.secret \
@@ -1028,20 +1028,20 @@ docker run -e QWENPAW_AUTH_ENABLED=true \
   agentscope/qwenpaw:latest
 ```
 
-> **提示**: 不使用自动注册时,移除 `QWENPAW_AUTH_USERNAME` 和 `QWENPAW_AUTH_PASSWORD`,首次通过浏览器注册。
+> **提示**: 不使用自动注册时,移除 `POTATO_AUTH_USERNAME` 和 `POTATO_AUTH_PASSWORD`,首次通过浏览器注册。
 
 #### docker-compose.yml
 
 ```yaml
 services:
-  qwenpaw:
+  potato:
     image: agentscope/qwenpaw:latest
     ports:
       - "127.0.0.1:8088:8088"
     environment:
-      - QWENPAW_AUTH_ENABLED=true
-      - QWENPAW_AUTH_USERNAME=admin
-      - QWENPAW_AUTH_PASSWORD=mypassword
+      - POTATO_AUTH_ENABLED=true
+      - POTATO_AUTH_USERNAME=admin
+      - POTATO_AUTH_PASSWORD=mypassword
     volumes:
       - qwenpaw-data:/app/working
       - qwenpaw-secrets:/app/working.secret
@@ -1053,21 +1053,21 @@ services:
 也可以使用 `.env` 文件：
 
 ```
-QWENPAW_AUTH_ENABLED=true
-QWENPAW_AUTH_USERNAME=admin
-QWENPAW_AUTH_PASSWORD=mypassword
+POTATO_AUTH_ENABLED=true
+POTATO_AUTH_USERNAME=admin
+POTATO_AUTH_PASSWORD=mypassword
 ```
 
-然后通过 `--env-file .env` 传递给 Docker，或在运行 `qwenpaw app` 前在 shell 中 source 该文件。
+然后通过 `--env-file .env` 传递给 Docker，或在运行 `potato app` 前在 shell 中 source 该文件。
 
 ### 关闭认证
 
-移除或取消环境变量并重启 QwenPaw：
+移除或取消环境变量并重启 Potato：
 
 ```bash
 # Linux / macOS
-unset QWENPAW_AUTH_ENABLED
-qwenpaw app
+unset POTATO_AUTH_ENABLED
+potato app
 
 # Docker — 移除 -e 参数即可。以下示例包含用于持久化的卷。
 docker run -p 127.0.0.1:8088:8088 -v qwenpaw-data:/app/working -v qwenpaw-secrets:/app/working.secret -v qwenpaw-backups:/app/working.backups agentscope/qwenpaw:latest
@@ -1078,7 +1078,7 @@ docker run -p 127.0.0.1:8088:8088 -v qwenpaw-data:/app/working -v qwenpaw-secret
 如果忘记密码,使用 CLI 命令重置:
 
 ```bash
-qwenpaw auth reset-password
+potato auth reset-password
 ```
 
 该命令会:
@@ -1090,7 +1090,7 @@ qwenpaw auth reset-password
 **Docker 部署**:
 
 ```bash
-docker exec -it <容器名> qwenpaw auth reset-password
+docker exec -it <容器名> potato auth reset-password
 ```
 
 **替代方案**:
@@ -1099,9 +1099,9 @@ docker exec -it <容器名> qwenpaw auth reset-password
 
 ```bash
 # 删除认证文件
-rm ~/.qwenpaw.secret/auth.json  # 或 $WORKING_DIR.secret/auth.json
-# 重启 QwenPaw,下次访问时重新注册
-qwenpaw app
+rm ~/.potato.secret/auth.json  # 或 $WORKING_DIR.secret/auth.json
+# 重启 Potato,下次访问时重新注册
+potato app
 ```
 
 ### 退出登录

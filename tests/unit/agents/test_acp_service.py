@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import psutil
 
-from qwenpaw.agents.acp.service import _kill_process_tree
+from potato.agents.acp.service import _kill_process_tree
 
 
 def test_kill_process_tree_ignores_permission_denied_children() -> None:
@@ -16,7 +16,7 @@ def test_kill_process_tree_ignores_permission_denied_children() -> None:
     child.kill.side_effect = psutil.AccessDenied(pid=42)
 
     with patch(
-        "qwenpaw.agents.acp.service.psutil.Process",
+        "potato.agents.acp.service.psutil.Process",
         return_value=parent,
     ):
         _kill_process_tree(41)
@@ -32,7 +32,7 @@ def test_kill_process_tree_ignores_permission_denied_inspection() -> None:
     parent.kill.side_effect = PermissionError("operation not permitted")
 
     with patch(
-        "qwenpaw.agents.acp.service.psutil.Process",
+        "potato.agents.acp.service.psutil.Process",
         return_value=parent,
     ):
         _kill_process_tree(41)

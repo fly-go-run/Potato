@@ -6,7 +6,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from qwenpaw.app.routers import router as api_router
+from potato.app.routers import router as api_router
 
 
 def test_openrouter_oauth_start_is_registered() -> None:

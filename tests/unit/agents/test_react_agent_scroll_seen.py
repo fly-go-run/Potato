@@ -9,12 +9,12 @@ from agentscope.event import ModelCallEndEvent
 from agentscope.message import HintBlock, Msg, TextBlock
 from agentscope.model import FinishedReason
 
-from qwenpaw.agents.react_agent import QwenPawAgent
-from qwenpaw.loop.gates import StopAction, StopHandlerResult
+from potato.agents.react_agent import PotatoAgent
+from potato.loop.gates import StopAction, StopHandlerResult
 
 
 class SeenTracker:
-    """Minimal Scroll manager surface used by ``QwenPawAgent._reasoning``."""
+    """Minimal Scroll manager surface used by ``PotatoAgent._reasoning``."""
 
     def __init__(self) -> None:
         self.acknowledged: list[set[str]] = []
@@ -37,9 +37,9 @@ class CompressionTracker:
         self.calls.append((agent, context_config, instructions))
 
 
-def make_agent(tracker: SeenTracker) -> QwenPawAgent:
+def make_agent(tracker: SeenTracker) -> PotatoAgent:
     """Build only the attributes the reasoning wrapper reads."""
-    agent = object.__new__(QwenPawAgent)
+    agent = object.__new__(PotatoAgent)
     agent._context_manager = tracker
     agent._gate_pending_stop = None
     agent.model = SimpleNamespace(model_key=None)
@@ -119,7 +119,7 @@ async def test_interrupted_model_call_does_not_acknowledge_results(
 
 async def test_compress_context_forwards_one_shot_instructions():
     tracker = CompressionTracker()
-    agent = object.__new__(QwenPawAgent)
+    agent = object.__new__(PotatoAgent)
     agent._context_manager = tracker
     agent.state = SimpleNamespace(context=[])
     config = SimpleNamespace(trigger_ratio=0.1)

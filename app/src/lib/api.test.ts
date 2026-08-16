@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  apiFetch,
+  filePreviewUrl,
   modelApi,
   providerConfigured,
   providerReady,
   type ProviderInfo,
 } from "./api";
+import { resetBackendOrigin, setBackendOrigin } from "./backendOrigin";
 
 afterEach(() => {
+  resetBackendOrigin();
   vi.unstubAllGlobals();
 });
 
@@ -221,5 +225,42 @@ describe("providerConfigured", () => {
         require_api_key: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("desktop API origin prefix", () => {
+  it("sends relative API calls to the sidecar origin", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    setBackendOrigin("http://127.0.0.1:8090");
+
+    await apiFetch("/api/version");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8090/api/version",
+      expect.any(Object),
+    );
+  });
+
+  it("rewrites file preview URLs onto the sidecar origin", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    });
+    setBackendOrigin("http://127.0.0.1:8090");
+    expect(filePreviewUrl("/tmp/photo.png")).toBe(
+      "http://127.0.0.1:8090/api/files/preview/tmp/photo.png",
+    );
   });
 });

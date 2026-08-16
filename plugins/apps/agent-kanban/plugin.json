@@ -3,13 +3,13 @@
   "name": "Agent Kanban",
   "version": "0.1.0",
   "description": "A Kanban board to create issues, assign them to agents, auto-run them via the assigned agent, and watch their output stream in real time.",
-  "author": "QwenPaw Team",
+  "author": "Potato Team",
   "type": "app",
   "entry": {
     "backend": "backend/main.py",
     "frontend": "ui/index.js"
   },
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "2.0.1"
   },
   "meta": {

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for :mod:`qwenpaw.app.approvals.models`.
+"""Unit tests for :mod:`potato.app.approvals.models`.
 
 The module is tiny but it ships the data contract that every approval
 source (ToolGuard, driver policy, IM channels, …) feeds into the central
@@ -15,7 +15,7 @@ import dataclasses
 
 import pytest
 
-from qwenpaw.app.approvals.models import ApprovalRequestSummary
+from potato.app.approvals.models import ApprovalRequestSummary
 
 # ---------------------------------------------------------------------------
 # Defaults

@@ -5,7 +5,7 @@ Demonstrates `on_acting` middleware that logs every tool call with
 timing information to a trace file in the workspace.
 
 The middleware factory conditionally activates: it returns None (skip)
-unless the ``QWENPAW_TRACE`` environment variable is set.
+unless the ``POTATO_TRACE`` environment variable is set.
 """
 
 import logging
@@ -16,7 +16,7 @@ from typing import Any, AsyncGenerator, Callable
 
 from agentscope.middleware import MiddlewareBase
 
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 logger = logging.getLogger(__name__)
 
@@ -56,16 +56,16 @@ class TracingMiddleware(MiddlewareBase):
 
 
 def _tracing_factory(ctx: Any, agent_config: Any) -> TracingMiddleware | None:
-    """Create TracingMiddleware when QWENPAW_TRACE env var is set."""
+    """Create TracingMiddleware when POTATO_TRACE env var is set."""
     del agent_config
-    if not os.environ.get("QWENPAW_TRACE"):
+    if not os.environ.get("POTATO_TRACE"):
         return None
 
     workspace_dir = getattr(ctx, "workspace_dir", None)
     if workspace_dir is None:
         return None
 
-    trace_file = Path(workspace_dir) / ".qwenpaw" / "trace.log"
+    trace_file = Path(workspace_dir) / ".potato" / "trace.log"
     return TracingMiddleware(trace_file=trace_file)
 
 

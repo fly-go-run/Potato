@@ -4,7 +4,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from qwenpaw.app import migration
+from potato.app import migration
 
 
 def _profile(workspace_dir: str, enabled: bool = True):
@@ -28,7 +28,7 @@ def test_remove_builtin_qa_agent_profiles_removes_profiles_and_falls_back(
     legacy_workspace = tmp_path / "legacy-qa"
     qa_workspace.mkdir()
     legacy_workspace.mkdir()
-    current_qa_id = "QwenPaw_" + "QA_Agent_0.2"
+    current_qa_id = "Potato_" + "QA_Agent_0.2"
     legacy_qa_id = "CoPaw_" + "QA_Agent_0.1beta1"
     config = _config(
         {

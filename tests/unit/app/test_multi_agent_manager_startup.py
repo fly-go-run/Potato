@@ -12,10 +12,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import qwenpaw.app.multi_agent_manager as multi_agent_manager_module
-import qwenpaw.constant as constants
-from qwenpaw.app.agent_startup import AgentStartupStatus
-from qwenpaw.app.multi_agent_manager import MultiAgentManager
+import potato.app.multi_agent_manager as multi_agent_manager_module
+import potato.constant as constants
+from potato.app.agent_startup import AgentStartupStatus
+from potato.app.multi_agent_manager import MultiAgentManager
 
 
 def _config(*agent_ids: str):
@@ -47,7 +47,7 @@ def _read_custom_startup_concurrency(
         env[legacy_env] = legacy_value
 
     code = (
-        "from qwenpaw.constant import "
+        "from potato.constant import "
         "CUSTOM_AGENT_STARTUP_CONCURRENCY; "
         "print(CUSTOM_AGENT_STARTUP_CONCURRENCY)"
     )
@@ -69,7 +69,7 @@ async def test_disabled_agent_is_not_started_or_mutated(monkeypatch) -> None:
     config = _config("default", "disabled")
     config.agents.profiles["disabled"].enabled = False
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
     manager.get_agent = AsyncMock(return_value=SimpleNamespace())
@@ -112,7 +112,7 @@ async def test_default_core_ready_before_custom_agents(
     manager = MultiAgentManager()
     config = _config("default", "custom")
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
 
@@ -160,7 +160,7 @@ async def test_startup_preserves_loaded_agent_status_during_core_phase(
     manager = MultiAgentManager()
     config = _config("default", "custom")
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
     manager.agents["custom"] = SimpleNamespace()
@@ -194,11 +194,11 @@ async def test_custom_agent_startup_respects_concurrency(
     custom_ids = [f"custom-{index}" for index in range(6)]
     config = _config("default", *custom_ids)
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
     monkeypatch.setenv(
-        "QWENPAW_CUSTOM_AGENT_STARTUP_CONCURRENCY",
+        "POTATO_CUSTOM_AGENT_STARTUP_CONCURRENCY",
         "2",
     )
     monkeypatch.setattr(
@@ -245,7 +245,7 @@ async def test_runtime_startups_share_concurrency_and_pending_state(
     manager = MultiAgentManager()
     config = _config("alpha", "beta")
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
     alpha_started = asyncio.Event()
@@ -284,7 +284,7 @@ async def test_startup_display_skips_empty_custom_phase(monkeypatch) -> None:
     manager = MultiAgentManager()
     config = _config("default")
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
     manager.get_agent = AsyncMock(return_value=SimpleNamespace())
@@ -305,7 +305,7 @@ async def test_default_failure_skips_custom_agent_phase(monkeypatch) -> None:
     manager = MultiAgentManager()
     config = _config("default", "custom")
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
 
@@ -345,7 +345,7 @@ async def test_get_agent_updates_runtime_status(monkeypatch) -> None:
     manager = MultiAgentManager()
     config = _config("custom")
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
     started = asyncio.Event()
@@ -375,7 +375,7 @@ async def test_cancelled_start_cleans_pending_state(monkeypatch) -> None:
     manager = MultiAgentManager()
     config = _config("custom")
     monkeypatch.setattr(
-        "qwenpaw.app.multi_agent_manager.load_config",
+        "potato.app.multi_agent_manager.load_config",
         lambda: config,
     )
     started = asyncio.Event()

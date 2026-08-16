@@ -52,7 +52,7 @@ export function compareBlogPostsByDateDesc(
   return a.slug.localeCompare(b.slug);
 }
 
-/** Match session titles like `**06-30 QwenPaw 开发者日会：…**`. */
+/** Match session titles like `**06-30 Potato 开发者日会：…**`. */
 const SESSION_TITLE_LINE =
   /^\*\*\d{2}-\d{2}\s+.*(?:开发者日会|Developer Day).*\*\*$/;
 

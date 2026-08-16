@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Long-term Memory end-to-end tests.
+Potato Long-term Memory end-to-end tests.
 
 UI-driven only. Pure API contract tests for /api/workspace/memory and
 /api/workspace/running-config live in ``tests/integration/``.
@@ -163,21 +163,21 @@ class TestMemorySearchRecall:
             timeout=memory_page.timeout,
         )
         chat_input = memory_page.page.locator(
-            "textarea.qwenpaw-sender-input"
+            "textarea.potato-sender-input"
         ).first
         expect(chat_input).to_be_visible(timeout=memory_page.timeout)
         chat_input.fill(
             f"What did I previously say about {keyword}? Quote it."
         )
         send_btn = memory_page.page.locator(
-            "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
+            "button.potato-sender-actions-btn.potato-btn-primary"
         ).first
         send_btn.click()
 
         log_test_step("3. Wait for AI bubble that mentions the keyword")
         expect(
             memory_page.page.locator(
-                f'.qwenpaw-bubble.qwenpaw-bubble-start:has-text("{keyword}")'
+                f'.potato-bubble.potato-bubble-start:has-text("{keyword}")'
             ).first
         ).to_be_visible(timeout=180000)
 

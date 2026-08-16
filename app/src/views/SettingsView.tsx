@@ -111,6 +111,9 @@ function webSearchHint(state: WebSearchSettings | null): TranslationKey | null {
   // 只在会出问题时说话:缺密钥仍选服务端=会失败;缺密钥自动档=已回退。
   if (!state || state.hosted_configured) return null;
   if (state.web_search_backend === "tavily") return null;
+  if (state.web_search_backend === "exa") {
+    return state.exa_configured ? null : "settings.webSearch.needsExaKey";
+  }
   return state.web_search_backend === "hosted"
     ? "settings.webSearch.needsKeyStrict"
     : "settings.webSearch.needsKey";
@@ -119,6 +122,7 @@ function webSearchHint(state: WebSearchSettings | null): TranslationKey | null {
 /** The dropdown is one list; these two are not providers. */
 const WEB_SEARCH_AUTO = "__auto__";
 const WEB_SEARCH_TAVILY = "__tavily__";
+const WEB_SEARCH_EXA = "__exa__";
 
 /**
  * 下拉的当前值:auto 与 tavily 是伪供应商项,其余是真实供应商 id。
@@ -127,6 +131,7 @@ const WEB_SEARCH_TAVILY = "__tavily__";
 function webSearchSelectValue(state: WebSearchSettings | null): string {
   if (!state) return WEB_SEARCH_AUTO;
   if (state.web_search_backend === "tavily") return WEB_SEARCH_TAVILY;
+  if (state.web_search_backend === "exa") return WEB_SEARCH_EXA;
   if (state.web_search_backend === "auto") return WEB_SEARCH_AUTO;
   return state.web_search_provider_id || WEB_SEARCH_AUTO;
 }
@@ -800,6 +805,10 @@ export function SettingsView() {
       saveWebSearch({ web_search_backend: "tavily" });
       return;
     }
+    if (value === WEB_SEARCH_EXA) {
+      saveWebSearch({ web_search_backend: "exa" });
+      return;
+    }
     if (value === WEB_SEARCH_AUTO) {
       saveWebSearch({ web_search_backend: "auto" });
       return;
@@ -1143,6 +1152,9 @@ export function SettingsView() {
                       >
                         <option value={WEB_SEARCH_AUTO}>
                           {t("settings.webSearch.auto")}
+                        </option>
+                        <option value={WEB_SEARCH_EXA}>
+                          {t("settings.webSearch.exa")}
                         </option>
                         <option value={WEB_SEARCH_TAVILY}>
                           {t("settings.webSearch.tavily")}
@@ -2133,7 +2145,7 @@ function providerModels(provider: ProviderInfo): ModelInfo[] {
 
 /** 内置 provider 的协议名保持不变，只在用户可见层切换产品品牌。 */
 function providerDisplayName(name: string): string {
-  return name === "QwenPaw Local" ? "Potato Local" : name;
+  return name === "Potato Local" ? "Potato Local" : name;
 }
 
 /** 后端 id 约束:字母数字开头,只允许 [A-Za-z0-9._-],最长 64。 */

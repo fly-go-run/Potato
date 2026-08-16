@@ -2,7 +2,7 @@
 """Integration tests for memory, system-prompt-files, and
 running-config.
 
-Sprint 2.3 — Memory & Context.  All tests use the real ``qwenpaw app``
+Sprint 2.3 — Memory & Context.  All tests use the real ``potato app``
 subprocess; A/B classes are pure HTTP.
 
 Existing CRUD roundtrip coverage (not duplicated here):

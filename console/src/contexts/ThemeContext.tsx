@@ -10,7 +10,8 @@ import {
 export type ThemeMode = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 
-const STORAGE_KEY = "qwenpaw-theme";
+const STORAGE_KEY = "potato-theme";
+const LEGACY_STORAGE_KEY = "qwenpaw-theme";
 
 interface ThemeContextValue {
   /** User selected preference: light / dark / system */
@@ -31,7 +32,12 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 function getInitialMode(): ThemeMode {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored =
+      localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (localStorage.getItem(STORAGE_KEY) === null && stored !== null) {
+      localStorage.setItem(STORAGE_KEY, stored);
+    }
     if (stored === "light" || stored === "dark" || stored === "system") {
       return stored;
     }

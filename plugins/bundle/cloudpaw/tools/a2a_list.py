@@ -12,7 +12,7 @@ from agentscope.message import TextBlock
 from agentscope.message import ToolResultState
 from agentscope.tool import ToolChunk
 
-logger = logging.getLogger("qwenpaw").getChild(
+logger = logging.getLogger("potato").getChild(
     __name__.replace("plugin_cloudpaw.", ""),
 )
 

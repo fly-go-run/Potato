@@ -3,13 +3,13 @@
   "name": "Tracing Middleware Demo",
   "version": "1.0.0",
   "description": "Demo: logs tool calls with execution timing to a trace file",
-  "author": "QwenPaw Team",
+  "author": "Potato Team",
   "type": "general",
   "entry": {
     "backend": "tracing_plugin.py"
   },
   "dependencies": [],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.0.0",
     "max": "2.1.0"
   },

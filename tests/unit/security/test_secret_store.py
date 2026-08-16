@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from qwenpaw.security.secret_store import (
+from potato.security.secret_store import (
     AUTH_SECRET_FIELDS,
     PROVIDER_SECRET_FIELDS,
     decrypt,
@@ -22,7 +22,7 @@ from qwenpaw.security.secret_store import (
 @pytest.fixture(autouse=True)
 def _isolate_master_key(tmp_path: Path, monkeypatch):
     """Provide a deterministic master key and isolated secret dir."""
-    import qwenpaw.security.secret_store as mod
+    import potato.security.secret_store as mod
 
     # 32-byte hex key → 32-byte raw
     test_key = bytes.fromhex(
@@ -120,7 +120,7 @@ class TestDecryptFailureGraceful:
         assert result == bad
 
     def test_wrong_key_ciphertext_returns_raw(self, monkeypatch):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
         ct = encrypt("secret-value")
 
@@ -140,7 +140,7 @@ class TestDecryptFailureGraceful:
 
 class TestMasterKeyGeneration:
     def test_generates_key_when_missing(self, tmp_path: Path, monkeypatch):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
         monkeypatch.setattr(mod, "_cached_master_key", None)
         monkeypatch.setattr(mod, "_get_secret_dir", lambda: tmp_path)
@@ -157,7 +157,7 @@ class TestMasterKeyGeneration:
         assert (tmp_path / ".master_key").exists()
 
     def test_reads_from_file(self, tmp_path: Path, monkeypatch):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
         key_hex = "aa" * 32
         (tmp_path / ".master_key").write_text(key_hex)
@@ -182,38 +182,58 @@ class TestKeyringAccountIsolation:
     @pytest.fixture(autouse=True)
     def _clear_relocation_env(self, monkeypatch):
         for var in (
+            "POTATO_KEYRING_ACCOUNT",
             "QWENPAW_KEYRING_ACCOUNT",
             "COPAW_KEYRING_ACCOUNT",
+            "POTATO_WORKING_DIR",
             "QWENPAW_WORKING_DIR",
             "COPAW_WORKING_DIR",
+            "POTATO_SECRET_DIR",
             "QWENPAW_SECRET_DIR",
             "COPAW_SECRET_DIR",
         ):
             monkeypatch.delenv(var, raising=False)
 
+    def test_reads_qwenpaw_keyring_service_before_copaw(self, monkeypatch):
+        import sys
+
+        import potato.security.secret_store as mod
+
+        fake_keyring = MagicMock()
+        fake_keyring.get_password.side_effect = [None, "legacy-key"]
+        monkeypatch.setattr(mod, "_should_skip_keyring", lambda: False)
+        monkeypatch.setitem(sys.modules, "keyring", fake_keyring)
+
+        assert mod._try_keyring_get() == "legacy-key"
+        services = [
+            call.args[0]
+            for call in fake_keyring.get_password.call_args_list
+        ]
+        assert services == ["potato", "qwenpaw"]
+
     def test_default_install_uses_legacy_account(self, monkeypatch):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
         # No relocation env vars → historical account preserved verbatim so
         # existing installs are untouched.
         monkeypatch.setattr(
             mod,
             "_get_secret_dir",
-            lambda: Path("~/.qwenpaw.secret").expanduser(),
+            lambda: Path("~/.potato.secret").expanduser(),
         )
         assert mod._keyring_account() == "master_key"
 
     def test_explicit_override_wins(self, monkeypatch):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
-        monkeypatch.setenv("QWENPAW_KEYRING_ACCOUNT", "dev-profile")
-        monkeypatch.setenv("QWENPAW_WORKING_DIR", "/tmp/whatever")
+        monkeypatch.setenv("POTATO_KEYRING_ACCOUNT", "dev-profile")
+        monkeypatch.setenv("POTATO_WORKING_DIR", "/tmp/whatever")
         assert mod._keyring_account() == "dev-profile"
 
     def test_relocated_install_is_namespaced(self, monkeypatch, tmp_path):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
-        monkeypatch.setenv("QWENPAW_WORKING_DIR", str(tmp_path / ".devdata"))
+        monkeypatch.setenv("POTATO_WORKING_DIR", str(tmp_path / ".devdata"))
         monkeypatch.setattr(
             mod,
             "_get_secret_dir",
@@ -228,9 +248,9 @@ class TestKeyringAccountIsolation:
         monkeypatch,
         tmp_path,
     ):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
-        monkeypatch.setenv("QWENPAW_SECRET_DIR", "set-to-mark-relocated")
+        monkeypatch.setenv("POTATO_SECRET_DIR", "set-to-mark-relocated")
 
         monkeypatch.setattr(mod, "_get_secret_dir", lambda: tmp_path / "a")
         account_a = mod._keyring_account()
@@ -244,8 +264,8 @@ class TestKeyringAccountIsolation:
         monkeypatch,
         tmp_path,
     ):
-        import qwenpaw.security.secret_store as mod
+        import potato.security.secret_store as mod
 
-        monkeypatch.setenv("QWENPAW_SECRET_DIR", "set-to-mark-relocated")
+        monkeypatch.setenv("POTATO_SECRET_DIR", "set-to-mark-relocated")
         monkeypatch.setattr(mod, "_get_secret_dir", lambda: tmp_path / "x")
         assert mod._keyring_account() == mod._keyring_account()

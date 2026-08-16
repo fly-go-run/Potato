@@ -7,8 +7,8 @@ window (update on /compact, reset on /clear, preserve otherwise). The prior bug
 was that *every* command silently dropped the scroll block.
 """
 
-from qwenpaw.agents.command_handler import ConversationCommandHandlerMixin
-from qwenpaw.runtime.builtin_commands import (
+from potato.agents.command_handler import ConversationCommandHandlerMixin
+from potato.runtime.builtin_commands import (
     _collect_conversation_specs,
     _CONVERSATION_COMMANDS,
     _resolve_scroll_block,

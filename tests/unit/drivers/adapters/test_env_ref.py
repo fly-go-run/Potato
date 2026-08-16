@@ -2,7 +2,7 @@
 """Unit tests for ${VAR} env-reference parsing in legacy MCP migration."""
 import pytest
 
-from qwenpaw.drivers.adapters.env_ref import (
+from potato.drivers.adapters.env_ref import (
     EnvTemplate,
     env_alias,
     env_ref,

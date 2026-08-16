@@ -4,16 +4,17 @@ from __future__ import annotations
 import json
 import zipfile
 
-from qwenpaw.backup._utils.constants import META_FILE, PREFIX_CONFIG
-from qwenpaw.backup._utils.signing import key as signing_key
-from qwenpaw.backup._utils.signing.digest import (
+from potato.backup._utils.constants import META_FILE, PREFIX_CONFIG
+from potato.backup._utils.signing import key as signing_key
+from potato.backup._utils.signing.digest import (
     _assert_signed_fields_cover_model,
+    _compute_signature,
     verify_signature,
 )
-from qwenpaw.backup._utils.signing.resign import (
+from potato.backup._utils.signing.resign import (
     replace_meta_with_local_signature,
 )
-from qwenpaw.backup.models import BackupMeta
+from potato.backup.models import BackupMeta
 
 
 def _reset_key_cache(monkeypatch, backup_dir):
@@ -53,3 +54,31 @@ def test_resign_writes_verifiable_local_signature(tmp_path, monkeypatch):
 
 def test_signed_fields_cover_backup_meta_model():
     _assert_signed_fields_cover_model()
+
+
+def test_qwenpaw_backup_metadata_and_signature_remain_valid(
+    tmp_path,
+    monkeypatch,
+):
+    _reset_key_cache(monkeypatch, tmp_path)
+    src = tmp_path / "legacy.zip"
+    legacy_meta = BackupMeta.model_validate(
+        {
+            "id": "qwenpaw-2.0.1-legacy",
+            "name": "Legacy signed backup",
+            "qwenpaw_version": "2.0.1",
+        },
+    )
+    assert legacy_meta.potato_version == "2.0.1"
+    _write_backup(src, legacy_meta)
+
+    with zipfile.ZipFile(src, "r") as zf:
+        signature = _compute_signature(
+            zf,
+            legacy_meta,
+            legacy_qwenpaw=True,
+        )
+        signed_meta = legacy_meta.model_copy(
+            update={"signature": signature},
+        )
+        assert verify_signature(zf, signed_meta)

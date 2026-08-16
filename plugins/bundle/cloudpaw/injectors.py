@@ -4,22 +4,22 @@
 import logging
 import sys
 
-logger = logging.getLogger("qwenpaw").getChild(
+logger = logging.getLogger("potato").getChild(
     __name__.replace("plugin_cloudpaw.", ""),
 )
 
 
 def inject_interaction_module() -> None:
-    """Inject the interaction module into the qwenpaw.app namespace."""
+    """Inject the interaction module into the potato.app namespace."""
     import types
     import asyncio
 
-    module_name = "qwenpaw.app.interaction"
+    module_name = "potato.app.interaction"
     if module_name in sys.modules:
         return
 
     mod = types.ModuleType(module_name)
-    mod.__package__ = "qwenpaw.app"
+    mod.__package__ = "potato.app"
 
     class _PendingInteraction:
         __slots__ = ("event", "result")

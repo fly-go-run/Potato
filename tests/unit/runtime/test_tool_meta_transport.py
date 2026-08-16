@@ -14,11 +14,11 @@ from agentscope.message import (
 )
 from agentscope.tool import FunctionTool, Toolkit, ToolChunk
 
-from qwenpaw.app.chats.utils import agentscope_msg_to_message
-from qwenpaw.runtime.envelope import Envelope
-from qwenpaw.runtime.runtime import Runtime
-from qwenpaw.runtime.tool_meta import build_qp_meta
-from qwenpaw.tool_calls import ToolCoordinator, ToolCoordinatorMiddleware
+from potato.app.chats.utils import agentscope_msg_to_message
+from potato.runtime.envelope import Envelope
+from potato.runtime.runtime import Runtime
+from potato.runtime.tool_meta import build_qp_meta
+from potato.tool_calls import ToolCoordinator, ToolCoordinatorMiddleware
 
 
 class _TokenCountingModel:

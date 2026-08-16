@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Long-term Memory page object.
+Potato Long-term Memory page object.
 
 Wraps backend API helpers for daily memory file CRUD and the running
 config (which holds ``reme_light_memory_config``), plus locator
@@ -38,8 +38,8 @@ class MemoryPage(BasePage):
 
     # Long-term Memory tab on /agent-config
     MEMORY_TAB = (
-        '.qwenpaw-tabs-tab:has-text("Long-term Memory"), '
-        '.qwenpaw-tabs-tab:has-text("长期记忆")'
+        '.potato-tabs-tab:has-text("Long-term Memory"), '
+        '.potato-tabs-tab:has-text("长期记忆")'
     )
     # Switches and inputs use stable form-item names (Form.Item name=[...]).
     # The dream_cron input is unique to this card and serves as a
@@ -70,9 +70,9 @@ class MemoryPage(BasePage):
             "      state: { selectedAgent: a, agents: [], lastChatIdByAgent: {} },"
             "      version: 0"
             "    });"
-            "    try { localStorage.setItem('qwenpaw-last-used-agent', a); } catch (e) {}"
-            "    try { localStorage.setItem('qwenpaw-agent-storage', blob); } catch (e) {}"
-            "    try { sessionStorage.setItem('qwenpaw-agent-storage', blob); } catch (e) {}"
+            "    try { localStorage.setItem('potato-last-used-agent', a); } catch (e) {}"
+            "    try { localStorage.setItem('potato-agent-storage', blob); } catch (e) {}"
+            "    try { sessionStorage.setItem('potato-agent-storage', blob); } catch (e) {}"
             "  } catch (e) {}"
             "})();"
         )

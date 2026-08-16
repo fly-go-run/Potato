@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for the API health probe used by ``qwenpaw doctor``."""
+"""Tests for the API health probe used by ``potato doctor``."""
 # pylint: disable=protected-access
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from qwenpaw.cli import doctor_cmd
+from potato.cli import doctor_cmd
 
 
 class _Response:
@@ -75,7 +75,7 @@ def test_api_health_reports_background_startup(monkeypatch, capsys) -> None:
     assert "FAIL" in captured.err
     assert "health not ready" in captured.err
     assert "Background startup in progress" in captured.err
-    assert "rerun `qwenpaw doctor`" in captured.err
+    assert "rerun `potato doctor`" in captured.err
 
 
 def test_api_health_reports_connection_failure(monkeypatch, capsys) -> None:
@@ -99,4 +99,4 @@ def test_api_health_reports_connection_failure(monkeypatch, capsys) -> None:
     assert captured.out == ""
     assert "health not reachable" in captured.err
     assert "connection refused" in captured.err
-    assert "start the server with `qwenpaw app`" in captured.err
+    assert "start the server with `potato app`" in captured.err

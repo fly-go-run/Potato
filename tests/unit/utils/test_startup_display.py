@@ -8,7 +8,7 @@ from unittest.mock import patch
 from rich.console import Console
 from rich.file_proxy import FileProxy
 
-from qwenpaw.utils.startup_display import AgentStartupDisplay
+from potato.utils.startup_display import AgentStartupDisplay
 
 
 def test_startup_display_renders_progress_on_terminal() -> None:
@@ -56,7 +56,7 @@ def test_startup_display_prints_final_banner_without_tty() -> None:
     display = AgentStartupDisplay(console=console).start()
 
     with patch(
-        "qwenpaw.utils.startup_display.print_ready_banner",
+        "potato.utils.startup_display.print_ready_banner",
     ) as print_banner:
         display.complete(2.0)
 
@@ -72,13 +72,13 @@ def test_startup_display_preserves_file_logging(tmp_path) -> None:
         width=100,
     )
     terminal_handler = logging.StreamHandler(terminal_output)
-    log_path = tmp_path / "qwenpaw.log"
+    log_path = tmp_path / "potato.log"
     file_handler = logging.FileHandler(log_path, encoding="utf-8")
     formatter = logging.Formatter("%(levelname)s | %(message)s")
     terminal_handler.setFormatter(formatter)
     file_handler.setFormatter(formatter)
 
-    logger = logging.getLogger("qwenpaw.test.startup_display")
+    logger = logging.getLogger("potato.test.startup_display")
     old_handlers = logger.handlers[:]
     old_level = logger.level
     old_propagate = logger.propagate
@@ -89,7 +89,7 @@ def test_startup_display_preserves_file_logging(tmp_path) -> None:
 
     try:
         with patch(
-            "qwenpaw.utils.startup_display.print_ready_banner",
+            "potato.utils.startup_display.print_ready_banner",
         ) as print_banner:
             display.start()
             assert isinstance(terminal_handler.stream, FileProxy)

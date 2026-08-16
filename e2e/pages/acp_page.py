@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw ACP (Agent Communication Protocol) page object.
+Potato ACP (Agent Communication Protocol) page object.
 
 Wraps all interactions on the ACP configuration management page and exposes
 business-level methods.
@@ -30,7 +30,7 @@ class ACPPage(BasePage):
     - Builtin ACP protection verification
     """
 
-    PAGE_TITLE = "QwenPaw Console"
+    PAGE_TITLE = "Potato Console"
     PAGE_URL = f"{config.base_url}/acp"
 
     # ========== Selector definitions ==========
@@ -41,49 +41,49 @@ class ACPPage(BasePage):
     BREADCRUMB_CURRENT = 'span[class*="breadcrumbCurrent"]'
 
     # Filter tabs
-    FILTER_TABS = '.qwenpaw-tabs, .qwenpaw-segmented, [class*="filterTabs"]'
-    TAB_ALL = '[class*="tab"]:has-text("All"), [class*="tab"]:has-text("全部"), .qwenpaw-segmented-item:has-text("All")'
-    TAB_BUILTIN = '[class*="tab"]:has-text("Builtin"), [class*="tab"]:has-text("内置"), .qwenpaw-segmented-item:has-text("Builtin")'
-    TAB_CUSTOM = '[class*="tab"]:has-text("Custom"), [class*="tab"]:has-text("自定义"), .qwenpaw-segmented-item:has-text("Custom")'
+    FILTER_TABS = '.potato-tabs, .potato-segmented, [class*="filterTabs"]'
+    TAB_ALL = '[class*="tab"]:has-text("All"), [class*="tab"]:has-text("全部"), .potato-segmented-item:has-text("All")'
+    TAB_BUILTIN = '[class*="tab"]:has-text("Builtin"), [class*="tab"]:has-text("内置"), .potato-segmented-item:has-text("Builtin")'
+    TAB_CUSTOM = '[class*="tab"]:has-text("Custom"), [class*="tab"]:has-text("自定义"), .potato-segmented-item:has-text("Custom")'
 
     # Create button
     CREATE_BUTTON = 'button:has-text("Create"), button:has-text("创建"), button:has-text("Add"), button:has-text("添加")'
 
     # ACP card list
-    ACP_CARD = '[class*="acpCard"], [class*="ACPCard"], .qwenpaw-card'
-    ACP_CARD_TITLE = '[class*="agentKey"], [class*="title"], .qwenpaw-card-meta-title'
-    ACP_CARD_TAG = '.qwenpaw-tag'
-    ACP_CARD_SWITCH = '.qwenpaw-switch'
+    ACP_CARD = '[class*="acpCard"], [class*="ACPCard"], .potato-card'
+    ACP_CARD_TITLE = '[class*="agentKey"], [class*="title"], .potato-card-meta-title'
+    ACP_CARD_TAG = '.potato-tag'
+    ACP_CARD_SWITCH = '.potato-switch'
 
     # ACP drawer (create/edit)
-    DRAWER = '.qwenpaw-drawer'
-    DRAWER_TITLE = '.qwenpaw-drawer-title'
-    DRAWER_CLOSE = '.qwenpaw-drawer-close'
+    DRAWER = '.potato-drawer'
+    DRAWER_TITLE = '.potato-drawer-title'
+    DRAWER_CLOSE = '.potato-drawer-close'
 
     # Drawer form fields
     FORM_AGENT_KEY = 'input[id*="agentKey"], input[name*="agentKey"], #agentKey'
     FORM_COMMAND = 'input[id*="command"], input[name*="command"], #command'
     FORM_ARGS = 'textarea[id*="args"], textarea[name*="args"], #argsText'
     FORM_ENV = 'textarea[id*="env"], textarea[name*="env"], #envText'
-    FORM_ENABLED_SWITCH = '[class*="enabled"] .qwenpaw-switch, #enabled'
-    FORM_TRUSTED_SWITCH = '[class*="trusted"] .qwenpaw-switch, #trusted'
-    FORM_TOOL_PARSE_MODE = '.qwenpaw-select, select[id*="tool_parse_mode"]'
+    FORM_ENABLED_SWITCH = '[class*="enabled"] .potato-switch, #enabled'
+    FORM_TRUSTED_SWITCH = '[class*="trusted"] .potato-switch, #trusted'
+    FORM_TOOL_PARSE_MODE = '.potato-select, select[id*="tool_parse_mode"]'
     FORM_BUFFER_LIMIT = 'input[id*="buffer"], input[name*="buffer"], input[type="number"]'
 
     # Drawer action buttons
-    SAVE_BUTTON = '.qwenpaw-drawer button:has-text("Save"), .qwenpaw-drawer button:has-text("保存"), .qwenpaw-drawer button.qwenpaw-btn-primary'
-    CANCEL_BUTTON = '.qwenpaw-drawer button:has-text("Cancel"), .qwenpaw-drawer button:has-text("取消")'
-    DELETE_BUTTON_DRAWER = '.qwenpaw-drawer button:has-text("Delete"), .qwenpaw-drawer button:has-text("删除")'
-    DOC_LINK = '.qwenpaw-drawer a[href*="doc"], .qwenpaw-drawer a[href*="integration"]'
+    SAVE_BUTTON = '.potato-drawer button:has-text("Save"), .potato-drawer button:has-text("保存"), .potato-drawer button.potato-btn-primary'
+    CANCEL_BUTTON = '.potato-drawer button:has-text("Cancel"), .potato-drawer button:has-text("取消")'
+    DELETE_BUTTON_DRAWER = '.potato-drawer button:has-text("Delete"), .potato-drawer button:has-text("删除")'
+    DOC_LINK = '.potato-drawer a[href*="doc"], .potato-drawer a[href*="integration"]'
 
     # Confirmation popups
-    POPCONFIRM = '.qwenpaw-popconfirm, .qwenpaw-modal-confirm'
-    POPCONFIRM_OK = '.qwenpaw-popconfirm button:has-text("OK"), .qwenpaw-popconfirm button:has-text("确定"), .qwenpaw-popconfirm .qwenpaw-btn-primary'
-    POPCONFIRM_CANCEL = '.qwenpaw-popconfirm button:has-text("Cancel"), .qwenpaw-popconfirm button:has-text("取消")'
+    POPCONFIRM = '.potato-popconfirm, .potato-modal-confirm'
+    POPCONFIRM_OK = '.potato-popconfirm button:has-text("OK"), .potato-popconfirm button:has-text("确定"), .potato-popconfirm .potato-btn-primary'
+    POPCONFIRM_CANCEL = '.potato-popconfirm button:has-text("Cancel"), .potato-popconfirm button:has-text("取消")'
 
     # Toast messages
-    SUCCESS_TOAST = '.qwenpaw-message-success, .qwenpaw-notification-success'
-    ERROR_TOAST = '.qwenpaw-message-error, .qwenpaw-notification-error'
+    SUCCESS_TOAST = '.potato-message-success, .potato-notification-success'
+    ERROR_TOAST = '.potato-message-error, .potato-notification-error'
 
     # Builtin ACP names
     BUILTIN_ACP_NAMES = ["opencode", "qwen_code", "claude_code", "codex"]
@@ -183,7 +183,7 @@ class ACPPage(BasePage):
         """Return the agentKey of the given card."""
         title_el = card.locator(
             '[class*="agentKey"], [class*="title"], '
-            '.qwenpaw-card-meta-title, h3, h4'
+            '.potato-card-meta-title, h3, h4'
         ).first
         if title_el.is_visible(timeout=3000):
             return title_el.inner_text().strip()
@@ -199,7 +199,7 @@ class ACPPage(BasePage):
         switch = card.locator(self.ACP_CARD_SWITCH).first
         if switch.count() > 0:
             return switch.evaluate(
-                "el => el.classList.contains('qwenpaw-switch-checked') || "
+                "el => el.classList.contains('potato-switch-checked') || "
                 "el.getAttribute('aria-checked') === 'true'"
             )
         return False

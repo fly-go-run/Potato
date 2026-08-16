@@ -1,15 +1,15 @@
 # Agent Persona
 
-QwenPaw defines an agent's "persona" through a set of Markdown files that are loaded into the system prompt. These files determine the agent's behavioral style, working approach, and personality traits. By editing these files, you can shape the agent into your ideal assistant—whether that's a meticulous work aide, a warm life companion, or a technical expert.
+Potato defines an agent's "persona" through a set of Markdown files that are loaded into the system prompt. These files determine the agent's behavioral style, working approach, and personality traits. By editing these files, you can shape the agent into your ideal assistant—whether that's a meticulous work aide, a warm life companion, or a technical expert.
 
 ---
 
 ## Persona Files
 
-Agent persona files are Markdown documents stored in the agent's workspace directory. The workspace location is determined by the `QWENPAW_WORKING_DIR` environment variable (defaults to `~/.qwenpaw`), with the full path being:
+Agent persona files are Markdown documents stored in the agent's workspace directory. The workspace location is determined by the `POTATO_WORKING_DIR` environment variable (defaults to `~/.potato`), with the full path being:
 
 ```
-$QWENPAW_WORKING_DIR/workspaces/{agent_id}/
+$POTATO_WORKING_DIR/workspaces/{agent_id}/
 ```
 
 **Persona files are flexible and extensible.** The files shown below represent the default configuration, but you can freely add new Markdown files or remove existing ones. Any Markdown file enabled in the Console's **Agent → Workspace** page will be loaded into the system prompt.
@@ -61,7 +61,7 @@ MEMORY.md stores distilled long-term memories (important decisions, lessons lear
 
 #### **BOOTSTRAP.md** - Initial Setup Guide
 
-When running `qwenpaw init` for the first time, BOOTSTRAP.md is automatically created to guide the initial "conversation" between user and agent, establishing identity, preferences, and style. Once complete, the agent writes the configuration to PROFILE.md and SOUL.md, then deletes BOOTSTRAP.md.
+When running `potato init` for the first time, BOOTSTRAP.md is automatically created to guide the initial "conversation" between user and agent, establishing identity, preferences, and style. Once complete, the agent writes the configuration to PROFILE.md and SOUL.md, then deletes BOOTSTRAP.md.
 
 **Setup flow:**
 
@@ -105,7 +105,7 @@ See [Multi-Agent](./multi-agent) for details.
 
 ### Configuration File Management
 
-You can also directly edit the `system_prompt_files` field in the agent configuration file (`~/.qwenpaw/workspaces/{agent_id}/agent.json`) to manage persona file loading:
+You can also directly edit the `system_prompt_files` field in the agent configuration file (`~/.potato/workspaces/{agent_id}/agent.json`) to manage persona file loading:
 
 ```json
 {
@@ -119,14 +119,14 @@ You can also directly edit the `system_prompt_files` field in the agent configur
 
 ### Initial Setup
 
-Running `qwenpaw init` automatically creates template files based on your chosen language (`zh` / `en` / `ru`):
+Running `potato init` automatically creates template files based on your chosen language (`zh` / `en` / `ru`):
 
 - AGENTS.md
 - SOUL.md
 - PROFILE.md
 - BOOTSTRAP.md (initial setup guide)
 
-If using `qwenpaw init --defaults`, the default language is `zh` (Chinese).
+If using `potato init --defaults`, the default language is `zh` (Chinese).
 
 ### Switching Agent Language
 

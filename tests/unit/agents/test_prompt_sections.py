@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from qwenpaw.agents.prompt_builder import PromptBuilder
-from qwenpaw.plugins.registry import PluginRegistry
+from potato.agents.prompt_builder import PromptBuilder
+from potato.plugins.registry import PluginRegistry
 
 
 class _FakeAgent:
@@ -132,7 +132,7 @@ def test_builder_skips_empty_and_failed_providers():
     )
 
     with patch(
-        "qwenpaw.agents.prompt_builder.logger.exception",
+        "potato.agents.prompt_builder.logger.exception",
     ) as log_exc:
         result = PromptBuilder(registry).build(
             agent=_FakeAgent(),

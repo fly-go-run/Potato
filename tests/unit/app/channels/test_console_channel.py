@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for qwenpaw.app.channels.console.channel.ConsoleChannel.
+"""Unit tests for potato.app.channels.console.channel.ConsoleChannel.
 
 Focuses on the *local* ConsoleChannel helpers (start/stop/send, session
 resolution, parts rendering). Heavy streaming pipeline behavior is covered
@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from qwenpaw.schemas import (
+from potato.schemas import (
     ContentType,
     ImageContent,
     Message,
@@ -31,7 +31,7 @@ from qwenpaw.schemas import (
 
 @pytest.fixture
 def console_channel(tmp_path: Path):
-    from qwenpaw.app.channels.console.channel import ConsoleChannel
+    from potato.app.channels.console.channel import ConsoleChannel
 
     return ConsoleChannel(
         process=MagicMock(),
@@ -43,7 +43,7 @@ def console_channel(tmp_path: Path):
 
 @pytest.fixture
 def disabled_console_channel(tmp_path: Path):
-    from qwenpaw.app.channels.console.channel import ConsoleChannel
+    from potato.app.channels.console.channel import ConsoleChannel
 
     return ConsoleChannel(
         process=MagicMock(),
@@ -285,7 +285,7 @@ class TestNoTextDebounce:
         assert merged[1].type == ContentType.TEXT
 
     def test_audio_bypasses_debounce(self, console_channel):
-        from qwenpaw.schemas import AudioContent
+        from potato.schemas import AudioContent
 
         audio = AudioContent(data="http://x/a.mp3")
         ok, merged = console_channel._apply_no_text_debounce(

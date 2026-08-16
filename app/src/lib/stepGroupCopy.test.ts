@@ -3,7 +3,6 @@ import type { ToolPair } from "../components/chat/ToolCard";
 import { translate, type Language, type TranslationKey } from "./i18n";
 import {
   formatStepGroupObject,
-  formatStepGroupVerb,
 } from "./stepGroupCopy";
 import type { ToolGroupRow } from "./stepGroups";
 
@@ -105,11 +104,6 @@ describe("formatStepGroupObject", () => {
       pairs: stubs(1),
     });
     expect(formatStepGroupObject(once, t("zh"), "zh")).toBe("关键词");
-  });
-
-  it("names the quiet verb for each family", () => {
-    expect(formatStepGroupVerb("search", t("zh"))).toBe("搜了");
-    expect(formatStepGroupVerb("shell", t("en"))).toBe("Ran");
   });
 
   it("truncates a shell command to a footnote", () => {

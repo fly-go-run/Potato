@@ -9,8 +9,8 @@ from typing import Any, ClassVar
 
 from agentscope.message import Msg, TextBlock
 
-from qwenpaw.modes.base import AgentMode
-from qwenpaw.runtime.hooks import HookContext
+from potato.modes.base import AgentMode
+from potato.runtime.hooks import HookContext
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class OMPModeBase(AgentMode):
     def setup(self, workspace: object) -> None:
         super().setup(workspace)
         self._workspace_ref = weakref.ref(workspace)
-        from qwenpaw.loop.gates import StopHandler, StopHandlerRegistration
+        from potato.loop.gates import StopHandler, StopHandlerRegistration
 
         handler = StopHandler()
         gate = self.gate_cls()

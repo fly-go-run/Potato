@@ -25,7 +25,6 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { APP_NAME } from "../../lib/appInfo";
 import {
   collectConversationArtifacts,
   resolveConversationFileLink,
@@ -43,10 +42,12 @@ import {
   summarizeTrack,
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
-import { shouldShowProcessHeader } from "../../lib/processHeader";
+import {
+  shouldShowLiveSignal,
+  shouldShowProcessHeader,
+} from "../../lib/processHeader";
 import {
   formatStepGroupObject,
-  formatStepGroupVerb,
 } from "../../lib/stepGroupCopy";
 import {
   FOLD_WINDOW,
@@ -57,7 +58,7 @@ import {
   type ProcessEntry,
   type ToolFamily,
 } from "../../lib/stepGroups";
-import { buildTimeline } from "../../lib/turnTimeline";
+import { buildTimeline, copyAnswerText } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
 import { historyTurnElapsedMs } from "../../lib/historyTurnDuration";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
@@ -67,7 +68,6 @@ import { useNow } from "../../lib/useNow";
 import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
-import { PotatoMark } from "../brand/PotatoMark";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ChangeStat";
 import { MessageContent } from "./MessageContent";
@@ -106,7 +106,7 @@ export function MessageList({
   const pendingApprovals = useChatStore((state) => state.pendingApprovals);
   const isStreaming = useChatStore((state) => state.isStreaming);
   const lastIndex = turns.length - 1;
-  // 发送后助手首帧到达前,提前挂载头像行 + 等待轨道,消灭"死空气"。
+  // 发送后助手首帧到达前挂上等待轨道,立刻露出「思考中」扫光。
   // 审批卡在场时模型本来就暂停,不再叠加等待占位。
   const showPendingTurn =
     isStreaming &&
@@ -115,7 +115,7 @@ export function MessageList({
   return (
     <div
       data-chat-content
-      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-5 sm:px-8"
+      className="mx-auto w-full max-w-[48rem] px-6 pb-12 pt-12 sm:px-8"
     >
       {turns.map((turn, index) =>
         turn.role === "user" ? (
@@ -149,8 +149,7 @@ export function MessageList({
         ),
       )}
       {showPendingTurn && (
-        <div data-testid="turn-assistant" className="mb-10">
-          <AssistantHeader />
+        <div data-testid="turn-assistant" className="mb-8">
           <TurnFlow pieces={[]} foldEntries={[]} waiting live />
         </div>
       )}
@@ -173,7 +172,7 @@ const UserTurn = memo(function UserTurn({
   return (
     <div data-testid="turn-user" className="mb-8 flex justify-end">
       {/* 70% 上限 + 中档圆角:对表 WB(682px 宽的 18px 圆角灰板太"网页") */}
-      <div className="max-w-[70%] rounded-[var(--radius-md)] bg-bubble-user px-4 py-2.5 text-[15px] leading-[1.7]">
+      <div className="max-w-[70%] select-text rounded-[var(--radius-md)] bg-bubble-user px-4 py-2.5 text-[15px] leading-[1.7]">
         {messages.map((message) => (
           <div
             id={`message-${message.id}`}
@@ -233,7 +232,6 @@ const AssistantTurn = memo(function AssistantTurn({
     () => messages.flatMap(presentInlineThinking),
     [messages],
   );
-  const copyText = plainText(presented);
   const turnChanges = collectFileChanges(messages);
   const turnArtifacts = collectConversationArtifacts(messages);
   const resolveFilePath = (href: string) =>
@@ -303,10 +301,12 @@ const AssistantTurn = memo(function AssistantTurn({
       }
       continue;
     }
-    // narration:无论 fold 还是 answer 角色都以同一节点恒可见——模型的
-    // 讲述是回复的一部分,永远留在正文流里(Codex 式)。这也让收口零
-    // 结构变动:工具/思考段各自渐进收起,文字从不动。叙述同时天然充当
-    // run 的分隔符——每当模型开口说话,它前面的工作段就被接替而收拢。
+    // 流式中过程旁白先当正文落地,避免中途换容器。收口后折进
+    // 「4.8s · 1 步」下面,复制仍只取 answer。
+    if (slot.role === "fold" && !streaming) {
+      fold({ kind: "narration", key: slot.key, message });
+      continue;
+    }
     visible(
       slot.key,
       <div
@@ -330,13 +330,13 @@ const AssistantTurn = memo(function AssistantTurn({
   flushRun();
 
   const waiting = streaming && slots.length === 0;
+  const copyText = copyAnswerText(presented, slots);
 
   return (
     <div
       data-testid="turn-assistant"
-      className="mb-10"
+      className="group/turn mb-8"
     >
-      <AssistantHeader />
       <TurnFlow
         pieces={waiting ? [] : pieces}
         foldEntries={foldEntries}
@@ -382,17 +382,6 @@ function areAssistantTurnPropsEqual(
     Object.is(previous.onOpenChange, next.onOpenChange) &&
     Object.is(previous.userTimestamp, next.userTimestamp) &&
     Object.is(previous.assistantTimestamp, next.assistantTimestamp)
-  );
-}
-
-function AssistantHeader() {
-  return (
-    <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-ink-secondary">
-      <span className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-btn-primary text-btn-primary-ink">
-        <PotatoMark size={16} />
-      </span>
-      <span>{APP_NAME}</span>
-    </div>
   );
 }
 
@@ -571,7 +560,7 @@ function TurnFlow({
     const timer = window.setTimeout(() => setSettling(false), 600);
     return () => window.clearTimeout(timer);
   }, [live, settling]);
-  const headerOpen = manualHeader ?? true;
+  const headerOpen = manualHeader ?? live;
   const foldRows = pieces.flatMap((piece) =>
     piece.type === "fold" ? [piece.row] : [],
   );
@@ -611,12 +600,20 @@ function TurnFlow({
         ? t("chat.contextCompaction.fallback")
         : t("chat.contextCompaction.completed");
   } else if (durationLabel) {
+    const stepsLabel = t(
+      state.steps === 1 ? "chat.step.one" : "chat.step.many",
+      { count: state.steps },
+    );
     summary = state.failed
       ? t("chat.workedForWithFailures", {
           duration: durationLabel,
+          steps: stepsLabel,
           failed: state.failed,
         })
-      : t("chat.workedFor", { duration: durationLabel });
+      : t("chat.workedFor", {
+          duration: durationLabel,
+          steps: stepsLabel,
+        });
   } else {
     summary = state.failed
       ? t("chat.toolGroupWithFailures", {
@@ -640,7 +637,17 @@ function TurnFlow({
       failed: Math.max(settledFailed, failedTools),
       toolFoldCount,
       foldWindow: FOLD_WINDOW,
+      settled: !live,
+      hasProcessWork: foldEntries.length > 0,
     });
+  const showLiveSignal = shouldShowLiveSignal({
+    live,
+    showHeader,
+    hasVisiblePiece: pieces.some(
+      (piece) => piece.type === "visible" || piece.type === "failed",
+    ),
+    hasVisibleToolFold: foldRows.some((row) => row.type !== "thinking"),
+  });
   const toggleable = foldRows.length > 0 || failedTools > 0;
   const showDurationSuffix =
     Boolean(durationLabel) &&
@@ -787,9 +794,21 @@ function TurnFlow({
   }
   flushTrack();
   return (
-    <div className="my-3">
+    <div>
+      {showLiveSignal && (
+        <div
+          data-testid="turn-live-signal"
+          className="inline-flex items-center px-1 py-1 text-[13px] text-ink-tertiary"
+        >
+          <span className="qp-shimmer">{t("reasoning.thinking")}</span>
+        </div>
+      )}
       {showHeader && (
-        <div className="flex items-center gap-2">
+        <div
+          className={`flex items-center gap-2 ${
+            live ? "" : "mb-2 border-b border-line pb-2"
+          }`}
+        >
           {toggleable ? (
             <button
               type="button"
@@ -813,6 +832,9 @@ function TurnFlow({
 
 /** 摘要状态机的输入快照:ProcessEntry → 纯逻辑层的形状。 */
 function entrySnapshot(entry: ProcessEntry): TrackEntrySnapshot {
+  if (entry.kind === "narration") {
+    return { key: entry.key, kind: "message", active: false };
+  }
   if (entry.kind === "pair") {
     const status = toolPairStatus(entry.pair);
     return {
@@ -867,6 +889,7 @@ function isRowActive(row: FoldRow): boolean {
       row.message.status === "created" || row.message.status === "in_progress"
     );
   }
+  if (row.type === "aside") return false;
   return row.pairs.some((pair) => toolPairStatus(pair).running);
 }
 
@@ -903,6 +926,13 @@ function FoldRowView({
   if (row.type === "progress") {
     return <ProgressCard message={row.message} shimmer={shimmer} />;
   }
+  if (row.type === "aside") {
+    return (
+      <div className="px-1 py-0.5 text-[12px] leading-5 text-ink-tertiary">
+        <MessageContent content={row.message.content} markdown />
+      </div>
+    );
+  }
   if (row.direct) {
     return (
       <ToolCard
@@ -918,7 +948,6 @@ function FoldRowView({
   }
   const Icon = FAMILY_ICONS[row.family];
   const object = formatStepGroupObject(row, t, language);
-  const verb = formatStepGroupVerb(row.family, t);
   return (
     <StepGroupRow
       icon={
@@ -929,7 +958,7 @@ function FoldRowView({
         />
       }
       summary={
-        <TrackSummary verb={verb} object={object} shimmer={shimmer} />
+        <TrackSummary object={object} shimmer={shimmer} />
       }
       open={mode === "raw" || mode === "tail"}
       keepMounted={everRaw}
@@ -1066,7 +1095,7 @@ function isOrdinaryAssistantMessage(message: StreamMessage): boolean {
 }
 
 /**
- * 消息动作行：默认可见但极轻（触屏也能用），hover 才升一档对比。
+ * 消息动作行：鼠标划过本轮回复才出现。触屏没有 hover，保持常显。
  */
 function MessageActions({
   text,
@@ -1092,7 +1121,10 @@ function MessageActions({
   };
 
   return (
-    <div className="qp-fade-in -ml-1.5 mt-1.5 flex items-center gap-0.5">
+    <div
+      data-testid="message-actions"
+      className="mt-1 -ml-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-[var(--dur-fast)] group-hover/turn:opacity-100 group-focus-within/turn:opacity-100 [@media(hover:none)]:opacity-100"
+    >
       <ActionButton
         label={copied ? t("message.copied") : t("message.copy")}
         onClick={() => void copy()}

@@ -6,7 +6,7 @@ every local ``file://`` media source off disk and base64-encode the entire
 file into the request body on every API call.  For a large file persisted in
 conversation history this balloons the request and the provider drops the
 connection on every subsequent turn.  The shared
-:mod:`qwenpaw.providers.capping_formatter` substitutes a text placeholder for
+:mod:`potato.providers.capping_formatter` substitutes a text placeholder for
 oversized media so the request stays small, while leaving small media,
 remote URLs, and persisted history untouched.
 
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from qwenpaw.providers.capping_formatter import (
+from potato.providers.capping_formatter import (
     MAX_INLINE_MEDIA_BYTES,
     _CappingAnthropicFormatter,
     _CappingDashScopeFormatter,

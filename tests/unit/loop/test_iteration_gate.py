@@ -7,14 +7,14 @@ from unittest.mock import patch
 
 import pytest
 
-from qwenpaw.loop.gates.base import StopAction
-from qwenpaw.loop.gates.iteration import IterationGate
+from potato.loop.gates.base import StopAction
+from potato.loop.gates.iteration import IterationGate
 
 
 @pytest.fixture(autouse=True)
 def _force_session_id():
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="test-session",
     ):
         yield
@@ -81,12 +81,12 @@ def gate_pair():
     """Instance with state in two sessions."""
     g = IterationGate(max_iterations=5)
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-a",
     ):
         g.activate()
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-b",
     ):
         g.activate()
@@ -98,28 +98,28 @@ async def test_reset_session_isolation(gate_pair):
     """reset_turn() only affects the current session."""
     g = gate_pair
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-a",
     ):
         for _ in range(3):
             await g.check({})
 
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-b",
     ):
         for _ in range(2):
             await g.check({})
 
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-a",
     ):
         g.reset_turn()
         assert g._state().iteration == 0
 
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-b",
     ):
         assert g._state().iteration == 2
@@ -128,14 +128,14 @@ async def test_reset_session_isolation(gate_pair):
 def test_reset_session_removes_only_current_session(gate_pair):
     """reset_session() removes only the current conversation state."""
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-a",
     ):
         gate_pair.reset_session()
         assert gate_pair._state() is None
 
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="session-b",
     ):
         assert gate_pair._state() is not None

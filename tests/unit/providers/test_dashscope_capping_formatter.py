@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from qwenpaw.providers.dashscope_provider import (
+from potato.providers.dashscope_provider import (
     _CappingDashScopeFormatter,
     MAX_INLINE_MEDIA_BYTES,
 )

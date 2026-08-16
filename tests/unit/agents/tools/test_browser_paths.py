@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.agents.tools.browser_paths import (
+from potato.agents.tools.browser_paths import (
     browser_type_from_executable,
     resolve_browser_user_data_dir,
     safe_download_filename,

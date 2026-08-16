@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Skills module P0 end-to-end test cases.
+Potato Skills module P0 end-to-end test cases.
 
 Combined test design:
 - SKILL-001: Page load verification + card info hard-assert + search filter + clear restore
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 SKILLS_URL = f"{config.base_url}/skills"
 SKILL_PAGE_CONTAINER = "div[class*=skillsPage]"
-SKILL_CARD_SELECTOR = ".qwenpaw-card"
-SWITCH_SELECTOR = '.qwenpaw-switch'
+SKILL_CARD_SELECTOR = ".potato-card"
+SWITCH_SELECTOR = '.potato-switch'
 
 
 def navigate_to_skills(page: Page):
@@ -59,7 +59,7 @@ def click_add_skill_menu_item(page: Page, texts):
     """Open the Add Skill menu and click the item matching one of ``texts``."""
     open_add_skill_menu(page)
     selector = ", ".join(
-        f'.qwenpaw-dropdown-menu-item:has-text("{t}")' for t in texts
+        f'.potato-dropdown-menu-item:has-text("{t}")' for t in texts
     )
     item = page.locator(selector).first
     expect(item).to_be_visible(timeout=5000)
@@ -150,16 +150,16 @@ class TestSkillListAndFilter:
             keyword = title_text.split()[0] if title_text else "browser"
             logger.info(f"Search keyword: {keyword}")
 
-            search_select = search_container.locator('.qwenpaw-select').first
+            search_select = search_container.locator('.potato-select').first
             search_select.click()
             page.wait_for_timeout(500)
 
             page.keyboard.type(keyword, delay=50)
             page.wait_for_timeout(1500)
 
-            dropdown = page.locator('.qwenpaw-select-dropdown').first
+            dropdown = page.locator('.potato-select-dropdown').first
             if dropdown.is_visible():
-                options = dropdown.locator('.qwenpaw-select-item').all()
+                options = dropdown.locator('.potato-select-item').all()
                 logger.info(f"Dropdown option count: {len(options)}")
 
                 if len(options) > 0:
@@ -172,7 +172,7 @@ class TestSkillListAndFilter:
                     logger.info(f"Skill count after filter: {filtered_count}")
 
                     # Clear filter
-                    clear_btn = search_container.locator('.qwenpaw-select-clear').first
+                    clear_btn = search_container.locator('.potato-select-clear').first
                     if clear_btn.is_visible():
                         clear_btn.click()
                         page.wait_for_timeout(1000)
@@ -233,8 +233,8 @@ class TestSkillImportToggleDeleteBatch:
         add_btn.click()
         page.wait_for_timeout(600)
         create_item = page.locator(
-            '.qwenpaw-dropdown-menu-item:has-text("Create Skill"), '
-            '.qwenpaw-dropdown-menu-item:has-text("创建技能")'
+            '.potato-dropdown-menu-item:has-text("Create Skill"), '
+            '.potato-dropdown-menu-item:has-text("创建技能")'
         ).first
         expect(create_item).to_be_visible(timeout=5000)
         page.keyboard.press("Escape")
@@ -279,8 +279,8 @@ class TestSkillImportToggleDeleteBatch:
             page.wait_for_timeout(1000)
 
             checkboxes = page.locator(
-                '.qwenpaw-card input[type="checkbox"], '
-                '.qwenpaw-card .qwenpaw-checkbox'
+                '.potato-card input[type="checkbox"], '
+                '.potato-card .potato-checkbox'
             ).all()
             if len(checkboxes) >= 2:
                 checkboxes[0].check()
@@ -357,7 +357,7 @@ class TestSkillCRUDLifecycle:
 
             # -- Step 4: Verify Drawer opened --
             log_test_step("4. Verify Drawer opened")
-            drawer = page.locator('.qwenpaw-drawer-open').first
+            drawer = page.locator('.potato-drawer-open').first
             expect(drawer).to_be_visible(timeout=5000)
             logger.info("Create Drawer opened")
 
@@ -387,8 +387,8 @@ This is an E2E test skill.
 
             # Fill content (source: MarkdownCopy component; need to disable preview to see textarea)
             # First find and disable the preview toggle in the content area
-            content_area = drawer.locator('.qwenpaw-form-item').filter(has_text="Content")
-            preview_switch = content_area.locator('button.qwenpaw-switch[role="switch"]').first
+            content_area = drawer.locator('.potato-form-item').filter(has_text="Content")
+            preview_switch = content_area.locator('button.potato-switch[role="switch"]').first
             if preview_switch.is_visible():
                 is_preview_on = preview_switch.get_attribute('aria-checked') == 'true'
                 if is_preview_on:
@@ -410,7 +410,7 @@ This is an E2E test skill.
             # -- Step 6: Click create button --
             log_test_step("6. Click create button")
             # Source: in create mode the drawerFooter button text is t("skills.create")
-            submit_btn = drawer.locator('button.qwenpaw-btn-primary').last
+            submit_btn = drawer.locator('button.potato-btn-primary').last
             expect(submit_btn).to_be_visible(timeout=5000)
             submit_btn.click()
             page.wait_for_timeout(3000)
@@ -443,15 +443,15 @@ This is an E2E test skill.
             page.wait_for_timeout(1500)
 
             # Verify edit Drawer opened
-            edit_drawer = page.locator('.qwenpaw-drawer-open').first
+            edit_drawer = page.locator('.potato-drawer-open').first
             expect(edit_drawer).to_be_visible(timeout=5000)
             logger.info("Edit Drawer opened")
 
             # -- Step 9: Modify content --
             log_test_step("9. Modify skill content")
             # Disable preview
-            edit_content_area = edit_drawer.locator('.qwenpaw-form-item').filter(has_text="Content")
-            edit_preview_switch = edit_content_area.locator('button.qwenpaw-switch[role="switch"]').first
+            edit_content_area = edit_drawer.locator('.potato-form-item').filter(has_text="Content")
+            edit_preview_switch = edit_content_area.locator('button.potato-switch[role="switch"]').first
             if edit_preview_switch.is_visible():
                 is_on = edit_preview_switch.get_attribute('aria-checked') == 'true'
                 if is_on:
@@ -479,7 +479,7 @@ This is an edited E2E test skill.
             # -- Step 10: Save edit --
             log_test_step("10. Save edit")
             # Source: in edit mode the button text is t("common.save")
-            save_btn = edit_drawer.locator('button.qwenpaw-btn-primary').last
+            save_btn = edit_drawer.locator('button.potato-btn-primary').last
             expect(save_btn).to_be_visible(timeout=5000)
             save_btn.click()
             page.wait_for_timeout(3000)
@@ -500,7 +500,7 @@ This is an edited E2E test skill.
             page.wait_for_timeout(500)
 
             # Click delete button (source: Button danger className={styles.deleteButton})
-            delete_btn = target_card.locator('button.qwenpaw-btn-dangerous, button[class*="deleteButton"]').first
+            delete_btn = target_card.locator('button.potato-btn-dangerous, button[class*="deleteButton"]').first
             if not delete_btn.is_visible():
                 delete_btn = target_card.locator('button:has-text("删除"), button:has-text("Delete")').first
             expect(delete_btn).to_be_visible(timeout=5000)
@@ -508,10 +508,10 @@ This is an edited E2E test skill.
             page.wait_for_timeout(1000)
 
             # Confirm delete modal (source: Modal.confirm, okText=t("common.delete"), okType="danger")
-            confirm_btn = page.locator('.qwenpaw-modal-confirm-btns button.qwenpaw-btn-dangerous').first
+            confirm_btn = page.locator('.potato-modal-confirm-btns button.potato-btn-dangerous').first
             if not confirm_btn.is_visible():
                 # Fallback: any danger or primary button in a modal
-                confirm_btn = page.locator('.qwenpaw-modal button.qwenpaw-btn-dangerous, .qwenpaw-modal button.qwenpaw-btn-primary').first
+                confirm_btn = page.locator('.potato-modal button.potato-btn-dangerous, .potato-modal button.potato-btn-primary').first
             if not confirm_btn.is_visible():
                 confirm_btn = page.locator('button:has-text("删除"), button:has-text("Delete"), button:has-text("确定"), button:has-text("OK")').first
             expect(confirm_btn).to_be_visible(timeout=5000)
@@ -535,13 +535,13 @@ This is an edited E2E test skill.
                     if target_card.is_visible():
                         target_card.hover()
                         page.wait_for_timeout(500)
-                        delete_btn = target_card.locator('button.qwenpaw-btn-dangerous, button[class*="deleteButton"]').first
+                        delete_btn = target_card.locator('button.potato-btn-dangerous, button[class*="deleteButton"]').first
                         if not delete_btn.is_visible():
                             delete_btn = target_card.locator('button:has-text("删除"), button:has-text("Delete")').first
                         if delete_btn.is_visible():
                             delete_btn.click()
                             page.wait_for_timeout(1000)
-                            confirm_btn = page.locator('.qwenpaw-modal-confirm-btns button.qwenpaw-btn-dangerous, .qwenpaw-modal button.qwenpaw-btn-dangerous, .qwenpaw-modal button.qwenpaw-btn-primary').first
+                            confirm_btn = page.locator('.potato-modal-confirm-btns button.potato-btn-dangerous, .potato-modal button.potato-btn-dangerous, .potato-modal button.potato-btn-primary').first
                             if confirm_btn.is_visible():
                                 confirm_btn.click()
                                 page.wait_for_timeout(2000)
@@ -579,7 +579,7 @@ class TestSkillTagManagementAndFilter:
         navigate_to_skills(page)
 
         log_test_step("Find skill cards or list items")
-        skill_cards = page.locator(".qwenpaw-card, .ant-card, [class*='skill-card'], [class*='skill-item']").all()
+        skill_cards = page.locator(".potato-card, .ant-card, [class*='skill-card'], [class*='skill-item']").all()
         assert len(skill_cards) > 0, "No skill cards found; page may not have loaded correctly"
         logger.info(f"Found {len(skill_cards)} skill cards")
         initial_skill_count = len(skill_cards)
@@ -598,20 +598,20 @@ class TestSkillTagManagementAndFilter:
 
             log_test_step("Verify edit modal opened")
             page.wait_for_timeout(500)
-            edit_modal = page.locator(".ant-modal:visible, .qwenpaw-modal:visible, .ant-drawer:visible, .qwenpaw-drawer:visible").first
+            edit_modal = page.locator(".ant-modal:visible, .potato-modal:visible, .ant-drawer:visible, .potato-drawer:visible").first
             if edit_modal.count() == 0:
-                edit_modal = page.locator(".ant-modal-visible, .qwenpaw-modal-visible, .ant-drawer-visible, .qwenpaw-modal, .qwenpaw-drawer").last
+                edit_modal = page.locator(".ant-modal-visible, .potato-modal-visible, .ant-drawer-visible, .potato-modal, .potato-drawer").last
             assert edit_modal.count() > 0, "Edit modal did not open"
             logger.info("Edit modal opened")
 
             log_test_step("Verify form fields in modal")
-            form_fields = edit_modal.locator("input, textarea, .qwenpaw-select, .ant-select, .qwenpaw-switch").all()
+            form_fields = edit_modal.locator("input, textarea, .potato-select, .ant-select, .potato-switch").all()
             assert len(form_fields) > 0, "No form fields found in edit modal"
             logger.info(f"Found {len(form_fields)} form fields")
 
             log_test_step("Find and operate tag-related elements")
             tag_input = edit_modal.locator("input[placeholder*='tag'], input[placeholder*='标签'], [class*='tag-input'] input").first
-            existing_tags = edit_modal.locator(".ant-tag, .qwenpaw-tag, [class*='tag']").all()
+            existing_tags = edit_modal.locator(".ant-tag, .potato-tag, [class*='tag']").all()
             logger.info(f"Tag input present: {'yes' if tag_input.count() > 0 else 'no'}, existing tag count: {len(existing_tags)}")
 
             # If tag input exists, try adding a tag
@@ -621,13 +621,13 @@ class TestSkillTagManagementAndFilter:
                 page.keyboard.press("Enter")
                 page.wait_for_timeout(1000)
                 # Verify the tag appears
-                updated_tags = edit_modal.locator(".ant-tag, .qwenpaw-tag, [class*='tag']").all()
+                updated_tags = edit_modal.locator(".ant-tag, .potato-tag, [class*='tag']").all()
                 tag_texts = [t.inner_text().strip() for t in updated_tags if t.is_visible()]
                 if test_tag in tag_texts:
                     logger.info(f"Tag '{test_tag}' added successfully")
                     # Delete the test tag (click the tag's close button)
-                    test_tag_el = edit_modal.locator(f".ant-tag:has-text('{test_tag}'), .qwenpaw-tag:has-text('{test_tag}')").first
-                    close_icon = test_tag_el.locator(".anticon-close, .qwenpaw-tag-close-icon, [class*='close']").first
+                    test_tag_el = edit_modal.locator(f".ant-tag:has-text('{test_tag}'), .potato-tag:has-text('{test_tag}')").first
+                    close_icon = test_tag_el.locator(".anticon-close, .potato-tag-close-icon, [class*='close']").first
                     if close_icon.count() > 0:
                         close_icon.click()
                         page.wait_for_timeout(500)
@@ -644,7 +644,7 @@ class TestSkillTagManagementAndFilter:
                     logger.info("No tag input and no existing tags")
 
             log_test_step("Close edit modal")
-            close_btn = edit_modal.locator("button:has-text('Cancel'), button:has-text('取消'), .ant-modal-close, .qwenpaw-modal-close").first
+            close_btn = edit_modal.locator("button:has-text('Cancel'), button:has-text('取消'), .ant-modal-close, .potato-modal-close").first
             if close_btn.count() > 0:
                 close_btn.click()
             else:
@@ -655,14 +655,14 @@ class TestSkillTagManagementAndFilter:
             first_skill.click()
             page.wait_for_timeout(1500)
             # Verify details are shown
-            detail_area = page.locator(".ant-modal, .qwenpaw-modal, .ant-drawer, .qwenpaw-drawer, [class*='detail']").first
+            detail_area = page.locator(".ant-modal, .potato-modal, .ant-drawer, .potato-drawer, [class*='detail']").first
             if detail_area.count() > 0:
                 logger.info("Skill details displayed")
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(500)
 
         log_test_step("Verify skill list is not broken")
-        final_skill_cards = page.locator(".qwenpaw-card, .ant-card, [class*='skill-card'], [class*='skill-item']").all()
+        final_skill_cards = page.locator(".potato-card, .ant-card, [class*='skill-card'], [class*='skill-item']").all()
         assert len(final_skill_cards) == initial_skill_count, \
             f"Skill count changed: initial {initial_skill_count}, current {len(final_skill_cards)}"
         logger.info(f"Skill list intact, {len(final_skill_cards)} skills total")
@@ -723,9 +723,9 @@ class TestSkillViewToggle:
 
             # Verify view switched (list view should have a table or list element)
             list_elements = page.locator(
-                'table, .qwenpaw-table, '
+                'table, .potato-table, '
                 '[class*="listView"], [class*="list-view"], '
-                '.qwenpaw-list'
+                '.potato-list'
             ).all()
             card_elements = page.locator(SKILL_CARD_SELECTOR).all()
 
@@ -788,7 +788,7 @@ class TestSkillImportFromHub:
 
         log_test_step("Verify import modal opens")
         page.wait_for_timeout(2000)
-        import_modal = page.locator('.qwenpaw-modal, .ant-modal, .qwenpaw-drawer, .ant-drawer, [role="dialog"]').last
+        import_modal = page.locator('.potato-modal, .ant-modal, .potato-drawer, .ant-drawer, [role="dialog"]').last
         try:
             expect(import_modal).to_be_visible(timeout=8000)
             logger.info("Import modal opened")
@@ -809,14 +809,14 @@ class TestSkillImportFromHub:
         confirm_btn = import_modal.locator(
             'button:has-text("OK"), button:has-text("确定"), '
             'button:has-text("Import"), button:has-text("导入"), '
-            'button.qwenpaw-btn-primary'
+            'button.potato-btn-primary'
         ).first
         assert confirm_btn.count() > 0, "Confirm button not found in import modal"
         logger.info("Confirm button exists")
 
         log_test_step("Close import modal")
         close_btn = import_modal.locator(
-            '.qwenpaw-modal-close, button:has-text("Cancel"), button:has-text("取消")'
+            '.potato-modal-close, button:has-text("Cancel"), button:has-text("取消")'
         ).first
         if close_btn.count() > 0:
             close_btn.click()
@@ -873,8 +873,8 @@ class TestSkillPoolSync:
 
         log_test_step("Verify sync modal opens")
         page.wait_for_timeout(500)
-        visible_modals = page.locator('.qwenpaw-modal:visible, .ant-modal:visible, [role="dialog"]:visible')
-        sync_modal = visible_modals.last if visible_modals.count() > 0 else page.locator('.qwenpaw-modal, .ant-modal').last
+        visible_modals = page.locator('.potato-modal:visible, .ant-modal:visible, [role="dialog"]:visible')
+        sync_modal = visible_modals.last if visible_modals.count() > 0 else page.locator('.potato-modal, .ant-modal').last
         expect(sync_modal).to_be_visible(timeout=8000)
         modal_content = sync_modal.inner_text()
         assert len(modal_content) > 10, "Sync modal is empty"
@@ -882,15 +882,15 @@ class TestSkillPoolSync:
 
         log_test_step("Verify modal contains a skill list or selection area")
         list_items = sync_modal.locator(
-            '.qwenpaw-checkbox, .ant-checkbox, '
-            '.qwenpaw-list-item, .ant-list-item, '
+            '.potato-checkbox, .ant-checkbox, '
+            '.potato-list-item, .ant-list-item, '
             'tr, [class*="skill"]'
         ).all()
         logger.info(f"Found {len(list_items)} list items / checkboxes in modal")
 
         log_test_step("Close sync modal")
         close_btn = sync_modal.locator(
-            '.qwenpaw-modal-close, button:has-text("Cancel"), button:has-text("取消")'
+            '.potato-modal-close, button:has-text("Cancel"), button:has-text("取消")'
         ).first
         if close_btn.count() > 0:
             close_btn.click()
@@ -945,9 +945,9 @@ class TestSkillUploadZip:
             log_test_step("2. Verify 'Upload via Zip' menu entry exists")
             open_add_skill_menu(page)
             upload_zip_item = page.locator(
-                '.qwenpaw-dropdown-menu-item:has-text("Upload via Zip"), '
-                '.qwenpaw-dropdown-menu-item:has-text("通过zip上传"), '
-                '.qwenpaw-dropdown-menu-item:has-text("zip上传")'
+                '.potato-dropdown-menu-item:has-text("Upload via Zip"), '
+                '.potato-dropdown-menu-item:has-text("通过zip上传"), '
+                '.potato-dropdown-menu-item:has-text("zip上传")'
             ).first
             expect(upload_zip_item).to_be_visible(timeout=5000)
             page.keyboard.press("Escape")
@@ -1003,10 +1003,10 @@ This is a test skill uploaded via zip for E2E testing.
 
             # Check for a success indicator (Toast / Message)
             success_message = page.locator(
-                '.qwenpaw-message-success, '
-                '.qwenpaw-message-notice:has-text("成功"), '
-                '.qwenpaw-message-notice:has-text("success"), '
-                '.qwenpaw-notification-notice:has-text("成功")'
+                '.potato-message-success, '
+                '.potato-message-notice:has-text("成功"), '
+                '.potato-message-notice:has-text("success"), '
+                '.potato-notification-notice:has-text("成功")'
             ).first
             if success_message.is_visible():
                 logger.info("Upload success message detected")
@@ -1049,7 +1049,7 @@ This is a test skill uploaded via zip for E2E testing.
                         target_card.hover()
                         page.wait_for_timeout(500)
                         delete_btn = target_card.locator(
-                            'button.qwenpaw-btn-dangerous, '
+                            'button.potato-btn-dangerous, '
                             'button[class*="deleteButton"], '
                             'button:has-text("删除"), '
                             'button:has-text("Delete")'
@@ -1058,9 +1058,9 @@ This is a test skill uploaded via zip for E2E testing.
                             delete_btn.click()
                             page.wait_for_timeout(1000)
                             confirm_btn = page.locator(
-                                '.qwenpaw-modal-confirm-btns button.qwenpaw-btn-dangerous, '
-                                '.qwenpaw-modal button.qwenpaw-btn-dangerous, '
-                                '.qwenpaw-modal button.qwenpaw-btn-primary'
+                                '.potato-modal-confirm-btns button.potato-btn-dangerous, '
+                                '.potato-modal button.potato-btn-dangerous, '
+                                '.potato-modal button.potato-btn-primary'
                             ).first
                             if confirm_btn.is_visible():
                                 confirm_btn.click()

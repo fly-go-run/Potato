@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from qwenpaw.utils.model_response import (
+from potato.utils.model_response import (
     consume_model_response,
     extract_response_text,
     safe_attr,

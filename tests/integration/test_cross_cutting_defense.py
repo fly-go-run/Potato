@@ -189,7 +189,7 @@ def test_concurrent_workspace_file_writes(app_server) -> None:
 def test_upload_limit_endpoint_returns_configured_value(app_server) -> None:
     """Test purpose:
     - Verify GET /api/settings/upload-limit returns the configured
-      QWENPAW_UPLOAD_MAX_SIZE_MB value (10 in conftest).
+      POTATO_UPLOAD_MAX_SIZE_MB value (10 in conftest).
 
     API endpoints:
     - GET /api/settings/upload-limit

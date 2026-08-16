@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Setup QwenPaw workspace for the AI Review Bot.
+"""Setup Potato workspace for the AI Review Bot.
 
-Runs after `qwenpaw init --defaults --accept-security` to customize
+Runs after `potato init --defaults --accept-security` to customize
 the agent identity for code review tasks and configure the LLM provider.
 """
 import asyncio
@@ -15,7 +15,7 @@ REVIEW_MODEL = os.environ.get("REVIEW_MODEL", "qwen3.7-max")
 
 
 WORKING_DIR = Path(
-    os.environ.get("QWENPAW_WORKING_DIR", Path.home() / ".qwenpaw"),
+    os.environ.get("POTATO_WORKING_DIR", Path.home() / ".potato"),
 )
 WORKSPACE_DIR = WORKING_DIR / "workspaces" / "default"
 
@@ -29,8 +29,8 @@ read_when:
 
 ## Identity
 
-- **Name:** QwenPaw Reviewer
-- **Role:** AI code reviewer and quality guardian for the QwenPaw project
+- **Name:** Potato Reviewer
+- **Role:** AI code reviewer and quality guardian for the Potato project
 - **Style:** Professional, precise, and direct. Only flag real issues.
 - **Expertise:** Python, TypeScript, async programming, security auditing, \
 performance analysis
@@ -38,7 +38,7 @@ performance analysis
 
 ## User Profile
 
-- **Name:** QwenPaw Maintainer Team
+- **Name:** Potato Maintainer Team
 - **How to address them:** maintainer
 - **Notes:** This is an automated review in a CI environment. \
 Results are posted as GitHub PR comments.
@@ -54,7 +54,7 @@ read_when:
 
 ## Core Motivation
 
-You are the lead code reviewer for the QwenPaw project. \
+You are the lead code reviewer for the Potato project. \
 Your reviews directly determine whether code can be merged \
 into the main branch. Guard code quality as if it were your \
 own most important project — every bug you miss is on you.
@@ -295,11 +295,11 @@ def harden_governance_policy() -> None:
     2. sensitive_paths: flag access to secret storage as HIGH severity
     3. deny rules: explicitly block Read/Bash access to secret dir
     """
-    from qwenpaw.governance.policy import (
+    from potato.governance.policy import (
         GovernanceAction,
         GovernanceRule,
     )
-    from qwenpaw.governance.resource_governor import ResourceGovernor
+    from potato.governance.resource_governor import ResourceGovernor
 
     governor = ResourceGovernor(str(WORKSPACE_DIR))
     governor.start()
@@ -332,17 +332,17 @@ def harden_governance_policy() -> None:
             reason=deny_reason,
         ),
         GovernanceRule(
-            match="Bash(*~/.qwenpaw.secret*)",
+            match="Bash(*~/.potato.secret*)",
             action=GovernanceAction.DENY,
             reason=deny_reason,
         ),
         GovernanceRule(
-            match="Bash(*$HOME/.qwenpaw.secret*)",
+            match="Bash(*$HOME/.potato.secret*)",
             action=GovernanceAction.DENY,
             reason=deny_reason,
         ),
         GovernanceRule(
-            match="Bash(*.qwenpaw.secret*)",
+            match="Bash(*.potato.secret*)",
             action=GovernanceAction.DENY,
             reason=deny_reason,
         ),
@@ -363,7 +363,7 @@ def harden_governance_policy() -> None:
 def configure_review_model() -> None:
     """Configure DashScope API key and activate the review model.
 
-    ``qwenpaw init --defaults`` may pick QwenPaw Local (no default model)
+    ``potato init --defaults`` may pick Potato Local (no default model)
     and skip cloud providers. CI must explicitly set dashscope + qwen3.7-max
     using the secret injected as DASHSCOPE_API_KEY.
     """
@@ -375,7 +375,7 @@ def configure_review_model() -> None:
         )
         sys.exit(1)
 
-    from qwenpaw.providers.provider_manager import ProviderManager
+    from potato.providers.provider_manager import ProviderManager
 
     manager = ProviderManager.get_instance()
     if not manager.update_provider(REVIEW_PROVIDER, {"api_key": api_key}):

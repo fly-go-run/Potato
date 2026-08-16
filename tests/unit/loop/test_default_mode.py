@@ -8,15 +8,15 @@ from unittest.mock import patch
 
 import pytest
 
-from qwenpaw.loop.gates.doom_loop import DoomLoopGate
-from qwenpaw.loop.gates.iteration import IterationGate
-from qwenpaw.modes.default import DefaultMode
+from potato.loop.gates.doom_loop import DoomLoopGate
+from potato.loop.gates.iteration import IterationGate
+from potato.modes.default import DefaultMode
 
 
 @pytest.fixture(autouse=True)
 def _force_session_id():
     with patch(
-        "qwenpaw.loop.gates.loop_gate._session_id",
+        "potato.loop.gates.loop_gate._session_id",
         return_value="test-session",
     ):
         yield

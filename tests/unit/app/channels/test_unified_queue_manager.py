@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for qwenpaw.app.channels.unified_queue_manager."""
+"""Unit tests for potato.app.channels.unified_queue_manager."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from qwenpaw.app.channels.unified_queue_manager import (
+from potato.app.channels.unified_queue_manager import (
     QueueState,
     UnifiedQueueManager,
 )

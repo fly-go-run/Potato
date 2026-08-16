@@ -3,7 +3,7 @@
 
 import pytest
 
-from qwenpaw.runtime.registration import RegistrationHandle, Scope
+from potato.runtime.registration import RegistrationHandle, Scope
 
 
 @pytest.mark.asyncio

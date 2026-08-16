@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Real behavior proof policy for QwenPaw PR checks.
+"""Real behavior proof policy for Potato PR checks.
 
 Ported from openclaw's ``real-behavior-proof-policy.mjs``. Parses a PR
 body and determines whether an **external contributor** has provided the

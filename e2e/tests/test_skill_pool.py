@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw E2E tests - Skill Pool P0 cases
+Potato E2E tests - Skill Pool P0 cases
 
 Functional coverage:
 1. Skill pool page load
@@ -26,7 +26,7 @@ def navigate_to_skill_pool(page: Page):
     page.goto(f"{BASE_URL}/skill-pool", wait_until="domcontentloaded", timeout=60000)
     # Explicitly wait for skill cards to render rather than only relying on a fixed timeout
     try:
-        page.wait_for_selector('.qwenpaw-card', timeout=15000)
+        page.wait_for_selector('.potato-card', timeout=15000)
     except Exception:
         logger.warning("Timed out waiting for skill cards; page may have no data or be slow")
     page.wait_for_timeout(1000)
@@ -89,8 +89,8 @@ class TestSkillPoolSearch:
             'input[placeholder*="筛选"], input[placeholder*="搜索"], '
             'input[placeholder*="search"], input[placeholder*="Search"], '
             'input[placeholder*="filter"], '
-            '.qwenpaw-select-selection-search-input, '
-            '.qwenpaw-input-search input'
+            '.potato-select-selection-search-input, '
+            '.potato-input-search input'
         ).first
         expect(search_input).to_be_visible(timeout=5000)
         logger.info("Search input exists")
@@ -98,11 +98,11 @@ class TestSkillPoolSearch:
         log_test_step("Record skill count before search")
         # Wait for cards to finish loading before counting, to avoid async data not yet arriving
         try:
-            page.wait_for_selector('.qwenpaw-card', timeout=10000)
+            page.wait_for_selector('.potato-card', timeout=10000)
             page.wait_for_timeout(500)
         except Exception:
             logger.warning("Did not see skill cards, page may have no data")
-        skill_cards = page.locator('.qwenpaw-card').all()
+        skill_cards = page.locator('.potato-card').all()
         initial_count = len(skill_cards)
         logger.info(f"Skill count before search: {initial_count}")
         if initial_count == 0:
@@ -111,10 +111,10 @@ class TestSkillPoolSearch:
             return
 
         log_test_step("Enter search keyword")
-        # Search input is a qwenpaw-select component (readonly input); click parent container to trigger dropdown
+        # Search input is a potato-select component (readonly input); click parent container to trigger dropdown
         is_readonly = search_input.get_attribute("readonly") is not None
         if is_readonly:
-            select_container = page.locator('.qwenpaw-select').first
+            select_container = page.locator('.potato-select').first
             select_container.click()
             page.wait_for_timeout(500)
             page.keyboard.type("nonexistent_skill_xyz")
@@ -125,7 +125,7 @@ class TestSkillPoolSearch:
             search_input.fill("nonexistent_skill_xyz")
             page.wait_for_timeout(1500)
 
-        filtered_cards = page.locator('.qwenpaw-card').all()
+        filtered_cards = page.locator('.potato-card').all()
         filtered_count = len(filtered_cards)
         logger.info(f"Skill count after search: {filtered_count}")
         assert filtered_count <= initial_count, \
@@ -134,11 +134,11 @@ class TestSkillPoolSearch:
 
         log_test_step("Clear search to restore list")
         if is_readonly:
-            clear_btn = page.locator('.qwenpaw-select-clear').first
+            clear_btn = page.locator('.potato-select-clear').first
             if clear_btn.count() > 0:
                 clear_btn.click()
             else:
-                select_container = page.locator('.qwenpaw-select').first
+                select_container = page.locator('.potato-select').first
                 select_container.click()
                 page.wait_for_timeout(300)
                 page.keyboard.press("Control+a")
@@ -148,7 +148,7 @@ class TestSkillPoolSearch:
             search_input.clear()
         page.wait_for_timeout(1500)
 
-        restored_cards = page.locator('.qwenpaw-card').all()
+        restored_cards = page.locator('.potato-card').all()
         restored_count = len(restored_cards)
         logger.info(f"Skill count after clearing search: {restored_count}")
         logger.info("List restored after clearing search")
@@ -200,8 +200,8 @@ class TestSkillPoolInstall:
 
         log_test_step("Verify broadcast Modal opens")
         page.wait_for_timeout(500)
-        visible_modals = page.locator('.qwenpaw-modal:visible, .ant-modal:visible, [role="dialog"]:visible')
-        modal = visible_modals.last if visible_modals.count() > 0 else page.locator('.qwenpaw-modal, .ant-modal').last
+        visible_modals = page.locator('.potato-modal:visible, .ant-modal:visible, [role="dialog"]:visible')
+        modal = visible_modals.last if visible_modals.count() > 0 else page.locator('.potato-modal, .ant-modal').last
         expect(modal).to_be_visible(timeout=8000)
         modal_content = modal.inner_text()
         assert len(modal_content) > 10, "Broadcast Modal content is empty"
@@ -210,9 +210,9 @@ class TestSkillPoolInstall:
         log_test_step("Verify Modal has selection area and interact")
         # Actual UI uses custom pickerCard component instead of standard checkbox/select
         picker_cards = modal.locator('[class*=pickerCard]').all()
-        checkboxes = modal.locator('.qwenpaw-checkbox, .ant-checkbox, .qwenpaw-checkbox-wrapper').all()
-        selects = modal.locator('.qwenpaw-select, .ant-select').all()
-        lists = modal.locator('.qwenpaw-list-item, .ant-list-item, tr').all()
+        checkboxes = modal.locator('.potato-checkbox, .ant-checkbox, .potato-checkbox-wrapper').all()
+        selects = modal.locator('.potato-select, .ant-select').all()
+        lists = modal.locator('.potato-list-item, .ant-list-item, tr').all()
         total_interactive = len(picker_cards) + len(checkboxes) + len(selects) + len(lists)
         assert total_interactive > 0, "Broadcast Modal should have selectable elements (pickerCard/checkbox/select/list item)"
         logger.info(f"Modal contains {len(picker_cards)} pickerCards, {len(checkboxes)} checkboxes, {len(selects)} selects, {len(lists)} list items")
@@ -233,13 +233,13 @@ class TestSkillPoolInstall:
         confirm_btn = modal.locator(
             'button:has-text("OK"), button:has-text("确定"), '
             'button:has-text("Broadcast"), button:has-text("广播"), '
-            'button.qwenpaw-btn-primary'
+            'button.potato-btn-primary'
         ).first
         assert confirm_btn.count() > 0, "Confirm button should exist in broadcast Modal"
         logger.info("Confirm button exists")
 
         log_test_step("Close Modal")
-        close_btn = modal.locator('.qwenpaw-modal-close, button:has-text("Cancel"), button:has-text("取消")').first
+        close_btn = modal.locator('.potato-modal-close, button:has-text("Cancel"), button:has-text("取消")').first
         if close_btn.count() > 0:
             close_btn.click()
         else:
@@ -288,7 +288,7 @@ class TestSkillPoolBroadcast:
         page.wait_for_timeout(3000)
 
         # Wait for Modal to appear and grab the reference
-        modal_locator = page.locator('.qwenpaw-modal:visible, .ant-modal:visible, [role="dialog"]:visible')
+        modal_locator = page.locator('.potato-modal:visible, .ant-modal:visible, [role="dialog"]:visible')
         expect(modal_locator.first).to_be_visible(timeout=8000)
         modal = modal_locator.last
 
@@ -300,8 +300,8 @@ class TestSkillPoolBroadcast:
         if len(workspace_items) == 0:
             # Fallback: try standard component selectors
             workspace_items = modal.locator(
-                '.qwenpaw-checkbox-wrapper, .ant-checkbox-wrapper, '
-                '.qwenpaw-list-item, .ant-list-item'
+                '.potato-checkbox-wrapper, .ant-checkbox-wrapper, '
+                '.potato-list-item, .ant-list-item'
             ).all()
         assert len(workspace_items) > 0, "Broadcast Modal should have workspace/selection items"
         logger.info(f"Found {len(workspace_items)} workspace/selection items")
@@ -323,7 +323,7 @@ class TestSkillPoolBroadcast:
         confirm_btn = modal.locator(
             'button:has-text("OK"), button:has-text("确定"), '
             'button:has-text("Broadcast"), button:has-text("广播"), '
-            'button.qwenpaw-btn-primary'
+            'button.potato-btn-primary'
         ).first
         assert confirm_btn.count() > 0, "Confirm button not found in broadcast Modal"
         assert confirm_btn.is_enabled(), "Confirm button should be enabled after selecting workspaces"
@@ -380,7 +380,7 @@ class TestSkillPoolBatchDelete:
         page.wait_for_timeout(1500)
 
         log_test_step("Verify checkboxes appear and select one")
-        checkboxes = page.locator('.qwenpaw-checkbox, .ant-checkbox, .qwenpaw-checkbox-wrapper').all()
+        checkboxes = page.locator('.potato-checkbox, .ant-checkbox, .potato-checkbox-wrapper').all()
         assert len(checkboxes) > 0, "Checkboxes should appear in batch mode"
         logger.info(f"Found {len(checkboxes)} checkboxes in batch mode")
 
@@ -392,7 +392,7 @@ class TestSkillPoolBatchDelete:
         # Verify delete button appears and is enabled
         delete_btn = page.locator(
             'button:has-text("删除"), button:has-text("Delete"), '
-            'button.qwenpaw-btn-dangerous'
+            'button.potato-btn-dangerous'
         ).first
         if delete_btn.count() > 0 and delete_btn.is_visible(timeout=3000):
             assert delete_btn.is_enabled(), "Delete button should be enabled after selecting a skill"
@@ -401,7 +401,7 @@ class TestSkillPoolBatchDelete:
             # Verify select-all button exists
             select_all = page.locator(
                 'button:has-text("全选"), button:has-text("Select All"), '
-                '.qwenpaw-checkbox-wrapper:has-text("全选")'
+                '.potato-checkbox-wrapper:has-text("全选")'
             ).first
             if select_all.count() > 0:
                 logger.info("Select-all button exists")
@@ -484,7 +484,7 @@ class TestSkillPoolZipImport:
             logger.info(f"File input accept={accept_attr}")
 
             log_test_step("4. Record initial skill count")
-            initial_cards = page.locator('.qwenpaw-card').all()
+            initial_cards = page.locator('.potato-card').all()
             initial_count = len(initial_cards)
             logger.info(f"Initial skill count: {initial_count}")
 
@@ -520,9 +520,9 @@ This is a test skill uploaded via zip for E2E testing.
             log_test_step("7. Verify upload result")
             # Check for success message
             success_message = page.locator(
-                '.qwenpaw-message-success, '
-                '.qwenpaw-message-notice:has-text("成功"), '
-                '.qwenpaw-message-notice:has-text("success")'
+                '.potato-message-success, '
+                '.potato-message-notice:has-text("成功"), '
+                '.potato-message-notice:has-text("success")'
             ).first
             if success_message.is_visible():
                 logger.info("Detected upload success message")
@@ -539,7 +539,7 @@ This is a test skill uploaded via zip for E2E testing.
                 skill_uploaded = True
                 logger.info(f"Uploaded skill appeared in the skill pool list: {skill_name}")
             except Exception:
-                updated_cards = page.locator('.qwenpaw-card').all()
+                updated_cards = page.locator('.potato-card').all()
                 updated_count = len(updated_cards)
                 logger.info(f"Skill count after upload: {updated_count} (initial: {initial_count})")
                 if updated_count > initial_count:
@@ -555,13 +555,13 @@ This is a test skill uploaded via zip for E2E testing.
             # Cleanup: delete the uploaded test skill
             if skill_uploaded:
                 try:
-                    target_card = page.locator(f'.qwenpaw-card:has-text("{skill_name}")').first
+                    target_card = page.locator(f'.potato-card:has-text("{skill_name}")').first
                     if target_card.is_visible():
                         # Try to find delete button on the card
                         target_card.hover()
                         page.wait_for_timeout(500)
                         delete_btn = target_card.locator(
-                            'button.qwenpaw-btn-dangerous, '
+                            'button.potato-btn-dangerous, '
                             'button:has-text("删除"), '
                             'button:has-text("Delete"), '
                             'button:has(.anticon-delete)'
@@ -570,9 +570,9 @@ This is a test skill uploaded via zip for E2E testing.
                             delete_btn.click()
                             page.wait_for_timeout(1000)
                             confirm_btn = page.locator(
-                                '.qwenpaw-modal-confirm-btns button.qwenpaw-btn-dangerous, '
-                                '.qwenpaw-modal button.qwenpaw-btn-dangerous, '
-                                '.qwenpaw-modal button.qwenpaw-btn-primary'
+                                '.potato-modal-confirm-btns button.potato-btn-dangerous, '
+                                '.potato-modal button.potato-btn-dangerous, '
+                                '.potato-modal button.potato-btn-primary'
                             ).first
                             if confirm_btn.is_visible():
                                 confirm_btn.click()
@@ -627,7 +627,7 @@ class TestSkillPoolBuiltinImport:
         page.wait_for_timeout(2000)
 
         # Check if a dialog/drawer opened, or import ran directly
-        modal_or_drawer = page.locator('.qwenpaw-modal, .ant-modal, .qwenpaw-drawer, .ant-drawer, [role="dialog"]').last
+        modal_or_drawer = page.locator('.potato-modal, .ant-modal, .potato-drawer, .ant-drawer, [role="dialog"]').last
         if modal_or_drawer.count() > 0:
             try:
                 expect(modal_or_drawer).to_be_visible(timeout=5000)
@@ -638,7 +638,7 @@ class TestSkillPoolBuiltinImport:
                 logger.info("Dialog exists but not visible, may have auto-closed")
         else:
             # Possibly the click triggered import directly (no dialog)
-            success_msg = page.locator('.qwenpaw-message-success, .ant-message-success').first
+            success_msg = page.locator('.potato-message-success, .ant-message-success').first
             if success_msg.count() > 0:
                 logger.info("Builtin skill import executed (no dialog confirmation)")
             else:

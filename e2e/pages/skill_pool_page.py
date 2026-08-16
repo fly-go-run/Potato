@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Skill Pool page object.
+Potato Skill Pool page object.
 
 Wraps interactions on the Skill Pool page (``/skill-pool``), including the
 skill auto-sync affordances added in upstream #5639:
@@ -9,9 +9,9 @@ skill auto-sync affordances added in upstream #5639:
 - the hover-revealed auto-update quick-toggle button,
 - the edit-drawer Auto Sync switch + target-agent select (staged until Save).
 
-Selectors target the real post-#5639 DOM: antd ``prefixCls`` is ``qwenpaw``
+Selectors target the real post-#5639 DOM: antd ``prefixCls`` is ``potato``
 and component-local styles are CSS-Module hashed class names, matched via
-``[class*=basename]`` substrings (never the stale ``.qwenpaw-card`` stub).
+``[class*=basename]`` substrings (never the stale ``.potato-card`` stub).
 """
 from __future__ import annotations
 
@@ -51,25 +51,25 @@ class SkillPoolPage(BasePage):
     AUTO_UPDATE_BUTTON = '[class*="autoUpdateButton"]'
 
     # Edit drawer (PoolSkillDrawer.tsx)
-    DRAWER = '.qwenpaw-drawer'
-    DRAWER_TITLE = '.qwenpaw-drawer-title'
+    DRAWER = '.potato-drawer'
+    DRAWER_TITLE = '.potato-drawer-title'
     # The only Switch inside the drawer is the Auto Sync toggle.
-    AUTO_SYNC_SWITCH = '.qwenpaw-drawer button[role="switch"]'
+    AUTO_SYNC_SWITCH = '.potato-drawer button[role="switch"]'
     # Target-agent multi-select is rendered ONLY after the switch is ON; anchor
     # on its placeholder text (unique) so we don't match other selects.
     TARGET_SELECT_PLACEHOLDER = (
-        '.qwenpaw-drawer [class*="select-selection-placeholder"]'
+        '.potato-drawer [class*="select-selection-placeholder"]'
         ':has-text("All agents that have this skill"), '
-        '.qwenpaw-drawer [class*="select-selection-placeholder"]'
+        '.potato-drawer [class*="select-selection-placeholder"]'
         ':has-text("所有已安装该技能的智能体")'
     )
     SAVE_BTN = (
-        '.qwenpaw-drawer button:has-text("Save"), '
-        '.qwenpaw-drawer button:has-text("保存")'
+        '.potato-drawer button:has-text("Save"), '
+        '.potato-drawer button:has-text("保存")'
     )
     CANCEL_BTN = (
-        '.qwenpaw-drawer button:has-text("Cancel"), '
-        '.qwenpaw-drawer button:has-text("取消")'
+        '.potato-drawer button:has-text("Cancel"), '
+        '.potato-drawer button:has-text("取消")'
     )
 
     # ========== Initialization ==========

@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 import pytest
 from agentscope.message import Msg, TextBlock
 
-from qwenpaw.agents.memory import base_memory_manager
-from qwenpaw.constant import AUTO_MEMORY_SEARCH_BLOCK_IDS_KEY
+from potato.agents.memory import base_memory_manager
+from potato.constant import AUTO_MEMORY_SEARCH_BLOCK_IDS_KEY
 
 # ---------------------------------------------------------------------------
 # Concrete subclass for testing the abstract base
@@ -18,7 +18,7 @@ from qwenpaw.constant import AUTO_MEMORY_SEARCH_BLOCK_IDS_KEY
 
 def _make_concrete_class():
     """Return a minimal concrete subclass of BaseMemoryManager."""
-    from qwenpaw.agents.memory.base_memory_manager import (
+    from potato.agents.memory.base_memory_manager import (
         BaseMemoryManager,
     )
 
@@ -363,7 +363,7 @@ class TestAutoMemorySearchSanitization:
             )
 
         monkeypatch.setattr(
-            "qwenpaw.config.config.load_agent_config",
+            "potato.config.config.load_agent_config",
             fake_load_agent_config,
         )
 

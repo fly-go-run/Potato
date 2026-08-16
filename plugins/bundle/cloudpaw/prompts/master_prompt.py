@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """CloudPaw master prompt for Mission Mode.
 
-Replaces the default QwenPaw master prompt with CloudPaw-specific
+Replaces the default Potato master prompt with CloudPaw-specific
 instructions for PRD management (manage_prd tool), agent delegation,
 and Alibaba Cloud deployment orchestration.
 
 Worker and verifier prompt templates are reused from the upstream
-QwenPaw mission prompts module.
+Potato mission prompts module.
 """
 from __future__ import annotations
 

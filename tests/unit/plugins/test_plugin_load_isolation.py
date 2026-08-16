@@ -45,7 +45,7 @@ for _mod_name in _AGENTSCOPE_STUBS:
 @pytest.fixture()
 def fresh_registry():
     """Create a fresh PluginRegistry (bypass singleton)."""
-    from qwenpaw.plugins.registry import PluginRegistry
+    from potato.plugins.registry import PluginRegistry
 
     old_instance = PluginRegistry._instance
     PluginRegistry._instance = None
@@ -57,7 +57,7 @@ def fresh_registry():
 @pytest.fixture()
 def loader(fresh_registry, tmp_path):
     """Create a PluginLoader wired to the fresh registry."""
-    from qwenpaw.plugins.loader import PluginLoader
+    from potato.plugins.loader import PluginLoader
 
     ldr = PluginLoader(plugin_dirs=[tmp_path])
     ldr.registry = fresh_registry
@@ -72,7 +72,7 @@ def _write_plugin(plugin_dir: Path, plugin_py_code: str) -> Dict:
         "name": plugin_dir.name,
         "version": "1.0.0",
         "entry": {"backend": "plugin.py"},
-        "qwenpaw_version": {"min": "0.1.0", "max": "99.0.0"},
+        "potato_version": {"min": "0.1.0", "max": "99.0.0"},
     }
     (plugin_dir / "plugin.json").write_text(
         json.dumps(manifest),
@@ -100,7 +100,7 @@ class TestSysModulesCleanup:
         plugin_dir = tmp_path / "bad-syntax"
         _write_plugin(plugin_dir, "raise SyntaxError('intentional')\n")
 
-        from qwenpaw.plugins.architecture import PluginManifest
+        from potato.plugins.architecture import PluginManifest
 
         manifest = PluginManifest.from_dict(
             json.loads(
@@ -130,7 +130,7 @@ class TestSysModulesCleanup:
         plugin_dir = tmp_path / "no-attr"
         _write_plugin(plugin_dir, "x = 42\n")
 
-        from qwenpaw.plugins.architecture import PluginManifest
+        from potato.plugins.architecture import PluginManifest
 
         manifest = PluginManifest.from_dict(
             json.loads(
@@ -174,7 +174,7 @@ class TestSysModulesCleanup:
             "plugin = P()\n",
         )
 
-        from qwenpaw.plugins.architecture import PluginManifest
+        from potato.plugins.architecture import PluginManifest
 
         manifest = PluginManifest.from_dict(
             json.loads(
@@ -224,7 +224,7 @@ class TestSysModulesCleanup:
             "plugin = P()\n",
         )
 
-        from qwenpaw.plugins.architecture import PluginManifest
+        from potato.plugins.architecture import PluginManifest
 
         manifest = PluginManifest.from_dict(
             json.loads(
@@ -266,7 +266,7 @@ class TestSysPathCleanup:
             "plugin = P()\n",
         )
 
-        from qwenpaw.plugins.architecture import PluginManifest
+        from potato.plugins.architecture import PluginManifest
 
         manifest = PluginManifest.from_dict(
             json.loads(
@@ -313,7 +313,7 @@ class TestRegistryCleanup:
             "plugin = P()\n",
         )
 
-        from qwenpaw.plugins.architecture import PluginManifest
+        from potato.plugins.architecture import PluginManifest
 
         manifest = PluginManifest.from_dict(
             json.loads(
@@ -357,7 +357,7 @@ class TestRegistryCleanup:
             "plugin = P()\n",
         )
 
-        from qwenpaw.plugins.architecture import PluginManifest
+        from potato.plugins.architecture import PluginManifest
 
         manifest = PluginManifest.from_dict(
             json.loads(

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Tests for embedded ReMe configuration mapping."""
 
-from qwenpaw.agents.memory.reme_config import get_reme_app_config
-from qwenpaw.config.config import (
+from potato.agents.memory.reme_config import get_reme_app_config
+from potato.config.config import (
     AgentProfileConfig,
     AgentsRunningConfig,
     EmbeddingModelConfig,
@@ -21,7 +21,7 @@ def _config_for_embedding(embedding: EmbeddingModelConfig) -> dict:
         ),
     )
     return get_reme_app_config(
-        working_dir="/tmp/qwenpaw-agent",
+        working_dir="/tmp/potato-agent",
         agent_config=agent_config,
     )
 

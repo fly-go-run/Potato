@@ -4,7 +4,7 @@ description: "阿里云 CLI 中文文档镜像检索与命令辅助：先走章�
 metadata:
   {
     "builtin_skill_version": "1.1",
-    "copaw":
+    "potato":
       {
         "emoji": "🧰",
         "requires": {}

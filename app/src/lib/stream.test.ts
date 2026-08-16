@@ -90,7 +90,7 @@ describe("stream reducer", () => {
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0]?.content[0]).toMatchObject({
       type: "text",
-      text: "你好，我是 QwenPaw。",
+      text: "你好，我是 Potato。",
       delta: false,
     });
     expect(state.turnUsage?.context_usage?.context_usage_ratio).toBeCloseTo(
@@ -111,16 +111,16 @@ describe("stream reducer", () => {
       data: {
         call_id: "call_Skh97fTOjOxJBALqRqQAgoM2",
         name: "execute_shell_command",
-        arguments: '{"command":"echo qwenpaw-fixture"}',
+        arguments: '{"command":"echo potato-fixture"}',
       },
     });
     expect(state.messages[1]?.content[0]).toMatchObject({
       type: "data",
-      data: { output: "qwenpaw-fixture", state: "success" },
+      data: { output: "potato-fixture", state: "success" },
     });
     expect(state.messages[2]?.content[0]).toMatchObject({
       type: "text",
-      text: "输出是 `qwenpaw-fixture`。",
+      text: "输出是 `potato-fixture`。",
     });
   });
 

@@ -9,9 +9,9 @@ import pytest
 from agentscope.message import Msg, TextBlock, ToolResultState
 from agentscope.tool import ToolChunk
 
-from qwenpaw.agents.memory.adbpg_memory_manager import ADBPGMemoryManager
-from qwenpaw.config.config import AutoMemorySearchConfig
-from qwenpaw.constant import AUTO_MEMORY_SEARCH_BLOCK_IDS_KEY
+from potato.agents.memory.adbpg_memory_manager import ADBPGMemoryManager
+from potato.config.config import AutoMemorySearchConfig
+from potato.constant import AUTO_MEMORY_SEARCH_BLOCK_IDS_KEY
 
 
 def _user_msg(text: str) -> Msg:

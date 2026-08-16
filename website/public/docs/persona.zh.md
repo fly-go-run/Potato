@@ -1,15 +1,15 @@
 # 智能体的人设
 
-QwenPaw 通过一组 Markdown 文件定义智能体的"人设"，这些文件会被加载到系统提示词（System Prompt）中，决定智能体的行为风格、工作方式和个性特征。你可以通过编辑这些文件，让智能体成为符合你需求的专属助手——无论是严谨的工作助理、温暖的生活伙伴，还是技术专家。
+Potato 通过一组 Markdown 文件定义智能体的"人设"，这些文件会被加载到系统提示词（System Prompt）中，决定智能体的行为风格、工作方式和个性特征。你可以通过编辑这些文件，让智能体成为符合你需求的专属助手——无论是严谨的工作助理、温暖的生活伙伴，还是技术专家。
 
 ---
 
 ## 人设文件
 
-QwenPaw 的人设由 Markdown 文件定义，默认位于智能体工作区目录下。工作区目录的位置取决于 `QWENPAW_WORKING_DIR` 环境变量（默认为 `~/.qwenpaw`），完整路径为：
+Potato 的人设由 Markdown 文件定义，默认位于智能体工作区目录下。工作区目录的位置取决于 `POTATO_WORKING_DIR` 环境变量（默认为 `~/.potato`），完整路径为：
 
 ```
-$QWENPAW_WORKING_DIR/workspaces/{agent_id}/
+$POTATO_WORKING_DIR/workspaces/{agent_id}/
 ```
 
 **人设文件是灵活可扩展的**。下面展示的是默认配置，你可以自由地添加新的 Markdown 文件或删除现有文件。只要在控制台的「Agent → Workspace」页面中启用它们，任何 Markdown 文件都能加载到系统提示词中。
@@ -61,7 +61,7 @@ MEMORY.md 用于存储经过提炼的长期记忆（重要决策、经验教训�
 
 #### **BOOTSTRAP.md** - 首次引导
 
-首次运行 `qwenpaw init` 时会自动创建 BOOTSTRAP.md，它引导用户和智能体进行初次"对话"，共同定义身份、偏好和风格。完成引导后，智能体会将设定写入 PROFILE.md 和 SOUL.md，然后删除 BOOTSTRAP.md。
+首次运行 `potato init` 时会自动创建 BOOTSTRAP.md，它引导用户和智能体进行初次"对话"，共同定义身份、偏好和风格。完成引导后，智能体会将设定写入 PROFILE.md 和 SOUL.md，然后删除 BOOTSTRAP.md。
 
 **引导内容：**
 
@@ -105,7 +105,7 @@ MEMORY.md 用于存储经过提炼的长期记忆（重要决策、经验教训�
 
 ### 通过配置文件管理
 
-你也可以直接修改智能体配置文件（`~/.qwenpaw/workspaces/{agent_id}/agent.json`）中的 `system_prompt_files` 字段来管理人设文件的加载：
+你也可以直接修改智能体配置文件（`~/.potato/workspaces/{agent_id}/agent.json`）中的 `system_prompt_files` 字段来管理人设文件的加载：
 
 ```json
 {
@@ -119,14 +119,14 @@ MEMORY.md 用于存储经过提炼的长期记忆（重要决策、经验教训�
 
 ### 首次初始化
 
-运行 `qwenpaw init` 时，系统会根据你选择的语言（`zh` / `en` / `ru`）自动创建模板文件：
+运行 `potato init` 时，系统会根据你选择的语言（`zh` / `en` / `ru`）自动创建模板文件：
 
 - AGENTS.md
 - SOUL.md
 - PROFILE.md
 - BOOTSTRAP.md（首次引导文件）
 
-如果使用 `qwenpaw init --defaults`，则默认语言为 `zh`（中文）。
+如果使用 `potato init --defaults`，则默认语言为 `zh`（中文）。
 
 ### 切换智能体语言
 

@@ -1,4 +1,4 @@
-# QwenPaw Desktop packaging scripts
+# Potato Desktop packaging scripts
 
 > ⚠️ **Legacy (rollback-only).** These conda-pack based packaging scripts have
 > been superseded by the **Tauri** desktop build (see `console/src-tauri/` and
@@ -33,7 +33,7 @@ From the **repo root**:
 **macOS**
 ```bash
 bash ./scripts/pack/build_macos.sh
-# Output: dist/QwenPaw.app
+# Output: dist/Potato.app
 
 CREATE_ZIP=1 bash ./scripts/pack/build_macos.sh   # also create .zip
 ```
@@ -41,10 +41,10 @@ CREATE_ZIP=1 bash ./scripts/pack/build_macos.sh   # also create .zip
 **Windows (PowerShell)**
 ```powershell
 ./scripts/pack/build_win.ps1
-# Output: dist/QwenPaw-Setup-<version>.exe
+# Output: dist/Potato-Setup-<version>.exe
 # Creates two launchers:
-#   - QwenPaw Desktop.vbs (silent, no console window)
-#   - QwenPaw Desktop (Debug).bat (shows console for troubleshooting)
+#   - Potato Desktop.vbs (silent, no console window)
+#   - Potato Desktop (Debug).bat (shows console for troubleshooting)
 # Note: Pre-compiles all Python files to .pyc for faster startup
 ```
 
@@ -54,28 +54,28 @@ If the .app crashes on double-click, run it from Terminal to see the full error 
 
 ```bash
 # From repo root; force packed env only (no system conda / PYTHONPATH). Adjust path if needed.
-APP_ENV="$(pwd)/dist/QwenPaw.app/Contents/Resources/env"
-PYTHONNOUSERSITE=1 PYTHONPATH= PYTHONHOME="$APP_ENV" "$APP_ENV/bin/python" -m qwenpaw desktop
+APP_ENV="$(pwd)/dist/Potato.app/Contents/Resources/env"
+PYTHONNOUSERSITE=1 PYTHONPATH= PYTHONHOME="$APP_ENV" "$APP_ENV/bin/python" -m potato desktop
 ```
 
 The `PYTHONNOUSERSITE=1` prevents Python from loading packages from `~/.local/lib/pythonX.Y/site-packages`, which can conflict with the packaged environment. All stdout/stderr (including Python tracebacks) will appear in the terminal. Use this to debug startup errors or to run with `--log-level debug`.
 
-When you **double-click** the .app and nothing appears, the launcher writes stderr/stdout to `~/.qwenpaw/desktop.log`. Inspect that file for errors.
+When you **double-click** the .app and nothing appears, the launcher writes stderr/stdout to `~/.potato/desktop.log`. Inspect that file for errors.
 
 On first launch macOS may ask for “Desktop” or “Files and Folders” access: click **Allow** so the app can run properly; if you click Don’t Allow, the window may close.
 
 ## macOS: if “Apple cannot verify” / Gatekeeper blocks the app
 
-When users download the QwenPaw macOS app (e.g. from Releases) as a `.app` (in a zip), macOS may show: *"Apple cannot verify that 'QwenPaw' contains no malicious software"*. The app is not notarized. They can still open it as follows:
+When users download the Potato macOS app (e.g. from Releases) as a `.app` (in a zip), macOS may show: *"Apple cannot verify that 'Potato' contains no malicious software"*. The app is not notarized. They can still open it as follows:
 
 - **Right-click to open (recommended)**
-  Right-click (or Control+click) the QwenPaw app → **Open** → in the dialog click **Open** again. Gatekeeper will allow it; after that double-click works as usual.
+  Right-click (or Control+click) the Potato app → **Open** → in the dialog click **Open** again. Gatekeeper will allow it; after that double-click works as usual.
 
 - **Allow in System Settings**
-  If still blocked, go to **System Settings → Privacy & Security**, find the message like *"QwenPaw was blocked because it is from an unidentified developer"*, and click **Open Anyway** or **Allow**.
+  If still blocked, go to **System Settings → Privacy & Security**, find the message like *"Potato was blocked because it is from an unidentified developer"*, and click **Open Anyway** or **Allow**.
 
 - **Remove quarantine attribute (not recommended for most users)**
-  In Terminal: `xattr -cr /Applications/QwenPaw.app` (or the path to the `.app` after unzipping). This clears the download quarantine flag; less safe than right-click → Open.
+  In Terminal: `xattr -cr /Applications/Potato.app` (or the path to the `.app` after unzipping). This clears the download quarantine flag; less safe than right-click → Open.
 
 ## CI
 
@@ -91,7 +91,7 @@ When users download the QwenPaw macOS app (e.g. from Releases) as a `.app` (in a
 | File | Description |
 |------|-------------|
 | `build_common.py` | Create temporary conda env, install `qwenpaw[full]` from a wheel, conda-pack; produces archive. |
-| `build_macos.sh` | One-click: build wheel → build_common → unpack into QwenPaw.app; optional zip. |
+| `build_macos.sh` | One-click: build wheel → build_common → unpack into Potato.app; optional zip. |
 | `build_win.ps1` | One-click: build wheel → build_common → unpack → create VBS/BAT launchers → makensis installer. |
 | `desktop.nsi` | NSIS script: pack `dist/win-unpacked`, add icons, and create shortcuts. |
 | `assets/icon.ico` | Pre-generated Windows icon (installer and shortcuts). |

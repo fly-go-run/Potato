@@ -2,8 +2,8 @@ import { useEffect } from "react";
 
 export type ThemePreference = "light" | "dark" | "system";
 
-const STORAGE_KEY = "qwenpaw_theme";
-const CUSTOM_THEMES_KEY = "qwenpaw_custom_themes";
+const STORAGE_KEY = "potato_theme";
+const CUSTOM_THEMES_KEY = "potato_custom_themes";
 const CUSTOM_PREFIX = "custom:";
 
 /**

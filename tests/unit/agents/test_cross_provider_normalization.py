@@ -31,7 +31,7 @@ try:
 except ImportError:
     GeminiChatFormatter = None
 
-from qwenpaw.agents import model_factory
+from potato.agents import model_factory
 
 
 def _gemini_session_history() -> list[Msg]:

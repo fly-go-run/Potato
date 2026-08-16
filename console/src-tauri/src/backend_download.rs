@@ -188,9 +188,9 @@ mod tests {
         )
         .unwrap();
 
-        std::env::set_var("QWENPAW_WORKING_DIR", working_dir);
+        std::env::set_var("POTATO_WORKING_DIR", working_dir);
         let result = get_coding_directory(Some("test-agent")).unwrap();
-        std::env::remove_var("QWENPAW_WORKING_DIR");
+        std::env::remove_var("POTATO_WORKING_DIR");
 
         assert_eq!(result, project_dir);
     }
@@ -222,9 +222,9 @@ mod tests {
         let workspace_dir = working_dir.join("workspaces/test-agent");
         std::fs::create_dir_all(&workspace_dir).unwrap();
 
-        std::env::set_var("QWENPAW_WORKING_DIR", working_dir);
+        std::env::set_var("POTATO_WORKING_DIR", working_dir);
         let result = get_coding_directory(Some("test-agent")).unwrap();
-        std::env::remove_var("QWENPAW_WORKING_DIR");
+        std::env::remove_var("POTATO_WORKING_DIR");
 
         assert_eq!(result, workspace_dir);
     }
@@ -283,7 +283,7 @@ pub(crate) async fn read_workspace_binary_file(
 
 /// Resolve a relative workspace file path to an absolute path.
 ///
-/// Reads the QwenPaw config to determine the coding project directory (or workspace
+/// Reads the Potato config to determine the coding project directory (or workspace
 /// directory if no custom project is set), then safely joins the relative path to
 /// prevent path traversal attacks.
 ///
@@ -322,12 +322,13 @@ fn resolve_workspace_file_path(
     Ok(canonical_target)
 }
 
-/// Get the coding project directory from QwenPaw configuration.
+/// Get the coding project directory from Potato configuration.
 ///
 /// Resolution order:
-/// 1. `QWENPAW_WORKING_DIR` / `COPAW_WORKING_DIR` environment variable
-/// 2. `~/.copaw` (legacy installation)
-/// 3. `~/.qwenpaw` (default)
+/// 1. `POTATO_WORKING_DIR` environment variable
+/// 2. `QWENPAW_WORKING_DIR` / `COPAW_WORKING_DIR` (legacy environment variables)
+/// 3. An existing `~/.potato`, `~/.qwenpaw`, or `~/.copaw` directory
+/// 4. `~/.potato` (new installation default)
 ///
 /// Then reads the agent profile reference from root `config.json` to locate the
 /// agent's workspace directory, and loads the full agent configuration from
@@ -337,17 +338,25 @@ fn resolve_workspace_file_path(
 ///
 /// If `agent_id` is None, uses the active agent from config.json.
 fn get_coding_directory(agent_id: Option<&str>) -> Result<PathBuf, String> {
-    let working_dir = if let Ok(dir) = std::env::var("QWENPAW_WORKING_DIR") {
+    let working_dir = if let Ok(dir) = std::env::var("POTATO_WORKING_DIR") {
+        PathBuf::from(dir)
+    } else if let Ok(dir) = std::env::var("QWENPAW_WORKING_DIR") {
         PathBuf::from(dir)
     } else if let Ok(dir) = std::env::var("COPAW_WORKING_DIR") {
         PathBuf::from(dir)
     } else {
         let home = dirs::home_dir().ok_or("failed to get home directory")?;
+        let potato = home.join(".potato");
+        let qwenpaw_legacy = home.join(".qwenpaw");
         let copaw_legacy = home.join(".copaw");
-        if copaw_legacy.exists() {
+        if potato.exists() {
+            potato
+        } else if qwenpaw_legacy.exists() {
+            qwenpaw_legacy
+        } else if copaw_legacy.exists() {
             copaw_legacy
         } else {
-            home.join(".qwenpaw")
+            potato
         }
     };
 

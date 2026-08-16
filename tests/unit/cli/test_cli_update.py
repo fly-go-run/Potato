@@ -9,9 +9,9 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
-from qwenpaw.__version__ import __version__
-from qwenpaw.cli.main import cli
-from qwenpaw.cli.update_cmd import (
+from potato.__version__ import __version__
+from potato.cli.main import cli
+from potato.cli.update_cmd import (
     InstallInfo,
     RunningServiceInfo,
     _build_upgrade_command,
@@ -33,7 +33,7 @@ def _install_info(
     installer: str = "pip",
 ) -> InstallInfo:
     return InstallInfo(
-        package_dir="/tmp/site-packages/qwenpaw",
+        package_dir="/tmp/site-packages/potato",
         python_executable="/tmp/venv/bin/python",
         environment_root="/tmp/venv",
         environment_kind="virtualenv",
@@ -68,8 +68,8 @@ def test_select_latest_version_prefers_stable_by_default() -> None:
     data = {
         "info": {"version": "2.0.0b1"},
         "releases": {
-            "1.9.0": [{"url": "https://example.com/qwenpaw-1.9.0.tar.gz"}],
-            "2.0.0b1": [{"url": "https://example.com/qwenpaw-2.0.0b1.tar.gz"}],
+            "1.9.0": [{"url": "https://example.com/potato-1.9.0.tar.gz"}],
+            "2.0.0b1": [{"url": "https://example.com/potato-2.0.0b1.tar.gz"}],
         },
     }
 
@@ -77,11 +77,38 @@ def test_select_latest_version_prefers_stable_by_default() -> None:
     assert _select_latest_version(data, include_prerelease=True) == "2.0.0b1"
 
 
+def test_fetch_release_data_uses_stable_qwenpaw_distribution(
+    monkeypatch,
+) -> None:
+    from potato.cli import update_cmd as update_cmd_module
+
+    captured: dict[str, object] = {}
+
+    class _Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {"info": {"version": "9.9.9"}, "releases": {}}
+
+    def _fake_get(url: str, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return _Response()
+
+    monkeypatch.setattr(update_cmd_module.httpx, "get", _fake_get)
+
+    result = update_cmd_module._fetch_pypi_release_data()
+
+    assert result["info"] == {"version": "9.9.9"}
+    assert captured["url"] == "https://pypi.org/pypi/qwenpaw/json"
+
+
 def test_build_upgrade_command_adds_prerelease_flag_for_uv_only_when_requested(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "qwenpaw.cli.update_cmd.shutil.which",
+        "potato.cli.update_cmd.shutil.which",
         lambda name: "/usr/local/bin/uv" if name == "uv" else None,
     )
     info = _install_info(installer="uv")
@@ -98,6 +125,8 @@ def test_build_upgrade_command_adds_prerelease_flag_for_uv_only_when_requested(
     )
 
     assert label == "uv pip"
+    assert "qwenpaw==1.9.0" in stable_command
+    assert "qwenpaw==2.0.0b1" in prerelease_command
     assert "--prerelease=allow" not in stable_command
     assert prerelease_command[-1] == "--prerelease=allow"
 
@@ -108,25 +137,25 @@ def test_build_upgrade_command_adds_prerelease_flag_for_uv_only_when_requested(
         (None, ("pypi", None)),
         (
             {
-                "url": "file:///Users/test/QwenPaw",
+                "url": "file:///Users/test/Potato",
                 "dir_info": {"editable": True},
             },
-            ("editable", "file:///Users/test/QwenPaw"),
+            ("editable", "file:///Users/test/Potato"),
         ),
         (
             {
-                "url": "https://github.com/agentscope-ai/QwenPaw.git",
+                "url": "https://github.com/agentscope-ai/Potato.git",
                 "vcs_info": {"vcs": "git", "commit_id": "abc123"},
             },
-            ("vcs", "https://github.com/agentscope-ai/QwenPaw.git"),
+            ("vcs", "https://github.com/agentscope-ai/Potato.git"),
         ),
         (
-            {"url": "file:///tmp/qwenpaw.whl"},
-            ("local", "file:///tmp/qwenpaw.whl"),
+            {"url": "file:///tmp/potato.whl"},
+            ("local", "file:///tmp/potato.whl"),
         ),
         (
-            {"url": "https://example.com/qwenpaw.whl"},
-            ("direct-url", "https://example.com/qwenpaw.whl"),
+            {"url": "https://example.com/potato.whl"},
+            ("direct-url", "https://example.com/potato.whl"),
         ),
     ],
 )
@@ -151,13 +180,13 @@ def test_detect_source_type(
             "uv\n",
             json.dumps(
                 {
-                    "url": "file:///Users/test/QwenPaw",
+                    "url": "file:///Users/test/Potato",
                     "dir_info": {"editable": True},
                 },
             ),
             "uv",
             "editable",
-            "file:///Users/test/QwenPaw",
+            "file:///Users/test/Potato",
         ),
     ],
 )
@@ -169,7 +198,7 @@ def test_detect_installation(
     expected_source_type: str,
     expected_source_url: str | None,
 ) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     class _FakeDistribution:
         def read_text(self, name: str) -> str | None:
@@ -185,10 +214,16 @@ def test_detect_installation(
         Path(update_cmd_module.__file__).resolve().parent.parent,
     )
 
+    requested_distributions: list[str] = []
+
+    def _distribution(name: str) -> _FakeDistribution:
+        requested_distributions.append(name)
+        return _FakeDistribution()
+
     monkeypatch.setattr(
         update_cmd_module.metadata,
         "distribution",
-        lambda name: _FakeDistribution(),
+        _distribution,
     )
     monkeypatch.setattr(
         update_cmd_module.sys,
@@ -207,10 +242,11 @@ def test_detect_installation(
     assert result.environment_root == expected_environment_root
     assert result.environment_kind == "virtualenv"
     assert result.package_dir == expected_package_dir
+    assert requested_distributions == ["qwenpaw"]
 
 
 def test_update_reports_up_to_date(monkeypatch) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info()
 
@@ -234,7 +270,7 @@ def test_update_reports_up_to_date(monkeypatch) -> None:
     result = CliRunner().invoke(cli, ["update", "--yes"])
 
     assert result.exit_code == 0
-    assert "QwenPaw is already up to date." in result.output
+    assert "Potato is already up to date." in result.output
 
 
 def test_probe_service_ignores_proxy_env(monkeypatch) -> None:
@@ -252,7 +288,7 @@ def test_probe_service_ignores_proxy_env(monkeypatch) -> None:
         captured.update(kwargs)
         return _Response()
 
-    monkeypatch.setattr("qwenpaw.cli.update_cmd.httpx.get", _fake_get)
+    monkeypatch.setattr("potato.cli.update_cmd.httpx.get", _fake_get)
 
     result = _probe_service("http://127.0.0.1:8088")
 
@@ -266,7 +302,7 @@ def test_probe_service_returns_not_running_on_http_error(monkeypatch) -> None:
     def _fake_get(_url: str, **_kwargs):
         raise httpx.HTTPError("bad gateway")
 
-    monkeypatch.setattr("qwenpaw.cli.update_cmd.httpx.get", _fake_get)
+    monkeypatch.setattr("potato.cli.update_cmd.httpx.get", _fake_get)
 
     result = _probe_service("http://127.0.0.1:8088")
 
@@ -274,7 +310,7 @@ def test_probe_service_returns_not_running_on_http_error(monkeypatch) -> None:
 
 
 def test_detect_running_service_handles_wildcard_host(monkeypatch) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     monkeypatch.setattr(update_cmd_module, "read_last_api", lambda: None)
     monkeypatch.setattr(
@@ -300,7 +336,7 @@ def test_detect_running_service_handles_wildcard_host(monkeypatch) -> None:
 def test_detect_running_service_falls_back_to_process_ports(
     monkeypatch,
 ) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     monkeypatch.setattr(update_cmd_module, "read_last_api", lambda: None)
     monkeypatch.setattr(
@@ -324,7 +360,7 @@ def test_detect_running_service_falls_back_to_process_ports(
 
 
 def test_update_blocks_running_service(monkeypatch) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info()
 
@@ -357,15 +393,15 @@ def test_update_blocks_running_service(monkeypatch) -> None:
     result = CliRunner().invoke(cli, ["update", "--yes"])
 
     assert result.exit_code != 0
-    assert "Please stop it before running `qwenpaw update`" in result.output
+    assert "Please stop it before running `potato update`" in result.output
     assert (
-        "without `--yes` to confirm a forced `qwenpaw shutdown`"
+        "without `--yes` to confirm a forced `potato shutdown`"
         in result.output
     )
 
 
 def test_update_can_cancel_forced_shutdown(monkeypatch) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info()
 
@@ -393,11 +429,11 @@ def test_update_can_cancel_forced_shutdown(monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert (
-        "forcibly terminate the current QwenPaw backend/frontend "
+        "forcibly terminate the current Potato backend/frontend "
         "processes" in result.output
     )
     assert (
-        "Run `qwenpaw shutdown` now and continue with the update?"
+        "Run `potato shutdown` now and continue with the update?"
         in result.output
     )
     assert "Cancelled." in result.output
@@ -407,7 +443,7 @@ def test_update_can_force_shutdown_running_service(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info()
     spawned: dict[str, object] = {}
@@ -453,7 +489,7 @@ def test_update_can_force_shutdown_running_service(
         assert command == [
             "/tmp/venv/bin/python",
             "-m",
-            "qwenpaw",
+            "potato",
             "--port",
             "8088",
             "shutdown",
@@ -461,7 +497,7 @@ def test_update_can_force_shutdown_running_service(
 
         class _Result:
             returncode = 0
-            stdout = "Stopped QwenPaw processes: 1234\n"
+            stdout = "Stopped Potato processes: 1234\n"
 
         return _Result()
 
@@ -480,14 +516,14 @@ def test_update_can_force_shutdown_running_service(
     result = CliRunner().invoke(cli, ["update"], input="y\ny\n")
 
     assert result.exit_code == 0
-    assert "Running `qwenpaw shutdown` before updating..." in result.output
-    assert "Stopped QwenPaw processes: 1234" in result.output
-    assert "Starting QwenPaw update..." in result.output
+    assert "Running `potato shutdown` before updating..." in result.output
+    assert "Stopped Potato processes: 1234" in result.output
+    assert "Starting Potato update..." in result.output
     assert isinstance(spawned["path"], Path)
 
 
 def test_update_can_cancel_non_pypi_override(monkeypatch) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info(source_type="editable")
 
@@ -520,7 +556,7 @@ def test_update_can_override_non_pypi_install_with_yes(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     spawned: dict[str, object] = {}
     install_info = _install_info(source_type="editable")
@@ -571,12 +607,12 @@ def test_update_can_override_non_pypi_install_with_yes(
 
     assert result.exit_code == 0
     assert "Proceeding because `--yes` was provided." in result.output
-    assert "Starting QwenPaw update..." in result.output
+    assert "Starting Potato update..." in result.output
     assert isinstance(spawned["path"], Path)
 
 
 def test_update_spawns_worker(monkeypatch, tmp_path: Path) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     spawned: dict[str, object] = {}
     install_info = _install_info()
@@ -626,7 +662,7 @@ def test_update_spawns_worker(monkeypatch, tmp_path: Path) -> None:
     result = CliRunner().invoke(cli, ["update", "--yes"])
 
     assert result.exit_code == 0
-    assert "Starting QwenPaw update..." in result.output
+    assert "Starting Potato update..." in result.output
     assert isinstance(spawned["path"], Path)
     plan = spawned["plan"]
     assert plan["latest_version"] == "9.9.9"  # type: ignore [index]
@@ -638,12 +674,13 @@ def test_update_spawns_worker(monkeypatch, tmp_path: Path) -> None:
         "install",
         "--upgrade",
     ]
+    assert plan["command"][5] == "qwenpaw==9.9.9"  # type: ignore [index]
 
 
 def test_update_prompts_when_version_is_not_comparable(
     monkeypatch,
 ) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info()
 
@@ -675,7 +712,7 @@ def test_update_can_continue_when_version_is_not_comparable(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     spawned: dict[str, object] = {}
     install_info = _install_info()
@@ -726,11 +763,11 @@ def test_update_can_continue_when_version_is_not_comparable(
 
     assert result.exit_code == 0
     assert isinstance(spawned["path"], Path)
-    assert "Starting QwenPaw update..." in result.output
+    assert "Starting Potato update..." in result.output
 
 
 def test_update_returns_worker_exit_code(monkeypatch, tmp_path: Path) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info()
 
@@ -760,14 +797,14 @@ def test_update_returns_worker_exit_code(monkeypatch, tmp_path: Path) -> None:
     result = CliRunner().invoke(cli, ["update", "--yes"])
 
     assert result.exit_code == 2
-    assert "Starting QwenPaw update..." in result.output
+    assert "Starting Potato update..." in result.output
 
 
 def test_update_detaches_worker_on_windows(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    from qwenpaw.cli import update_cmd as update_cmd_module
+    from potato.cli import update_cmd as update_cmd_module
 
     install_info = _install_info()
     spawned: dict[str, object] = {}
@@ -808,7 +845,7 @@ def test_update_detaches_worker_on_windows(
     result = CliRunner().invoke(cli, ["update", "--yes"])
 
     assert result.exit_code == 0
-    assert "Starting QwenPaw update..." in result.output
+    assert "Starting Potato update..." in result.output
     assert "continue after this command exits" in result.output
     assert isinstance(spawned["path"], Path)
     assert spawned["plan"]["launcher_pid"] is not None  # type: ignore[index]
@@ -835,7 +872,7 @@ def test_update_worker_waits_for_launcher_exit(
 
     waited: list[tuple[int | None, float]] = []
     monkeypatch.setattr(
-        "qwenpaw.cli.update_cmd._wait_for_process_exit",
+        "potato.cli.update_cmd._wait_for_process_exit",
         lambda pid, timeout=15.0: waited.append((pid, timeout)),
     )
 
@@ -859,7 +896,7 @@ def test_run_update_worker_detached_spawns_without_capture(
         return object()
 
     monkeypatch.setattr(
-        "qwenpaw.cli.update_cmd._spawn_update_worker",
+        "potato.cli.update_cmd._spawn_update_worker",
         _fake_spawn,
     )
 
@@ -914,11 +951,11 @@ def test_update_worker_foreground_streams_output_and_cleans_plan(
     captured = capsys.readouterr()
 
     assert return_code == 0
-    assert "[qwenpaw] Updating QwenPaw 1.0.0 -> 9.9.9..." in captured.out
-    assert "[qwenpaw] Using installer: integration-test" in captured.out
+    assert "[potato] Updating Potato 1.0.0 -> 9.9.9..." in captured.out
+    assert "[potato] Using installer: integration-test" in captured.out
     assert "installer: preparing" in captured.out
     assert "installer: done" in captured.out
-    assert "[qwenpaw] Update completed successfully." in captured.out
+    assert "[potato] Update completed successfully." in captured.out
     assert not plan_path.exists()
 
 
@@ -947,5 +984,5 @@ def test_update_worker_foreground_propagates_failure_exit_code(
 
     assert return_code == 7
     assert "installer: failing" in captured.out
-    assert "[qwenpaw] Update failed with exit code 7." in captured.out
+    assert "[potato] Update failed with exit code 7." in captured.out
     assert not plan_path.exists()

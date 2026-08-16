@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from qwenpaw.runtime.slash_command_registry import CommandSpec
+from potato.runtime.slash_command_registry import CommandSpec
 
 from ..shared.args import split_args
 from ..shared.mode_base import OMPModeBase, info_msg, rewrite_user_msg

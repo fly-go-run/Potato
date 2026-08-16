@@ -10,14 +10,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from qwenpaw.app.routers.loops import router
-from qwenpaw.app.agent_context import get_current_session_id
-from qwenpaw.config.config import CustomLoopModeConfig, GateInstanceConfig
-from qwenpaw.modes.custom_loop.mode import (
+from potato.app.routers.loops import router
+from potato.app.agent_context import get_current_session_id
+from potato.config.config import CustomLoopModeConfig, GateInstanceConfig
+from potato.modes.custom_loop.mode import (
     DeclarativeLoopMode,
     LoopModeActivationStore,
 )
-from qwenpaw.modes.mission import MissionMode
+from potato.modes.mission import MissionMode
 
 
 def _mode(mode_id: str = "quality") -> CustomLoopModeConfig:
@@ -60,11 +60,11 @@ def client(workspace: SimpleNamespace):
     app.include_router(router, prefix="/api")
     with (
         patch(
-            "qwenpaw.app.routers.loops.get_agent_for_request",
+            "potato.app.routers.loops.get_agent_for_request",
             new=AsyncMock(return_value=workspace),
         ),
-        patch("qwenpaw.app.routers.loops.save_agent_config") as save,
-        patch("qwenpaw.app.routers.loops.schedule_agent_reload") as reload,
+        patch("potato.app.routers.loops.save_agent_config") as save,
+        patch("potato.app.routers.loops.schedule_agent_reload") as reload,
     ):
         yield TestClient(app), save, reload
 
@@ -84,7 +84,7 @@ def test_loop_catalog_includes_enabled_custom_and_plugin_modes(
 
         @staticmethod
         def commands():
-            from qwenpaw.runtime.slash_command_registry import CommandSpec
+            from potato.runtime.slash_command_registry import CommandSpec
 
             async def handler(_ctx, _args):
                 return None
@@ -128,7 +128,7 @@ def test_loop_status_reports_active_mode_and_restores_context(
 
         @staticmethod
         def commands():
-            from qwenpaw.runtime.slash_command_registry import CommandSpec
+            from potato.runtime.slash_command_registry import CommandSpec
 
             async def handler(_ctx, _args):
                 return None
@@ -172,7 +172,7 @@ def test_loop_status_reports_chat_execution_phase(
 
         @staticmethod
         def commands():
-            from qwenpaw.runtime.slash_command_registry import CommandSpec
+            from potato.runtime.slash_command_registry import CommandSpec
 
             async def handler(_ctx, _args):
                 return None

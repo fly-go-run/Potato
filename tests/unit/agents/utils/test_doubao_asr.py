@@ -6,20 +6,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.agents.utils import doubao_asr as mod
+from potato.agents.utils import doubao_asr as mod
 
 
 class TestResolveCredentials:
     def test_missing(self, monkeypatch):
         for key in (
             "VOLCENGINE_SPEECH_API_KEY",
-            "QWENPAW_SPEECH_API_KEY",
+            "POTATO_SPEECH_API_KEY",
             "apikey",
             "APIKEY",
             "keyid",
             "KEYID",
             "VOLCENGINE_SPEECH_APP_ID",
-            "QWENPAW_SPEECH_APP_ID",
+            "POTATO_SPEECH_APP_ID",
         ):
             monkeypatch.delenv(key, raising=False)
         assert mod.resolve_speech_credentials() is None
@@ -78,7 +78,7 @@ class TestTranscribeFlash:
     async def test_missing_credentials(self, monkeypatch):
         monkeypatch.delenv("apikey", raising=False)
         monkeypatch.delenv("VOLCENGINE_SPEECH_API_KEY", raising=False)
-        monkeypatch.delenv("QWENPAW_SPEECH_API_KEY", raising=False)
+        monkeypatch.delenv("POTATO_SPEECH_API_KEY", raising=False)
         result = await mod.transcribe_doubao_flash("/tmp/a.wav")
         assert result is None
 

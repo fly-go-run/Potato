@@ -1,3 +1,4 @@
+import { resolveBackendUrl } from "./backendOrigin";
 import type { PendingApproval, PushMessagesResponse } from "./approvals";
 import type {
   CronDispatchTarget,
@@ -12,7 +13,7 @@ import type {
   DirectoryListing,
 } from "./projects";
 
-export const AUTH_TOKEN_KEY = "qwenpaw_auth_token";
+export const AUTH_TOKEN_KEY = "potato_auth_token";
 
 export class ApiError extends Error {
   constructor(
@@ -49,7 +50,7 @@ export async function apiFetch(
   input: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const response = await fetch(input, {
+  const response = await fetch(resolveBackendUrl(input), {
     ...init,
     headers: authHeaders(init.headers),
   });
@@ -434,13 +435,14 @@ export const sttApi = {
     ),
 };
 
-export type WebSearchBackend = "auto" | "hosted" | "tavily";
+export type WebSearchBackend = "auto" | "hosted" | "tavily" | "exa";
 
 export interface WebSearchSettings {
   web_search_backend: WebSearchBackend;
   web_search_provider_id: string;
   web_search_model: string;
   hosted_configured: boolean;
+  exa_configured?: boolean;
   /** Providers holding a key — the ones that could run a hosted search. */
   providers: { id: string; name: string }[];
 }
@@ -606,7 +608,9 @@ export function filePreviewUrl(value: string): string {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
   const token = getAuthToken();
-  return `/api/files/preview/${path}${
-    token ? `?token=${encodeURIComponent(token)}` : ""
-  }`;
+  return resolveBackendUrl(
+    `/api/files/preview/${path}${
+      token ? `?token=${encodeURIComponent(token)}` : ""
+    }`,
+  );
 }

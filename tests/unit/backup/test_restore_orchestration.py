@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from qwenpaw.backup import orchestration
-from qwenpaw.backup.models import (
+from potato.backup import orchestration
+from potato.backup.models import (
     BackupDetail,
     BackupValidationError,
     RestoreBackupRequest,

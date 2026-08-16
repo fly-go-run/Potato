@@ -3,7 +3,7 @@
 
 from types import SimpleNamespace
 
-from qwenpaw.app.routers.providers import (
+from potato.app.routers.providers import (
     ProviderConfigRequest,
     configure_provider,
 )

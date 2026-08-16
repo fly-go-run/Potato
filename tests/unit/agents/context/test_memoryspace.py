@@ -12,13 +12,13 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.agents.context.scroll.history import HistoryStore
-from qwenpaw.agents.context.scroll.memoryspace import (
+from potato.agents.context.scroll.history import HistoryStore
+from potato.agents.context.scroll.memoryspace import (
     MemorySpace,
     fts_match_query,
     sanitize_suffix,
 )
-from qwenpaw.agents.context.types import LogEntry
+from potato.agents.context.types import LogEntry
 
 
 @pytest.fixture
@@ -303,7 +303,7 @@ def test_active_turn_floor_ignores_continuation_stubs(tmp_path: Path):
             "context_msg",
             "user",
             "Continue working on the task.",
-            {"qwenpaw_tag": "loop_continuation"},
+            {"potato_tag": "loop_continuation"},
         ),
         ("a2", "model_turn", "assistant", "tanks continued reply", None),
     ]
@@ -667,7 +667,7 @@ def test_saved_tool_paths_prefer_structured_artifact_metadata(tmp_path: Path):
         paths = space._saved_tool_paths(
             "preview without a legacy path notice",
             {
-                "qwenpaw_truncation": {
+                "potato_truncation": {
                     "0": {
                         "file_path": str(artifact),
                     },
@@ -777,7 +777,7 @@ def test_recall_tool_returns_preview_when_artifact_expired(tmp_path: Path):
             content="bounded preview",
             tool_call_id="expired-call",
             metadata={
-                "qwenpaw_truncation": {
+                "potato_truncation": {
                     "0": {
                         "file_path": str(artifact),
                         "start_line": 1,

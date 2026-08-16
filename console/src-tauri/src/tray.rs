@@ -23,9 +23,9 @@ const CLOSE_ACK_TIMEOUT: Duration = Duration::from_millis(1500);
 
 /// Emitted to the frontend when the user closes the window, asking it to honor
 /// the remembered preference or show the close prompt.
-pub(crate) const CLOSE_REQUESTED_EVENT: &str = "qwenpaw-close-requested";
+pub(crate) const CLOSE_REQUESTED_EVENT: &str = "potato-close-requested";
 /// Emitted once a confirmed quit starts waiting for backend shutdown.
-pub(crate) const SHUTDOWN_STARTED_EVENT: &str = "qwenpaw-shutdown-started";
+pub(crate) const SHUTDOWN_STARTED_EVENT: &str = "potato-shutdown-started";
 
 #[derive(Clone)]
 struct TrayMenuItems {

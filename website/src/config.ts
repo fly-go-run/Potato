@@ -14,10 +14,10 @@ export interface SiteConfig {
 }
 
 export const defaultConfig: SiteConfig = {
-  projectName: "QwenPaw",
+  projectName: "Potato",
   projectTaglineEn: "Works for you, grows with you",
   projectTaglineZh: "懂你所需，伴你左右",
-  repoUrl: "https://github.com/agentscope-ai/QwenPaw",
+  repoUrl: "https://github.com/fly-go-run/Potato",
   docsPath: "/docs/",
   showTestimonials: true,
   modelScopeForkUrl:

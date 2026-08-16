@@ -1,6 +1,6 @@
 # Plugin System
 
-QwenPaw provides a plugin system that allows users to extend QwenPaw's functionality.
+Potato provides a plugin system that allows users to extend Potato's functionality.
 
 ## Overview
 
@@ -11,7 +11,7 @@ The plugin system supports the following extension capabilities:
 - **Hook Plugins**: Execute custom code during application startup/shutdown (app lifespan level, runs once)
 - **Command Plugins**: Register custom `/command` magic commands
 - **HTTP API Plugins**: Expose custom REST endpoints under `/api` via a FastAPI `APIRouter`
-- **Frontend Extension Plugins**: Browser-side JS plugins that share the host's React / Ant Design runtime and declaratively extend the UI via `window.QwenPaw.*` API — register sidebar menus, page routes, UI slots, chat customizations, and more without modifying host code
+- **Frontend Extension Plugins**: Browser-side JS plugins that share the host's React / Ant Design runtime and declaratively extend the UI via `window.Potato.*` API — register sidebar menus, page routes, UI slots, chat customizations, and more without modifying host code
 - **Channel Plugins**: Register custom messaging channels (e.g. Slack, LINE)
 
 ## Plugin Management
@@ -21,27 +21,27 @@ The plugin system supports the following extension capabilities:
 Install from local directory:
 
 ```bash
-qwenpaw plugin install /path/to/plugin
+potato plugin install /path/to/plugin
 ```
 
 Install from URL (supports ZIP files):
 
 ```bash
-qwenpaw plugin install https://example.com/plugin.zip
+potato plugin install https://example.com/plugin.zip
 ```
 
 Force reinstall:
 
 ```bash
-qwenpaw plugin install /path/to/plugin --force
+potato plugin install /path/to/plugin --force
 ```
 
-**Note**: Plugin operations can only be performed when QwenPaw is offline.
+**Note**: Plugin operations can only be performed when Potato is offline.
 
 ### List Installed Plugins
 
 ```bash
-qwenpaw plugin list
+potato plugin list
 ```
 
 Example output:
@@ -53,19 +53,19 @@ Installed Plugins:
 my-provider (v1.0.0)
   Custom LLM provider integration
   Author: Developer Name
-  Path: /Users/user/.qwenpaw/plugins/my-provider
+  Path: /Users/user/.potato/plugins/my-provider
 ```
 
 ### View Plugin Details
 
 ```bash
-qwenpaw plugin info <plugin-id>
+potato plugin info <plugin-id>
 ```
 
 ### Uninstall Plugin
 
 ```bash
-qwenpaw plugin uninstall <plugin-id>
+potato plugin uninstall <plugin-id>
 ```
 
 ## Plugin Development
@@ -97,7 +97,7 @@ my-plugin/
     "backend": "plugin.py"
   },
   "dependencies": [],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.0.0",
     "max": "2.1.0"
   },
@@ -118,9 +118,9 @@ my-plugin/
 | `entry.backend`   | `string`           | no\*     | Path (relative to plugin dir) of the Python entry file that exports `plugin`.                                                                                                                        |
 | `entry.frontend`  | `string`           | no\*     | Path of the built frontend bundle (e.g. `dist/index.js`).                                                                                                                                            |
 | `dependencies`    | `string[]`         | no       | Python package requirements installed via pip/uv at install time.                                                                                                                                    |
-| `qwenpaw_version` | `object`           | no       | QwenPaw version constraint (recommended). Contains `min` (inclusive) and `max` (exclusive, optional) sub-fields. Semantics: `>=min, <max`. When `max` is omitted, defaults to `{major}.{minor+1}.0`. |
-| `min_version`     | `string`           | no       | **Legacy.** Minimum QwenPaw version required. Ignored when `qwenpaw_version` is present. Retained only for backward compatibility with third-party plugins.                                          |
-| `max_version`     | `string`           | no       | **Legacy.** First incompatible QwenPaw version (exclusive). Used with `min_version`; when omitted, derived from `min_version`.                                                                       |
+| `potato_version` | `object`           | no       | Potato version constraint (recommended). Contains `min` (inclusive) and `max` (exclusive, optional) sub-fields. Semantics: `>=min, <max`. When `max` is omitted, defaults to `{major}.{minor+1}.0`. |
+| `min_version`     | `string`           | no       | **Legacy.** Minimum Potato version required. Ignored when `potato_version` is present. Retained only for backward compatibility with third-party plugins.                                          |
+| `max_version`     | `string`           | no       | **Legacy.** First incompatible Potato version (exclusive). Used with `min_version`; when omitted, derived from `min_version`.                                                                       |
 | `meta`            | `object`           | no       | Free-form plugin metadata. Used by the UI and by `type` inference (e.g. `meta.tools[]`, `meta.hook_type`, `meta.provider_id`).                                                                       |
 | `entry_point`     | `string`           | no       | **Legacy.** Equivalent to `entry.backend`. Still accepted for backwards compatibility with older plugins; new plugins should use `entry.backend`.                                                    |
 
@@ -144,7 +144,7 @@ my-plugin/
 # -*- coding: utf-8 -*-
 """My Plugin Entry Point."""
 
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 import logging
 
 logger = logging.getLogger(__name__)
@@ -175,14 +175,14 @@ plugin = MyPlugin()
 
 ### Frontend Plugins
 
-Frontend plugins are JavaScript extensions that run in the browser. Unlike backend plugins that register capabilities via the Python `PluginApi`, frontend plugins declaratively extend the Console UI through the global `window.QwenPaw.*` API.
+Frontend plugins are JavaScript extensions that run in the browser. Unlike backend plugins that register capabilities via the Python `PluginApi`, frontend plugins declaratively extend the Console UI through the global `window.Potato.*` API.
 
 **Loading lifecycle:**
 
-1. Console starts up and mounts the Host SDK (React, antd, and other shared dependencies) and registration APIs (menu, route, slot, chat, and other namespaces) on `window.QwenPaw`
+1. Console starts up and mounts the Host SDK (React, antd, and other shared dependencies) and registration APIs (menu, route, slot, chat, and other namespaces) on `window.Potato`
 2. Console fetches the enabled frontend plugin list from `/frontend_plugin`
 3. Downloads each plugin's JS bundle and executes it via Blob URL dynamic import
-4. Plugin code runs and calls `window.QwenPaw.*` to register menus, routes, chat customizations, and other UI extensions
+4. Plugin code runs and calls `window.Potato.*` to register menus, routes, chat customizations, and other UI extensions
 5. Registrations take effect immediately — menus appear in the sidebar, routes become navigable, chat areas show customized content
 
 Plugins don't need to declare which extension points they use; the system automatically tracks all registrations via `pluginId`. When a plugin is uninstalled or disabled, all registrations are cleaned up via `dispose()` or `chat.disposeAll(pluginId)`.
@@ -222,7 +222,7 @@ Plugins don't need to declare which extension points they use; the system automa
 my-plugin/
 ├── plugin.json      # Plugin manifest (required)
 ├── src/
-│   └── index.tsx    # Entry point, calls window.QwenPaw.* APIs
+│   └── index.tsx    # Entry point, calls window.Potato.* APIs
 ├── package.json     # Dependencies
 ├── tsconfig.json    # TypeScript config
 └── vite.config.ts   # Build config
@@ -243,13 +243,13 @@ my-plugin/
 
 #### src/index.tsx
 
-The plugin entry file executes on load and registers extensions via `window.QwenPaw.*` API:
+The plugin entry file executes on load and registers extensions via `window.Potato.*` API:
 
 ```tsx
-const { React, antd } = window.QwenPaw.host;
+const { React, antd } = window.Potato.host;
 const pluginId = "my-plugin";
 
-// Call window.QwenPaw.* APIs to register menus, routes, chat customizations, etc.
+// Call window.Potato.* APIs to register menus, routes, chat customizations, etc.
 // See "Frontend Extension API" below for details
 ```
 
@@ -310,17 +310,17 @@ export default defineConfig({
 
 ```bash
 npm install && npm run build
-cp -r . ~/.qwenpaw/plugins/my-plugin/
-qwenpaw app
+cp -r . ~/.potato/plugins/my-plugin/
+potato app
 ```
 
-You can copy `console/src/plugins/types/qwenpaw.d.ts` into your plugin project as `qwenpaw-host.d.ts` for full type hints.
+You can copy `console/src/plugins/types/potato.d.ts` into your plugin project as `potato-host.d.ts` for full type hints.
 
 ## Frontend Extension API
 
-Frontend plugins extend the Console UI through the `window.QwenPaw.*` API without modifying host code. All registration methods take `pluginId` as the first argument, and every registration returns a `{ dispose() }` object for revocation.
+Frontend plugins extend the Console UI through the `window.Potato.*` API without modifying host code. All registration methods take `pluginId` as the first argument, and every registration returns a `{ dispose() }` object for revocation.
 
-### Host SDK — `window.QwenPaw.host`
+### Host SDK — `window.Potato.host`
 
 Shared dependencies — plugins do not need to bundle these libraries:
 
@@ -337,23 +337,23 @@ host.getApiToken(): string | null // Get current auth token
 **React Hooks (use inside React components):**
 
 ```ts
-const theme = window.QwenPaw.host.useTheme(); // "light" | "dark"
-const locale = window.QwenPaw.host.useLocale(); // "zh" | "en"
-const agent = window.QwenPaw.host.useSelectedAgent(); // { id: string }
-const session = window.QwenPaw.host.useCurrentSession(); // { id: string } | null
+const theme = window.Potato.host.useTheme(); // "light" | "dark"
+const locale = window.Potato.host.useLocale(); // "zh" | "en"
+const agent = window.Potato.host.useSelectedAgent(); // { id: string }
+const session = window.Potato.host.useCurrentSession(); // { id: string } | null
 ```
 
 **Imperative getters (can be called anywhere):**
 
 ```ts
-const agentId = window.QwenPaw.host.getSelectedAgentId();
-const sessionId = window.QwenPaw.host.getCurrentSessionId();
+const agentId = window.Potato.host.getSelectedAgentId();
+const sessionId = window.Potato.host.getCurrentSessionId();
 ```
 
 **Authenticated fetch (automatically injects Authorization and X-Agent-Id headers):**
 
 ```ts
-const resp = await window.QwenPaw.host.fetch("/api/v1/my-endpoint", {
+const resp = await window.Potato.host.fetch("/api/v1/my-endpoint", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ query: "test" }),
@@ -361,7 +361,7 @@ const resp = await window.QwenPaw.host.fetch("/api/v1/my-endpoint", {
 const data = await resp.json();
 ```
 
-### Sidebar Menu — `window.QwenPaw.menu`
+### Sidebar Menu — `window.Potato.menu`
 
 | Method     | Signature                                | Description                          |
 | ---------- | ---------------------------------------- | ------------------------------------ |
@@ -389,7 +389,7 @@ const data = await resp.json();
 }
 ```
 
-### Page Routes — `window.QwenPaw.route`
+### Page Routes — `window.Potato.route`
 
 | Method    | Signature                                     | Description                            |
 | --------- | --------------------------------------------- | -------------------------------------- |
@@ -411,7 +411,7 @@ const data = await resp.json();
 **Wrap example (add a top banner to an existing page):**
 
 ```tsx
-window.QwenPaw.route.wrap("my-plugin", "core.chat", (Inner) => {
+window.Potato.route.wrap("my-plugin", "core.chat", (Inner) => {
   return () => (
     <div>
       <div style={{ background: "#fff3cd", padding: 8, textAlign: "center" }}>
@@ -423,7 +423,7 @@ window.QwenPaw.route.wrap("my-plugin", "core.chat", (Inner) => {
 });
 ```
 
-### General UI Slots — `window.QwenPaw.slot`
+### General UI Slots — `window.Potato.slot`
 
 | Method     | Signature                                     | Description                                             |
 | ---------- | --------------------------------------------- | ------------------------------------------------------- |
@@ -447,7 +447,7 @@ window.QwenPaw.route.wrap("my-plugin", "core.chat", (Inner) => {
 
 ```tsx
 // Replace Header Logo
-window.QwenPaw.slot.replace("my-plugin", "header.logo", (defaultLogo) => {
+window.Potato.slot.replace("my-plugin", "header.logo", (defaultLogo) => {
   return <img src="https://example.com/logo.svg" style={{ height: 24 }} />;
 });
 ```
@@ -455,7 +455,7 @@ window.QwenPaw.slot.replace("my-plugin", "header.logo", (defaultLogo) => {
 ### Chat Welcome Screen — `chat.welcome`
 
 ```tsx
-window.QwenPaw.chat.welcome.set("my-plugin", {
+window.Potato.chat.welcome.set("my-plugin", {
   greeting: (locale) => (locale.startsWith("zh") ? "Hello!" : "Hello!"),
   description: "I specialize in data analysis.",
   avatar: "https://example.com/avatar.png",
@@ -467,7 +467,7 @@ window.QwenPaw.chat.welcome.set("my-plugin", {
 });
 
 // Or fully replace the welcome screen
-window.QwenPaw.chat.welcome.render("my-plugin", (props) => {
+window.Potato.chat.welcome.render("my-plugin", (props) => {
   return <div>Custom Welcome</div>;
 });
 ```
@@ -475,7 +475,7 @@ window.QwenPaw.chat.welcome.render("my-plugin", (props) => {
 ### Chat Theme — `chat.theme`
 
 ```ts
-window.QwenPaw.chat.theme.set("my-plugin", {
+window.Potato.chat.theme.set("my-plugin", {
   colorPrimary: "#1890ff",
 });
 ```
@@ -484,13 +484,13 @@ window.QwenPaw.chat.theme.set("my-plugin", {
 
 ```tsx
 // Set the left header title
-window.QwenPaw.chat.leftHeader.set("my-plugin", {
+window.Potato.chat.leftHeader.set("my-plugin", {
   title: "My Brand",
   logo: <img src="logo.svg" style={{ height: 20 }} />,
 });
 
 // Add a button to the right header
-window.QwenPaw.chat.rightHeader.add(
+window.Potato.chat.rightHeader.add(
   "my-plugin",
   <button
     onClick={() => alert("Plugin action!")}
@@ -506,13 +506,13 @@ window.QwenPaw.chat.rightHeader.add(
 
 ```ts
 // Custom placeholder
-window.QwenPaw.chat.sender.set("my-plugin", {
+window.Potato.chat.sender.set("my-plugin", {
   placeholder: "Ask me anything...",
   disclaimer: "Responses may not be accurate.",
 });
 
 // Add input suggestions
-window.QwenPaw.chat.sender.addSuggestion("my-plugin", {
+window.Potato.chat.sender.addSuggestion("my-plugin", {
   id: "my-plugin.suggestions",
   items: [
     { label: "/analyze", value: "analyze" },
@@ -525,14 +525,14 @@ window.QwenPaw.chat.sender.addSuggestion("my-plugin", {
 
 ```tsx
 // Add action button below AI responses
-window.QwenPaw.chat.actions.add("my-plugin", {
+window.Potato.chat.actions.add("my-plugin", {
   id: "my-plugin.star",
   icon: <span>⭐</span>,
   onClick: ({ data }) => console.log("Starred:", data),
 });
 
 // Add action button below user messages
-window.QwenPaw.chat.requestActions.add("my-plugin", {
+window.Potato.chat.requestActions.add("my-plugin", {
   id: "my-plugin.edit",
   icon: <span>✏️</span>,
   onClick: ({ data }) => console.log("Edit:", data),
@@ -544,7 +544,7 @@ window.QwenPaw.chat.requestActions.add("my-plugin", {
 Use `chat.requestPayload.add` to modify the outgoing chat request body before the Console sends it to the backend. Transforms run in ascending `order` and receive the current payload plus the resolved `sessionId` and `selectedAgent`.
 
 ```ts
-window.QwenPaw.chat.requestPayload.add(
+window.Potato.chat.requestPayload.add(
   "my-plugin",
   ({ payload, sessionId, selectedAgent }) => ({
     ...payload,
@@ -565,18 +565,18 @@ The transform may return a new object to replace the payload. Returning `undefin
 ```tsx
 // Set the default assistant response avatar and nickname
 // This currently reuses welcome.avatar / welcome.nick because the default ResponseCard reads those fields
-window.QwenPaw.chat.response.set("my-plugin", {
+window.Potato.chat.response.set("my-plugin", {
   avatar: "https://example.com/bot-avatar.png",
   nick: "My Bot",
 });
 
 // Prepend content before user messages
-window.QwenPaw.chat.request.prepend("my-plugin", ({ data }) => {
+window.Potato.chat.request.prepend("my-plugin", ({ data }) => {
   return <div style={{ fontSize: 10, color: "#999" }}>User</div>;
 });
 
 // Append an info bar below the latest AI response
-window.QwenPaw.chat.response.append("my-plugin", ({ data, isLast }) => {
+window.Potato.chat.response.append("my-plugin", ({ data, isLast }) => {
   if (!isLast) return null;
   return (
     <div
@@ -593,7 +593,7 @@ window.QwenPaw.chat.response.append("my-plugin", ({ data, isLast }) => {
 });
 
 // Fully replace user message rendering (call fallback() to keep defaults)
-window.QwenPaw.chat.request.render("my-plugin", ({ data, fallback }) => {
+window.Potato.chat.request.render("my-plugin", ({ data, fallback }) => {
   return (
     <div style={{ border: "1px dashed #ccc", borderRadius: 8, padding: 4 }}>
       {fallback()}
@@ -606,7 +606,7 @@ window.QwenPaw.chat.request.render("my-plugin", ({ data, fallback }) => {
 
 ```tsx
 // Register a custom tool result renderer (props include result, sessionId, messageId)
-window.QwenPaw.chat.toolRender("my-plugin", "get_weather", ({ result }) => {
+window.Potato.chat.toolRender("my-plugin", "get_weather", ({ result }) => {
   const data = typeof result === "string" ? JSON.parse(result) : result;
   return (
     <div style={{ padding: 12, border: "1px solid #e8e8e8", borderRadius: 8 }}>
@@ -619,17 +619,17 @@ window.QwenPaw.chat.toolRender("my-plugin", "get_weather", ({ result }) => {
 ### Custom Cards — `chat.card`
 
 ```ts
-window.QwenPaw.chat.card("my-plugin", "my-card", MyCardComponent);
+window.Potato.chat.card("my-plugin", "my-card", MyCardComponent);
 ```
 
 ### Audit & Debugging
 
 ```ts
 // View extension registration records
-console.table(window.QwenPaw.audit.overrides());
+console.table(window.Potato.audit.overrides());
 
 // Remove all Chat extension registrations for a plugin
-window.QwenPaw.chat.disposeAll("my-plugin");
+window.Potato.chat.disposeAll("my-plugin");
 ```
 
 ### Internationalization
@@ -637,7 +637,7 @@ window.QwenPaw.chat.disposeAll("my-plugin");
 All fields that support the `Localized<T>` type accept a function that returns different values per locale:
 
 ```ts
-window.QwenPaw.chat.welcome.set("my-plugin", {
+window.Potato.chat.welcome.set("my-plugin", {
   greeting: (locale) => (locale.startsWith("zh") ? "Hello!" : "Hello!"),
 });
 ```
@@ -677,7 +677,7 @@ cd my-llm-provider
     "backend": "plugin.py"
   },
   "dependencies": ["httpx>=0.24.0"],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.0.0",
     "max": "2.1.0"
   },
@@ -694,8 +694,8 @@ cd my-llm-provider
 # -*- coding: utf-8 -*-
 """My LLM Provider Implementation."""
 
-from qwenpaw.providers.openai_provider import OpenAIProvider
-from qwenpaw.providers.provider import ModelInfo
+from potato.providers.openai_provider import OpenAIProvider
+from potato.providers.provider import ModelInfo
 from typing import List
 
 
@@ -737,7 +737,7 @@ import importlib.util
 import logging
 import os
 
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 logger = logging.getLogger(__name__)
 
@@ -784,15 +784,15 @@ plugin = MyLLMProviderPlugin()
 
 ```bash
 # Install plugin
-qwenpaw plugin install my-llm-provider
+potato plugin install my-llm-provider
 
-# Start QwenPaw
-qwenpaw app
+# Start Potato
+potato app
 ```
 
 ### Example 2: Add Startup Hook
 
-Let's say you want to initialize a monitoring service when QwenPaw starts.
+Let's say you want to initialize a monitoring service when Potato starts.
 
 #### 1. Create Plugin
 
@@ -815,7 +815,7 @@ cd monitoring-hook
     "backend": "plugin.py"
   },
   "dependencies": [],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.0.0",
     "max": "2.1.0"
   }
@@ -828,7 +828,7 @@ cd monitoring-hook
 # -*- coding: utf-8 -*-
 """Monitoring Hook Plugin Entry Point."""
 
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 import logging
 
 logger = logging.getLogger(__name__)
@@ -852,7 +852,7 @@ class MonitoringHookPlugin:
 
                 # Initialize your monitoring service
                 # from my_monitoring import init_monitoring
-                # init_monitoring(app_name="QwenPaw")
+                # init_monitoring(app_name="Potato")
 
                 logger.info("✓ Monitoring initialized successfully")
 
@@ -879,8 +879,8 @@ plugin = MonitoringHookPlugin()
 #### 4. Install
 
 ```bash
-qwenpaw plugin install monitoring-hook
-qwenpaw app
+potato plugin install monitoring-hook
+potato app
 ```
 
 ### Example 3: Add Custom Command
@@ -908,7 +908,7 @@ cd status-command
     "backend": "plugin.py"
   },
   "dependencies": [],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.0.0",
     "max": "2.1.0"
   }
@@ -923,7 +923,7 @@ cd status-command
 
 import logging
 
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 logger = logging.getLogger(__name__)
 
@@ -933,7 +933,7 @@ class StatusCommandPlugin:
 
     def register(self, api: PluginApi):
         """Register the status command."""
-        from qwenpaw.runtime.commands.control.base import (
+        from potato.runtime.commands.control.base import (
             BaseControlCommandHandler,
         )
 
@@ -963,8 +963,8 @@ plugin = StatusCommandPlugin()
 #### 4. Install and Use
 
 ```bash
-qwenpaw plugin install status-command
-qwenpaw app
+potato plugin install status-command
+potato app
 
 # Use the command
 /status
@@ -991,12 +991,12 @@ Add a welcome page to the sidebar. Build toolchain files (`package.json`, `tscon
 **src/index.tsx**:
 
 ```tsx
-const { React, antd } = window.QwenPaw.host;
+const { React, antd } = window.Potato.host;
 const { Typography, Card } = antd;
 const pluginId = "welcome-plugin";
 
 const WelcomePage = () => {
-  const theme = window.QwenPaw.host.useTheme();
+  const theme = window.Potato.host.useTheme();
   return (
     <Card
       style={{
@@ -1005,20 +1005,20 @@ const WelcomePage = () => {
         background: theme === "dark" ? "#1f1f1f" : "#fff",
       }}
     >
-      <Typography.Title level={2}>Welcome to QwenPaw</Typography.Title>
+      <Typography.Title level={2}>Welcome to Potato</Typography.Title>
       <Typography.Paragraph>Plugin system is working!</Typography.Paragraph>
     </Card>
   );
 };
 
-window.QwenPaw.menu.add(pluginId, {
+window.Potato.menu.add(pluginId, {
   id: "welcome-plugin.home",
   label: "Welcome",
   icon: "spark-home-line",
   route: "welcome-plugin.home",
 });
 
-window.QwenPaw.route.add(pluginId, {
+window.Potato.route.add(pluginId, {
   id: "welcome-plugin.home",
   path: "/welcome-plugin/home",
   component: WelcomePage,
@@ -1027,8 +1027,8 @@ window.QwenPaw.route.add(pluginId, {
 
 ```bash
 npm install && npm run build
-cp -r . ~/.qwenpaw/plugins/welcome-plugin/
-qwenpaw app
+cp -r . ~/.potato/plugins/welcome-plugin/
+potato app
 ```
 
 ### Example 5: Custom Tool-Call Renderer
@@ -1038,11 +1038,11 @@ Customize how Agent tool-call results are displayed. Project structure follows E
 **src/index.tsx**:
 
 ```tsx
-const { React, antd } = window.QwenPaw.host;
+const { React, antd } = window.Potato.host;
 const { Card, Descriptions } = antd;
 const pluginId = "tool-render-plugin";
 
-window.QwenPaw.chat.toolRender(pluginId, "get_weather", ({ result }) => {
+window.Potato.chat.toolRender(pluginId, "get_weather", ({ result }) => {
   const data = typeof result === "string" ? JSON.parse(result) : result;
   return (
     <Card
@@ -1071,11 +1071,11 @@ Customize the chat page greeting, description, and suggested prompts. Project st
 ```tsx
 const pluginId = "custom-greeting-plugin";
 
-window.QwenPaw.chat.welcome.set(pluginId, {
+window.Potato.chat.welcome.set(pluginId, {
   greeting: (locale) =>
     locale.startsWith("zh")
-      ? "Hello! I'm customized QwenPaw"
-      : "Hello! I'm customized QwenPaw",
+      ? "Hello! I'm customized Potato"
+      : "Hello! I'm customized Potato",
   description: "This is a customized chat assistant",
   prompts: [
     { label: "Analyze code", value: "Help me analyze this code" },
@@ -1089,7 +1089,7 @@ window.QwenPaw.chat.welcome.set(pluginId, {
 
 Backend plugins can expose their own HTTP endpoints by registering a
 `fastapi.APIRouter`. The router is mounted under `/api` + your prefix
-and is served by the same FastAPI app as QwenPaw's core API, so it
+and is served by the same FastAPI app as Potato's core API, so it
 shares CORS settings, the auth layer, and is included in
 `/openapi.json` / `/docs`.
 
@@ -1116,7 +1116,7 @@ mkdir pet-api-plugin && cd pet-api-plugin
     "backend": "plugin.py"
   },
   "dependencies": [],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.1.5",
     "max": "2.1.0"
   }
@@ -1135,7 +1135,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 logger = logging.getLogger(__name__)
 
@@ -1221,10 +1221,10 @@ plugin = PetApiPlugin()
 #### 4. Install and try it out
 
 ```bash
-qwenpaw plugin install pet-api-plugin
+potato plugin install pet-api-plugin
 ```
 
-Once QwenPaw is running:
+Once Potato is running:
 
 ```bash
 # List pets
@@ -1253,7 +1253,7 @@ curl -X POST http://127.0.0.1:8088/api/pets \
 
 ### Example 8: Tracing Middleware (Tool Call Tracing)
 
-This example demonstrates how to register an `on_acting` middleware that logs every tool call with timing information when the `QWENPAW_TRACE` environment variable is set.
+This example demonstrates how to register an `on_acting` middleware that logs every tool call with timing information when the `POTATO_TRACE` environment variable is set.
 
 **plugin.json:**
 
@@ -1263,13 +1263,13 @@ This example demonstrates how to register an `on_acting` middleware that logs ev
   "name": "Tracing Middleware Demo",
   "version": "1.0.0",
   "description": "Demo: logs tool calls with execution timing to a trace file",
-  "author": "QwenPaw Team",
+  "author": "Potato Team",
   "type": "general",
   "entry": {
     "backend": "tracing_plugin.py"
   },
   "dependencies": [],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.0.0",
     "max": "2.1.0"
   }
@@ -1285,7 +1285,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
 from agentscope.middleware import MiddlewareBase
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 
 class TracingMiddleware(MiddlewareBase):
@@ -1317,13 +1317,13 @@ class TracingMiddleware(MiddlewareBase):
 
 
 def _tracing_factory(ctx: Any, agent_config: Any) -> TracingMiddleware | None:
-    """Create TracingMiddleware when QWENPAW_TRACE env var is set."""
-    if not os.environ.get("QWENPAW_TRACE"):
+    """Create TracingMiddleware when POTATO_TRACE env var is set."""
+    if not os.environ.get("POTATO_TRACE"):
         return None
     workspace_dir = getattr(ctx, "workspace_dir", None)
     if workspace_dir is None:
         return None
-    trace_file = Path(workspace_dir) / ".qwenpaw" / "trace.log"
+    trace_file = Path(workspace_dir) / ".potato" / "trace.log"
     return TracingMiddleware(trace_file=trace_file)
 
 
@@ -1337,7 +1337,7 @@ plugin = TracingPlugin()
 
 **Key points:**
 
-- **Conditional activation**: The factory checks the `QWENPAW_TRACE` environment variable and only activates when set
+- **Conditional activation**: The factory checks the `POTATO_TRACE` environment variable and only activates when set
 - **`priority=50`**: Higher priority (lower number = outermost in onion), ensuring tracing wraps other middlewares
 - **`on_acting` hook**: Measures execution time before/after tool calls
 - Full source: `plugins/middleware-demo/tracing-middleware/tracing_plugin.py`
@@ -1356,13 +1356,13 @@ This example demonstrates how to register an `on_reasoning` middleware that capt
   "name": "Thinking Log Middleware Demo",
   "version": "1.0.0",
   "description": "Demo: prints model reasoning steps to stdout",
-  "author": "QwenPaw Team",
+  "author": "Potato Team",
   "type": "general",
   "entry": {
     "backend": "thinking_log_plugin.py"
   },
   "dependencies": [],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.0.0",
     "max": "2.1.0"
   }
@@ -1377,7 +1377,7 @@ from typing import Any, AsyncGenerator, Callable
 
 from agentscope.middleware import MiddlewareBase
 from agentscope.event import ThinkingBlockDeltaEvent, TextBlockDeltaEvent
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 
 class ThinkingLogMiddleware(MiddlewareBase):
@@ -1421,7 +1421,7 @@ plugin = ThinkingLogPlugin()
 
 ### Example 10: Register a Custom Channel
 
-Channel plugins let you add new messaging platforms to QwenPaw. The channel
+Channel plugins let you add new messaging platforms to Potato. The channel
 appears in the Console UI alongside built-in channels (DingTalk, Telegram,
 etc.) and can be configured, enabled, and disabled the same way.
 
@@ -1439,13 +1439,13 @@ mkdir sample-channel-plugin && cd sample-channel-plugin
   "name": "Sample Channel",
   "version": "1.0.0",
   "type": "channel",
-  "description": "Sample messaging channel integration for QwenPaw",
+  "description": "Sample messaging channel integration for Potato",
   "author": "Your Name",
   "entry": {
     "backend": "plugin.py"
   },
   "dependencies": ["sample-sdk>=1.0.0"],
-  "qwenpaw_version": {
+  "potato_version": {
     "min": "1.1.5",
     "max": "2.1.0"
   }
@@ -1472,12 +1472,12 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from qwenpaw.app.channels.base import (
+from potato.app.channels.base import (
     BaseChannel,
     OnReplySent,
     ProcessHandler,
 )
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 logger = logging.getLogger(__name__)
 
@@ -1563,7 +1563,7 @@ class SampleChannel(BaseChannel):
 """Sample Channel Plugin Entry Point."""
 
 import logging
-from qwenpaw.plugins.api import PluginApi
+from potato.plugins.api import PluginApi
 
 logger = logging.getLogger(__name__)
 
@@ -1621,8 +1621,8 @@ plugin = SampleChannelPlugin()
 #### 5. Install and Use
 
 ```bash
-qwenpaw plugin install sample-channel-plugin
-qwenpaw app
+potato plugin install sample-channel-plugin
+potato app
 ```
 
 After starting, go to **Control → Channels** in the Console. The sample
@@ -1781,18 +1781,18 @@ api.register_startup_hook("late", callback, priority=200)
 1. Check if plugin is installed:
 
    ```bash
-   qwenpaw plugin list
+   potato plugin list
    ```
 
-2. View QwenPaw logs:
+2. View Potato logs:
 
    ```bash
-   tail -f ~/.qwenpaw/logs/qwenpaw.log | grep -i plugin
+   tail -f ~/.potato/logs/potato.log | grep -i plugin
    ```
 
 3. Verify plugin manifest format:
    ```bash
-   qwenpaw plugin info <plugin-id>
+   potato plugin info <plugin-id>
    ```
 
 ### Dependency Installation Failed
@@ -1806,7 +1806,7 @@ api.register_startup_hook("late", callback, priority=200)
 
 ### Provider Not Showing
 
-1. Confirm plugin is installed and restart QwenPaw
+1. Confirm plugin is installed and restart Potato
 2. Check the model management page in Web UI
 3. Review provider registration info in logs
 
@@ -1818,7 +1818,7 @@ api.register_startup_hook("late", callback, priority=200)
 
 ## Security Considerations
 
-1. **Only install trusted plugins**: Plugin code executes in the QwenPaw process
+1. **Only install trusted plugins**: Plugin code executes in the Potato process
 2. **Check dependencies**: Ensure plugin dependencies come from trusted sources
 3. **Review code**: Review plugin source code before installation
 4. **Hot-loading awareness**: The current version supports hot-installing/uninstalling plugins via API while the app is running. Be mindful of state consistency during hot-loading
@@ -1890,7 +1890,7 @@ api.register_control_command(
 )
 ```
 
-The handler must inherit from `qwenpaw.runtime.commands.control.base.BaseControlCommandHandler` and implement `command_name`, `help_text`, and `async handle(self, ctx, args)`.
+The handler must inherit from `potato.runtime.commands.control.base.BaseControlCommandHandler` and implement `command_name`, `help_text`, and `async handle(self, ctx, args)`.
 
 ### register_tool
 
@@ -1978,7 +1978,7 @@ The current request flow is `Runtime.run()` → `AgentBuilder.build()` → `Agen
 In 2.0, the recommended way to add custom `/slash` commands is via `api.register_control_command()`. This replaces the old monkey patching approach:
 
 ```python
-from qwenpaw.runtime.commands.control.base import BaseControlCommandHandler
+from potato.runtime.commands.control.base import BaseControlCommandHandler
 
 class MyCommandHandler(BaseControlCommandHandler):
     command_name = "mycommand"
@@ -2023,12 +2023,12 @@ zip -r my-plugin-1.0.0.zip my-plugin/
 Users can install via URL:
 
 ```bash
-qwenpaw plugin install https://example.com/my-plugin-1.0.0.zip
+potato plugin install https://example.com/my-plugin-1.0.0.zip
 ```
 
 ## FAQ
 
-### Q: What QwenPaw APIs can plugins access?
+### Q: What Potato APIs can plugins access?
 
 A: Plugins access core functionality through `PluginApi`, including:
 
@@ -2039,7 +2039,7 @@ A: Plugins access core functionality through `PluginApi`, including:
 - HTTP router registration (`register_http_router`)
 - Runtime helpers (provider_manager, etc.)
 
-### Q: Can plugins modify QwenPaw's core behavior?
+### Q: Can plugins modify Potato's core behavior?
 
 A: Yes, through `register_middleware` (inject AgentScope middlewares), `register_control_command`, `register_tool`, runtime hooks, and other PluginApi methods. Use with caution to avoid breaking core functionality.
 
@@ -2051,26 +2051,26 @@ A: If multiple plugins register the same provider_id or command_name, the later 
 
 ### GPT Image 2 Tool Plugin
 
-A tool plugin that adds OpenAI's GPT Image 2 image generation capability to QwenPaw agents.
+A tool plugin that adds OpenAI's GPT Image 2 image generation capability to Potato agents.
 
 **Requirements:**
 
-- Minimum QwenPaw version: `1.1.5`
+- Minimum Potato version: `1.1.5`
 
 **Installation:**
 
 ```bash
-# Clone the QwenPaw repository (if not already cloned)
-git clone https://github.com/agentscope-ai/QwenPaw.git
-cd QwenPaw
+# Clone the Potato repository (if not already cloned)
+git clone https://github.com/fly-go-run/Potato.git
+cd Potato
 
 # Install the plugin
-qwenpaw plugin install plugins/tool/gpt-image2
+potato plugin install plugins/tool/gpt-image2
 ```
 
 **Configuration:**
 
-1. After installation, restart QwenPaw
+1. After installation, restart Potato
 2. Go to Agent Settings → Tools
 3. Find "generate_image_gpt" tool
 4. Click "Configure" and enter your OpenAI API Key

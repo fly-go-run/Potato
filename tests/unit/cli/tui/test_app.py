@@ -15,8 +15,8 @@ import pytest
 
 from textual.widgets import ListView
 
-from qwenpaw.cli.tui.app import PawApp
-from qwenpaw.cli.tui.events import (
+from potato.cli.tui.app import PawApp
+from potato.cli.tui.events import (
     AvailableCommands,
     BackendWarmed,
     Connected,
@@ -34,7 +34,7 @@ from qwenpaw.cli.tui.events import (
     TurnEnded,
     UserTurn,
 )
-from qwenpaw.cli.tui.widgets import (
+from potato.cli.tui.widgets import (
     ActivityLine,
     AgentLabel,
     AssistantMessage,
@@ -77,13 +77,13 @@ class FakeTransport:
             return Connected(
                 session_id=self._resume_session_id,
                 agent="default",
-                qwenpaw_version="9.8.7",
+                potato_version="9.8.7",
             )
         return Connected(
             session_id="sess-abc",
             agent="default",
             model="qwen-max",
-            qwenpaw_version="9.8.7",
+            potato_version="9.8.7",
         )
 
     async def send(self, text: str) -> None:
@@ -166,7 +166,7 @@ class WarmingTransport(FakeTransport):
             session_id=connected.session_id,
             agent=connected.agent,
             model=connected.model,
-            qwenpaw_version=connected.qwenpaw_version,
+            potato_version=connected.potato_version,
             warming=True,
         )
 
@@ -543,7 +543,7 @@ async def test_inspection_mode_expands_finished_tool_panels():
                 kind="read",
                 status="completed",
                 params="path: README.md",
-                output="# QwenPaw",
+                output="# Potato",
             ),
         )
         await pilot.pause()
@@ -994,7 +994,7 @@ async def test_slash_command_suggests_theme_arguments():
 
 
 @pytest.mark.asyncio
-async def test_welcome_message_mounts_with_qwenpaw_greeting():
+async def test_welcome_message_mounts_with_potato_greeting():
     transport = FakeTransport()
     app = PawApp(transport)
     async with app.run_test() as pilot:
@@ -1004,13 +1004,13 @@ async def test_welcome_message_mounts_with_qwenpaw_greeting():
         assert "█" in plain
         assert "▀" not in plain
         assert plain.count("█") > 150
-        assert "QwenPaw 9.8.7" not in plain
+        assert "Potato 9.8.7" not in plain
         assert "works for you" not in plain
         assert "/theme" not in plain
         assert len(plain.splitlines()) >= 6
         status = app.query_one(StatusBar).summary
-        assert "QwenPaw 9.8.7" in status
-        # The TUI version is no longer shown — only QwenPaw's.
+        assert "Potato 9.8.7" in status
+        # The TUI version is no longer shown — only Potato's.
         assert "TUI" not in status
 
 
@@ -1380,11 +1380,11 @@ async def test_terminal_title_uses_session_then_title():
         app._set_terminal_title = lambda t: titles.append(t)  # type: ignore
 
         app._on_connected(Connected(session_id="abcd1234ef", agent="a"))
-        assert titles[-1] == "QwenPaw abcd1234"
+        assert titles[-1] == "Potato abcd1234"
 
         await app._dispatch(SessionTitle("Fix the parser"))
         await pilot.pause()
-        assert titles[-1] == "QwenPaw Fix the parser"
+        assert titles[-1] == "Potato Fix the parser"
 
 
 @pytest.mark.asyncio
@@ -1393,7 +1393,7 @@ async def test_single_agent_label_per_turn_above_thinking():
     app = PawApp(transport)
     async with app.run_test() as pilot:
         await pilot.pause()
-        # thinking → tool → answer: exactly one "qwenpaw" label, and it sits
+        # thinking → tool → answer: exactly one "potato" label, and it sits
         # above the first activity (the thinking lane).
         await app._dispatch(ThoughtDelta("hmm"))
         await app._dispatch(
@@ -1404,7 +1404,7 @@ async def test_single_agent_label_per_turn_above_thinking():
 
         labels = list(app.query(AgentLabel))
         assert len(labels) == 1
-        assert labels[0].content.plain == "qwenpaw"
+        assert labels[0].content.plain == "potato"
 
         transcript = app.query_one("#transcript")
         types = [
@@ -1652,7 +1652,7 @@ async def test_multiline_prompt_sends_full_text():
 
 @pytest.mark.asyncio
 async def test_model_command_is_forwarded_to_agent():
-    """paw no longer manages models — /model is QwenPaw's, so forwarded."""
+    """paw no longer manages models — /model is Potato's, so forwarded."""
     transport = QuietTransport()
     app = PawApp(transport)
     async with app.run_test() as pilot:

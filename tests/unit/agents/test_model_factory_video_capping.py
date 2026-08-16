@@ -12,7 +12,7 @@ shapes, for both wire formats.
 # pylint: disable=protected-access
 from agentscope.message import DataBlock, URLSource
 
-from qwenpaw.agents.model_factory import (
+from potato.agents.model_factory import (
     MAX_INLINE_MEDIA_BYTES,
     _format_anthropic_video_data_block,
     _format_openai_video_block,

@@ -6,7 +6,7 @@ from pathlib import PureWindowsPath
 
 import pytest
 
-from qwenpaw.security.tool_guard.safety_checks import (
+from potato.security.tool_guard.safety_checks import (
     _is_posix_abs_token_catastrophic,
     _is_resolved_path_catastrophic,
     classify_destructive_command,
@@ -134,9 +134,9 @@ class TestIsCommandDestructive:  # pylint: disable=too-many-public-methods
             "rm -rf /homeless",
             # Home *workspace* absolute paths must not be shared-catastrophic
             # (default auto-deny would hard-reject normal cleanups).
-            "rm -rf /Users/alice/AgentScope/QwenPaw/build",
+            "rm -rf /Users/alice/AgentScope/Potato/build",
             "rm -rf /home/alice/project/dist",
-            "rm -rf /Users/alice/.qwenpaw/build",
+            "rm -rf /Users/alice/.potato/build",
             "rm -rf ~/project",
             "rm -rf ~/project/build",
             "rm -rf ~/project/./*",
@@ -292,7 +292,7 @@ class TestIsCommandDestructive:  # pylint: disable=too-many-public-methods
         assert (
             is_command_catastrophic(
                 "rm -rf ../*",
-                cwd=os.path.join("/tmp", "qwenpaw-b1-ws"),
+                cwd=os.path.join("/tmp", "potato-b1-ws"),
             )
             is False
         )
@@ -402,7 +402,7 @@ class TestIsCommandDestructive:  # pylint: disable=too-many-public-methods
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Host resolve remapping ``/etc`` to ``C:/etc`` must still deny."""
-        import qwenpaw.security.tool_guard.safety_checks as sc
+        import potato.security.tool_guard.safety_checks as sc
 
         monkeypatch.setattr(
             sc,
@@ -466,7 +466,7 @@ class TestIsCommandDestructive:  # pylint: disable=too-many-public-methods
         )
         assert (
             is_command_catastrophic(
-                'rm -rf "/Volumes/My Disk/AgentScope/QwenPaw/dist"',
+                'rm -rf "/Volumes/My Disk/AgentScope/Potato/dist"',
             )
             is False
         )

@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 from agentscope.event import CustomEvent
 
-from qwenpaw.runtime.envelope import Envelope
+from potato.runtime.envelope import Envelope
 
 
 async def _dump(stream):

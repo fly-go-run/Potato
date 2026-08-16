@@ -8,7 +8,7 @@ into the agent's reasoning loop.
 
 | Plugin | Hook | Behavior |
 |--------|------|----------|
-| `tracing-middleware` | `on_acting` | Logs every tool call (name, duration) to a file. Conditionally activated only when `QWENPAW_TRACE` env var is set. |
+| `tracing-middleware` | `on_acting` | Logs every tool call (name, duration) to a file. Conditionally activated only when `POTATO_TRACE` env var is set. |
 | `thinking-log-middleware` | `on_reasoning` | Prints model reasoning stream events to stdout (`[THINKING]` for chain-of-thought, `[TEXT]` for text responses). Always active. |
 
 ## Installation
@@ -16,20 +16,20 @@ into the agent's reasoning loop.
 These plugins are **not** auto-loaded. Install them explicitly:
 
 ```bash
-# While QwenPaw is running (hot-load, no restart needed):
-qwenpaw plugin install plugins/middleware-demo/tracing-middleware
-qwenpaw plugin install plugins/middleware-demo/thinking-log-middleware
+# While Potato is running (hot-load, no restart needed):
+potato plugin install plugins/middleware-demo/tracing-middleware
+potato plugin install plugins/middleware-demo/thinking-log-middleware
 
-# Or when QwenPaw is stopped (loaded on next start):
-qwenpaw plugin install plugins/middleware-demo/tracing-middleware
-qwenpaw plugin install plugins/middleware-demo/thinking-log-middleware
+# Or when Potato is stopped (loaded on next start):
+potato plugin install plugins/middleware-demo/tracing-middleware
+potato plugin install plugins/middleware-demo/thinking-log-middleware
 ```
 
 ## Uninstall
 
 ```bash
-qwenpaw plugin uninstall middleware-demo-tracing
-qwenpaw plugin uninstall middleware-demo-thinking-log
+potato plugin uninstall middleware-demo-tracing
+potato plugin uninstall middleware-demo-thinking-log
 ```
 
 ## How It Works

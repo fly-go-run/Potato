@@ -5,12 +5,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from qwenpaw.app.approvals.service import ApprovalService
-from qwenpaw.runtime.commands.control.approval_handler import (
+from potato.app.approvals.service import ApprovalService
+from potato.runtime.commands.control.approval_handler import (
     ApprovalCommandHandler,
 )
-from qwenpaw.runtime.commands.control.base import ControlContext
-from qwenpaw.security.tool_guard.models import (
+from potato.runtime.commands.control.base import ControlContext
+from potato.security.tool_guard.models import (
     GuardFinding,
     GuardSeverity,
     GuardThreatCategory,
@@ -75,7 +75,7 @@ async def test_approve_without_id_only_falls_back_to_spawned_child(
         extra={"_spawn_subagent": True},
     )
     monkeypatch.setattr(
-        "qwenpaw.runtime.commands.control.approval_handler."
+        "potato.runtime.commands.control.approval_handler."
         "get_approval_service",
         lambda: svc,
     )

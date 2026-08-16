@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from pathlib import Path
 
-from qwenpaw.utils import console_static
+from potato.utils import console_static
 
 
 def _write_index(directory: Path) -> None:
@@ -12,7 +12,7 @@ def _write_index(directory: Path) -> None:
 def test_default_static_candidates_prefer_app_before_legacy_console(
     tmp_path: Path,
 ) -> None:
-    package_dir = tmp_path / "site-packages" / "qwenpaw"
+    package_dir = tmp_path / "site-packages" / "potato"
     repo_dir = tmp_path / "repo"
     cwd = tmp_path / "cwd"
 

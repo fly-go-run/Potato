@@ -18,9 +18,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
-from qwenpaw.schemas import (
+from potato.schemas import (
     AudioContent,
     ContentType,
     FileContent,
@@ -128,7 +128,7 @@ def slack_channel_disabled(
     mock_process,
 ) -> Generator:
     """Create a disabled SlackChannel for testing."""
-    from qwenpaw.app.channels.slack.channel import SlackChannel
+    from potato.app.channels.slack.channel import SlackChannel
 
     yield SlackChannel(
         process=mock_process,
@@ -148,7 +148,7 @@ def slack_channel(
     mock_slack_client,
 ) -> Generator:
     """Create a SlackChannel for testing."""
-    from qwenpaw.app.channels.slack.channel import SlackChannel
+    from potato.app.channels.slack.channel import SlackChannel
 
     channel = SlackChannel(
         process=mock_process,
@@ -177,7 +177,7 @@ def slack_event_handler(
     mock_enqueue,
 ) -> Generator:
     """Create a SlackEventHandler with mocked dependencies."""
-    from qwenpaw.app.channels.slack.handler import SlackEventHandler
+    from potato.app.channels.slack.handler import SlackEventHandler
 
     handler = SlackEventHandler(
         channel=slack_channel,
@@ -198,26 +198,26 @@ class TestSlackConstants:
     """Tests for slack/constants.py."""
 
     def test_slack_text_limit(self):
-        from qwenpaw.app.channels.slack.constants import SLACK_TEXT_LIMIT
+        from potato.app.channels.slack.constants import SLACK_TEXT_LIMIT
 
         assert SLACK_TEXT_LIMIT == 30000
 
     def test_slack_dedup_window_seconds(self):
-        from qwenpaw.app.channels.slack.constants import (
+        from potato.app.channels.slack.constants import (
             SLACK_DEDUP_WINDOW_SECONDS,
         )
 
         assert SLACK_DEDUP_WINDOW_SECONDS == 300
 
     def test_slack_dedup_max_entries(self):
-        from qwenpaw.app.channels.slack.constants import (
+        from potato.app.channels.slack.constants import (
             SLACK_DEDUP_MAX_ENTRIES,
         )
 
         assert SLACK_DEDUP_MAX_ENTRIES == 10000
 
     def test_slack_ssrf_allowed_suffixes(self):
-        from qwenpaw.app.channels.slack.constants import (
+        from potato.app.channels.slack.constants import (
             SLACK_SSRF_ALLOWED_SUFFIXES,
         )
 
@@ -226,29 +226,29 @@ class TestSlackConstants:
         assert ".slack-files.com" in SLACK_SSRF_ALLOWED_SUFFIXES
 
     def test_slack_reconnect_initial(self):
-        from qwenpaw.app.channels.slack.constants import (
+        from potato.app.channels.slack.constants import (
             SLACK_RECONNECT_INITIAL_S,
         )
 
         assert SLACK_RECONNECT_INITIAL_S == 2.0
 
     def test_slack_reconnect_max(self):
-        from qwenpaw.app.channels.slack.constants import SLACK_RECONNECT_MAX_S
+        from potato.app.channels.slack.constants import SLACK_RECONNECT_MAX_S
 
         assert SLACK_RECONNECT_MAX_S == 30.0
 
     def test_slack_reconnect_factor(self):
-        from qwenpaw.app.channels.slack.constants import SLACK_RECONNECT_FACTOR
+        from potato.app.channels.slack.constants import SLACK_RECONNECT_FACTOR
 
         assert SLACK_RECONNECT_FACTOR == 1.8
 
     def test_slack_reconnect_jitter(self):
-        from qwenpaw.app.channels.slack.constants import SLACK_RECONNECT_JITTER
+        from potato.app.channels.slack.constants import SLACK_RECONNECT_JITTER
 
         assert SLACK_RECONNECT_JITTER == 0.25
 
     def test_slack_reconnect_max_attempts(self):
-        from qwenpaw.app.channels.slack.constants import (
+        from potato.app.channels.slack.constants import (
             SLACK_RECONNECT_MAX_ATTEMPTS,
         )
 
@@ -262,7 +262,7 @@ class TestSlackConstants:
 
 class TestGenerateSessionId:
     def test_thread_session_id(self):
-        from qwenpaw.app.channels.slack.utils import generate_session_id
+        from potato.app.channels.slack.utils import generate_session_id
 
         sid = generate_session_id(
             channel_id="C123",
@@ -271,7 +271,7 @@ class TestGenerateSessionId:
         assert sid == "slack:thread:C123:1234567890.123456"
 
     def test_dm_session_id(self):
-        from qwenpaw.app.channels.slack.utils import generate_session_id
+        from potato.app.channels.slack.utils import generate_session_id
 
         sid = generate_session_id(
             channel_id="D456",
@@ -281,13 +281,13 @@ class TestGenerateSessionId:
         assert sid == "slack:dm:U789"
 
     def test_channel_session_id(self):
-        from qwenpaw.app.channels.slack.utils import generate_session_id
+        from potato.app.channels.slack.utils import generate_session_id
 
         sid = generate_session_id(channel_id="C123")
         assert sid == "slack:ch:C123"
 
     def test_thread_takes_precedence_over_dm(self):
-        from qwenpaw.app.channels.slack.utils import generate_session_id
+        from potato.app.channels.slack.utils import generate_session_id
 
         sid = generate_session_id(
             channel_id="D456",
@@ -298,7 +298,7 @@ class TestGenerateSessionId:
         assert sid == "slack:thread:D456:1234567890.123456"
 
     def test_empty_all(self):
-        from qwenpaw.app.channels.slack.utils import generate_session_id
+        from potato.app.channels.slack.utils import generate_session_id
 
         sid = generate_session_id()
         assert sid == "slack:ch:"
@@ -306,7 +306,7 @@ class TestGenerateSessionId:
 
 class TestBuildDedupKey:
     def test_uses_event_id_when_present(self):
-        from qwenpaw.app.channels.slack.utils import build_dedup_key
+        from potato.app.channels.slack.utils import build_dedup_key
 
         key = build_dedup_key(
             {"event_id": "Ev123", "channel": "C01", "ts": "1.0"},
@@ -314,13 +314,13 @@ class TestBuildDedupKey:
         assert key == "event:Ev123"
 
     def test_falls_back_to_channel_ts(self):
-        from qwenpaw.app.channels.slack.utils import build_dedup_key
+        from potato.app.channels.slack.utils import build_dedup_key
 
         key = build_dedup_key({"channel": "C01", "ts": "1234567890.123"})
         assert key == "msg:C01:1234567890.123"
 
     def test_empty_event(self):
-        from qwenpaw.app.channels.slack.utils import build_dedup_key
+        from potato.app.channels.slack.utils import build_dedup_key
 
         key = build_dedup_key({})
         assert key == "msg::"
@@ -328,22 +328,22 @@ class TestBuildDedupKey:
 
 class TestDetectFileType:
     def test_png(self):
-        from qwenpaw.app.channels.slack.utils import detect_file_type
+        from potato.app.channels.slack.utils import detect_file_type
 
         assert detect_file_type("image.png") == "image/png"
 
     def test_jpg(self):
-        from qwenpaw.app.channels.slack.utils import detect_file_type
+        from potato.app.channels.slack.utils import detect_file_type
 
         assert detect_file_type("photo.jpg") == "image/jpeg"
 
     def test_pdf(self):
-        from qwenpaw.app.channels.slack.utils import detect_file_type
+        from potato.app.channels.slack.utils import detect_file_type
 
         assert detect_file_type("doc.pdf") == "application/pdf"
 
     def test_unknown_extension(self):
-        from qwenpaw.app.channels.slack.utils import detect_file_type
+        from potato.app.channels.slack.utils import detect_file_type
 
         assert (
             detect_file_type("file.unknownext123")
@@ -353,74 +353,74 @@ class TestDetectFileType:
 
 class TestIsSlackHost:
     def test_slack_dot_com(self):
-        from qwenpaw.app.channels.slack.utils import is_slack_host
+        from potato.app.channels.slack.utils import is_slack_host
 
         assert is_slack_host("https://files.slack.com/abc") is True
 
     def test_slack_edge(self):
-        from qwenpaw.app.channels.slack.utils import is_slack_host
+        from potato.app.channels.slack.utils import is_slack_host
 
         assert is_slack_host("https://cdn.slack-edge.com/x.png") is True
 
     def test_slack_files(self):
-        from qwenpaw.app.channels.slack.utils import is_slack_host
+        from potato.app.channels.slack.utils import is_slack_host
 
         assert is_slack_host("https://download.slack-files.com/f") is True
 
     def test_external_host(self):
-        from qwenpaw.app.channels.slack.utils import is_slack_host
+        from potato.app.channels.slack.utils import is_slack_host
 
         assert is_slack_host("https://evil.example.com") is False
 
     def test_empty_url(self):
-        from qwenpaw.app.channels.slack.utils import is_slack_host
+        from potato.app.channels.slack.utils import is_slack_host
 
         assert is_slack_host("") is False
 
 
 class TestIsRetryableError:
     def test_429_is_retryable(self):
-        from qwenpaw.app.channels.slack.utils import _is_retryable_error
+        from potato.app.channels.slack.utils import _is_retryable_error
 
         exc = MagicMock()
         exc.response = MagicMock(status_code=429)
         assert _is_retryable_error(exc) is True
 
     def test_500_is_retryable(self):
-        from qwenpaw.app.channels.slack.utils import _is_retryable_error
+        from potato.app.channels.slack.utils import _is_retryable_error
 
         exc = MagicMock()
         exc.response = MagicMock(status_code=500)
         assert _is_retryable_error(exc) is True
 
     def test_503_is_retryable(self):
-        from qwenpaw.app.channels.slack.utils import _is_retryable_error
+        from potato.app.channels.slack.utils import _is_retryable_error
 
         exc = MagicMock()
         exc.response = MagicMock(status_code=503)
         assert _is_retryable_error(exc) is True
 
     def test_ratelimited_in_message(self):
-        from qwenpaw.app.channels.slack.utils import _is_retryable_error
+        from potato.app.channels.slack.utils import _is_retryable_error
 
         exc = Exception("ratelimited")
         assert _is_retryable_error(exc) is True
 
     def test_timeout_in_message(self):
-        from qwenpaw.app.channels.slack.utils import _is_retryable_error
+        from potato.app.channels.slack.utils import _is_retryable_error
 
         exc = Exception("connection timeout")
         assert _is_retryable_error(exc) is True
 
     def test_400_is_not_retryable(self):
-        from qwenpaw.app.channels.slack.utils import _is_retryable_error
+        from potato.app.channels.slack.utils import _is_retryable_error
 
         exc = MagicMock()
         exc.response = MagicMock(status_code=400)
         assert _is_retryable_error(exc) is False
 
     def test_normal_exception_not_retryable(self):
-        from qwenpaw.app.channels.slack.utils import _is_retryable_error
+        from potato.app.channels.slack.utils import _is_retryable_error
 
         exc = Exception("something went wrong")
         assert _is_retryable_error(exc) is False
@@ -429,7 +429,7 @@ class TestIsRetryableError:
 class TestWithRetry:
     @pytest.mark.asyncio
     async def test_success_first_try(self):
-        from qwenpaw.app.channels.slack.utils import with_retry
+        from potato.app.channels.slack.utils import with_retry
 
         func = AsyncMock(return_value="ok")
         result = await with_retry(func, "arg1", key="val", retries=3)
@@ -438,7 +438,7 @@ class TestWithRetry:
 
     @pytest.mark.asyncio
     async def test_retry_on_transient_failure(self):
-        from qwenpaw.app.channels.slack.utils import with_retry
+        from potato.app.channels.slack.utils import with_retry
 
         func = AsyncMock(
             side_effect=[
@@ -453,7 +453,7 @@ class TestWithRetry:
 
     @pytest.mark.asyncio
     async def test_raises_on_non_retryable(self):
-        from qwenpaw.app.channels.slack.utils import with_retry
+        from potato.app.channels.slack.utils import with_retry
 
         func = AsyncMock(side_effect=Exception("invalid_auth"))
         with pytest.raises(Exception, match="invalid_auth"):
@@ -462,7 +462,7 @@ class TestWithRetry:
 
     @pytest.mark.asyncio
     async def test_raises_after_exhausting_retries(self):
-        from qwenpaw.app.channels.slack.utils import with_retry
+        from potato.app.channels.slack.utils import with_retry
 
         func = AsyncMock(side_effect=Exception("rate_limited"))
         with pytest.raises(Exception, match="rate_limited"):
@@ -475,7 +475,7 @@ class TestProxyResolution:
         monkeypatch.delenv("HTTP_PROXY", raising=False)
         monkeypatch.delenv("HTTPS_PROXY", raising=False)
         monkeypatch.delenv("NO_PROXY", raising=False)
-        from qwenpaw.app.channels.slack.utils import _resolve_slack_proxy_url
+        from potato.app.channels.slack.utils import _resolve_slack_proxy_url
 
         url, err = _resolve_slack_proxy_url(proxy="http://proxy:8080")
         assert url == "http://proxy:8080"
@@ -484,7 +484,7 @@ class TestProxyResolution:
     def test_env_proxy(self, monkeypatch):
         monkeypatch.setenv("HTTP_PROXY", "http://env-proxy:3128")
         monkeypatch.delenv("NO_PROXY", raising=False)
-        from qwenpaw.app.channels.slack.utils import _resolve_slack_proxy_url
+        from potato.app.channels.slack.utils import _resolve_slack_proxy_url
 
         url, _ = _resolve_slack_proxy_url(proxy="")
         assert url == "http://env-proxy:3128"
@@ -492,7 +492,7 @@ class TestProxyResolution:
     def test_no_proxy_excludes_slack(self, monkeypatch):
         monkeypatch.setenv("HTTP_PROXY", "http://proxy:8080")
         monkeypatch.setenv("NO_PROXY", "slack.com")
-        from qwenpaw.app.channels.slack.utils import _resolve_slack_proxy_url
+        from potato.app.channels.slack.utils import _resolve_slack_proxy_url
 
         url, _ = _resolve_slack_proxy_url(proxy="")
         assert url is None
@@ -500,37 +500,37 @@ class TestProxyResolution:
     def test_no_proxy_wildcard(self, monkeypatch):
         monkeypatch.setenv("HTTP_PROXY", "http://proxy:8080")
         monkeypatch.setenv("NO_PROXY", "*")
-        from qwenpaw.app.channels.slack.utils import _resolve_slack_proxy_url
+        from potato.app.channels.slack.utils import _resolve_slack_proxy_url
 
         url, _ = _resolve_slack_proxy_url(proxy="")
         assert url is None
 
     def test_unsupported_scheme(self):
-        from qwenpaw.app.channels.slack.utils import _resolve_slack_proxy_url
+        from potato.app.channels.slack.utils import _resolve_slack_proxy_url
 
         url, err = _resolve_slack_proxy_url(proxy="socks5://proxy:1080")
         assert url is None
         assert err == "unsupported_proxy_scheme"
 
     def test_host_matches_no_proxy_exact(self):
-        from qwenpaw.app.channels.slack.utils import _host_matches_no_proxy
+        from potato.app.channels.slack.utils import _host_matches_no_proxy
 
         assert _host_matches_no_proxy("slack.com", ["slack.com"]) is True
 
     def test_host_matches_no_proxy_dot_prefix(self):
-        from qwenpaw.app.channels.slack.utils import _host_matches_no_proxy
+        from potato.app.channels.slack.utils import _host_matches_no_proxy
 
         assert (
             _host_matches_no_proxy("files.slack.com", [".slack.com"]) is True
         )
 
     def test_host_matches_no_proxy_parent_domain(self):
-        from qwenpaw.app.channels.slack.utils import _host_matches_no_proxy
+        from potato.app.channels.slack.utils import _host_matches_no_proxy
 
         assert _host_matches_no_proxy("files.slack.com", ["slack.com"]) is True
 
     def test_host_matches_no_proxy_no_match(self):
-        from qwenpaw.app.channels.slack.utils import _host_matches_no_proxy
+        from potato.app.channels.slack.utils import _host_matches_no_proxy
 
         assert _host_matches_no_proxy("evil.com", ["slack.com"]) is False
 
@@ -542,90 +542,90 @@ class TestProxyResolution:
 
 class TestIsSlackAngleToken:
     def test_user_mention(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<@U123>") is True
 
     def test_channel_mention(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<#C123>") is True
 
     def test_special_mention(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<!channel>") is True
 
     def test_http_link(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<https://example.com>") is True
 
     def test_slack_link(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<slack://channel>") is True
 
     def test_mailto(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<mailto:user@example.com>") is True
 
     def test_tel(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<tel:123456>") is True
 
     def test_not_a_token(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("<notatoken>") is False
 
     def test_not_angle_brackets(self):
-        from qwenpaw.app.channels.slack.format import _is_slack_angle_token
+        from potato.app.channels.slack.format import _is_slack_angle_token
 
         assert _is_slack_angle_token("plain text") is False
 
 
 class TestEscapeSlackMrkdwn:
     def test_empty_string(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         assert escape_slack_mrkdwn("") == ""
 
     def test_no_special_chars(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         assert escape_slack_mrkdwn("hello world") == "hello world"
 
     def test_escapes_ampersand(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         assert escape_slack_mrkdwn("a & b") == "a &amp; b"
 
     def test_escapes_angle_brackets(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         assert escape_slack_mrkdwn("a < b > c") == "a &lt; b &gt; c"
 
     def test_preserves_user_mention(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         assert escape_slack_mrkdwn("Hello <@U123>") == "Hello <@U123>"
 
     def test_preserves_channel_mention(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         assert escape_slack_mrkdwn("<#C123>") == "<#C123>"
 
     def test_preserves_http_link(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         result = escape_slack_mrkdwn("Go to <https://example.com|here>")
         assert result == "Go to <https://example.com|here>"
 
     def test_mixed_content(self):
-        from qwenpaw.app.channels.slack.format import escape_slack_mrkdwn
+        from potato.app.channels.slack.format import escape_slack_mrkdwn
 
         result = escape_slack_mrkdwn(
             "Hello <@U123>, check <https://a.com|this> & that < evil",
@@ -643,37 +643,37 @@ class TestMarkdownToSlackMrkdwn:
     """
 
     def test_empty_string(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         assert markdown_to_slack_mrkdwn("") == ""
 
     def test_bold_conversion_actual(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("**bold**")
         # Slack mrkdwn uses * for bold
         assert result == "*bold*"
 
     def test_italic_conversion(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("*italic*")
         assert result == "_italic_"
 
     def test_strikethrough_conversion(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("~~strike~~")
         assert result == "~strike~"
 
     def test_link_with_text(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("[click](https://example.com)")
         assert result == "<https://example.com|click>"
 
     def test_link_with_same_text(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn(
             "[https://example.com](https://example.com)",
@@ -681,19 +681,19 @@ class TestMarkdownToSlackMrkdwn:
         assert result == "<https://example.com>"
 
     def test_heading_conversion(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("## Title")
         assert result == "*Title*"
 
     def test_heading_multi_level(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("### Sub Title")
         assert result == "*Sub Title*"
 
     def test_preserves_code_block(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn(
             "before\n```python\nprint('hello')\n```\nafter",
@@ -703,13 +703,13 @@ class TestMarkdownToSlackMrkdwn:
         assert "```" in result
 
     def test_preserves_inline_code(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("use `print()` function")
         assert "`print()`" in result
 
     def test_escapes_in_code_not_affected(self):
-        from qwenpaw.app.channels.slack.format import markdown_to_slack_mrkdwn
+        from potato.app.channels.slack.format import markdown_to_slack_mrkdwn
 
         result = markdown_to_slack_mrkdwn("**bold** and `**not bold**`")
         # Slack mrkdwn: *bold* for bold, inline code preserved
@@ -719,18 +719,18 @@ class TestMarkdownToSlackMrkdwn:
 
 class TestChunkSlackText:
     def test_short_text_single_chunk(self):
-        from qwenpaw.app.channels.slack.format import chunk_slack_text
+        from potato.app.channels.slack.format import chunk_slack_text
 
         chunks = chunk_slack_text("hello", limit=100)
         assert chunks == ["hello"]
 
     def test_empty_text(self):
-        from qwenpaw.app.channels.slack.format import chunk_slack_text
+        from potato.app.channels.slack.format import chunk_slack_text
 
         assert not chunk_slack_text("")
 
     def test_split_on_paragraph_boundary(self):
-        from qwenpaw.app.channels.slack.format import chunk_slack_text
+        from potato.app.channels.slack.format import chunk_slack_text
 
         text = "A" * 100 + "\n\n" + "B" * 100
         result = chunk_slack_text(text, limit=150)
@@ -739,14 +739,14 @@ class TestChunkSlackText:
         assert len(result[1]) <= 150
 
     def test_split_on_line_boundary(self):
-        from qwenpaw.app.channels.slack.format import chunk_slack_text
+        from potato.app.channels.slack.format import chunk_slack_text
 
         text = "A" * 100 + "\n" + "B" * 100
         result = chunk_slack_text(text, limit=150)
         assert len(result) == 2
 
     def test_force_truncate_long_line(self):
-        from qwenpaw.app.channels.slack.format import chunk_slack_text
+        from potato.app.channels.slack.format import chunk_slack_text
 
         text = "A" * 300
         result = chunk_slack_text(text, limit=100)
@@ -756,29 +756,29 @@ class TestChunkSlackText:
 
 class TestNormalizeSlackThreadTs:
     def test_valid_ts(self):
-        from qwenpaw.app.channels.slack.format import normalize_slack_thread_ts
+        from potato.app.channels.slack.format import normalize_slack_thread_ts
 
         result = normalize_slack_thread_ts("1234567890.123456")
         assert result == "1234567890.123456"
 
     def test_invalid_ts_wrong_format(self):
-        from qwenpaw.app.channels.slack.format import normalize_slack_thread_ts
+        from potato.app.channels.slack.format import normalize_slack_thread_ts
 
         result = normalize_slack_thread_ts("1234567890")
         assert result is None
 
     def test_empty_string(self):
-        from qwenpaw.app.channels.slack.format import normalize_slack_thread_ts
+        from potato.app.channels.slack.format import normalize_slack_thread_ts
 
         assert normalize_slack_thread_ts("") is None
 
     def test_none_value(self):
-        from qwenpaw.app.channels.slack.format import normalize_slack_thread_ts
+        from potato.app.channels.slack.format import normalize_slack_thread_ts
 
         assert normalize_slack_thread_ts(None) is None
 
     def test_non_string(self):
-        from qwenpaw.app.channels.slack.format import normalize_slack_thread_ts
+        from potato.app.channels.slack.format import normalize_slack_thread_ts
 
         assert normalize_slack_thread_ts(12345) is None
 
@@ -790,7 +790,7 @@ class TestNormalizeSlackThreadTs:
 
 class TestSlackEventHandlerInit:
     def test_init_stores_values(self, slack_channel, mock_enqueue):
-        from qwenpaw.app.channels.slack.handler import SlackEventHandler
+        from potato.app.channels.slack.handler import SlackEventHandler
 
         handler = SlackEventHandler(
             channel=slack_channel,
@@ -832,7 +832,7 @@ class TestSlackEventHandlerDedup:
     @pytest.mark.asyncio
     async def test_dedup_expires(self, slack_event_handler):
         _target = (
-            "qwenpaw.app.channels.slack.handler.SLACK_DEDUP_WINDOW_SECONDS"
+            "potato.app.channels.slack.handler.SLACK_DEDUP_WINDOW_SECONDS"
         )
         with patch(_target, 0):
             # Insert a key with a very old timestamp
@@ -854,7 +854,7 @@ class TestSlackEventHandlerRichTextExtraction:
     """
 
     def test_extract_text_from_blocks_plain(self, slack_event_handler):
-        from qwenpaw.app.channels.slack.handler import (
+        from potato.app.channels.slack.handler import (
             _extract_text_from_blocks,
         )
 
@@ -873,7 +873,7 @@ class TestSlackEventHandlerRichTextExtraction:
         assert "Hello" in result
 
     def test_extract_text_from_blocks_quote(self, slack_event_handler):
-        from qwenpaw.app.channels.slack.handler import (
+        from potato.app.channels.slack.handler import (
             _extract_text_from_blocks,
         )
 
@@ -895,7 +895,7 @@ class TestSlackEventHandlerRichTextExtraction:
         # This test is kept flexible.
 
     def test_extract_text_from_blocks_list(self, slack_event_handler):
-        from qwenpaw.app.channels.slack.handler import (
+        from potato.app.channels.slack.handler import (
             _extract_text_from_blocks,
         )
 
@@ -922,7 +922,7 @@ class TestSlackEventHandlerRichTextExtraction:
         assert "item1" in result
 
     def test_extract_text_from_blocks_preformatted(self, slack_event_handler):
-        from qwenpaw.app.channels.slack.handler import (
+        from potato.app.channels.slack.handler import (
             _extract_text_from_blocks,
         )
 
@@ -1091,7 +1091,7 @@ class TestSlackEventHandlerFileExtraction:
     ):
         slack_channel._proxy_url = "http://test-proxy:8080"
         with patch(
-            "qwenpaw.app.channels.slack.handler.aiohttp.ClientSession",
+            "potato.app.channels.slack.handler.aiohttp.ClientSession",
         ) as mock_session_cls:
             mock_session_cls.return_value.closed = False
             await slack_event_handler._get_http_session()
@@ -1119,7 +1119,7 @@ class TestSlackEventHandlerFileExtraction:
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=ok_resp)
         with patch(
-            "qwenpaw.app.channels.slack.handler.aiohttp.ClientSession",
+            "potato.app.channels.slack.handler.aiohttp.ClientSession",
             return_value=mock_session,
         ):
             slack_channel._media_dir = tmp_path / "media"
@@ -1156,11 +1156,11 @@ class TestSlackEventHandlerFileExtraction:
         )
         with (
             patch(
-                "qwenpaw.app.channels.slack.handler.aiohttp.ClientSession",
+                "potato.app.channels.slack.handler.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
             patch(
-                "qwenpaw.app.channels.slack.handler.asyncio.sleep",
+                "potato.app.channels.slack.handler.asyncio.sleep",
                 AsyncMock(),
             ),
         ):
@@ -1181,34 +1181,34 @@ class TestSlackEventHandlerFileExtraction:
 
 class TestIsSlackSsrfAllowed:
     def test_allowed_slack_com(self):
-        from qwenpaw.app.channels.slack.sender import _is_slack_ssrf_allowed
+        from potato.app.channels.slack.sender import _is_slack_ssrf_allowed
 
         assert _is_slack_ssrf_allowed("https://files.slack.com/abc") is True
 
     def test_allowed_slack_edge(self):
-        from qwenpaw.app.channels.slack.sender import _is_slack_ssrf_allowed
+        from potato.app.channels.slack.sender import _is_slack_ssrf_allowed
 
         assert _is_slack_ssrf_allowed("https://cdn.slack-edge.com/x") is True
 
     def test_allowed_slack_files(self):
-        from qwenpaw.app.channels.slack.sender import _is_slack_ssrf_allowed
+        from potato.app.channels.slack.sender import _is_slack_ssrf_allowed
 
         assert _is_slack_ssrf_allowed("https://slack-files.com/f") is True
 
     def test_blocked_external(self):
-        from qwenpaw.app.channels.slack.sender import _is_slack_ssrf_allowed
+        from potato.app.channels.slack.sender import _is_slack_ssrf_allowed
 
         assert _is_slack_ssrf_allowed("https://evil.com") is False
 
     def test_empty_url(self):
-        from qwenpaw.app.channels.slack.sender import _is_slack_ssrf_allowed
+        from potato.app.channels.slack.sender import _is_slack_ssrf_allowed
 
         assert _is_slack_ssrf_allowed("") is False
 
 
 class TestResolveLocalFilePath:
     def test_file_protocol_exists(self, tmp_path):
-        from qwenpaw.app.channels.slack.sender import _resolve_local_file_path
+        from potato.app.channels.slack.sender import _resolve_local_file_path
 
         test_file = tmp_path / "test.txt"
         test_file.write_text("hello")
@@ -1220,13 +1220,13 @@ class TestResolveLocalFilePath:
         assert Path(result).exists()
 
     def test_file_protocol_not_exists(self, tmp_path):
-        from qwenpaw.app.channels.slack.sender import _resolve_local_file_path
+        from potato.app.channels.slack.sender import _resolve_local_file_path
 
         result = _resolve_local_file_path("file:///nonexistent.txt")
         assert result is None
 
     def test_absolute_path(self, tmp_path):
-        from qwenpaw.app.channels.slack.sender import _resolve_local_file_path
+        from potato.app.channels.slack.sender import _resolve_local_file_path
 
         test_file = tmp_path / "test.txt"
         test_file.write_text("hello")
@@ -1234,7 +1234,7 @@ class TestResolveLocalFilePath:
         assert result == str(test_file)
 
     def test_not_file_uri(self):
-        from qwenpaw.app.channels.slack.sender import _resolve_local_file_path
+        from potato.app.channels.slack.sender import _resolve_local_file_path
 
         result = _resolve_local_file_path("https://example.com/file")
         assert result is None
@@ -1242,7 +1242,7 @@ class TestResolveLocalFilePath:
 
 class TestSlackSenderRouteResolution:
     def test_compound_handle(self):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         channel_id, thread_ts = SlackSender.resolve_route(
             "C123:1234567890.123456",
@@ -1252,7 +1252,7 @@ class TestSlackSenderRouteResolution:
         assert thread_ts == "1234567890.123456"
 
     def test_bare_channel(self):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         channel_id, thread_ts = SlackSender.resolve_route(
             "C123",
@@ -1262,7 +1262,7 @@ class TestSlackSenderRouteResolution:
         assert thread_ts == "1234567890.123456"
 
     def test_from_meta_when_handle_empty(self):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         channel_id, thread_ts = SlackSender.resolve_route(
             "",
@@ -1275,7 +1275,7 @@ class TestSlackSenderRouteResolution:
         assert thread_ts == "1234567890.123456"
 
     def test_session_id_thread(self):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         channel_id, thread_ts = SlackSender.resolve_route(
             "slack:thread:C123:1234567890.123456",
@@ -1285,7 +1285,7 @@ class TestSlackSenderRouteResolution:
         assert thread_ts == "1234567890.123456"
 
     def test_session_id_channel(self):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         channel_id, thread_ts = SlackSender.resolve_route(
             "slack:ch:C123",
@@ -1295,7 +1295,7 @@ class TestSlackSenderRouteResolution:
         assert thread_ts is None
 
     def test_session_id_dm_prefers_meta(self):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         channel_id, thread_ts = SlackSender.resolve_route(
             "slack:dm:U123",
@@ -1305,7 +1305,7 @@ class TestSlackSenderRouteResolution:
         assert thread_ts is None
 
     def test_user_id_falls_back_to_meta(self):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         channel_id, thread_ts = SlackSender.resolve_route(
             "U123",
@@ -1321,7 +1321,7 @@ class TestSlackSenderRouteResolution:
 class TestSlackSenderTextSending:
     @pytest.mark.asyncio
     async def test_send_text_success(self, slack_channel, mock_slack_client):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -1336,8 +1336,8 @@ class TestSlackSenderTextSending:
 
     @pytest.mark.asyncio
     async def test_send_text_chunking(self, slack_channel, mock_slack_client):
-        from qwenpaw.app.channels.slack.sender import SlackSender
-        from qwenpaw.app.channels.slack.constants import SLACK_TEXT_LIMIT
+        from potato.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.constants import SLACK_TEXT_LIMIT
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -1350,12 +1350,12 @@ class TestSlackSenderTextSending:
         self,
         slack_channel,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._proxy_url = "http://sender-proxy:8080"
         sender = SlackSender(channel=slack_channel)
         with patch(
-            "qwenpaw.app.channels.slack.sender.aiohttp.ClientSession",
+            "potato.app.channels.slack.sender.aiohttp.ClientSession",
         ) as mock_session_cls:
             mock_session_cls.return_value.closed = False
             await sender._get_http_session()
@@ -1373,12 +1373,12 @@ class TestSlackSenderMediaUpload:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
         with patch(
-            "qwenpaw.app.channels.slack.sender._is_slack_ssrf_allowed",
+            "potato.app.channels.slack.sender._is_slack_ssrf_allowed",
             return_value=True,
         ):
             result = await sender._upload_remote_media(
@@ -1396,12 +1396,12 @@ class TestSlackSenderMediaUpload:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
         with patch(
-            "qwenpaw.app.channels.slack.sender._is_slack_ssrf_allowed",
+            "potato.app.channels.slack.sender._is_slack_ssrf_allowed",
             return_value=False,
         ):
             result = await sender._upload_remote_media(
@@ -1420,7 +1420,7 @@ class TestSlackSenderMediaUpload:
         mock_slack_client,
         tmp_path,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -1473,7 +1473,7 @@ class TestSlackChannelInit:
 
 class TestSlackChannelFromEnv:
     def test_from_env_reads_vars(self, mock_process, monkeypatch):
-        from qwenpaw.app.channels.slack.channel import SlackChannel
+        from potato.app.channels.slack.channel import SlackChannel
 
         monkeypatch.setenv("SLACK_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-env-token")
@@ -1497,8 +1497,8 @@ class TestSlackChannelFromEnv:
 
 class TestSlackChannelFromConfig:
     def test_from_config(self, mock_process):
-        from qwenpaw.app.channels.slack.channel import SlackChannel
-        from qwenpaw.config.config import SlackConfig
+        from potato.app.channels.slack.channel import SlackChannel
+        from potato.config.config import SlackConfig
 
         config = SlackConfig(
             enabled=False,
@@ -1527,7 +1527,7 @@ class TestSlackChannelFromConfig:
 
 class TestSlackChannelNonRecoverableErrors:
     def test_is_non_recoverable_slack_error_matches(self):
-        from qwenpaw.app.channels.slack.channel import (
+        from potato.app.channels.slack.channel import (
             _is_non_recoverable_slack_error,
         )
 
@@ -1539,7 +1539,7 @@ class TestSlackChannelNonRecoverableErrors:
         assert _is_non_recoverable_slack_error(exc) is True
 
     def test_is_non_recoverable_slack_error_not_match(self):
-        from qwenpaw.app.channels.slack.channel import (
+        from potato.app.channels.slack.channel import (
             _is_non_recoverable_slack_error,
         )
 
@@ -1556,7 +1556,7 @@ class TestSlackChannelProxyResolution:
         # Mock the network-dependent _fetch_bot_user_id
         slack_channel._fetch_bot_user_id = AsyncMock()
         with patch(
-            "qwenpaw.app.channels.slack.channel._resolve_slack_proxy_url",
+            "potato.app.channels.slack.channel._resolve_slack_proxy_url",
             return_value=("http://test-proxy:8080", None),
         ):
             await slack_channel._on_init()
@@ -1567,7 +1567,7 @@ class TestSlackChannelProxyResolution:
         slack_channel.proxy = "http://test-proxy:8080"
         slack_channel._fetch_bot_user_id = AsyncMock()
         with patch(
-            "qwenpaw.app.channels.slack.channel._resolve_slack_proxy_url",
+            "potato.app.channels.slack.channel._resolve_slack_proxy_url",
             return_value=(None, "no_proxy_bypass"),
         ):
             await slack_channel._on_init()
@@ -1674,7 +1674,7 @@ class TestSlackChannelAdvancedInit:
     """Tests for advanced initialization parameters and data structures."""
 
     def test_init_with_dm_group_disabled(self, mock_process):
-        from qwenpaw.app.channels.slack.channel import SlackChannel
+        from potato.app.channels.slack.channel import SlackChannel
 
         channel = SlackChannel(
             process=mock_process,
@@ -1688,7 +1688,7 @@ class TestSlackChannelAdvancedInit:
         assert channel.group_disabled is True
 
     def test_init_with_access_control(self, mock_process):
-        from qwenpaw.app.channels.slack.channel import SlackChannel
+        from potato.app.channels.slack.channel import SlackChannel
 
         channel = SlackChannel(
             process=mock_process,
@@ -1702,7 +1702,7 @@ class TestSlackChannelAdvancedInit:
         assert channel.access_control_group is True
 
     def test_init_with_display_config(self, mock_process):
-        from qwenpaw.app.channels.slack.channel import SlackChannel
+        from potato.app.channels.slack.channel import SlackChannel
 
         channel = SlackChannel(
             process=mock_process,
@@ -1722,7 +1722,7 @@ class TestSlackChannelAdvancedInit:
         assert not channel._display_config.show_thinking
 
     def test_init_media_dir_from_workspace(self, mock_process, tmp_path):
-        from qwenpaw.app.channels.slack.channel import SlackChannel
+        from potato.app.channels.slack.channel import SlackChannel
 
         ws = tmp_path / "workspace"
         channel = SlackChannel(
@@ -1736,7 +1736,7 @@ class TestSlackChannelAdvancedInit:
         assert channel.media_dir.exists()
 
     def test_init_media_dir_explicit(self, mock_process, tmp_path):
-        from qwenpaw.app.channels.slack.channel import SlackChannel
+        from potato.app.channels.slack.channel import SlackChannel
 
         media = tmp_path / "custom_media"
         channel = SlackChannel(
@@ -2024,7 +2024,7 @@ class TestSlackChannelSocketModeResilience:
         slack_channel._stop_socket_mode_handler = AsyncMock()
         slack_channel._start = AsyncMock()
         with patch(
-            "qwenpaw.app.channels.slack.channel.asyncio.sleep",
+            "potato.app.channels.slack.channel.asyncio.sleep",
         ) as mock_sleep:
             await slack_channel._restart_socket_mode("test")
         mock_sleep.assert_called_once()
@@ -2246,7 +2246,7 @@ class TestSlackEventHandlerUnfurl:
     """Tests for link unfurl preview extraction."""
 
     def test_append_unfurl_with_title_and_link(self):
-        from qwenpaw.app.channels.slack.handler import _append_unfurl_text
+        from potato.app.channels.slack.handler import _append_unfurl_text
 
         attachments = [
             {
@@ -2260,7 +2260,7 @@ class TestSlackEventHandlerUnfurl:
         assert "A description" in result
 
     def test_append_unfurl_with_from_url(self):
-        from qwenpaw.app.channels.slack.handler import _append_unfurl_text
+        from potato.app.channels.slack.handler import _append_unfurl_text
 
         attachments = [
             {
@@ -2272,7 +2272,7 @@ class TestSlackEventHandlerUnfurl:
         assert "📎 [Page](https://example.com)" in result
 
     def test_append_unfurl_skips_msg_unfurl(self):
-        from qwenpaw.app.channels.slack.handler import _append_unfurl_text
+        from potato.app.channels.slack.handler import _append_unfurl_text
 
         attachments = [
             {
@@ -2284,13 +2284,13 @@ class TestSlackEventHandlerUnfurl:
         assert "Should be skipped" not in result
 
     def test_append_unfurl_empty_attachments(self):
-        from qwenpaw.app.channels.slack.handler import _append_unfurl_text
+        from potato.app.channels.slack.handler import _append_unfurl_text
 
         result = _append_unfurl_text("Hello", [])
         assert result == "Hello"
 
     def test_append_unfurl_truncates_long_description(self):
-        from qwenpaw.app.channels.slack.handler import _append_unfurl_text
+        from potato.app.channels.slack.handler import _append_unfurl_text
 
         attachments = [
             {
@@ -2363,7 +2363,7 @@ class TestSlackEventHandlerUserResolution:
         slack_event_handler,
         monkeypatch,
     ):
-        from qwenpaw.app.channels.slack import handler as handler_module
+        from potato.app.channels.slack import handler as handler_module
 
         monkeypatch.setattr(
             handler_module,
@@ -2381,7 +2381,7 @@ class TestSlackEventHandlerUserResolution:
         slack_event_handler,
         monkeypatch,
     ):
-        from qwenpaw.app.channels.slack import handler as handler_module
+        from potato.app.channels.slack import handler as handler_module
 
         monkeypatch.setattr(
             handler_module,
@@ -2478,7 +2478,7 @@ class TestSlackSenderContentParts:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -2492,7 +2492,7 @@ class TestSlackSenderContentParts:
             ),
         ]
         with patch(
-            "qwenpaw.app.channels.slack.sender._is_slack_ssrf_allowed",
+            "potato.app.channels.slack.sender._is_slack_ssrf_allowed",
             return_value=True,
         ):
             await sender.send_content_parts("C123", parts, {})
@@ -2504,7 +2504,7 @@ class TestSlackSenderContentParts:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -2518,8 +2518,8 @@ class TestSlackSenderContentParts:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
-        from qwenpaw.schemas import (
+        from potato.app.channels.slack.sender import SlackSender
+        from potato.schemas import (
             RefusalContent,
         )
 
@@ -2542,14 +2542,14 @@ class TestSlackSenderContentParts:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
 
         # Image
         with patch(
-            "qwenpaw.app.channels.slack.sender._is_slack_ssrf_allowed",
+            "potato.app.channels.slack.sender._is_slack_ssrf_allowed",
             return_value=True,
         ):
             result = await sender._send_media(
@@ -2565,7 +2565,7 @@ class TestSlackSenderContentParts:
 
         # File
         with patch(
-            "qwenpaw.app.channels.slack.sender._is_slack_ssrf_allowed",
+            "potato.app.channels.slack.sender._is_slack_ssrf_allowed",
             return_value=True,
         ):
             result = await sender._send_media(
@@ -2584,7 +2584,7 @@ class TestSlackSenderContentParts:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -2780,7 +2780,7 @@ class TestSlackChannelStreamingHooks:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.constants import SLACK_TEXT_LIMIT
+        from potato.app.channels.slack.constants import SLACK_TEXT_LIMIT
 
         slack_channel._client = mock_slack_client
         slack_channel._sender = AsyncMock()
@@ -2885,7 +2885,7 @@ class TestSlackSenderPerRouteLock:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -2902,7 +2902,7 @@ class TestSlackSenderPerRouteLock:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.slack.sender import SlackSender
+        from potato.app.channels.slack.sender import SlackSender
 
         slack_channel._client = mock_slack_client
         sender = SlackSender(channel=slack_channel)
@@ -2922,21 +2922,21 @@ class TestSlackHandlerExtractMessageText:
     """Tests for _extract_message_text with bot_prefix."""
 
     def test_strips_bot_prefix(self):
-        from qwenpaw.app.channels.slack.handler import _extract_message_text
+        from potato.app.channels.slack.handler import _extract_message_text
 
         event = {"text": "[SlackBot] Hello world"}
         result = _extract_message_text(event, "[SlackBot] ")
         assert result == "Hello world"
 
     def test_no_prefix_match(self):
-        from qwenpaw.app.channels.slack.handler import _extract_message_text
+        from potato.app.channels.slack.handler import _extract_message_text
 
         event = {"text": "Hello world"}
         result = _extract_message_text(event, "[SlackBot] ")
         assert result == "Hello world"
 
     def test_prefers_rich_text_blocks(self):
-        from qwenpaw.app.channels.slack.handler import _extract_message_text
+        from potato.app.channels.slack.handler import _extract_message_text
 
         event = {
             "text": "plain fallback",
@@ -2992,7 +2992,7 @@ class TestSlackChannelOnInit:
         slack_channel._client = mock_slack_client
         slack_channel._fetch_bot_user_id = AsyncMock()
         with patch(
-            "qwenpaw.app.channels.slack.channel._resolve_slack_proxy_url",
+            "potato.app.channels.slack.channel._resolve_slack_proxy_url",
             return_value=(None, None),
         ):
             await slack_channel._on_init()
@@ -3004,7 +3004,7 @@ class TestSlackChannelOnInit:
         slack_channel,
         mock_slack_client,
     ):
-        from qwenpaw.app.channels.command_registry import CommandRegistry
+        from potato.app.channels.command_registry import CommandRegistry
 
         slack_channel._client = mock_slack_client
         slack_channel._fetch_bot_user_id = AsyncMock()
@@ -3015,7 +3015,7 @@ class TestSlackChannelOnInit:
             "/reset session": 0,
         }
         with patch(
-            "qwenpaw.app.channels.slack.channel._resolve_slack_proxy_url",
+            "potato.app.channels.slack.channel._resolve_slack_proxy_url",
             return_value=(None, None),
         ):
             await slack_channel._on_init()

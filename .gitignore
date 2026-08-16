@@ -35,11 +35,11 @@ dist/
 # Console frontend build (generated in Docker/CI, do not commit)
 console/.cursor/
 console/.wiki/
-src/qwenpaw/console/dist/
-src/qwenpaw/console/
+src/potato/console/dist/
+src/potato/console/
 
 # Docs bundled at build time (copied from website/public/docs/)
-src/qwenpaw/docs/
+src/potato/docs/
 
 # frontend (website)
 website/node_modules/
@@ -133,7 +133,9 @@ src/.hypothesis/
 
 # Worktrees
 .worktrees/
+.potato/worktrees/
 .qwenpaw/worktrees/
+.copaw/worktrees/
 
 # Local File
 /localfile/

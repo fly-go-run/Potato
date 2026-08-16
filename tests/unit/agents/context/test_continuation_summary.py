@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for Scroll's plain-Markdown continuation summary protocol."""
 
-from qwenpaw.agents.context.scroll.continuation_summary import (
+from potato.agents.context.scroll.continuation_summary import (
     ContinuationSummary,
     SummarySource,
     build_update_prompt,
@@ -332,8 +332,8 @@ Status: in_progress
 def test_identifier_validation_ignores_ordinary_numbers():
     assert "5000" not in extract_identifiers("timeout defaults to 5000")
     assert "5000" not in extract_identifiers("timeout is 5000ms")
-    assert "src/qwenpaw/models" not in extract_identifiers(
-        "code under src/qwenpaw/models",
+    assert "src/potato/models" not in extract_identifiers(
+        "code under src/potato/models",
     )
     assert "HIT/MISS" not in extract_identifiers("cache was HIT/MISS")
 

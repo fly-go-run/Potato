@@ -19,15 +19,15 @@ import time
 
 import pytest
 
-from qwenpaw.app.approvals.models import ApprovalRequestSummary
-from qwenpaw.app.approvals.service import (
+from potato.app.approvals.models import ApprovalRequestSummary
+from potato.app.approvals.service import (
     ApprovalService,
     PendingApproval,
     _GC_MAX_PENDING,
     get_approval_service,
 )
-from qwenpaw.security.tool_guard.approval import ApprovalDecision
-from qwenpaw.security.tool_guard.models import (
+from potato.security.tool_guard.approval import ApprovalDecision
+from potato.security.tool_guard.models import (
     GuardFinding,
     GuardSeverity,
     GuardThreatCategory,
@@ -544,7 +544,7 @@ def test_gc_evicts_overflow_oldest_first():
 
 def test_get_approval_service_returns_singleton(monkeypatch):
     """The module-level accessor returns the same instance per process."""
-    import qwenpaw.app.approvals.service as svc_mod
+    import potato.app.approvals.service as svc_mod
 
     monkeypatch.setattr(svc_mod, "_approval_service", None)
     first = get_approval_service()

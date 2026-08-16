@@ -43,6 +43,11 @@ export const dictionaries = {
     "time.hoursAgo": "{count}小时前",
     "time.daysAgo": "{count}天前",
     "app.connecting": "正在连接 Potato…",
+    "desktop.backend.starting": "正在启动后端服务…",
+    "desktop.backend.error": "后端服务启动失败。",
+    "desktop.backend.errorHint":
+      "无法启动后端进程，请检查应用日志了解详情。",
+    "desktop.backend.retry": "重试",
     "desktop.tray.showWindow": "显示窗口",
     "desktop.close.title": "关闭窗口",
     "desktop.close.description": "要最小化到托盘，还是退出 Potato？",
@@ -81,8 +86,10 @@ export const dictionaries = {
     "chat.contextUsed": "上下文已用 {ratio}%",
     "chat.toolGroup": "已完成 {count} 个步骤",
     "chat.toolGroupWithFailures": "已完成 {count} 个步骤（{failed} 个失败）",
-    "chat.workedFor": "{duration}",
-    "chat.workedForWithFailures": "{duration} · {failed} 失败",
+    "chat.workedFor": "{duration} · {steps}",
+    "chat.workedForWithFailures": "{duration} · {steps} · {failed} 失败",
+    "chat.step.one": "1 步",
+    "chat.step.many": "{count} 步",
     "chat.step.files": "{count} 个",
     "chat.step.cmds": "{count} 条",
     "chat.step.overflow": "另有 {n} 步",
@@ -360,8 +367,8 @@ export const dictionaries = {
     "composer.uploading": "正在上传附件…",
     "composer.voice.start": "语音输入",
     "composer.voice.stop": "停止录音",
-    "composer.voice.listening": "正在聆听… 再次点击麦克风结束",
-    "composer.voice.starting": "正在请求麦克风…",
+    "composer.voice.listening": "正在听，文字会实时出现。再点一次结束",
+    "composer.voice.starting": "正在连接语音识别…",
     "composer.voice.transcribing": "正在识别语音…",
     "composer.voice.micError": "无法访问麦克风，请检查系统权限",
     "composer.voice.unsupported": "当前环境不支持语音输入",
@@ -596,12 +603,15 @@ export const dictionaries = {
       "在输入框旁常显本轮已用的上下文百分比。默认关闭。",
     "settings.webSearch.title": "联网搜索方式",
     "settings.webSearch.description":
-      "服务端搜索由模型供应商代跑：它自己检索、读网页后作答，质量更好但更慢；Tavily 只返回摘要，免费但有速率限制。两者都与当前对话用哪个模型无关。",
+      "Exa 用 .env 里的 EXA_API_KEY 搜网页并返回要点。服务端搜索由模型供应商代跑，更慢。Tavily 只返回摘要，免费但有速率限制。",
     "settings.webSearch.needsKey":
       "没有服务端密钥，将退回 Tavily。",
     "settings.webSearch.needsKeyStrict":
       "已指定服务端搜索但无密钥，搜索会失败。",
-    "settings.webSearch.auto": "自动（有密钥就用服务端搜索）",
+    "settings.webSearch.needsExaKey":
+      "未配置 EXA_API_KEY，Exa 搜索会失败。",
+    "settings.webSearch.auto": "自动（有 Exa 密钥就用 Exa）",
+    "settings.webSearch.exa": "Exa",
     "settings.webSearch.tavily": "Tavily（免费）",
     "settings.webSearch.model": "搜索用的模型",
     "settings.webSearch.modelHint":
@@ -790,6 +800,11 @@ export const dictionaries = {
     "time.hoursAgo": "{count} h ago",
     "time.daysAgo": "{count} d ago",
     "app.connecting": "Connecting to Potato…",
+    "desktop.backend.starting": "Starting backend…",
+    "desktop.backend.error": "Backend failed to start.",
+    "desktop.backend.errorHint":
+      "The backend process could not be launched. Check application logs for details.",
+    "desktop.backend.retry": "Retry",
     "desktop.tray.showWindow": "Show Window",
     "desktop.close.title": "Close Window",
     "desktop.close.description": "Minimize Potato to the tray or quit the app?",
@@ -831,8 +846,10 @@ export const dictionaries = {
     "chat.contextUsed": "Context used {ratio}%",
     "chat.toolGroup": "Completed {count} steps",
     "chat.toolGroupWithFailures": "Completed {count} steps ({failed} failed)",
-    "chat.workedFor": "{duration}",
-    "chat.workedForWithFailures": "{duration} · {failed} failed",
+    "chat.workedFor": "{duration} · {steps}",
+    "chat.workedForWithFailures": "{duration} · {steps} · {failed} failed",
+    "chat.step.one": "1 step",
+    "chat.step.many": "{count} steps",
     "chat.step.files": "{count} files",
     "chat.step.cmds": "{count} cmds",
     "chat.step.overflow": "{n} more",
@@ -1121,8 +1138,9 @@ export const dictionaries = {
     "composer.uploading": "Uploading attachments…",
     "composer.voice.start": "Voice input",
     "composer.voice.stop": "Stop recording",
-    "composer.voice.listening": "Listening… click the mic again to finish",
-    "composer.voice.starting": "Requesting microphone…",
+    "composer.voice.listening":
+      "Listening — words appear as you speak. Click the mic again to finish",
+    "composer.voice.starting": "Connecting speech recognition…",
     "composer.voice.transcribing": "Transcribing…",
     "composer.voice.micError":
       "Microphone access denied. Check system permissions.",
@@ -1375,12 +1393,15 @@ export const dictionaries = {
       "Keep the percentage of context used for this turn next to the composer. Off by default.",
     "settings.webSearch.title": "Web search backend",
     "settings.webSearch.description":
-      "Hosted search runs on the model provider's servers: it searches, reads pages, then answers — better results, slower. Tavily returns snippets only: free, but rate limited. Both are independent of the model this chat uses.",
+      "Exa uses EXA_API_KEY from .env and returns page highlights. Hosted search runs on the model provider: slower, fuller answers. Tavily returns snippets only: free, but rate limited.",
     "settings.webSearch.needsKey":
       "No hosted-search key; falling back to Tavily.",
     "settings.webSearch.needsKeyStrict":
       "Hosted search is pinned but has no key, so search will fail.",
-    "settings.webSearch.auto": "Auto (hosted when a key exists)",
+    "settings.webSearch.needsExaKey":
+      "EXA_API_KEY is missing, so Exa search will fail.",
+    "settings.webSearch.auto": "Auto (Exa when a key exists)",
+    "settings.webSearch.exa": "Exa",
     "settings.webSearch.tavily": "Tavily (free)",
     "settings.webSearch.model": "Search model",
     "settings.webSearch.modelHint":

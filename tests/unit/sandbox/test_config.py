@@ -6,13 +6,13 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from qwenpaw.sandbox import (
+from potato.sandbox import (
     MountSpec,
     PortRule,
     SandboxConfig,
     SandboxMode,
 )
-from qwenpaw.sandbox.macos_sandbox import MacOSSandbox
+from potato.sandbox.macos_sandbox import MacOSSandbox
 
 # ============================================================================
 # Task 5.1: test_sandbox_config_defaults
@@ -187,7 +187,7 @@ class TestUnsupportedFeaturesLogging:
                 max_processes=10,
             ),
         )
-        with patch("qwenpaw.sandbox.macos_sandbox.logger") as mock_logger:
+        with patch("potato.sandbox.macos_sandbox.logger") as mock_logger:
             sandbox._compile_seatbelt_profile()
 
         assert mock_logger.warning.called
@@ -204,7 +204,7 @@ class TestUnsupportedFeaturesLogging:
                 max_memory_mb=512,
             ),
         )
-        with patch("qwenpaw.sandbox.macos_sandbox.logger") as mock_logger:
+        with patch("potato.sandbox.macos_sandbox.logger") as mock_logger:
             sandbox._compile_seatbelt_profile()
 
         assert mock_logger.warning.called
@@ -221,7 +221,7 @@ class TestUnsupportedFeaturesLogging:
                 network_ports=[PortRule(port=443)],
             ),
         )
-        with patch("qwenpaw.sandbox.macos_sandbox.logger") as mock_logger:
+        with patch("potato.sandbox.macos_sandbox.logger") as mock_logger:
             sandbox._compile_seatbelt_profile()
 
         assert mock_logger.warning.called
@@ -237,7 +237,7 @@ class TestUnsupportedFeaturesLogging:
                 mounts=[MountSpec(path="/tmp/ws", writable=True)],
             ),
         )
-        with patch("qwenpaw.sandbox.macos_sandbox.logger") as mock_logger:
+        with patch("potato.sandbox.macos_sandbox.logger") as mock_logger:
             sandbox._compile_seatbelt_profile()
 
         mock_logger.warning.assert_not_called()

@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from qwenpaw.app.chats.models import (
+from potato.app.chats.models import (
     ChatSpec,
     ChatUpdate,
     ChatsFile,

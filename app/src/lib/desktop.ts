@@ -1,10 +1,16 @@
-/* 桌面壳环境检测。Tauri 壳往后端托管页导航时会带 `?desktop=1`
- * (console/src/tauri/backendRuntime.ts 的 withDesktopMarker),
- * SPA 内部路由只改 hash,search 全程保留,可直接同步读取。 */
+/* 桌面壳环境检测。打包后的 Tauri 页走 tauri:// / tauri.localhost；
+ * `tauri dev` 注入 __TAURI_INTERNALS__；旧的 `?desktop=1` 标记仍识别。 */
 
 export function isDesktopShell(): boolean {
   if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get("desktop") === "1";
+  if (tauriInternals() !== null) return true;
+  const { protocol, hostname } = window.location;
+  if (protocol === "tauri:" || hostname === "tauri.localhost") return true;
+  try {
+    return new URLSearchParams(window.location.search).get("desktop") === "1";
+  } catch {
+    return false;
+  }
 }
 
 /** macOS 桌面壳:无标题栏 Overlay 模式,需给左上角红绿灯让位并提供拖拽区 */
@@ -109,9 +115,22 @@ export async function acknowledgeDesktopClose(): Promise<void> {
   await invokeDesktop("ack_close");
 }
 
+export async function getDesktopBackendPort(): Promise<number | null> {
+  const port = await invokeDesktop<number | null>("backend_port");
+  return typeof port === "number" && port > 0 ? port : null;
+}
+
+export async function getDesktopBackendStartupError(): Promise<string> {
+  return (await invokeDesktop<string | null>("backend_startup_error")) || "";
+}
+
+export async function restartDesktopBackend(): Promise<void> {
+  await invokeDesktop("restart_backend");
+}
+
 export type DesktopCloseAction = "minimize-to-tray" | "quit";
 
-const CLOSE_ACTION_STORAGE_KEY = "qwenpaw_desktop_close_action";
+const CLOSE_ACTION_STORAGE_KEY = "potato_desktop_close_action";
 
 export function getRememberedDesktopCloseAction(): DesktopCloseAction | null {
   try {
@@ -214,9 +233,8 @@ let readyNotified = false;
 let readyRequest: Promise<void> | null = null;
 
 /**
- * Normal desktop startup stays native-hidden until auth and the first store
- * initialization are complete. The guard prevents route changes or StrictMode
- * effect replays from stealing focus later in the session.
+ * Acknowledge first paint so later backend restarts cannot steal focus.
+ * The window itself is revealed as soon as this bundled app loads.
  */
 export async function notifyDesktopReady(): Promise<void> {
   if (readyNotified || !isDesktopShell()) return;

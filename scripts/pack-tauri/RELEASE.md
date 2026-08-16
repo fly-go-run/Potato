@@ -8,7 +8,7 @@
   → generate_update_manifest.py stage 暂存到 dist/updates/
   → release_desktop.sh publish 聚合 latest.json + rsync 到 VPS
   → 应用内 tauri-plugin-updater 轮询
-     https://chat.recodex.top/potato-updates/metadata/qwenpaw-tauri-latest.json
+     https://chat.recodex.top/potato-updates/metadata/potato-tauri-latest.json
   → 发现新版本 → 下载(经 Cloudflare)→ Windows passive 静默安装 / macOS 替换
 ```
 
@@ -31,7 +31,7 @@
 ## 日常发版
 
 ```bash
-# 1. 改版本号(唯一版本源: src/qwenpaw/__version__.py;pyproject 动态引用它)
+# 1. 改版本号(唯一版本源: src/potato/__version__.py;pyproject 动态引用它)
 # 2. 构建并暂存各平台
 ./scripts/pack-tauri/release_desktop.sh macos
 gh run download <run-id> -n <windows-artifact> -D /tmp/win-artifacts
@@ -58,10 +58,10 @@ Windows 产物注意:CI 可能把 `-setup.exe` 与 `.sig` 分成多个 artifact,
 
 - Secret `TAURI_SIGNING_PRIVATE_KEY`:`~/.tauri/potato-updater.key` 的内容
 - Var `TAURI_UPDATER_ENDPOINTS`:
-  `https://chat.recodex.top/potato-updates/metadata/qwenpaw-tauri-latest.json`
+  `https://chat.recodex.top/potato-updates/metadata/potato-tauri-latest.json`
 - ⚠️ 检查并**删除/更新旧的 `TAURI_UPDATER_PUBKEY` var**(如存在):CI 的
   env 会覆盖 tauri.conf.json,残留上游公钥会让 CI 包收不到你的更新
-- Secret `QWENPAW_DASHSCOPE_API_KEY`(verify 步骤要用;不配则跳过验证步骤)
+- Secret `POTATO_DASHSCOPE_API_KEY`(verify 步骤要用;不配则跳过验证步骤)
 
 注意:CI 构建来自仓库内容,**app/ 前端与所有改动必须先 commit + push**。
 
@@ -80,7 +80,7 @@ cd dist && zip Potato-安装包.zip Potato-<ver>-Windows-setup.exe provision.jso
 
 对方:解压 → 双击安装器 → 打开即用(NSIS hook 自动收取同目录的
 provision.json,后端首启走设置页同款代码路径应用并本机加密,归档为
-provision.applied.json 防重复;实现见 `src/qwenpaw/app/provisioning.py`)。
+provision.applied.json 防重复;实现见 `src/potato/app/provisioning.py`)。
 
 注意:
 - Defender SmartScreen 会拦未签名安装器:「更多信息 → 仍要运行」,教一次

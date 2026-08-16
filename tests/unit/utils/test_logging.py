@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from qwenpaw.utils.logging import (
+from potato.utils.logging import (
     ColorFormatter,
     SuppressPathAccessLogFilter,
     add_project_file_handler,
@@ -197,13 +197,13 @@ class TestAddFileHandler:
 
     def test_creates_log_directory(self, tmp_path):
         """S级: Creates log directory if it doesn't exist."""
-        log_path = tmp_path / "logs" / "qwenpaw.log"
+        log_path = tmp_path / "logs" / "potato.log"
         add_project_file_handler(log_path)
         assert log_path.parent.exists()
 
     def test_idempotent_same_path(self, tmp_path):
         """S级: Same path twice doesn't duplicate handlers."""
-        log_path = tmp_path / "qwenpaw.log"
+        log_path = tmp_path / "potato.log"
 
         # First call
         add_project_file_handler(log_path)
@@ -216,7 +216,7 @@ class TestAddFileHandler:
 
     def test_adds_file_handler(self, tmp_path):
         """S级: File handler is added to logger."""
-        log_path = tmp_path / "qwenpaw.log"
+        log_path = tmp_path / "potato.log"
 
         # Clear handlers first
         logger = logging.getLogger(LOG_NAMESPACE)
@@ -243,9 +243,9 @@ class TestAddFileHandler:
             logger.handlers = original_handlers
 
     def test_uses_environment_rotation_limits(self, tmp_path, monkeypatch):
-        log_path = (tmp_path / "qwenpaw.log").resolve()
-        monkeypatch.setenv("QWENPAW_LOG_MAX_SIZE", "10MB")
-        monkeypatch.setenv("QWENPAW_LOG_MAX_BACKUPS", "5")
+        log_path = (tmp_path / "potato.log").resolve()
+        monkeypatch.setenv("POTATO_LOG_MAX_SIZE", "10MB")
+        monkeypatch.setenv("POTATO_LOG_MAX_BACKUPS", "5")
         logger = logging.getLogger(LOG_NAMESPACE)
         original_handlers = list(logger.handlers)
         logger.handlers = []
@@ -285,8 +285,8 @@ def test_parse_log_size_rejects_invalid_values(value):
 
 
 def test_invalid_rotation_environment_uses_defaults(monkeypatch):
-    monkeypatch.setenv("QWENPAW_LOG_MAX_SIZE", "unbounded")
-    monkeypatch.setenv("QWENPAW_LOG_MAX_BACKUPS", "-2")
+    monkeypatch.setenv("POTATO_LOG_MAX_SIZE", "unbounded")
+    monkeypatch.setenv("POTATO_LOG_MAX_BACKUPS", "-2")
 
     assert _resolve_log_rotation_settings() == (
         _LOG_MAX_BYTES,
@@ -295,8 +295,8 @@ def test_invalid_rotation_environment_uses_defaults(monkeypatch):
 
 
 def test_zero_log_backups_is_supported(monkeypatch):
-    monkeypatch.delenv("QWENPAW_LOG_MAX_SIZE", raising=False)
-    monkeypatch.setenv("QWENPAW_LOG_MAX_BACKUPS", "0")
+    monkeypatch.delenv("POTATO_LOG_MAX_SIZE", raising=False)
+    monkeypatch.setenv("POTATO_LOG_MAX_BACKUPS", "0")
 
     assert _resolve_log_rotation_settings() == (_LOG_MAX_BYTES, 0)
 
@@ -304,12 +304,12 @@ def test_zero_log_backups_is_supported(monkeypatch):
 class TestLogConstants:
     """Test module-level constants."""
 
-    def test_log_namespace_is_qwenpaw(self):
-        """S级: LOG_NAMESPACE is 'qwenpaw'."""
-        assert LOG_NAMESPACE == "qwenpaw"
+    def test_log_namespace_is_potato(self):
+        """S级: LOG_NAMESPACE is 'potato'."""
+        assert LOG_NAMESPACE == "potato"
 
     def test_log_namespace_used_by_setup(self):
         """S级: setup_logger uses LOG_NAMESPACE."""
         # Get the logger that setup_logger would configure
         logger = logging.getLogger(LOG_NAMESPACE)
-        assert logger.name == "qwenpaw"
+        assert logger.name == "potato"

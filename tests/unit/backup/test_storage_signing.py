@@ -6,20 +6,20 @@ import zipfile
 
 import pytest
 
-from qwenpaw.backup._ops import storage
-from qwenpaw.backup._utils import constants
-from qwenpaw.backup._utils.constants import META_FILE, PREFIX_CONFIG
-from qwenpaw.backup._utils.signing import key as signing_key
-from qwenpaw.backup._utils.signing.digest import verify_signature
-from qwenpaw.backup._utils.signing.resign import (
+from potato.backup._ops import storage
+from potato.backup._utils import constants
+from potato.backup._utils.constants import META_FILE, PREFIX_CONFIG
+from potato.backup._utils.signing import key as signing_key
+from potato.backup._utils.signing.digest import verify_signature
+from potato.backup._utils.signing.resign import (
     replace_meta_with_local_signature,
 )
-from qwenpaw.backup.models import (
+from potato.backup.models import (
     BackupConflictError,
     BackupMeta,
     BackupValidationError,
 )
-from qwenpaw.utils.zip_security import ZipLimits
+from potato.utils.zip_security import ZipLimits
 
 
 def _patch_backup_dir(monkeypatch, backup_dir):

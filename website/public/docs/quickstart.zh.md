@@ -1,6 +1,6 @@
 # 快速开始
 
-本节介绍多种方式安装或开始使用 QwenPaw：
+本节介绍多种方式安装或开始使用 Potato：
 
 | 安装方式                | 适用场景                 | 优势                                                             | 前置要求                      |
 | ----------------------- | ------------------------ | ---------------------------------------------------------------- | ----------------------------- |
@@ -32,34 +32,34 @@ pip install qwenpaw
 ```
 
 可选：先创建并激活虚拟环境再安装（`python -m venv .venv`，Linux/macOS 下
-`source .venv/bin/activate`，Windows 下 `.venv\Scripts\Activate.ps1`）。安装后会提供 `qwenpaw` 命令。
+`source .venv/bin/activate`，Windows 下 `.venv\Scripts\Activate.ps1`）。安装后会提供 `potato` 命令。PyPI 发行名继续使用历史标识 `qwenpaw`，这样已安装用户可以原位升级；产品名、Python 主包和主命令均为 Potato。
 
 然后按下方 [步骤二：初始化](#步骤二初始化) 和 [步骤三：启动服务](#步骤三启动服务) 操作。
 
 ### 步骤二：初始化
 
-在工作目录（默认 `~/.qwenpaw`）下生成 `config.json` 与 `HEARTBEAT.md`。两种方式：
+在工作目录（默认 `~/.potato`）下生成 `config.json` 与 `HEARTBEAT.md`。两种方式：
 
 - **快速用默认配置**（不交互，适合先跑起来再改配置）：
   ```bash
-  qwenpaw init --defaults
+  potato init --defaults
   ```
 - **交互式初始化**（按提示填写心跳间隔、投递目标、活跃时段，并可顺带配置频道与 Skills）：
   ```bash
-  qwenpaw init
+  potato init
   ```
   详见 [CLI - 快速上手](./cli#快速上手)。
 
-若已有配置想覆盖，可使用 `qwenpaw init --force`（会提示确认）。
+若已有配置想覆盖，可使用 `potato init --force`（会提示确认）。
 初始化后若尚未启用频道，接入钉钉、飞书、QQ 等需在 [频道配置](./channels) 中按文档填写。
 
 ### 步骤三：启动服务
 
 ```bash
-qwenpaw app
+potato app
 ```
 
-服务默认监听 `127.0.0.1:8088`。若已配置频道，QwenPaw 会在对应 app 内回复；若尚未配置，也可先完成本节再前往频道配置。
+服务默认监听 `127.0.0.1:8088`。若已配置频道，Potato 会在对应 app 内回复；若尚未配置，也可先完成本节再前往频道配置。
 
 ---
 
@@ -89,7 +89,7 @@ curl -fsSL https://qwenpaw.agentscope.io/install.bat -o install.bat && install.b
 irm https://qwenpaw.agentscope.io/install.ps1 | iex
 ```
 
-然后打开新终端（安装脚本会自动将 QwenPaw 加入 PATH）。
+然后打开新终端（安装脚本会自动将 Potato 加入 PATH）。
 
 > **⚠️ Windows 企业版 LTSC 用户特别提示**
 >
@@ -100,9 +100,9 @@ irm https://qwenpaw.agentscope.io/install.ps1 | iex
 >    脚本已完成文件安装，由于 **受限语言模式** ，脚本无法自动写入环境变量，此时只需手动配置：
 >
 >    - **找到安装目录**：
->      - 检查 `uv` 是否可用：在 CMD 中输入 `uv --version` ，如果显示版本号，则**只需配置 QwenPaw 路径**；如果提示 `'uv' 不是内部或外部命令，也不是可运行的程序或批处理文件。`，则需同时配置两者。
+>      - 检查 `uv` 是否可用：在 CMD 中输入 `uv --version` ，如果显示版本号，则**只需配置 Potato 路径**；如果提示 `'uv' 不是内部或外部命令，也不是可运行的程序或批处理文件。`，则需同时配置两者。
 >      - uv路径（任选其一，取决于安装位置，若`uv`不可用则填）：通常在`%USERPROFILE%\.local\bin`、`%USERPROFILE%\AppData\Local\uv`或 Python 安装目录下的 `Scripts` 文件夹
->      - QwenPaw路径：通常在 `%USERPROFILE%\.qwenpaw\bin` 。
+>      - Potato路径：通常在 `%USERPROFILE%\.potato\bin` 。
 >    - **手动添加到系统的 Path 环境变量**：
 >      - 按 `Win + R`，输入 `sysdm.cpl` 并回车，打开"系统属性"。
 >      - 点击 "高级" -> "环境变量"。
@@ -114,9 +114,9 @@ irm https://qwenpaw.agentscope.io/install.ps1 | iex
 > 由于 **受限语言模式** ，脚本可能无法自动下载`uv`。
 >
 > - **手动安装uv**：参考 [GitHub Release](https://github.com/astral-sh/uv/releases)下载并将`uv.exe`放至`%USERPROFILE%\.local\bin`或`%USERPROFILE%\AppData\Local\uv`；或者确保已安装 Python ，然后运行`python -m pip install -U uv`
-> - **配置`uv`环境变量**：将`uv`所在目录和 `%USERPROFILE%\.qwenpaw\bin` 添加到系统的 `Path` 变量中。
-> - **重新运行**：打开新终端，再次执行安装脚本以完成 `QwenPaw` 安装。
-> - **配置`QwenPaw`环境变量**：将 `%USERPROFILE%\.qwenpaw\bin` 添加到系统的 `Path` 变量中。
+> - **配置`uv`环境变量**：将`uv`所在目录和 `%USERPROFILE%\.potato\bin` 添加到系统的 `Path` 变量中。
+> - **重新运行**：打开新终端，再次执行安装脚本以完成 `Potato` 安装。
+> - **配置`Potato`环境变量**：将 `%USERPROFILE%\.potato\bin` 添加到系统的 `Path` 变量中。
 
 也可以指定选项：
 
@@ -140,32 +140,32 @@ curl -fsSL ... | bash -s -- --from-source
 .\install.ps1 -FromSource
 ```
 
-升级只需重新运行安装命令。卸载请运行 `qwenpaw uninstall`。
+升级只需重新运行安装命令。卸载请运行 `potato uninstall`。
 
 ### 步骤二：初始化
 
-在工作目录（默认 `~/.qwenpaw`）下生成 `config.json` 与 `HEARTBEAT.md`。两种方式：
+在工作目录（默认 `~/.potato`）下生成 `config.json` 与 `HEARTBEAT.md`。两种方式：
 
 - **快速用默认配置**（不交互，适合先跑起来再改配置）：
   ```bash
-  qwenpaw init --defaults
+  potato init --defaults
   ```
 - **交互式初始化**（按提示填写心跳间隔、投递目标、活跃时段，并可顺带配置频道与 Skills）：
   ```bash
-  qwenpaw init
+  potato init
   ```
   详见 [CLI - 快速上手](./cli#快速上手)。
 
-若已有配置想覆盖，可使用 `qwenpaw init --force`（会提示确认）。
+若已有配置想覆盖，可使用 `potato init --force`（会提示确认）。
 初始化后若尚未启用频道，接入钉钉、飞书、QQ 等需在 [频道配置](./channels) 中按文档填写。
 
 ### 步骤三：启动服务
 
 ```bash
-qwenpaw app
+potato app
 ```
 
-服务默认监听 `127.0.0.1:8088`。若已配置频道，QwenPaw 会在对应 app 内回复；若尚未配置，也可先完成本节再前往频道配置。
+服务默认监听 `127.0.0.1:8088`。若已配置频道，Potato 会在对应 app 内回复；若尚未配置，也可先完成本节再前往频道配置。
 
 ---
 
@@ -190,39 +190,39 @@ docker run -p 127.0.0.1:8088:8088 \
 
 ## 方式四：AgentScope Platform（无需安装）
 
-[AgentScope Platform](https://platform.agentscope.io/) 是 AgentScope 生态的云端体验平台，提供 QwenPaw 的一键部署和在线运行环境，同时支持 Beta 版本和正式版本试用。注册即可免费体验，无需在本地安装或配置运行环境；登录后一键部署，即可直接在浏览器中使用 QwenPaw。
+[AgentScope Platform](https://platform.agentscope.io/) 是 AgentScope 生态的云端体验平台，提供 Potato 的一键部署和在线运行环境，同时支持 Beta 版本和正式版本试用。注册即可免费体验，无需在本地安装或配置运行环境；登录后一键部署，即可直接在浏览器中使用 Potato。
 
-![AgentScope Platform 中的 QwenPaw 一键部署入口与建议反馈入口](https://img.alicdn.com/imgextra/i4/O1CN01eJWlFV24HEB3V2ATv_!!6000000007365-2-tps-2914-1446.png)
+![AgentScope Platform 中的 Potato 一键部署入口与建议反馈入口](https://img.alicdn.com/imgextra/i4/O1CN01eJWlFV24HEB3V2ATv_!!6000000007365-2-tps-2914-1446.png)
 
-如果在 QwenPaw 部署或使用过程中遇到问题，可点击页面右下角的「建议反馈」提交反馈。
+如果在 Potato 部署或使用过程中遇到问题，可点击页面右下角的「建议反馈」提交反馈。
 
 ---
 
 ## 方式五：部署到阿里云 ECS
 
-若希望将 QwenPaw 部署在阿里云上，可使用阿里云 ECS 一键部署：
+若希望将 Potato 部署在阿里云上，可使用阿里云 ECS 一键部署：
 
-1. 打开 [QwenPaw 阿里云 ECS 部署链接](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-1ed84201799f40879884)，按页面提示填写部署参数；
+1. 打开 [Potato 阿里云 ECS 部署链接](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-1ed84201799f40879884)，按页面提示填写部署参数；
 2. 参数配置完成后确认费用并创建实例，部署完成后即可获取访问地址并使用服务。
 
-详细步骤与说明请参考 [阿里云开发者社区：QwenPaw 3 分钟部署你的 AI 助理](https://developer.aliyun.com/article/1713682)。
+详细步骤与说明请参考 [阿里云开发者社区：Potato 3 分钟部署你的 AI 助理](https://developer.aliyun.com/article/1713682)。
 
 ---
 
 ## 方式六：魔搭创空间一键配置（无需安装）
 
-若不想在本地安装 Python，可通过魔搭创空间将 QwenPaw 部署到云端运行：
+若不想在本地安装 Python，可通过魔搭创空间将 Potato 部署到云端运行：
 
 1. 先前往 [魔搭](https://modelscope.cn/register?back=%2Fhome) 注册并登录；
-2. 打开 [QwenPaw 创空间](https://modelscope.cn/studios/fork?target=AgentScope/QwenPaw)，一键配置即可使用。
+2. 打开 [Potato 创空间](https://modelscope.cn/studios/fork?target=AgentScope/QwenPaw)，一键配置即可使用。
 
-**重要**：使用创空间请将空间设为 **非公开**，否则你的 QwenPaw 可能被他人操纵。
+**重要**：使用创空间请将空间设为 **非公开**，否则你的 Potato 可能被他人操纵。
 
 ---
 
 ## 方式七：桌面应用
 
-如果你不习惯使用命令行，可以下载并使用 QwenPaw 的桌面应用版本，无需手动配置 Python 环境或执行命令。
+如果你不习惯使用命令行，可以下载并使用 Potato 的桌面应用版本，无需手动配置 Python 环境或执行命令。
 
 ### 特点
 
@@ -233,15 +233,15 @@ docker run -p 127.0.0.1:8088:8088 \
 ### 下载与使用
 
 1. **下载安装包**
-   前往 [GitHub Releases](https://github.com/agentscope-ai/QwenPaw/releases) 下载对应系统的 Tauri 版本：
+   前往 [GitHub Releases](https://github.com/fly-go-run/Potato/releases) 下载对应系统的 Tauri 版本：
 
-   - Windows: `QwenPaw-Tauri-<version>-Windows-setup.exe`
-   - macOS: `QwenPaw-Tauri-<version>-macOS.zip`
+   - Windows: `Potato-Tauri-<version>-Windows-setup.exe`
+   - macOS: `Potato-Tauri-<version>-macOS.zip`
 
 2. **安装并启动**
 
    - **Windows**: 双击 `.exe` 文件按向导安装，完成后双击桌面快捷方式启动
-   - **macOS**: 解压 `.zip` 得到 `QwenPaw Desktop.app`，首次需右键选择"打开"以绕过系统安全限制
+   - **macOS**: 解压 `.zip` 得到 `Potato Desktop.app`，首次需右键选择"打开"以绕过系统安全限制
 
 3. **首次启动提示**
    首次启动可能需要 10-60 秒（取决于系统配置），应用需要初始化 Python 环境和加载依赖，请耐心等待窗口自动打开。
@@ -277,7 +277,7 @@ curl -N -X POST "http://localhost:8088/api/console/chat" \
 
 #### ✅ 1. 配置模型（必需）
 
-QwenPaw 需要大语言模型才能工作。你可以选择以下任一方式：
+Potato 需要大语言模型才能工作。你可以选择以下任一方式：
 
 **选项 A：使用云端模型（需要 API Key）**
 
@@ -294,14 +294,14 @@ QwenPaw 需要大语言模型才能工作。你可以选择以下任一方式：
 
 1. 安装本地模型后端：
 
-- QwenPaw Local（llama.cpp）：在 QwenPaw Local 提供商设置中下载 `llama.cpp`，详见 [模型 - 配置本地提供商](./models)。
+- Potato Local（llama.cpp）：在 Potato Local 提供商设置中下载 `llama.cpp`，详见 [模型 - 配置本地提供商](./models)。
 - Ollama：从 [Ollama 官网](https://ollama.com/download) 安装 Ollama，并启动 Ollama 服务。
 - LM Studio：从 [LM Studio 官网](https://lmstudio.ai/download) 安装 LM Studio，并启动 LM Studio 服务。
 
 2. 下载模型：
 
-- 对于 QwenPaw Local（llama.cpp），你可以直接在控制台的提供商设置中下载模型，或者手动将 GGUF 模型文件放到本地模型目录中（默认 `~/.qwenpaw/local_models/models/<org>/<model>`，例如 `~/.qwenpaw/local_models/models/Qwen/Qwen3-0.6B-GGUF`）。
-- 对于 Ollama 和 LM Studio，需要先在各自服务中添加模型，之后 QwenPaw 才能自动获取模型列表并连接。
+- 对于 Potato Local（llama.cpp），你可以直接在控制台的提供商设置中下载模型，或者手动将 GGUF 模型文件放到本地模型目录中（默认 `~/.potato/local_models/models/<org>/<model>`，例如 `~/.potato/local_models/models/Qwen/Qwen3-0.6B-GGUF`）。
+- 对于 Ollama 和 LM Studio，需要先在各自服务中添加模型，之后 Potato 才能自动获取模型列表并连接。
 
 3. 在控制台选择本地提供商和模型
 
@@ -309,7 +309,7 @@ QwenPaw 需要大语言模型才能工作。你可以选择以下任一方式：
 
 #### 🎯 2. 在控制台测试对话
 
-模型配置完成后，在控制台的 **聊天** 页面发送消息测试功能，确认 QwenPaw 可以正常回复。
+模型配置完成后，在控制台的 **聊天** 页面发送消息测试功能，确认 Potato 可以正常回复。
 
 ---
 
@@ -319,12 +319,12 @@ QwenPaw 需要大语言模型才能工作。你可以选择以下任一方式：
 
 #### 📱 接入消息频道
 
-在钉钉、飞书、QQ、Discord、iMessage 等 app 里与 QwenPaw 对话：
+在钉钉、飞书、QQ、Discord、iMessage 等 app 里与 Potato 对话：
 
 1. 在控制台进入 **控制 → 频道**
 2. 选择要接入的频道
 3. 按照 [频道配置](./channels) 文档获取凭据并填写
-4. 保存后即可在对应 app 中发消息给 QwenPaw
+4. 保存后即可在对应 app 中发消息给 Potato
 
 #### 📊 启用 Langfuse tracing
 
@@ -345,7 +345,7 @@ FROM agentscope/qwenpaw:latest
 RUN pip install --no-cache-dir "langfuse>=4,<5"
 ```
 
-然后通过环境变量运行 QwenPaw：
+然后通过环境变量运行 Potato：
 
 ```bash
 docker run -p 127.0.0.1:8088:8088 \
@@ -355,12 +355,12 @@ docker run -p 127.0.0.1:8088:8088 \
   -v qwenpaw-data:/app/working \
   -v qwenpaw-secrets:/app/working.secret \
   -v qwenpaw-backups:/app/working.backups \
-  qwenpaw-langfuse:latest
+  potato-langfuse:latest
 ```
 
 #### 🔧 启用和扩展技能
 
-赋予 QwenPaw 更多能力（PDF 处理、Office 文档、新闻摘要等）：
+赋予 Potato 更多能力（PDF 处理、Office 文档、新闻摘要等）：
 
 - 在控制台进入 **智能体 → 技能池** 或 **智能体 → 技能**
 - 导入内置技能、从 Skill Hub 导入、或创建自定义技能
@@ -376,9 +376,9 @@ docker run -p 127.0.0.1:8088:8088 \
 
 #### ⏰ 设置定时任务与心跳
 
-让 QwenPaw 自动执行任务：
+让 Potato 自动执行任务：
 
-- **定时任务**：在控制台 **控制 → 定时任务** 中创建，或使用 [CLI](./cli) 的 `qwenpaw cron` 命令
+- **定时任务**：在控制台 **控制 → 定时任务** 中创建，或使用 [CLI](./cli) 的 `potato cron` 命令
 - **心跳**：配置定时自检或摘要，详见 [心跳](./heartbeat)
 
 #### 👥 创建多智能体

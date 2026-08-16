@@ -18,8 +18,8 @@ from urllib.parse import unquote
 import aiohttp
 from aiohttp import web
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
-from qwenpaw.app.channels.base import (
+from potato.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.base import (
     BaseChannel,
     AudioContent,
     ContentType,
@@ -175,7 +175,7 @@ class AzureBotChannel(BaseChannel):
         elif self._workspace_dir:
             self._media_dir = self._workspace_dir / "media"
         else:
-            from qwenpaw.constant import DEFAULT_MEDIA_DIR
+            from potato.constant import DEFAULT_MEDIA_DIR
 
             self._media_dir = DEFAULT_MEDIA_DIR
 
@@ -1509,7 +1509,7 @@ class AzureBotChannel(BaseChannel):
         """Path to persist conversation refs."""
         if self._workspace_dir:
             return self._workspace_dir / "azure_bot_refs.json"
-        from qwenpaw.constant import WORKING_DIR
+        from potato.constant import WORKING_DIR
 
         return WORKING_DIR / "azure_bot_refs.json"
 

@@ -10,8 +10,8 @@ import {
   type CloseAction,
 } from "./closeWindowPreference";
 
-const CLOSE_REQUESTED_EVENT = "qwenpaw-close-requested";
-const SHUTDOWN_STARTED_EVENT = "qwenpaw-shutdown-started";
+const CLOSE_REQUESTED_EVENT = "potato-close-requested";
+const SHUTDOWN_STARTED_EVENT = "potato-shutdown-started";
 
 async function runCloseAction(action: CloseAction): Promise<void> {
   const command = action === "quit" ? "quit_app" : "minimize_to_tray";

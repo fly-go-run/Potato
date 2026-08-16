@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Inbox end-to-end tests.
+Potato Inbox end-to-end tests.
 
 UI-driven only. Pure API contract tests for /api/console/inbox/* live
 in ``tests/integration/test_inbox.py``. The Approvals tab is out of

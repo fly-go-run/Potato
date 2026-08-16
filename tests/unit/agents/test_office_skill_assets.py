@@ -6,15 +6,15 @@ import sys
 
 import pytest
 
-from qwenpaw.agents.office_skill_assets import (
+from potato.agents.office_skill_assets import (
     OFFICE_SKILL_DIR_NAMES,
     get_shared_office_assets_dir,
     sync_office_skill_assets,
     validate_materialized_office_skill_assets,
     validate_office_skill_source_layout,
 )
-from qwenpaw.agents.skill_system.registry import get_builtin_skills_dir
-from qwenpaw.agents.skill_system.store import copy_skill_dir
+from potato.agents.skill_system.registry import get_builtin_skills_dir
+from potato.agents.skill_system.store import copy_skill_dir
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -40,7 +40,7 @@ def test_sync_materializes_complete_matching_assets_for_every_office_skill(
     tmp_path: Path,
 ) -> None:
     source_skills = get_builtin_skills_dir()
-    built_skills = tmp_path / "qwenpaw" / "agents" / "skills"
+    built_skills = tmp_path / "potato" / "agents" / "skills"
     _create_skill_roots(built_skills)
 
     sync_office_skill_assets(built_skills, source_skills_dir=source_skills)
@@ -100,7 +100,7 @@ def test_build_output_keeps_only_six_self_contained_office_skills(
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
-    built_skills = build_base / "lib" / "qwenpaw" / "agents" / "skills"
+    built_skills = build_base / "lib" / "potato" / "agents" / "skills"
     assert not (built_skills / "_office_assets").exists()
     validate_materialized_office_skill_assets(
         built_skills,

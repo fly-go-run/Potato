@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Tests for qwenpaw.security.tool_guard.approval."""
+"""Tests for potato.security.tool_guard.approval."""
 # pylint: disable=redefined-outer-name
 from __future__ import annotations
 
 
-from qwenpaw.security.tool_guard.approval import (
+from potato.security.tool_guard.approval import (
     ApprovalDecision,
     format_findings_summary,
 )
-from qwenpaw.security.tool_guard.models import (
+from potato.security.tool_guard.models import (
     GuardFinding,
     GuardSeverity,
     GuardThreatCategory,

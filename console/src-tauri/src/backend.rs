@@ -21,8 +21,8 @@ mod events;
 
 /// Path of the desktop-only graceful shutdown endpoint on the backend.
 const DESKTOP_SHUTDOWN_PATH: &str = "/api/desktop/shutdown";
-const DESKTOP_SHUTDOWN_TOKEN_ENV: &str = "QWENPAW_DESKTOP_SHUTDOWN_TOKEN";
-const DESKTOP_SHUTDOWN_TOKEN_HEADER: &str = "X-QwenPaw-Desktop-Shutdown-Token";
+const DESKTOP_SHUTDOWN_TOKEN_ENV: &str = "POTATO_DESKTOP_SHUTDOWN_TOKEN";
+const DESKTOP_SHUTDOWN_TOKEN_HEADER: &str = "X-Potato-Desktop-Shutdown-Token";
 /// Upper bound for the shutdown HTTP request. The endpoint just flips
 /// uvicorn's `should_exit` and returns immediately, so the request is
 /// milliseconds in the happy path; this is only a fallback so a wedged
@@ -314,10 +314,7 @@ pub(crate) fn backend_port(state: tauri::State<'_, BackendState>) -> Option<u16>
     state.port()
 }
 
-/// Returns startup failures consumed by the bootstrap gate.
-///
-/// This is not a long-lived backend health signal after the WebView navigates to
-/// the backend-hosted console.
+/// Returns sidecar spawn/health failures for the bundled desktop app.
 #[tauri::command]
 pub(crate) fn backend_startup_error(state: tauri::State<'_, BackendState>) -> Option<String> {
     state.error()
@@ -344,7 +341,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             .targets([
                 Target::new(TargetKind::Stdout),
                 Target::new(TargetKind::LogDir {
-                    file_name: Some("qwenpaw-desktop".into()),
+                    file_name: Some("potato-desktop".into()),
                 }),
             ])
             .level(desktop_log_level())
@@ -361,7 +358,7 @@ pub(crate) async fn stop_and_wait(app: &tauri::AppHandle) -> Result<(), String> 
 }
 
 fn desktop_log_level() -> log::LevelFilter {
-    if std::env::var("QWENPAW_DESKTOP_DEBUG").is_ok_and(|value| {
+    if std::env::var("POTATO_DESKTOP_DEBUG").is_ok_and(|value| {
         matches!(
             value.to_ascii_lowercase().as_str(),
             "1" | "true" | "yes" | "on"
@@ -392,7 +389,7 @@ fn start(app: &tauri::AppHandle) {
     .env("PYTHONIOENCODING", "utf-8")
     .env("PYTHONUNBUFFERED", "1")
     .env("PYTHONFAULTHANDLER", "1")
-    .env("QWENPAW_DESKTOP_APP", "1")
+    .env("POTATO_DESKTOP_APP", "1")
     .env(DESKTOP_SHUTDOWN_TOKEN_ENV, &shutdown_token);
 
     log::info!("[backend] starting generation={generation}");
@@ -422,21 +419,17 @@ fn start(app: &tauri::AppHandle) {
 fn schedule_startup_reveal_watchdog(app: tauri::AppHandle, generation: u64) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(STARTUP_REVEAL_WATCHDOG_TIMEOUT).await;
-        let state = app.state::<BackendState>();
-        if !state.claim_frontend_reveal_if_current(generation) {
+        if !app.state::<BackendState>().is_current(generation) {
             return;
         }
-        let message = format!(
-            "desktop startup did not reach the frontend within {} seconds",
-            STARTUP_REVEAL_WATCHDOG_TIMEOUT.as_secs()
-        );
-        log::error!("[backend:{generation}] {message}");
-        state.set_error_if_current(generation, message);
-        // Only reveal if the launch splash never made it on screen; after
-        // the first reveal the window is (or was deliberately hidden by)
-        // the user's doing, and stealing focus this late is the exact bug
-        // the early reveal exists to prevent.
+        // The bundled app should already have painted. Only reveal here if
+        // the WebView never reached on_page_load; do not invent a backend
+        // error or steal focus after the user has hidden the window.
         if !crate::INITIAL_REVEAL_DONE.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            log::warn!(
+                "[backend:{generation}] bundled frontend did not paint within {} seconds; showing native window",
+                STARTUP_REVEAL_WATCHDOG_TIMEOUT.as_secs()
+            );
             tray::show_main_window(&app);
         }
     });

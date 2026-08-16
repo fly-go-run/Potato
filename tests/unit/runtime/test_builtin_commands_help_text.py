@@ -2,8 +2,8 @@
 """help_text for built-in commands comes from the definition site."""
 from __future__ import annotations
 
-from qwenpaw.agents.command_handler import SYSTEM_COMMAND_DESCRIPTIONS
-from qwenpaw.runtime.builtin_commands import (
+from potato.agents.command_handler import SYSTEM_COMMAND_DESCRIPTIONS
+from potato.runtime.builtin_commands import (
     _collect_control_specs,
     _collect_conversation_specs,
 )

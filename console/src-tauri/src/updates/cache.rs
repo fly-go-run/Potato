@@ -132,8 +132,8 @@ fn write_artifact(
     version: &str,
 ) -> Result<PathBuf, String> {
     let file_name = match platform {
-        "windows" => format!("QwenPaw-Desktop_{version}_x64-setup.exe"),
-        "macos" => format!("QwenPaw-Desktop_{version}_macos.app.tar.gz"),
+        "windows" => format!("Potato-Desktop_{version}_x64-setup.exe"),
+        "macos" => format!("Potato-Desktop_{version}_macos.app.tar.gz"),
         _ => return Err("cached updates are not supported on this platform".into()),
     };
     let path = dest_dir.join(file_name);

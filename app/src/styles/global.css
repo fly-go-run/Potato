@@ -50,7 +50,9 @@ select,
 }
 
 ::selection {
-  background: var(--accent-soft);
+  /* accent-soft (#ededed) is 1 step from the user bubble (#ececec),
+     so a drag-select on sent messages looked like nothing happened. */
+  background: color-mix(in srgb, var(--tint) 26%, transparent);
 }
 
 /* ── 全局焦点态兜底 ─────────────────────────────────────────

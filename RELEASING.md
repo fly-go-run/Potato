@@ -1,8 +1,8 @@
-# Releasing QwenPaw
+# Releasing Potato
 
 _中文版：[RELEASING_zh.md](RELEASING_zh.md)_
 
-QwenPaw ships four artifacts from a single version — the **PyPI** wheel, the
+Potato ships four artifacts from a single version — the **PyPI** wheel, the
 **Docker** image, the **desktop** apps (Tauri, Windows + macOS) and the
 **plugins** bundle. They are published together by one orchestrated workflow so
 that a failure in any one of them blocks the whole release: you can never end up
@@ -57,7 +57,7 @@ A full run is ~60–75 min, dominated by the desktop Tauri builds.
      gh release create v2.0.0-beta.8 --draft --prerelease \
        --target main --title "v2.0.0-beta.8" --notes "..."
      ```
-   - The tag should correspond to `src/qwenpaw/__version__.py` (`resolve`
+   - The tag should correspond to `src/potato/__version__.py` (`resolve`
      validates this with `packaging` normalization and fails on a mismatch, e.g.
      tag `v2.0.1-beta.1` must match version `2.0.1b1`).
    - Prefer pinning the draft to a commit (`--target <sha>`). If you use
@@ -108,7 +108,7 @@ jobs succeed. If anything fails, the release stays a draft.
 | `deploy-website` fails (stable/post only) | Release is published, but the public site (`qwenpaw.agentscope.io`) still shows the previous version | Re-run the job, or manually dispatch `deploy-website.yml` (workflow_dispatch). Idempotent, non-blocking. |
 | "Multiple draft releases found" | More than one draft exists | Re-run *Run workflow* with an explicit `tag`. |
 | "No draft release found" / "not a draft" | No draft, or wrong tag | Create the draft / fix the tag, then re-run. |
-| resolve rejects the tag (version mismatch) | The draft tag doesn't match `src/qwenpaw/__version__.py` | Align the tag with the version (packaging-normalized, e.g. `v2.0.1-beta.1` ↔ `2.0.1b1`), then re-run. |
+| resolve rejects the tag (version mismatch) | The draft tag doesn't match `src/potato/__version__.py` | Align the tag with the version (packaging-normalized, e.g. `v2.0.1-beta.1` ↔ `2.0.1b1`), then re-run. |
 
 ## Rollback to the legacy flow
 
@@ -130,5 +130,5 @@ the duty issue still run for real. On a fork this only affects the fork's own
 release page.
 
 Note: the desktop build's install → launch → chat UI verification still runs
-under `dry_run` and needs the `QWENPAW_DASHSCOPE_API_KEY` secret — `dry_run` only
+under `dry_run` and needs the `POTATO_DASHSCOPE_API_KEY` secret — `dry_run` only
 skips the resolve-stage fail-fast check, not the verification itself.

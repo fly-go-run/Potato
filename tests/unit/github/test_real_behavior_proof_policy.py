@@ -2,7 +2,7 @@
 """Unit tests for the real-behavior-proof policy.
 
 Ported from openclaw's ``real-behavior-proof-policy.test.ts`` and adapted
-to QwenPaw's Python implementation.
+to Potato's Python implementation.
 """
 # pylint: disable=protected-access,redefined-outer-name,unused-argument
 # pylint: disable=wrong-import-position,line-too-long
@@ -92,7 +92,7 @@ class TestExternalPrPass:
         ev = evaluate_pull_request_context(
             **_external_pr(
                 _proof_body(
-                    "CI artifact: https://github.com/agentscope-ai/QwenPaw/actions/runs/123/artifacts/456",
+                    "CI artifact: https://github.com/agentscope-ai/Potato/actions/runs/123/artifacts/456",
                 ),
             ),
         )

@@ -15,7 +15,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import qwenpaw.app.routers.workspace as workspace_router
+import potato.app.routers.workspace as workspace_router
 
 
 @pytest.fixture
@@ -36,11 +36,11 @@ class TestSpeechStatus:
     def test_reports_credentials_and_ffmpeg(self, client, monkeypatch):
         _configure(monkeypatch, "doubao_asr")
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.doubao_asr.has_doubao_credentials",
+            "potato.agents.utils.doubao_asr.has_doubao_credentials",
             lambda: True,
         )
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.doubao_asr.ffmpeg_available",
+            "potato.agents.utils.doubao_asr.ffmpeg_available",
             lambda: False,
         )
 
@@ -54,7 +54,7 @@ class TestSpeechStatus:
     def test_not_ready_without_credentials(self, client, monkeypatch):
         _configure(monkeypatch, "doubao_asr")
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.doubao_asr.has_doubao_credentials",
+            "potato.agents.utils.doubao_asr.has_doubao_credentials",
             lambda: False,
         )
         body = client.get("/api/workspace/speech-status").json()
@@ -71,11 +71,11 @@ class TestTranscribeConversionGuard:
     def test_rejects_webm_when_ffmpeg_is_missing(self, client, monkeypatch):
         _configure(monkeypatch, "doubao_asr")
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.doubao_asr.has_doubao_credentials",
+            "potato.agents.utils.doubao_asr.has_doubao_credentials",
             lambda: True,
         )
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.doubao_asr.ffmpeg_available",
+            "potato.agents.utils.doubao_asr.ffmpeg_available",
             lambda: False,
         )
 
@@ -87,11 +87,11 @@ class TestTranscribeConversionGuard:
     def test_wav_is_not_gated_on_ffmpeg(self, client, monkeypatch):
         _configure(monkeypatch, "doubao_asr")
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.doubao_asr.has_doubao_credentials",
+            "potato.agents.utils.doubao_asr.has_doubao_credentials",
             lambda: True,
         )
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.doubao_asr.ffmpeg_available",
+            "potato.agents.utils.doubao_asr.ffmpeg_available",
             lambda: False,
         )
 
@@ -99,7 +99,7 @@ class TestTranscribeConversionGuard:
             return "你好"
 
         monkeypatch.setattr(
-            "qwenpaw.agents.utils.audio_transcription.transcribe_audio",
+            "potato.agents.utils.audio_transcription.transcribe_audio",
             fake_transcribe,
         )
 

@@ -7,7 +7,7 @@ import pytest
 from agentscope.message import TextBlock, ToolResultState
 from agentscope.tool import ToolChunk
 
-from qwenpaw.app.routers.tool_calls import get_output, stream_output
+from potato.app.routers.tool_calls import get_output, stream_output
 
 
 def _request(entry):

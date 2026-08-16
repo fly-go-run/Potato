@@ -1,5 +1,5 @@
 # Deploy website to GitHub Pages (see scripts/website_build.sh).
-# Custom domain: qwenpaw.agentscope.io (CNAME).
+# Custom domain: qwenpaw.agentscope.io (CNAME; stable external identity).
 name: Deploy website to GitHub Pages
 
 on:

@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+from potato.security.tool_guard.guardians.rule_guardian import (
     _check_rm_targets_outside_workspace,
 )
 

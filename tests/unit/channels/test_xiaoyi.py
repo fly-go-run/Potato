@@ -40,7 +40,7 @@ def mock_process():
 @pytest.fixture
 def xiaoyi_channel(mock_process, tmp_path):
     """Create XiaoYiChannel instance for testing."""
-    from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+    from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
     channel = XiaoYiChannel(
         process=mock_process,
@@ -67,7 +67,7 @@ class TestXiaoYiChannelInit:
 
     def test_init_stores_basic_config(self, mock_process, tmp_path):
         """Constructor should store all basic configuration parameters."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         channel = XiaoYiChannel(
             process=mock_process,
@@ -94,7 +94,7 @@ class TestXiaoYiChannelInit:
         tmp_path,
     ):
         """Constructor should initialize internal data structures."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         channel = XiaoYiChannel(
             process=mock_process,
@@ -115,7 +115,7 @@ class TestXiaoYiChannelInit:
 
     def test_init_with_workspace_dir(self, mock_process, tmp_path):
         """Constructor uses workspace-specific media dir when provided."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         workspace = tmp_path / "workspace"
         channel = XiaoYiChannel(
@@ -147,7 +147,7 @@ class TestXiaoYiChannelFactoryMethods:
         tmp_path,
     ):
         """from_env should correctly read environment variables."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         monkeypatch.setenv("XIAOYI_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("XIAOYI_AK", "env_ak_value")
@@ -164,7 +164,7 @@ class TestXiaoYiChannelFactoryMethods:
 
     def test_from_env_uses_defaults(self, monkeypatch, mock_process):
         """from_env uses default values when env vars are missing."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         monkeypatch.delenv("XIAOYI_CHANNEL_ENABLED", raising=False)
         monkeypatch.delenv("XIAOYI_AK", raising=False)
@@ -180,7 +180,7 @@ class TestXiaoYiChannelFactoryMethods:
 
     def test_from_config_with_object(self, mock_process, tmp_path):
         """from_config should use config object values."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         config = Mock()
         config.enabled = True
@@ -205,7 +205,7 @@ class TestXiaoYiChannelFactoryMethods:
 
     def test_from_config_with_dict(self, mock_process):
         """from_config should work with dict config."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         config = {
             "enabled": True,
@@ -239,7 +239,7 @@ class TestXiaoYiChannelValidation:
 
     def test_validate_config_raises_on_missing_ak(self, mock_process):
         """_validate_config should raise ValueError when AK is missing."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         channel = XiaoYiChannel(
             process=mock_process,
@@ -254,7 +254,7 @@ class TestXiaoYiChannelValidation:
 
     def test_validate_config_raises_on_missing_sk(self, mock_process):
         """_validate_config should raise ValueError when SK is missing."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         channel = XiaoYiChannel(
             process=mock_process,
@@ -269,7 +269,7 @@ class TestXiaoYiChannelValidation:
 
     def test_validate_config_raises_on_missing_agent_id(self, mock_process):
         """_validate_config raises ValueError when agent_id is missing."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiChannel
+        from potato.app.channels.xiaoyi.channel import XiaoYiChannel
 
         channel = XiaoYiChannel(
             process=mock_process,
@@ -331,7 +331,7 @@ class TestXiaoYiChannelLifecycle:
 
     async def test_stop_cleans_up_resources(self, xiaoyi_channel):
         """stop() should clean up all resources."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiConnection
+        from potato.app.channels.xiaoyi.channel import XiaoYiConnection
 
         mock_conn = MagicMock(spec=XiaoYiConnection)
         mock_conn.disconnect = AsyncMock()
@@ -359,7 +359,7 @@ class TestXiaoYiChannelLifecycle:
 
     async def test_stop_disconnects_both_connections(self, xiaoyi_channel):
         """stop() should disconnect both connections."""
-        from qwenpaw.app.channels.xiaoyi.channel import XiaoYiConnection
+        from potato.app.channels.xiaoyi.channel import XiaoYiConnection
 
         conn1 = MagicMock(spec=XiaoYiConnection)
         conn1.disconnect = AsyncMock()
@@ -394,7 +394,7 @@ class TestXiaoYiChannelWebSocketConnection:
     ):
         """_start_connections should connect both endpoints in parallel."""
         with patch(
-            "qwenpaw.app.channels.xiaoyi.channel.XiaoYiConnection",
+            "potato.app.channels.xiaoyi.channel.XiaoYiConnection",
         ) as MockConn:
             mock_instance = MagicMock()
             mock_instance.connect = AsyncMock(return_value=True)
@@ -421,7 +421,7 @@ class TestXiaoYiChannelWebSocketConnection:
             return call_count != 1  # First fails, second succeeds
 
         with patch(
-            "qwenpaw.app.channels.xiaoyi.channel.XiaoYiConnection",
+            "potato.app.channels.xiaoyi.channel.XiaoYiConnection",
         ) as MockConn:
             mock_instance = MagicMock()
             mock_instance.connect = AsyncMock(side_effect=side_effect_connect)
@@ -440,11 +440,11 @@ class TestXiaoYiChannelWebSocketConnection:
         """_start_connections with empty backup constant skips backup."""
         with (
             patch(
-                "qwenpaw.app.channels.xiaoyi.channel.DEFAULT_WS_URL_BACKUP",
+                "potato.app.channels.xiaoyi.channel.DEFAULT_WS_URL_BACKUP",
                 "",
             ),
             patch(
-                "qwenpaw.app.channels.xiaoyi.channel.XiaoYiConnection",
+                "potato.app.channels.xiaoyi.channel.XiaoYiConnection",
             ) as MockConn,
         ):
             mock_instance = MagicMock()
@@ -867,7 +867,7 @@ class TestXiaoYiChannelMedia:
         xiaoyi_channel._connected = True
         xiaoyi_channel._session_task_map["session_123"] = "task_123"
 
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             ImageContent,
             ContentType,
         )
@@ -1102,7 +1102,7 @@ class TestXiaoYiChannelPartsExtraction:
         mock_message = MagicMock()
         mock_message.type = "message"
 
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             TextContent,
             ContentType,
         )
@@ -1132,7 +1132,7 @@ class TestXiaoYiChannelPartsExtraction:
         assert "message" in result[0]["text"]
 
     def test_hidden_tool_result_keeps_media(self, xiaoyi_channel):
-        from qwenpaw.schemas import (
+        from potato.schemas import (
             DataContent,
             Message,
             MessageType,
@@ -1212,7 +1212,7 @@ class TestXiaoYiChannelConnectionRegistry:
         xiaoyi_channel,
     ):
         """_unregister_connection should remove from active connections."""
-        from qwenpaw.app.channels.xiaoyi import channel as xiaoyi_module
+        from potato.app.channels.xiaoyi import channel as xiaoyi_module
 
         # Add to registry first
         async with xiaoyi_module._active_connections_lock:

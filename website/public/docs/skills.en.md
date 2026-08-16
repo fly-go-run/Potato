@@ -6,9 +6,9 @@ Market or URL imports, or files you add yourself.
 Two ways to manage skills:
 
 - **Console:** Use the [Console](./console) under **Workspace → Skills**.
-- **Working directory:** Edit skill files directly under `$QWENPAW_WORKING_DIR`
-  (default `~/.qwenpaw`), including `$QWENPAW_WORKING_DIR/skill_pool/` and each
-  workspace's `$QWENPAW_WORKING_DIR/workspaces/{agent_id}/skills/`.
+- **Working directory:** Edit skill files directly under `$POTATO_WORKING_DIR`
+  (default `~/.potato`), including `$POTATO_WORKING_DIR/skill_pool/` and each
+  workspace's `$POTATO_WORKING_DIR/workspaces/{agent_id}/skills/`.
 
 > If you're new to channels, heartbeat, or cron, read [Introduction](./intro) first.
 
@@ -19,16 +19,16 @@ copies. The structure and creation paths are described below.
 
 ## Skill Structure
 
-QwenPaw skills are organized in two layers:
+Potato skills are organized in two layers:
 
-- **Skill Pool:** Shared local repository at `$QWENPAW_WORKING_DIR/skill_pool/`
-  (default `~/.qwenpaw/skill_pool/`).
+- **Skill Pool:** Shared local repository at `$POTATO_WORKING_DIR/skill_pool/`
+  (default `~/.potato/skill_pool/`).
 - **Workspace Skills:** The local runtime copy at
-  `$QWENPAW_WORKING_DIR/workspaces/{agent_id}/skills/`
-  (default `~/.qwenpaw/workspaces/{agent_id}/skills/`).
+  `$POTATO_WORKING_DIR/workspaces/{agent_id}/skills/`
+  (default `~/.potato/workspaces/{agent_id}/skills/`).
 
 ```
-$QWENPAW_WORKING_DIR/                      # Default ~/.qwenpaw
+$POTATO_WORKING_DIR/                      # Default ~/.potato
   skill_pool/                # Shared pool
     skill.json               # Pool manifest
     pdf/
@@ -67,7 +67,7 @@ Pool-side operations:
   customize a builtin, save it under a new name and keep the builtin slot
   untouched.
 - **Conflict handling:** If save, import, upload, or broadcast would land on a
-  name that already exists, QwenPaw returns a conflict instead of silently
+  name that already exists, Potato returns a conflict instead of silently
   overwriting. The UI/API includes a suggested renamed target so you can retry
   with that name.
 - **Auto sync:** Once enabled for a skill, any change to its pool content is
@@ -83,11 +83,11 @@ Adding skills to the pool:
    | **browser_cdp**               | Connect to or launch Chrome with CDP / remote-debugging enabled. Use only when the user explicitly wants CDP mode.              | Built-in                                                       |
    | **browser_visible**           | Launch a real, visible (headed) browser window for demos, debugging, or scenarios requiring human interaction.                  | Built-in                                                       |
    | **channel_message**           | Proactively send a one-way message to a session or channel after first locating the target session.                             | Built-in                                                       |
-   | **cron**                      | Scheduled jobs. Create, list, pause, resume, or delete jobs via `qwenpaw cron` or Console **Control → Cron Jobs**.              | Built-in                                                       |
+   | **cron**                      | Scheduled jobs. Create, list, pause, resume, or delete jobs via `potato cron` or Console **Control → Cron Jobs**.              | Built-in                                                       |
    | **dingtalk_channel**          | Helps with DingTalk channel onboarding through a visible browser flow and required manual steps.                                | Built-in                                                       |
    | **docx**                      | Create, read, and edit Word documents (.docx), including TOC, headers/footers, tables, images, track changes, comments.         | https://github.com/anthropics/skills/tree/main/skills/docx     |
    | **file_reader**               | Read and summarize text-based files (.txt, .md, .json, .csv, .log, .py, etc.). PDF and Office are handled by dedicated skills.  | Built-in                                                       |
-   | **guidance**                  | Answer QwenPaw installation and configuration questions by consulting local docs first.                                         | Built-in                                                       |
+   | **guidance**                  | Answer Potato installation and configuration questions by consulting local docs first.                                         | Built-in                                                       |
    | **himalaya**                  | Manage emails via CLI (IMAP/SMTP). Use `himalaya` to list, read, search, and organize emails from the terminal.                 | https://github.com/openclaw/openclaw/tree/main/skills/himalaya |
    | **multi_agent_collaboration** | Coordinate with another agent when the user explicitly asks for it or another agent's context is needed.                        | Built-in                                                       |
    | **news**                      | Fetch and summarize latest news from configured sites; categories include politics, finance, society, world, tech, sports, etc. | Built-in                                                       |
@@ -100,11 +100,11 @@ Adding skills to the pool:
    or refresh out-of-date ones from the packaged source.
 
    The **Cron** built-in provides scheduled job management. Use the
-   [CLI](./cli) (`qwenpaw cron`) or Console **Control → Cron Jobs**:
+   [CLI](./cli) (`potato cron`) or Console **Control → Cron Jobs**:
 
-   - Create: `qwenpaw cron create --type agent --name "xxx" --cron "0 9 * * *" ...`
-   - List: `qwenpaw cron list`
-   - Check state: `qwenpaw cron state <job_id>`
+   - Create: `potato cron create --type agent --name "xxx" --cron "0 9 * * *" ...`
+   - List: `potato cron list`
+   - Check state: `potato cron state <job_id>`
 
 2. **Through the unified "Add Skill" entry**.
    The **Add Skill** dropdown at the top right of the pool page offers four
@@ -122,7 +122,7 @@ Adding skills to the pool:
    pool.
 
 4. **Manual filesystem changes**.
-   You can place folders directly under `$QWENPAW_WORKING_DIR/skill_pool/`, but this is not
+   You can place folders directly under `$POTATO_WORKING_DIR/skill_pool/`, but this is not
    recommended. Direct pool edits can be lost or overwritten more easily,
    especially for customized skills. Be careful and treat this as an advanced
    workflow.
@@ -130,8 +130,8 @@ Adding skills to the pool:
 ### External skill paths
 
 By default the skill pool has a single root: the primary pool at
-`$QWENPAW_WORKING_DIR/skill_pool/`. You can also register one or more **external skill
-roots** in the config so QwenPaw reads the skills they contain into the **same skill pool
+`$POTATO_WORKING_DIR/skill_pool/`. You can also register one or more **external skill
+roots** in the config so Potato reads the skills they contain into the **same skill pool
 view**. This is useful for reusing skill collections already on your machine (a git repo,
 a shared team folder) without copying them into the primary pool.
 
@@ -155,7 +155,7 @@ What external paths mean:
 
 #### How to configure
 
-Edit `$QWENPAW_WORKING_DIR/config.json` and add the top-level `skill_paths` field:
+Edit `$POTATO_WORKING_DIR/config.json` and add the top-level `skill_paths` field:
 
 ```json
 {
@@ -171,14 +171,14 @@ Notes:
 - After saving, external skills appear on the next skill pool load (a refresh, a restart,
   or any endpoint that triggers it).
 
-`$QWENPAW_WORKING_DIR` defaults to `~/.qwenpaw` and can be overridden with the
-`QWENPAW_WORKING_DIR` environment variable. See [Config](./config) for the full
+`$POTATO_WORKING_DIR` defaults to `~/.potato` and can be overridden with the
+`POTATO_WORKING_DIR` environment variable. See [Config](./config) for the full
 configuration reference.
 
 ### Workspace Skills
 
 Every workspace runs from its own local copies under
-`$QWENPAW_WORKING_DIR/workspaces/{agent_id}/skills/`. Those copies are what the agent
+`$POTATO_WORKING_DIR/workspaces/{agent_id}/skills/`. Those copies are what the agent
 actually loads at runtime.
 
 ---
@@ -224,15 +224,15 @@ CLI supports the same URL-based import flow:
 **Workspace targeting:** use `--agent-id` when targeting a single agent workspace; without it, `install` / `uninstall` act on the skill pool.
 
 ```bash
-qwenpaw skills install <skill_url>
-qwenpaw skills install <skill_url> --agent-id <agent_id>
+potato skills install <skill_url>
+potato skills install <skill_url> --agent-id <agent_id>
 ```
 
 CLI also supports uninstalling from the shared pool or one workspace:
 
 ```bash
-qwenpaw skills uninstall <skill_name>
-qwenpaw skills uninstall <skill_name> --agent-id <agent_id>
+potato skills uninstall <skill_name>
+potato skills uninstall <skill_name> --agent-id <agent_id>
 ```
 
 #### Steps
@@ -289,7 +289,7 @@ qwenpaw skills uninstall <skill_name> --agent-id <agent_id>
 ### Create manually in the workspace
 
 You can also create a workspace skill directly by writing files under
-`$QWENPAW_WORKING_DIR/workspaces/{agent_id}/skills/`, including using QwenPaw itself to help
+`$POTATO_WORKING_DIR/workspaces/{agent_id}/skills/`, including using Potato itself to help
 generate those files.
 
 This is flexible, but the write location and resulting skill quality are not
@@ -297,10 +297,10 @@ always fully controlled. You should supervise the creation process carefully,
 verify that files land in the right workspace path, and review the skill
 content before relying on it.
 
-Create a directory under `$QWENPAW_WORKING_DIR/workspaces/{agent_id}/skills/`, add a
+Create a directory under `$POTATO_WORKING_DIR/workspaces/{agent_id}/skills/`, add a
 `SKILL.md`, and make sure it includes YAML front matter with `name` and
 `description`. If the skill depends on external binaries or environment
-variables, declare them in `metadata.requires`; QwenPaw exposes them as
+variables, declare them in `metadata.requires`; Potato exposes them as
 `require_bins` and `require_envs` metadata, but does not disable the skill
 automatically.
 
@@ -389,7 +389,7 @@ search-driven alternative to the per-URL **Import from URL** flow above.
 
 Four providers ship out of the box:
 
-- **QwenPaw** — public, always enabled.
+- **Potato** — public, always enabled.
 - **ClawHub** — public, always enabled.
 - **ModelScope** — public, always enabled.
 - **Aliyun** — requires `ALIBABA_CLOUD_ACCESS_KEY_ID` /
@@ -435,7 +435,7 @@ not need to appear on Discord.
 
 Each skill can have a `config` object stored in its manifest entry. This config
 is not just stored metadata. When a skill is effective for the current
-workspace and channel, QwenPaw injects that config into the runtime environment
+workspace and channel, Potato injects that config into the runtime environment
 for that agent turn, then restores the environment after the turn completes.
 
 You can set config per skill in the Console (**Workspace → Skills** → click the
@@ -448,7 +448,7 @@ injected as environment variables. Keys not declared in `requires.env` are
 skipped (but still available via the full JSON variable). If a required key
 is missing from the config, a warning is logged.
 
-The full config is always available as `QWENPAW_SKILL_CONFIG_<SKILL_NAME>`
+The full config is always available as `POTATO_SKILL_CONFIG_<SKILL_NAME>`
 (JSON string), regardless of `requires.env`.
 
 Existing host environment variables are never overwritten.
@@ -483,7 +483,7 @@ The skill can read:
 - `BASE_URL` comes from config and matches `requires.env`.
 - `timeout` is not in `requires.env`, so it is only available via the full
   JSON below.
-- `QWENPAW_SKILL_CONFIG_MY_SKILL` always contains the full JSON config.
+- `POTATO_SKILL_CONFIG_MY_SKILL` always contains the full JSON config.
 
 Python example:
 
@@ -493,7 +493,7 @@ import os
 
 api_key = os.environ.get("MY_API_KEY", "")
 base_url = os.environ.get("BASE_URL", "")
-cfg = json.loads(os.environ.get("QWENPAW_SKILL_CONFIG_MY_SKILL", "{}"))
+cfg = json.loads(os.environ.get("POTATO_SKILL_CONFIG_MY_SKILL", "{}"))
 timeout = cfg.get("timeout", 30)
 ```
 
@@ -513,7 +513,7 @@ When a skill runs, the effective config follows this priority (highest wins):
    `config` is copied as the initial workspace config. Subsequent workspace
    edits take precedence.
 
-For `requires` metadata, the parser checks keys in order: `metadata.openclaw.requires` → `metadata.qwenpaw.requires` → `metadata.requires`. The first one found is used.
+For `requires` metadata, the parser checks keys in order: `metadata.openclaw.requires` → `metadata.potato.requires` → `metadata.requires`. The first one found is used.
 
 ---
 

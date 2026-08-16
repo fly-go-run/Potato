@@ -1,9 +1,9 @@
 //! Sidecar process event handling and stderr capture.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use serde::Deserialize;
-use tauri::{Manager, Url};
+use tauri::Manager;
 use tauri_plugin_shell::process::{CommandEvent, TerminatedPayload};
 use tokio::sync::watch;
 
@@ -12,11 +12,10 @@ use crate::tray;
 
 const MAX_CAPTURED_STDERR_CHARS: usize = 4000;
 const STDERR_TRUNCATION_MARKER: &str = "\n[...stderr truncated...]\n";
-const BACKEND_READY_PREFIX: &str = "QWENPAW_BACKEND_READY ";
+const BACKEND_READY_PREFIX: &str = "POTATO_BACKEND_READY ";
 const BACKEND_HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const BACKEND_HEALTH_TIMEOUT: Duration = Duration::from_secs(180);
 const BACKEND_HEALTH_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
-const FRONTEND_REVEAL_FALLBACK_TIMEOUT: Duration = Duration::from_secs(12);
 
 #[derive(Deserialize)]
 struct BackendReadyPayload {
@@ -43,7 +42,7 @@ pub(super) fn watch(
                         let state = app.state::<BackendState>();
                         if state.is_current(generation) {
                             state.set_port_if_current(generation, port);
-                            open_frontend_when_healthy(app.clone(), generation, port);
+                            confirm_backend_health(app.clone(), generation, port);
                         }
                     }
                 }
@@ -90,11 +89,9 @@ pub(super) fn watch(
     });
 }
 
-/// Keep the native window hidden while the sidecar starts, then navigate the
-/// WebView straight to the real app and let React reveal it after its stable
-/// first frame. A native fallback guarantees that a hung first API request or
-/// a lost invoke can never leave the window permanently invisible.
-fn open_frontend_when_healthy(app: tauri::AppHandle, generation: u64, port: u16) {
+/// Confirm the sidecar answers HTTP after it prints the ready line.
+/// The WebView already shows the bundled Potato app; do not navigate away.
+fn confirm_backend_health(app: tauri::AppHandle, generation: u64, port: u16) {
     tauri::async_runtime::spawn(async move {
         let client = match reqwest::Client::builder()
             .timeout(BACKEND_HEALTH_REQUEST_TIMEOUT)
@@ -102,7 +99,7 @@ fn open_frontend_when_healthy(app: tauri::AppHandle, generation: u64, port: u16)
         {
             Ok(client) => client,
             Err(err) => {
-                report_frontend_startup_failure(
+                report_backend_startup_failure(
                     &app,
                     generation,
                     format!("failed to create backend health client: {err}"),
@@ -124,16 +121,12 @@ fn open_frontend_when_healthy(app: tauri::AppHandle, generation: u64, port: u16)
                 .await
                 .is_ok_and(|response| response.status().is_success())
             {
-                if let Err(err) = navigate_to_frontend(&app, port) {
-                    report_frontend_startup_failure(&app, generation, err);
-                } else {
-                    schedule_frontend_reveal_fallback(app.clone(), generation);
-                }
+                log::info!("[backend:{generation}] healthy port={port}");
                 return;
             }
 
             if tokio::time::Instant::now() >= deadline {
-                report_frontend_startup_failure(
+                report_backend_startup_failure(
                     &app,
                     generation,
                     format!(
@@ -148,46 +141,11 @@ fn open_frontend_when_healthy(app: tauri::AppHandle, generation: u64, port: u16)
     });
 }
 
-fn schedule_frontend_reveal_fallback(app: tauri::AppHandle, generation: u64) {
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(FRONTEND_REVEAL_FALLBACK_TIMEOUT).await;
-        let state = app.state::<BackendState>();
-        if !state.claim_frontend_reveal_if_current(generation) {
-            return;
-        }
-        log::warn!(
-            "[backend:{generation}] frontend did not reveal within {} seconds; showing native window",
-            FRONTEND_REVEAL_FALLBACK_TIMEOUT.as_secs()
-        );
-        tray::show_main_window(&app);
-    });
-}
-
-fn navigate_to_frontend(app: &tauri::AppHandle, port: u16) -> Result<(), String> {
-    let cache_buster = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
-    let url = Url::parse(&format!(
-        "http://127.0.0.1:{port}/console?desktop=1&_={cache_buster}"
-    ))
-    .map_err(|err| format!("failed to build frontend URL: {err}"))?;
-    let window = app
-        .get_webview_window("main")
-        .ok_or_else(|| "main window is unavailable".to_string())?;
-    window
-        .navigate(url)
-        .map_err(|err| format!("failed to navigate to frontend: {err}"))
-}
-
-fn report_frontend_startup_failure(app: &tauri::AppHandle, generation: u64, message: String) {
+fn report_backend_startup_failure(app: &tauri::AppHandle, generation: u64, message: String) {
     log::error!("[backend:{generation}] {message}");
     app.state::<BackendState>()
         .set_error_if_current(generation, message);
-    if app
-        .state::<BackendState>()
-        .claim_frontend_reveal_if_current(generation)
-    {
+    if !crate::INITIAL_REVEAL_DONE.load(std::sync::atomic::Ordering::SeqCst) {
         tray::show_main_window(app);
     }
 }
@@ -268,14 +226,14 @@ mod tests {
 
     #[test]
     fn ready_port_from_stdout_parses_protocol_line() {
-        let text = "INFO before\nQWENPAW_BACKEND_READY {\"port\":54321}\n";
+        let text = "INFO before\nPOTATO_BACKEND_READY {\"port\":54321}\n";
 
         assert_eq!(ready_port_from_stdout(text), Some(54321));
     }
 
     #[test]
     fn ready_port_from_stdout_ignores_other_output() {
-        assert_eq!(ready_port_from_stdout("QWENPAW_BACKEND_READY nope"), None);
+        assert_eq!(ready_port_from_stdout("POTATO_BACKEND_READY nope"), None);
         assert_eq!(ready_port_from_stdout("ordinary stdout"), None);
     }
 }

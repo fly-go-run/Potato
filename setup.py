@@ -10,7 +10,7 @@ from setuptools.command.build_py import build_py as _build_py
 
 _ROOT = Path(__file__).resolve().parent
 _OFFICE_ASSET_HELPERS = runpy.run_path(
-    str(_ROOT / "src" / "qwenpaw" / "agents" / "office_skill_assets.py"),
+    str(_ROOT / "src" / "potato" / "agents" / "office_skill_assets.py"),
 )
 _sync_office_skill_assets = _OFFICE_ASSET_HELPERS["sync_office_skill_assets"]
 
@@ -25,13 +25,13 @@ class _BuildPyWithOfficeSkillAssets(_build_py):
         # nothing to materialize — and the sync would fail on the empty dir.
         if getattr(self, "editable_mode", False):
             return
-        build_agents_dir = Path(self.build_lib) / "qwenpaw" / "agents"
+        build_agents_dir = Path(self.build_lib) / "potato" / "agents"
         build_skills_dir = build_agents_dir / "skills"
         if not build_skills_dir.is_dir():
             return
         _sync_office_skill_assets(
             build_skills_dir,
-            source_skills_dir=_ROOT / "src" / "qwenpaw" / "agents" / "skills",
+            source_skills_dir=_ROOT / "src" / "potato" / "agents" / "skills",
         )
         # The six generated skills are self-contained; the source-only helper
         # tree is not needed in a wheel and would add a seventh copy.

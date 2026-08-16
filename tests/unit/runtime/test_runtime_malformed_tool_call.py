@@ -3,8 +3,8 @@
 
 Regression for #5717: malformed tool_call must not death-loop.
 
-The QwenPaw defence against a malformed ``tool_call.input`` JSON string is
-``_coerce_tool_inputs_to_json`` in ``qwenpaw.agents.utils.tool_message_utils``,
+The Potato defence against a malformed ``tool_call.input`` JSON string is
+``_coerce_tool_inputs_to_json`` in ``potato.agents.utils.tool_message_utils``,
 which runs on every model request. A malformed block is either recovered
 via ``raw_decode`` or retained as a finished call with safe empty arguments
 and a synthetic error result. The model sees actionable feedback instead of
@@ -25,10 +25,10 @@ from types import SimpleNamespace
 
 from agentscope.message import ToolCallBlock, ToolResultState
 
-from qwenpaw.agents.utils.tool_message_utils import (
+from potato.agents.utils.tool_message_utils import (
     _coerce_tool_inputs_to_json,
 )
-from qwenpaw.tool_calls._coordinator import _parse_tool_input
+from potato.tool_calls._coordinator import _parse_tool_input
 
 
 def _msg_with_blocks(blocks: list) -> SimpleNamespace:

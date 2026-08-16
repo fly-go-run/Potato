@@ -51,7 +51,7 @@ def _npx_exe(dest: Path) -> Path:
 
 def _http_get(url: str) -> bytes:
     request = urllib.request.Request(url)
-    request.add_header("User-Agent", "qwenpaw-build")
+    request.add_header("User-Agent", "potato-build")
     with urllib.request.urlopen(request, timeout=120) as response:
         return response.read()
 
@@ -95,7 +95,7 @@ def main() -> None:
     parser.add_argument("--dest", required=True)
     parser.add_argument(
         "--node-version",
-        default=os.environ.get("QWENPAW_NODE_VERSION", DEFAULT_NODE_VERSION),
+        default=os.environ.get("POTATO_NODE_VERSION", DEFAULT_NODE_VERSION),
     )
     args = parser.parse_args()
 

@@ -8,7 +8,7 @@ from typing import Any
 
 from agentscope.credential import OpenAICredential
 
-from qwenpaw.providers.openai_chat_model_compat import (
+from potato.providers.openai_chat_model_compat import (
     OpenAIChatModelCompat,
     _sanitize_tool_call,
 )

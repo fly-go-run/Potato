@@ -3,8 +3,8 @@
 
 from types import SimpleNamespace
 
-from qwenpaw.app.routers.providers import _active_models_info
-from qwenpaw.config.config import ModelSlotConfig
+from potato.app.routers.providers import _active_models_info
+from potato.config.config import ModelSlotConfig
 
 
 def test_active_models_info_uses_runtime_context_resolution():

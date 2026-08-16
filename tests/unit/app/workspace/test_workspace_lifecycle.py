@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-import qwenpaw.app.workspace.workspace as workspace_module
-from qwenpaw.app.workspace.service_manager import (
+import potato.app.workspace.workspace as workspace_module
+from potato.app.workspace.service_manager import (
     ServiceDescriptor,
     ServiceManager,
 )
-from qwenpaw.app.workspace.workspace import Workspace
+from potato.app.workspace.workspace import Workspace
 
 
 @pytest.mark.asyncio
@@ -63,7 +63,7 @@ async def test_start_failure_rolls_back_actual_started_services(monkeypatch):
         lambda _agent_id: object(),
     )
     monkeypatch.setattr(
-        "qwenpaw.agents.skill_system.ensure_skill_pool_initialized",
+        "potato.agents.skill_system.ensure_skill_pool_initialized",
         lambda: None,
     )
 

@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from qwenpaw.app.crons.executor import CronExecutor
-from qwenpaw.app.crons.models import DispatchSpec, DispatchTarget
-from qwenpaw.schemas import Event, RunStatus
+from potato.app.crons.executor import CronExecutor
+from potato.app.crons.models import DispatchSpec, DispatchTarget
+from potato.schemas import Event, RunStatus
 from tests.unit.app.conftest import make_cron_job_spec
 
 

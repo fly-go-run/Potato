@@ -6,7 +6,7 @@ $RepoRoot = (Get-Item $PSScriptRoot).Parent.FullName
 Set-Location $RepoRoot
 
 $AppDir = Join-Path $RepoRoot "app"
-$WebDest = Join-Path $RepoRoot "src\qwenpaw\console"
+$WebDest = Join-Path $RepoRoot "src\potato\console"
 
 Write-Host "[wheel_build] Building default web app..."
 Push-Location $AppDir
@@ -19,7 +19,7 @@ try {
   Pop-Location
 }
 
-Write-Host "[wheel_build] Copying app/dist/* -> src/qwenpaw/console/..."
+Write-Host "[wheel_build] Copying app/dist/* -> src/potato/console/..."
 if (Test-Path $WebDest) {
   Remove-Item -Path (Join-Path $WebDest "*") -Recurse -Force -ErrorAction SilentlyContinue
 } else {
@@ -30,7 +30,7 @@ Copy-Item -Path (Join-Path $AppDist "*") -Destination $WebDest -Recurse -Force
 
 Write-Host "[wheel_build] Bundling website docs into package..."
 $DocsSrc = Join-Path $RepoRoot "website\public\docs"
-$DocsDest = Join-Path $RepoRoot "src\qwenpaw\docs"
+$DocsDest = Join-Path $RepoRoot "src\potato\docs"
 if (Test-Path $DocsDest) { Remove-Item -Recurse -Force $DocsDest }
 New-Item -ItemType Directory -Force -Path $DocsDest | Out-Null
 Copy-Item -Path (Join-Path $DocsSrc "*.md") -Destination $DocsDest -Force

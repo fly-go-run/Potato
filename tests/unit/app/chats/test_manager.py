@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for ``qwenpaw.app.chats.manager.ChatManager``.
+"""Unit tests for ``potato.app.chats.manager.ChatManager``.
 
 Uses the real :class:`JsonChatRepository` backed by ``tmp_path`` so the
 tests cover the integrated CRUD path without mocking the repo away.
@@ -13,16 +13,16 @@ from unittest.mock import patch
 
 import pytest
 
-from qwenpaw.app.chats.manager import ChatManager
-from qwenpaw.app.chats.models import (
+from potato.app.chats.manager import ChatManager
+from potato.app.chats.models import (
     ChatSpec,
     ChatUpdate,
     SessionSource,
 )
-from qwenpaw.app.chats.repo import (
+from potato.app.chats.repo import (
     JsonChatRepository,
 )
-from qwenpaw.app.channels.schema import DEFAULT_CHANNEL
+from potato.app.channels.schema import DEFAULT_CHANNEL
 
 
 @pytest.fixture

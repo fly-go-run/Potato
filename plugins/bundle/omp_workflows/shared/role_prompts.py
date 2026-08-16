@@ -6,7 +6,7 @@ from __future__ import annotations
 from .constants import ROLE_ALLOWED_TOOLS, ROLE_SKILLS
 
 try:
-    from qwenpaw.agents.fork_project import FORK_WORKER_COMMIT_PROTOCOL
+    from potato.agents.fork_project import FORK_WORKER_COMMIT_PROTOCOL
 except ImportError:  # pragma: no cover - offline / partial installs
     FORK_WORKER_COMMIT_PROTOCOL = (
         "## Fork worktree commit protocol (REQUIRED)\n"

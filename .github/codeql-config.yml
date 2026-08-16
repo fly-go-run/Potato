@@ -1,4 +1,4 @@
-name: "QwenPaw CodeQL Config"
+name: "Potato CodeQL Config"
 
 # Use security-extended for broader coverage than the default suite.
 # This adds rules for path traversal, SSRF, command injection,

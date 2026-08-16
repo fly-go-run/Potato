@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Tests for the ``qwenpaw acp`` CLI command."""
+"""Tests for the ``potato acp`` CLI command."""
 from __future__ import annotations
 
 from click.testing import CliRunner
 
-from qwenpaw.cli.acp_cmd import acp_cmd
+from potato.cli.acp_cmd import acp_cmd
 
 
 def test_acp_cmd_passes_local_diagnostics(monkeypatch, tmp_path):
     captured = {}
 
-    async def fake_run_qwenpaw_agent(**kwargs):
+    async def fake_run_potato_agent(**kwargs):
         captured.update(kwargs)
 
     monkeypatch.setattr(
-        "qwenpaw.agents.acp.server.run_qwenpaw_agent",
-        fake_run_qwenpaw_agent,
+        "potato.agents.acp.server.run_potato_agent",
+        fake_run_potato_agent,
     )
 
     result = CliRunner().invoke(

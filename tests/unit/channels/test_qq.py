@@ -30,7 +30,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 from tests.fixtures.channels.mock_http import MockAiohttpSession
 
@@ -57,7 +57,7 @@ def mock_process_handler() -> AsyncMock:
 @pytest.fixture
 def qq_channel(mock_process_handler, tmp_path) -> Generator:
     """Create a QQChannel instance for testing."""
-    from qwenpaw.app.channels.qq.channel import QQChannel
+    from potato.app.channels.qq.channel import QQChannel
 
     channel = QQChannel(
         process=mock_process_handler,
@@ -113,7 +113,7 @@ class TestQQChannelInit:
 
     def test_init_stores_basic_config(self, mock_process_handler, tmp_path):
         """Constructor should store all basic configuration parameters."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         media_dir = tmp_path / "qq_media"
         channel = QQChannel(
@@ -137,7 +137,7 @@ class TestQQChannelInit:
 
     def test_init_stores_advanced_config(self, mock_process_handler, tmp_path):
         """Constructor should store advanced configuration parameters."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         channel = QQChannel(
             process=mock_process_handler,
@@ -162,7 +162,7 @@ class TestQQChannelInit:
 
     def test_init_creates_required_data_structures(self, mock_process_handler):
         """Constructor should initialize required internal data structures."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         channel = QQChannel(
             process=mock_process_handler,
@@ -199,7 +199,7 @@ class TestQQChannelFromEnv:
         monkeypatch,
     ):
         """from_env should read basic environment variables."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         monkeypatch.setenv("QQ_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("QQ_APP_ID", "env_app_id")
@@ -217,7 +217,7 @@ class TestQQChannelFromEnv:
 
     def test_from_env_defaults(self, mock_process_handler, monkeypatch):
         """from_env should use sensible defaults."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         # Set app_id and secret to empty defaults, and disable channel
         monkeypatch.delenv("QQ_CHANNEL_ENABLED", raising=False)
@@ -240,7 +240,7 @@ class TestQQChannelFromConfig:
 
     def test_from_config_uses_config_values(self, mock_process_handler):
         """from_config should use values from config object."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         class MockConfig:
             enabled = True
@@ -265,7 +265,7 @@ class TestQQChannelFromConfig:
 
     def test_from_config_handles_none_values(self, mock_process_handler):
         """from_config should handle None values gracefully."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         class MockConfig:
             enabled = (
@@ -303,7 +303,7 @@ class TestSanitizeQQText:
 
     def test_sanitize_removes_http_urls(self):
         """Should remove http URLs from text."""
-        from qwenpaw.app.channels.qq.channel import _sanitize_qq_text
+        from potato.app.channels.qq.channel import _sanitize_qq_text
 
         text = "Check out https://example.com for more info"
         result, had_url = _sanitize_qq_text(text)
@@ -314,7 +314,7 @@ class TestSanitizeQQText:
 
     def test_sanitize_removes_www_urls(self):
         """Should remove www URLs from text."""
-        from qwenpaw.app.channels.qq.channel import _sanitize_qq_text
+        from potato.app.channels.qq.channel import _sanitize_qq_text
 
         text = "Visit www.example.com today"
         result, had_url = _sanitize_qq_text(text)
@@ -325,7 +325,7 @@ class TestSanitizeQQText:
 
     def test_sanitize_empty_text(self):
         """Should handle empty text."""
-        from qwenpaw.app.channels.qq.channel import _sanitize_qq_text
+        from potato.app.channels.qq.channel import _sanitize_qq_text
 
         result, had_url = _sanitize_qq_text("")
 
@@ -334,7 +334,7 @@ class TestSanitizeQQText:
 
     def test_sanitize_no_urls(self):
         """Should not modify text without URLs."""
-        from qwenpaw.app.channels.qq.channel import _sanitize_qq_text
+        from potato.app.channels.qq.channel import _sanitize_qq_text
 
         text = "Hello, this is a normal message"
         result, had_url = _sanitize_qq_text(text)
@@ -348,7 +348,7 @@ class TestAggressiveSanitizeQQText:
 
     def test_aggressive_sanitize_removes_bare_domains(self):
         """Should remove bare domain names."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _aggressive_sanitize_qq_text,
         )
 
@@ -361,7 +361,7 @@ class TestAggressiveSanitizeQQText:
 
     def test_aggressive_sanitize_handles_cn_domains(self):
         """Should handle .cn domain names."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _aggressive_sanitize_qq_text,
         )
 
@@ -377,7 +377,7 @@ class TestAsBool:
 
     def test_as_bool_true_values(self):
         """Should convert various true values to True."""
-        from qwenpaw.app.channels.qq.channel import _as_bool
+        from potato.app.channels.qq.channel import _as_bool
 
         assert _as_bool(True) is True
         assert _as_bool("1") is True
@@ -389,7 +389,7 @@ class TestAsBool:
 
     def test_as_bool_false_values(self):
         """Should convert various false values to False."""
-        from qwenpaw.app.channels.qq.channel import _as_bool
+        from potato.app.channels.qq.channel import _as_bool
 
         assert _as_bool(False) is False
         assert _as_bool("0") is False
@@ -405,7 +405,7 @@ class TestIsUrlContentError:
 
     def test_is_url_content_error_with_304003(self):
         """Should detect URL content error with code 304003."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _is_url_content_error,
             QQApiError,
         )
@@ -415,7 +415,7 @@ class TestIsUrlContentError:
 
     def test_is_url_content_error_with_chinese_message(self):
         """Should detect URL content error with Chinese message."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _is_url_content_error,
             QQApiError,
         )
@@ -425,7 +425,7 @@ class TestIsUrlContentError:
 
     def test_is_url_content_error_with_code_40034028(self):
         """Should detect URL content error with code 40034028."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _is_url_content_error,
             QQApiError,
         )
@@ -435,7 +435,7 @@ class TestIsUrlContentError:
 
     def test_is_url_content_error_non_qq_api_error(self):
         """Should return False for non-QQApiError exceptions."""
-        from qwenpaw.app.channels.qq.channel import _is_url_content_error
+        from potato.app.channels.qq.channel import _is_url_content_error
 
         assert _is_url_content_error(ValueError("test")) is False
         assert _is_url_content_error(RuntimeError("test")) is False
@@ -446,7 +446,7 @@ class TestShouldPlaintextFallbackFromMarkdown:
 
     def test_fallback_for_markdown_in_payload(self):
         """Should fallback when markdown is in error message."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _should_plaintext_fallback_from_markdown,
             QQApiError,
         )
@@ -456,7 +456,7 @@ class TestShouldPlaintextFallbackFromMarkdown:
 
     def test_fallback_for_50056_code(self):
         """Should fallback for code 50056."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _should_plaintext_fallback_from_markdown,
             QQApiError,
         )
@@ -466,7 +466,7 @@ class TestShouldPlaintextFallbackFromMarkdown:
 
     def test_fallback_for_chinese_markdown_error(self):
         """Should fallback for Chinese markdown error message."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _should_plaintext_fallback_from_markdown,
             QQApiError,
         )
@@ -476,7 +476,7 @@ class TestShouldPlaintextFallbackFromMarkdown:
 
     def test_no_fallback_for_5xx_errors(self):
         """Should not fallback for server errors."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _should_plaintext_fallback_from_markdown,
             QQApiError,
         )
@@ -486,7 +486,7 @@ class TestShouldPlaintextFallbackFromMarkdown:
 
     def test_no_fallback_for_non_api_errors(self):
         """Should not fallback for non-API errors."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _should_plaintext_fallback_from_markdown,
         )
 
@@ -501,7 +501,7 @@ class TestGetNextMsgSeq:
 
     def test_get_next_msg_seq_increments(self):
         """Should increment sequence number for each call."""
-        from qwenpaw.app.channels.qq.channel import _get_next_msg_seq
+        from potato.app.channels.qq.channel import _get_next_msg_seq
 
         # Reset by using unique message ID
         msg_id = "test_msg_1"
@@ -514,7 +514,7 @@ class TestGetNextMsgSeq:
 
     def test_get_next_msg_seq_isolated_per_msg(self):
         """Should maintain isolated counters per message ID."""
-        from qwenpaw.app.channels.qq.channel import _get_next_msg_seq
+        from potato.app.channels.qq.channel import _get_next_msg_seq
 
         seq1_a = _get_next_msg_seq("msg_a")
         seq1_b = _get_next_msg_seq("msg_b")
@@ -780,7 +780,7 @@ class TestMakeContentPart:
 
     def test_make_image_content(self, qq_channel):
         """Should create ImageContent."""
-        from qwenpaw.app.channels.qq.channel import ImageContent
+        from potato.app.channels.qq.channel import ImageContent
 
         result = qq_channel._make_content_part(
             "image",
@@ -793,7 +793,7 @@ class TestMakeContentPart:
 
     def test_make_video_content(self, qq_channel):
         """Should create VideoContent."""
-        from qwenpaw.app.channels.qq.channel import VideoContent
+        from potato.app.channels.qq.channel import VideoContent
 
         result = qq_channel._make_content_part(
             "video",
@@ -806,7 +806,7 @@ class TestMakeContentPart:
 
     def test_make_audio_content(self, qq_channel):
         """Should create AudioContent."""
-        from qwenpaw.app.channels.qq.channel import AudioContent
+        from potato.app.channels.qq.channel import AudioContent
 
         result = qq_channel._make_content_part(
             "audio",
@@ -819,7 +819,7 @@ class TestMakeContentPart:
 
     def test_make_file_content(self, qq_channel):
         """Should create FileContent."""
-        from qwenpaw.app.channels.qq.channel import FileContent
+        from potato.app.channels.qq.channel import FileContent
 
         result = qq_channel._make_content_part(
             "file",
@@ -842,7 +842,7 @@ class TestWSState:
 
     def test_ws_state_defaults(self):
         """Should have correct default values."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         state = _WSState()
 
@@ -856,7 +856,7 @@ class TestWSState:
 
     def test_ws_state_mutable(self):
         """Should allow state mutation."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         state = _WSState()
         state.session_id = "sess_123"
@@ -873,7 +873,7 @@ class TestComputeReconnectDelay:
 
     def test_first_reconnect_delay(self, qq_channel):
         """Should use first delay value for first attempt."""
-        from qwenpaw.app.channels.qq.channel import _WSState, RECONNECT_DELAYS
+        from potato.app.channels.qq.channel import _WSState, RECONNECT_DELAYS
 
         state = _WSState()
         delay = qq_channel._compute_reconnect_delay(state)
@@ -882,7 +882,7 @@ class TestComputeReconnectDelay:
 
     def test_incremental_delay(self, qq_channel):
         """Should use incremental delays for subsequent attempts."""
-        from qwenpaw.app.channels.qq.channel import _WSState, RECONNECT_DELAYS
+        from potato.app.channels.qq.channel import _WSState, RECONNECT_DELAYS
 
         state = _WSState()
         for i in range(3):
@@ -892,7 +892,7 @@ class TestComputeReconnectDelay:
 
     def test_rate_limit_after_quick_disconnects(self, qq_channel):
         """Should rate limit after too many quick disconnects."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             RATE_LIMIT_DELAY,
             MAX_QUICK_DISCONNECT_COUNT,
@@ -915,7 +915,7 @@ class TestHeartbeatController:
 
     def test_heartbeat_controller_init(self):
         """Should initialize with correct values."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _HeartbeatController,
             _WSState,
         )
@@ -933,7 +933,7 @@ class TestHeartbeatController:
 
     def test_heartbeat_start_schedules_timer(self):
         """Should start scheduling heartbeat."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _HeartbeatController,
             _WSState,
         )
@@ -960,7 +960,7 @@ class TestQQApiError:
 
     def test_qq_api_error_attributes(self):
         """Should store error attributes."""
-        from qwenpaw.app.channels.qq.channel import QQApiError
+        from potato.app.channels.qq.channel import QQApiError
 
         exc = QQApiError("/v2/users/test/messages", 400, {"code": "123"})
 
@@ -976,21 +976,21 @@ class TestMediaPath:
 
     def test_media_path_c2c(self):
         """Should build c2c media path."""
-        from qwenpaw.app.channels.qq.channel import _media_path
+        from potato.app.channels.qq.channel import _media_path
 
         path = _media_path("c2c", "user123", "files")
         assert path == "/v2/users/user123/files"
 
     def test_media_path_group(self):
         """Should build group media path."""
-        from qwenpaw.app.channels.qq.channel import _media_path
+        from potato.app.channels.qq.channel import _media_path
 
         path = _media_path("group", "group456", "messages")
         assert path == "/v2/groups/group456/messages"
 
     def test_media_path_unsupported(self):
         """Should return None for unsupported type."""
-        from qwenpaw.app.channels.qq.channel import _media_path
+        from potato.app.channels.qq.channel import _media_path
 
         path = _media_path("guild", "channel123", "files")
         assert path is None
@@ -1001,7 +1001,7 @@ class TestGetApiBase:
 
     def test_get_api_base_default(self, monkeypatch):
         """Should return default API base."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _get_api_base,
             DEFAULT_API_BASE,
         )
@@ -1013,7 +1013,7 @@ class TestGetApiBase:
 
     def test_get_api_base_from_env(self, monkeypatch):
         """Should return API base from environment."""
-        from qwenpaw.app.channels.qq.channel import _get_api_base
+        from potato.app.channels.qq.channel import _get_api_base
 
         monkeypatch.setenv("QQ_API_BASE", "https://sandbox.api.sgroup.qq.com")
 
@@ -1031,7 +1031,7 @@ class TestMessageEventSpec:
 
     def test_c2c_message_event_spec(self):
         """Should have correct C2C_MESSAGE_CREATE spec."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _MESSAGE_EVENT_SPECS,
             _MessageEventSpec,
         )
@@ -1045,7 +1045,7 @@ class TestMessageEventSpec:
 
     def test_at_message_event_spec(self):
         """Should have correct AT_MESSAGE_CREATE spec."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _MESSAGE_EVENT_SPECS,
             _MessageEventSpec,
         )
@@ -1058,7 +1058,7 @@ class TestMessageEventSpec:
 
     def test_direct_message_event_spec(self):
         """Should have correct DIRECT_MESSAGE_CREATE spec."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _MESSAGE_EVENT_SPECS,
             _MessageEventSpec,
         )
@@ -1070,7 +1070,7 @@ class TestMessageEventSpec:
 
     def test_group_message_event_spec(self):
         """Should have correct GROUP_AT_MESSAGE_CREATE spec."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _MESSAGE_EVENT_SPECS,
             _MessageEventSpec,
         )
@@ -1103,7 +1103,7 @@ class TestLifecycle:
     @pytest.mark.asyncio
     async def test_start_missing_credentials(self, qq_channel):
         """Should raise error if credentials are missing."""
-        from qwenpaw.app.channels.qq.channel import QQChannel
+        from potato.app.channels.qq.channel import QQChannel
 
         channel = QQChannel(
             process=MagicMock(),
@@ -1170,7 +1170,7 @@ class TestDownloadAttachmentSync:
         # function so the test covers that path and verifies the coroutine is
         # closed by the implementation.
         with patch(
-            "qwenpaw.app.channels.qq.channel.asyncio.run_coroutine_threadsafe",
+            "potato.app.channels.qq.channel.asyncio.run_coroutine_threadsafe",
             side_effect=RuntimeError("Download failed"),
         ):
             result = qq_channel._download_attachment_sync(
@@ -1267,7 +1267,7 @@ class TestSendTextWithFallback:
     @pytest.mark.asyncio
     async def test_fallback_to_plaintext_on_markdown_error(self, qq_channel):
         """Should fallback to plain text when markdown fails."""
-        from qwenpaw.app.channels.qq.channel import QQApiError
+        from potato.app.channels.qq.channel import QQApiError
 
         # First call fails with markdown error, second succeeds
         qq_channel._dispatch_text = AsyncMock(
@@ -1294,7 +1294,7 @@ class TestSendTextWithFallback:
     @pytest.mark.asyncio
     async def test_aggressive_fallback_on_url_error(self, qq_channel):
         """Should use aggressive URL stripping on URL content errors."""
-        from qwenpaw.app.channels.qq.channel import QQApiError
+        from potato.app.channels.qq.channel import QQApiError
 
         # First call fails with URL error, second succeeds after stripping
         qq_channel._dispatch_text = AsyncMock(
@@ -1322,7 +1322,7 @@ class TestSendTextWithFallback:
     @pytest.mark.asyncio
     async def test_no_fallback_for_non_validation_errors(self, qq_channel):
         """Should not fallback for non-validation errors."""
-        from qwenpaw.app.channels.qq.channel import QQApiError
+        from potato.app.channels.qq.channel import QQApiError
 
         qq_channel._dispatch_text = AsyncMock(
             side_effect=QQApiError("/test", 500, {"message": "server error"}),
@@ -1349,7 +1349,7 @@ class TestTryAggressiveUrlFallback:
     @pytest.mark.asyncio
     async def test_fallback_success(self, qq_channel):
         """Should succeed with aggressive URL stripping."""
-        from qwenpaw.app.channels.qq.channel import QQApiError
+        from potato.app.channels.qq.channel import QQApiError
 
         qq_channel._dispatch_text = AsyncMock()
         exc = QQApiError("/test", 400, {"code": "304003"})
@@ -1399,7 +1399,7 @@ class TestHandleWSPayload:
 
     def test_handle_hello_with_resume(self, qq_channel, mock_websocket):
         """Should send RESUME on HELLO when session exists."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
             OP_RESUME,
@@ -1430,7 +1430,7 @@ class TestHandleWSPayload:
 
     def test_handle_hello_with_identify(self, qq_channel, mock_websocket):
         """Should send IDENTIFY on HELLO when no session."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
             OP_IDENTIFY,
@@ -1456,7 +1456,7 @@ class TestHandleWSPayload:
 
     def test_handle_dispatch_ready(self, qq_channel, mock_websocket):
         """Should update state on READY dispatch."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
         )
@@ -1486,7 +1486,7 @@ class TestHandleWSPayload:
 
     def test_handle_dispatch_resumed(self, qq_channel, mock_websocket):
         """Should handle RESUMED dispatch."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
         )
@@ -1512,7 +1512,7 @@ class TestHandleWSPayload:
 
     def test_handle_dispatch_message_event(self, qq_channel, mock_websocket):
         """Should handle C2C_MESSAGE_CREATE dispatch."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
         )
@@ -1546,7 +1546,7 @@ class TestHandleWSPayload:
 
     def test_handle_heartbeat_ack(self, qq_channel, mock_websocket):
         """Should handle HEARTBEAT_ACK."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
         )
@@ -1567,7 +1567,7 @@ class TestHandleWSPayload:
 
     def test_handle_reconnect(self, qq_channel, mock_websocket):
         """Should return 'break' on RECONNECT."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
         )
@@ -1592,7 +1592,7 @@ class TestHandleWSPayload:
         mock_websocket,
     ):
         """Should clear session on INVALID_SESSION when cannot resume."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
         )
@@ -1622,7 +1622,7 @@ class TestHandleWSPayload:
         mock_websocket,
     ):
         """Should keep session on INVALID_SESSION when can resume."""
-        from qwenpaw.app.channels.qq.channel import (
+        from potato.app.channels.qq.channel import (
             _WSState,
             _HeartbeatController,
         )
@@ -1651,7 +1651,7 @@ class TestWSConnectOnce:
 
     def test_stop_event_set(self, qq_channel):
         """Should return False when stop event is set."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         qq_channel._stop_event.set()
         state = _WSState()
@@ -1663,7 +1663,7 @@ class TestWSConnectOnce:
 
     def test_get_token_failure(self, qq_channel):
         """Should return True to retry on token failure."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         qq_channel._get_access_token_sync = MagicMock(
             side_effect=RuntimeError("Token failed"),
@@ -1677,7 +1677,7 @@ class TestWSConnectOnce:
 
     def test_ws_connection_failure(self, qq_channel):
         """Should return True to retry on connection failure."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         qq_channel._get_access_token_sync = MagicMock(return_value="token123")
         state = _WSState()
@@ -1693,7 +1693,7 @@ class TestWSConnectOnce:
 
     def test_max_reconnect_attempts_reached(self, qq_channel):
         """Should return False when max attempts reached after disconnect."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         qq_channel._max_reconnect_attempts = 3
         qq_channel._get_access_token_sync = MagicMock(return_value="token123")
@@ -1710,7 +1710,7 @@ class TestWSConnectOnce:
         mock_websocket.WebSocketConnectionClosedException = Exception
 
         with patch(
-            "qwenpaw.app.channels.qq.channel._get_channel_url_sync",
+            "potato.app.channels.qq.channel._get_channel_url_sync",
             return_value="wss://gateway",
         ):
             result = qq_channel._ws_connect_once(state, mock_websocket)
@@ -1721,7 +1721,7 @@ class TestWSConnectOnce:
 
     def test_normal_connection_flow(self, qq_channel):
         """Should handle normal connection and cleanup properly."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         qq_channel._get_access_token_sync = MagicMock(return_value="token123")
 
@@ -1753,7 +1753,7 @@ class TestWSConnectOnce:
         mock_websocket.WebSocketConnectionClosedException = Exception
 
         with patch(
-            "qwenpaw.app.channels.qq.channel._get_channel_url_sync",
+            "potato.app.channels.qq.channel._get_channel_url_sync",
             return_value="wss://gateway",
         ) as mock_get_url:
             qq_channel._ws_connect_once(state, mock_websocket)
@@ -1766,7 +1766,7 @@ class TestWSConnectOnce:
 
     def test_connection_closed_exception(self, qq_channel):
         """Should handle WebSocketConnectionClosedException gracefully."""
-        from qwenpaw.app.channels.qq.channel import _WSState
+        from potato.app.channels.qq.channel import _WSState
 
         qq_channel._get_access_token_sync = MagicMock(return_value="token123")
 
@@ -1792,7 +1792,7 @@ class TestDownloadQQFile:
     @pytest.mark.asyncio
     async def test_download_empty_filename(self, tmp_path):
         """Should return None for empty filename."""
-        from qwenpaw.app.channels.qq.channel import _download_qq_file
+        from potato.app.channels.qq.channel import _download_qq_file
 
         mock_session = MagicMock()
 
@@ -1808,7 +1808,7 @@ class TestDownloadQQFile:
     @pytest.mark.asyncio
     async def test_download_prevents_path_traversal(self, tmp_path):
         """Should sanitize filename to prevent path traversal."""
-        from qwenpaw.app.channels.qq.channel import _download_qq_file
+        from potato.app.channels.qq.channel import _download_qq_file
 
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -1965,8 +1965,8 @@ class TestSendImages:
         # guild not supported, no exception
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.app.channels.qq.channel._upload_media_async")
-    @patch("qwenpaw.app.channels.qq.channel._send_media_message_async")
+    @patch("potato.app.channels.qq.channel._upload_media_async")
+    @patch("potato.app.channels.qq.channel._send_media_message_async")
     async def test_upload_and_send(
         self,
         mock_send_media,
@@ -1987,7 +1987,7 @@ class TestSendImages:
         mock_send_media.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.app.channels.qq.channel._upload_media_async")
+    @patch("potato.app.channels.qq.channel._upload_media_async")
     async def test_upload_failure_skips(self, mock_upload, qq_channel):
         """Upload failure should skip sending."""
         mock_upload.return_value = None
@@ -2006,10 +2006,10 @@ class TestSendMessageAsync:
     """Tests for _send_message_async function."""
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.app.channels.qq.channel._api_request_async")
+    @patch("potato.app.channels.qq.channel._api_request_async")
     async def test_plain_text(self, mock_api):
         """Should send plain text message."""
-        from qwenpaw.app.channels.qq.channel import _send_message_async
+        from potato.app.channels.qq.channel import _send_message_async
 
         mock_api.return_value = {}
         await _send_message_async(
@@ -2030,10 +2030,10 @@ class TestSendMessageAsync:
         assert body["msg_id"] == "m1"
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.app.channels.qq.channel._api_request_async")
+    @patch("potato.app.channels.qq.channel._api_request_async")
     async def test_markdown(self, mock_api):
         """Should send markdown message."""
-        from qwenpaw.app.channels.qq.channel import _send_message_async
+        from potato.app.channels.qq.channel import _send_message_async
 
         mock_api.return_value = {}
         await _send_message_async(
@@ -2051,10 +2051,10 @@ class TestSendMessageAsync:
         assert body["msg_type"] == 2
 
     @pytest.mark.asyncio
-    @patch("qwenpaw.app.channels.qq.channel._api_request_async")
+    @patch("potato.app.channels.qq.channel._api_request_async")
     async def test_channel_no_msg_seq(self, mock_api):
         """Channel messages should not include msg_seq."""
-        from qwenpaw.app.channels.qq.channel import _send_message_async
+        from potato.app.channels.qq.channel import _send_message_async
 
         mock_api.return_value = {}
         await _send_message_async(
@@ -2074,7 +2074,7 @@ class TestBuildAgentRequestFromNative:
 
     def test_basic_request(self, qq_channel):
         """Should build basic request from native data."""
-        from qwenpaw.schemas import TextContent
+        from potato.schemas import TextContent
 
         native = {
             "channel_id": "qq",

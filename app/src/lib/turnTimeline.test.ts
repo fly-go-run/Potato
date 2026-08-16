@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, type TimelineSlot } from "./turnTimeline";
+import {
+  buildTimeline,
+  copyAnswerText,
+  type TimelineSlot,
+} from "./turnTimeline";
 import type { RunStatus } from "./protocol/types";
 import type { StreamMessage } from "./stream";
 
@@ -262,5 +266,24 @@ describe("buildTimeline 槽位序列", () => {
       "p1",
       "m2",
     ]);
+  });
+});
+
+describe("copyAnswerText", () => {
+  it("copies only trailing answer narration", () => {
+    const messages = [
+      narration("m1", "我查一下北京今天的实时天气和预报。"),
+      toolCall("c1", "call-1", "web_search"),
+      toolOutput("o1", "call-1"),
+      narration("m2", "北京今天多云，约 26°C。"),
+    ];
+    const slots = buildTimeline(messages);
+    expect(copyAnswerText(messages, slots)).toBe("北京今天多云，约 26°C。");
+  });
+
+  it("falls back to all assistant prose when nothing is classified as the answer", () => {
+    const messages = [narration("m1", "只有这一句")];
+    const slots = buildTimeline(messages);
+    expect(copyAnswerText(messages, slots)).toBe("只有这一句");
   });
 });

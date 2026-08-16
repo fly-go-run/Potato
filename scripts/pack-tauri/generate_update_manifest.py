@@ -6,7 +6,7 @@ Subcommands:
   stage     Copy a Tauri-built updater archive (and its .sig) into the dist
             tree, then write a small JSON sidecar describing it.
   manifest  Aggregate one or more stage-produced sidecar JSON files into the
-            unified `qwenpaw-tauri-latest.json` consumed by tauri-plugin-updater.
+            unified `potato-tauri-latest.json` consumed by tauri-plugin-updater.
 """
 
 from __future__ import annotations

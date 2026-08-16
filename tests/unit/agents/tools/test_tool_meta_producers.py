@@ -6,12 +6,12 @@ import pytest
 from agentscope.message import TextBlock, ToolResultState
 from agentscope.tool import ToolChunk
 
-from qwenpaw.agents.tools.run_tool_batch import (
+from potato.agents.tools.run_tool_batch import (
     _build_batch_response,
     _response_payload,
 )
-from qwenpaw.agents.tools.send_file import send_file_to_user
-from qwenpaw.runtime.tool_meta import QP_META_MAX_BYTES, build_batch_qp_meta
+from potato.agents.tools.send_file import send_file_to_user
+from potato.runtime.tool_meta import QP_META_MAX_BYTES, build_batch_qp_meta
 
 
 @pytest.mark.asyncio

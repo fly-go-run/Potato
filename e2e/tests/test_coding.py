@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Coding Mode end-to-end tests.
+Potato Coding Mode end-to-end tests.
 
 Cases:
     - CODE-001 P0  test_enter_and_exit_coding_mode
@@ -214,7 +214,7 @@ class TestChatInCodingMode:
     embedded chat panel works end-to-end with an LLM. We don't assert
     on the response text content — only that an AI bubble appears.
 
-    Skipped when ``QWENPAW_DASHSCOPE_API_KEY`` is unset (handled by
+    Skipped when ``POTATO_DASHSCOPE_API_KEY`` is unset (handled by
     ``conftest.pytest_collection_modifyitems``).
     """
 
@@ -256,7 +256,7 @@ class TestChatInCodingMode:
 
             log_test_step("3. Send a question that mentions README.md")
             chat_input = coding_page.page.locator(
-                "textarea.qwenpaw-sender-input"
+                "textarea.potato-sender-input"
             ).first
             expect(chat_input).to_be_visible(timeout=coding_page.timeout)
             chat_input.fill(
@@ -264,13 +264,13 @@ class TestChatInCodingMode:
                 "Reply in one short sentence."
             )
             send_btn = coding_page.page.locator(
-                "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
+                "button.potato-sender-actions-btn.potato-btn-primary"
             ).first
             send_btn.click()
 
             log_test_step("4. Wait for at least one AI bubble to appear")
             ai_bubble = coding_page.page.locator(
-                ".qwenpaw-bubble.qwenpaw-bubble-start"
+                ".potato-bubble.potato-bubble-start"
             ).first
             expect(ai_bubble).to_be_visible(timeout=120000)
 

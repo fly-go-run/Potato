@@ -87,7 +87,6 @@ export function ShellToolCard({
             className="shrink-0 text-ink-tertiary"
           />
           <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
-            <span className="mr-1.5">{t("chat.step.verb.shell")}</span>
             <code className="font-mono text-[12px]">
               {footnote || t("tool.shell")}
             </code>
@@ -118,7 +117,6 @@ export function ShellToolCard({
         className={`shrink-0 ${failed ? "text-danger" : "text-ink-tertiary"}`}
       />
       <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
-        <span className="mr-1.5">{t("chat.step.verb.shell")}</span>
         <code
           className={`font-mono text-[12px] ${
             failed && !shimmer

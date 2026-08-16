@@ -9,6 +9,7 @@ import {
   Moon,
   MoreHorizontal,
   Notebook,
+  PanelLeft,
   PenLine,
   SquarePen,
   Pin,
@@ -20,16 +21,18 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { PotatoMark } from "../brand/PotatoMark";
-import { ChromeActions } from "./CollapsedRail";
+import { chromeIconClass } from "./CollapsedRail";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { ChatSpec } from "../../lib/api";
 import { APP_NAME } from "../../lib/appInfo";
 import { presentError } from "../../lib/errorPresentation";
 import { useTranslation } from "../../lib/i18n";
+import { shortcutLabel } from "../../lib/shortcuts";
 import { relativeTime } from "../../lib/relativeTime";
 import { loadSessionProject } from "../../lib/projects";
 import { setThemePreference } from "../../lib/theme";
 import { useChatStore } from "../../stores/chat";
+import { useUiStore } from "../../stores/ui";
 import { cn } from "../../lib/cn";
 import { Button, ConfirmDialog, IconButton, Input, SkeletonRows } from "../ui";
 
@@ -51,6 +54,17 @@ function navIconClass(active: boolean) {
   return cn("shrink-0", active ? "text-tint" : "text-icon");
 }
 
+function SidebarBrand() {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <PotatoMark size={18} />
+      <span className="truncate text-[14px] font-semibold text-ink">
+        {APP_NAME}
+      </span>
+    </div>
+  );
+}
+
 export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -59,6 +73,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const chatsLoading = useChatStore((state) => state.chatsLoading);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const newChat = useChatStore((state) => state.newChat);
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   // 分组展开态只活在内存里：刷新后回到默认展开，不值得占一个持久化键。
   const [chatsExpanded, setChatsExpanded] = useState(true);
   const [projectsExpanded, setProjectsExpanded] = useState(true);
@@ -92,6 +107,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
     newChat();
     navigate("/");
   };
+  const mac = isMacDesktopShell();
 
   const onTitlebarMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     if (!isMacDesktopShell() || event.button !== 0) return;
@@ -110,16 +126,28 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
     // 浅色 #f5f5f4 贴画布 #fbfbfb 仍糊，接缝用 line-strong。
     // 深色靠抬升分层，描边改 line-highlight，避免一条更亮的硬缝。
     <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line-strong bg-bg dark:border-line-highlight">
-      {/* 品牌和折叠同一行；mac 壳给红绿灯留位，空白仍是拖拽区。 */}
+      {/* mac：顶栏左边留给灯，只放收起。Windows/网页：品牌在左上，纯字标。 */}
       <div
         data-tauri-drag-region
         onMouseDown={onTitlebarMouseDown}
-        className={`flex h-11 shrink-0 items-center gap-0.5 ${
-          isMacDesktopShell() ? "pl-[4.75rem] pr-2" : "px-2"
+        className={`flex h-11 shrink-0 items-center px-2 ${
+          mac ? "justify-end" : "gap-1"
         }`}
       >
-        <ChromeActions sidebarCollapsed={false} />
-        <div data-tauri-drag-region className="min-w-2 flex-1 self-stretch" />
+        {!mac && (
+          <div className="min-w-0 flex-1 pl-1">
+            <SidebarBrand />
+          </div>
+        )}
+        <button
+          type="button"
+          title={`${t("sidebar.collapse")} · ${shortcutLabel("B")}`}
+          aria-label={t("sidebar.collapse")}
+          onClick={toggleSidebar}
+          className={chromeIconClass}
+        >
+          <PanelLeft size={16} strokeWidth={1.75} />
+        </button>
       </div>
 
       <div className="px-3 pb-4">
@@ -323,35 +351,45 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         </div>
       </nav>
 
-      <div className="flex min-h-[56px] items-center gap-2 border-t border-line px-3 py-2.5">
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink-secondary shadow-[var(--shadow-control)]">
-            <PotatoMark size={18} />
-          </span>
-          <div className="min-w-0">
-            <div className="truncate text-[14px] font-semibold text-ink">
-              {APP_NAME}
-            </div>
-          </div>
-        </div>
+      <div className="flex min-h-[56px] items-center justify-between gap-2 border-t border-line px-3 py-2.5">
+        {mac ? (
+          <NavLink
+            to="/settings"
+            state={{ background: location }}
+            title={t("sidebar.settings")}
+            aria-label={t("sidebar.settings")}
+            className={({ isActive }) =>
+              cn(
+                "flex min-w-0 items-center rounded-[var(--radius-sm)] px-1.5 py-1",
+                NAV_TRANSITION,
+                isActive
+                  ? "bg-[rgba(0,0,0,0.08)] dark:bg-[rgba(255,255,255,0.10)]"
+                  : "hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+              )
+            }
+          >
+            <SidebarBrand />
+          </NavLink>
+        ) : (
+          <NavLink
+            to="/settings"
+            state={{ background: location }}
+            title={t("sidebar.settings")}
+            aria-label={t("sidebar.settings")}
+            className={({ isActive }) =>
+              cn(
+                "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                NAV_TRANSITION,
+                isActive
+                  ? "bg-[rgba(0,0,0,0.08)] text-tint dark:bg-[rgba(255,255,255,0.10)]"
+                  : "text-icon hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+              )
+            }
+          >
+            <Settings size={16} strokeWidth={1.75} />
+          </NavLink>
+        )}
         <ThemeToggle />
-        <NavLink
-          to="/settings"
-          state={{ background: location }}
-          title={t("sidebar.settings")}
-          aria-label={t("sidebar.settings")}
-          className={({ isActive }) =>
-            cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-              NAV_TRANSITION,
-              isActive
-                ? "bg-[rgba(0,0,0,0.08)] text-tint dark:bg-[rgba(255,255,255,0.10)]"
-                : "text-icon hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
-            )
-          }
-        >
-          <Settings size={16} strokeWidth={1.75} />
-        </NavLink>
       </div>
     </aside>
   );

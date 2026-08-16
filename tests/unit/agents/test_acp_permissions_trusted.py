@@ -3,7 +3,7 @@
 """Tests for ACP permission adapter trusted flag and auto-approve logic."""
 from __future__ import annotations
 
-from qwenpaw.agents.acp.permissions import ACPPermissionAdapter
+from potato.agents.acp.permissions import ACPPermissionAdapter
 
 
 class TestACPPermissionAdapterTrusted:

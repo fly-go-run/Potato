@@ -1,33 +1,17 @@
 # -*- coding: utf-8 -*-
-import logging
-import os
-import time
-from . import _compat as _compat_bootstrap
-from .utils.logging import setup_logger
+"""Compatibility import namespace for the former QwenPaw package.
 
-# Fallback before we can safely read canonical constant definitions.
-LOG_LEVEL_ENV = "QWENPAW_LOG_LEVEL"
+New code should import :mod:`potato`. Keeping the old package path lets
+installed plugins transition without forcing an atomic ecosystem upgrade.
+"""
 
-_bootstrap_err: Exception | None = None
-try:
-    # Load persisted env vars before importing modules that read env-backed
-    # constants at import time (e.g., WORKING_DIR).
-    from .envs import load_envs_into_environ
+from __future__ import annotations
 
-    load_envs_into_environ()
-except Exception as exc:
-    # Best effort: package import should not fail if env bootstrap fails.
-    _bootstrap_err = exc
+import potato as _potato
 
-_t0 = time.perf_counter()
-setup_logger(os.environ.get(LOG_LEVEL_ENV, "info"))
+__path__ = _potato.__path__
+__version__ = getattr(_potato, "__version__", None)
 
-if _bootstrap_err is not None:
-    logging.getLogger(__name__).warning(
-        "qwenpaw: failed to load persisted envs on init: %s",
-        _bootstrap_err,
-    )
-logging.getLogger(__name__).debug(
-    "%.3fs package init",
-    time.perf_counter() - _t0,
-)
+
+def __getattr__(name: str):
+    return getattr(_potato, name)

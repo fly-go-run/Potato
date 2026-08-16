@@ -16,8 +16,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-import qwenpaw.app.routers.console as console_router
-from qwenpaw.app.routers.console import _extract_placeholder_name
+import potato.app.routers.console as console_router
+from potato.app.routers.console import _extract_placeholder_name
 
 
 class _TextBlock:

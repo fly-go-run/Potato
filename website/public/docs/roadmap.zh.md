@@ -9,8 +9,8 @@
 | **模型**               | 多模型切换                                                | 进行中 |
 | **Browser-use**        | 支持 Chrome 扩展                                          | 进行中 |
 | **长期记忆**           | 个人知识库                                                | 进行中 |
-| **QwenPaw 应用**       | QwenPaw Creator                                           | 进行中 |
-|                        | QwenPaw Insight                                           | 进行中 |
+| **Potato 应用**       | Potato Creator                                           | 进行中 |
+|                        | Potato Insight                                           | 进行中 |
 | **多智能体**           | 兼容 Claude Code 等既有 Agent                             | 计划中 |
 |                        | 群聊                                                      | 计划中 |
 |                        | Subagent 可视化                                           | 计划中 |
@@ -21,9 +21,9 @@ _状态说明：**进行中** — 正在积极开发；**计划中** — 已排�
 
 ## 参与贡献
 
-QwenPaw 在开放协作中持续演进，欢迎各种形式的参与！请参考上表（尤其是标记为 **征集中** 的项）选择你感兴趣的方向，并阅读 [CONTRIBUTING](https://github.com/agentscope-ai/QwenPaw/blob/main/CONTRIBUTING.md) 了解如何开始。我们特别欢迎：
+Potato 在开放协作中持续演进，欢迎各种形式的参与！请参考上表（尤其是标记为 **征集中** 的项）选择你感兴趣的方向，并阅读 [CONTRIBUTING](https://github.com/fly-go-run/Potato/blob/main/CONTRIBUTING.md) 了解如何开始。我们特别欢迎：
 
 - **横向拓展** — 新频道、模型提供商、技能、MCP。
 - **已有功能扩展与完善** — 展示与交互优化、下载提示、Windows 路径兼容等。
 
-欢迎在 [GitHub Issue - Open Tasks](https://github.com/agentscope-ai/QwenPaw/issues/2291) 参与讨论、提出想法或认领任务。
+欢迎在 [GitHub Issue - Open Tasks](https://github.com/fly-go-run/Potato/issues/2291) 参与讨论、提出想法或认领任务。

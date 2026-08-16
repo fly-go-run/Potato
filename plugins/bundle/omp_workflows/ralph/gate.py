@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from qwenpaw.loop.gates.base import StopAction, StopHandlerResult
-from qwenpaw.loop.gates.loop_gate import LoopGate
+from potato.loop.gates.base import StopAction, StopHandlerResult
+from potato.loop.gates.loop_gate import LoopGate
 
 from ..shared.constants import RALPH_MAX_ITERATIONS
 from ..shared.state import WorkflowState

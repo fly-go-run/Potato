@@ -1,6 +1,6 @@
 # Quick start
 
-This section describes multiple ways to install or start using QwenPaw:
+This section describes multiple ways to install or start using Potato:
 
 | Installation Method     | Best For                                      | Advantages                                                                                      | Prerequisites                           |
 | ----------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------- |
@@ -33,37 +33,39 @@ pip install qwenpaw
 
 Optional: create and activate a virtual environment first (`python -m venv .venv`,
 then `source .venv/bin/activate` on Linux/macOS or `.venv\Scripts\Activate.ps1`
-on Windows). This installs the `qwenpaw` command.
+on Windows). This installs the `potato` command. The PyPI distribution keeps its
+historical `qwenpaw` identifier so installed users can upgrade in place; the
+product, Python package, and primary command are Potato.
 
 Then follow [Step 2: Initialize](#step-2-initialize) and [Step 3: Start the server](#step-3-start-the-server) below.
 
 ### Step 2: Initialize
 
 Generate `config.json` and `HEARTBEAT.md` in the working directory (default
-`~/.qwenpaw`). Two options:
+`~/.potato`). Two options:
 
 - **Quick with defaults** (no interaction, good for running first then editing config):
   ```bash
-  qwenpaw init --defaults
+  potato init --defaults
   ```
 - **Interactive initialization** (prompts for heartbeat interval, target, active hours, and optional channel and Skills setup):
   ```bash
-  qwenpaw init
+  potato init
   ```
   See [CLI - Getting started](./cli#getting-started).
 
-To overwrite existing config, use `qwenpaw init --force` (you will be prompted).
+To overwrite existing config, use `potato init --force` (you will be prompted).
 After initialization, if no channel is enabled yet, follow the documentation in
 [Channels](./channels) to add DingTalk, Feishu, QQ, etc.
 
 ### Step 3: Start the server
 
 ```bash
-qwenpaw app
+potato app
 ```
 
 The server listens on `127.0.0.1:8088` by default. If you've already configured
-channels, QwenPaw will reply there. Otherwise, you can complete this section
+channels, Potato will reply there. Otherwise, you can complete this section
 first and then configure channels.
 
 ---
@@ -94,7 +96,7 @@ curl -fsSL https://qwenpaw.agentscope.io/install.bat -o install.bat && install.b
 irm https://qwenpaw.agentscope.io/install.ps1 | iex
 ```
 
-Then open a new terminal (the installer adds QwenPaw to your PATH automatically).
+Then open a new terminal (the installer adds Potato to your PATH automatically).
 
 > **⚠️ Special Notice for Windows Enterprise LTSC Users**
 >
@@ -105,9 +107,9 @@ Then open a new terminal (the installer adds QwenPaw to your PATH automatically)
 >    The script completes file installation. Due to **Constrained Language Mode**, it cannot automatically update environment variables. Manually configure as follows:
 >
 >    - **Locate the installation directory**:
->      - Check if `uv` is available: Enter `uv --version` in CMD. If a version number appears, **only configure the QwenPaw path**. If you receive `'uv' is not recognized as an internal or external command, operable program or batch file,` configure both paths.
+>      - Check if `uv` is available: Enter `uv --version` in CMD. If a version number appears, **only configure the Potato path**. If you receive `'uv' is not recognized as an internal or external command, operable program or batch file,` configure both paths.
 >      - uv path (choose one based on installation location; fill if `uv` is unavailable): Typically `%USERPROFILE%\.local\bin`, `%USERPROFILE%\AppData\Local\uv`, or the `Scripts` folder within your Python installation directory
->      - QwenPaw path: Typically `%USERPROFILE%\.qwenpaw\bin`.
+>      - Potato path: Typically `%USERPROFILE%\.potato\bin`.
 >    - **Manually add to the system's Path environment variable**:
 >      - Press `Win + R`, type `sysdm.cpl` and press Enter to open System Properties.
 >      - Click "Advanced" → "Environment Variables".
@@ -119,9 +121,9 @@ Then open a new terminal (the installer adds QwenPaw to your PATH automatically)
 > Due to **Constrained Language Mode**, the script may fail to automatically download `uv`.
 >
 > - **Manually install uv**: Refer to [GitHub Release](https://github.com/astral-sh/uv/releases) to download `uv.exe` and place it in `%USERPROFILE%\.local\bin` or `%USERPROFILE%\AppData\Local\uv`; or ensure Python is installed and run `python -m pip install -U uv`.
-> - **Configure `uv` environment variables**: Add the `uv` directory and `%USERPROFILE%\.qwenpaw\bin` to your system's `Path` variable.
-> - **Re-run the installation**: Open a new terminal and execute the installation script again to complete the `QwenPaw` installation.
-> - **Configure the `QwenPaw` environment variable**: Add `%USERPROFILE%\.qwenpaw\bin` to your system's `Path` variable.
+> - **Configure `uv` environment variables**: Add the `uv` directory and `%USERPROFILE%\.potato\bin` to your system's `Path` variable.
+> - **Re-run the installation**: Open a new terminal and execute the installation script again to complete the `Potato` installation.
+> - **Configure the `Potato` environment variable**: Add `%USERPROFILE%\.potato\bin` to your system's `Path` variable.
 
 You can also specify options:
 
@@ -145,35 +147,35 @@ curl -fsSL ... | bash -s -- --from-source
 .\install.ps1 -FromSource
 ```
 
-To upgrade, simply re-run the install command. To uninstall, run `qwenpaw uninstall`.
+To upgrade, simply re-run the install command. To uninstall, run `potato uninstall`.
 
 ### Step 2: Initialize
 
 Generate `config.json` and `HEARTBEAT.md` in the working directory (default
-`~/.qwenpaw`). Two options:
+`~/.potato`). Two options:
 
 - **Quick with defaults** (no interaction, good for running first then editing config):
   ```bash
-  qwenpaw init --defaults
+  potato init --defaults
   ```
 - **Interactive initialization** (prompts for heartbeat interval, target, active hours, and optional channel and Skills setup):
   ```bash
-  qwenpaw init
+  potato init
   ```
   See [CLI - Getting started](./cli#getting-started).
 
-To overwrite existing config, use `qwenpaw init --force` (you will be prompted).
+To overwrite existing config, use `potato init --force` (you will be prompted).
 After initialization, if no channel is enabled yet, follow the documentation in
 [Channels](./channels) to add DingTalk, Feishu, QQ, etc.
 
 ### Step 3: Start the server
 
 ```bash
-qwenpaw app
+potato app
 ```
 
 The server listens on `127.0.0.1:8088` by default. If you've already configured
-channels, QwenPaw will reply there. Otherwise, you can complete this section
+channels, Potato will reply there. Otherwise, you can complete this section
 first and then configure channels.
 
 ---
@@ -188,7 +190,7 @@ pip install qwenpaw
 
 Optional: create and activate a virtual environment first (`python -m venv .venv`,
 then `source .venv/bin/activate` on Linux/macOS or `.venv\Scripts\Activate.ps1`
-on Windows). This installs the `qwenpaw` command.
+on Windows). This installs the `potato` command.
 
 Then follow [Step 2: Initialize](#step-2-initialize) and [Step 3: Start the server](#step-3-start-the-server) above.
 
@@ -220,41 +222,41 @@ and API keys are stored in the `qwenpaw-secrets` volume; backup archives are sto
 
 ## Option 4: AgentScope Platform (no installation)
 
-[AgentScope Platform](https://platform.agentscope.io/) is the cloud experience platform for the AgentScope ecosystem, providing one-click QwenPaw deployment and an online runtime environment, with both Beta and stable versions available to try. Register to try it for free, with no local installation or environment setup required. After signing in, deploy QwenPaw with one click and use it directly in your browser.
+[AgentScope Platform](https://platform.agentscope.io/) is the cloud experience platform for the AgentScope ecosystem, providing one-click Potato deployment and an online runtime environment, with both Beta and stable versions available to try. Register to try it for free, with no local installation or environment setup required. After signing in, deploy Potato with one click and use it directly in your browser.
 
-![QwenPaw one-click deployment and feedback entry points on AgentScope Platform](https://img.alicdn.com/imgextra/i1/O1CN01LEMjf01YXeg8iyOjE_!!6000000003069-2-tps-2840-1436.png)
+![Potato one-click deployment and feedback entry points on AgentScope Platform](https://img.alicdn.com/imgextra/i1/O1CN01LEMjf01YXeg8iyOjE_!!6000000003069-2-tps-2840-1436.png)
 
-If you encounter any issues while deploying or using QwenPaw, click **Suggestions & Feedback** in the lower-right corner of the page to submit feedback.
+If you encounter any issues while deploying or using Potato, click **Suggestions & Feedback** in the lower-right corner of the page to submit feedback.
 
 ---
 
 ## Option 5: Deploy to Alibaba Cloud ECS
 
-To deploy QwenPaw on Alibaba Cloud, use the ECS one-click deployment:
+To deploy Potato on Alibaba Cloud, use the ECS one-click deployment:
 
-1. Open the [QwenPaw Alibaba Cloud ECS deployment link](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-1ed84201799f40879884) and fill in the deployment parameters as prompted;
+1. Open the [Potato Alibaba Cloud ECS deployment link](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-1ed84201799f40879884) and fill in the deployment parameters as prompted;
 2. After parameter configuration, confirm the cost and create the instance. Once deployment is complete, you can get the access URL and use the service.
 
-For detailed steps and instructions, see [Alibaba Cloud Developer Community: Deploy your AI assistant with QwenPaw in 3 minutes](https://developer.aliyun.com/article/1713682).
+For detailed steps and instructions, see [Alibaba Cloud Developer Community: Deploy your AI assistant with Potato in 3 minutes](https://developer.aliyun.com/article/1713682).
 
 ---
 
 ## Option 6: ModelScope Studio one-click setup (no installation)
 
-If you don't want to install Python locally, you can deploy QwenPaw to the cloud
+If you don't want to install Python locally, you can deploy Potato to the cloud
 through ModelScope Studio:
 
 1. First go to [ModelScope](https://modelscope.cn/register?back=%2Fhome) to register and log in;
-2. Open [QwenPaw Studio](https://modelscope.cn/studios/fork?target=AgentScope/QwenPaw) and complete the one-click setup.
+2. Open [Potato Studio](https://modelscope.cn/studios/fork?target=AgentScope/QwenPaw) and complete the one-click setup.
 
-**Important**: Set your Studio to **non-public**, or others may control your QwenPaw.
+**Important**: Set your Studio to **non-public**, or others may control your Potato.
 
 ---
 
 ## Option 7: Desktop application
 
 If you're not comfortable with command-line tools, you can download and use
-QwenPaw's desktop application without manually configuring Python environments
+Potato's desktop application without manually configuring Python environments
 or running commands.
 
 ### Features
@@ -266,15 +268,15 @@ or running commands.
 ### Download and usage
 
 1. **Download the installer**
-   Go to [GitHub Releases](https://github.com/agentscope-ai/QwenPaw/releases) to download the Tauri build for your system:
+   Go to [GitHub Releases](https://github.com/fly-go-run/Potato/releases) to download the Tauri build for your system:
 
-   - Windows: `QwenPaw-Tauri-<version>-Windows-setup.exe`
-   - macOS: `QwenPaw-Tauri-<version>-macOS.zip`
+   - Windows: `Potato-Tauri-<version>-Windows-setup.exe`
+   - macOS: `Potato-Tauri-<version>-macOS.zip`
 
 2. **Install and launch**
 
    - **Windows**: Double-click the `.exe` file to install following the wizard, then double-click the desktop shortcut to launch
-   - **macOS**: Extract the `.zip` to get `QwenPaw Desktop.app`, first time requires right-click and select "Open" to bypass system security restrictions
+   - **macOS**: Extract the `.zip` to get `Potato Desktop.app`, first time requires right-click and select "Open" to bypass system security restrictions
 
 3. **First launch note**
    The first launch may take 10-60 seconds (depending on your system configuration).
@@ -316,7 +318,7 @@ Use the same `session_id` for multi-turn conversations.
 
 #### ✅ 1. Configure models (required)
 
-QwenPaw needs a large language model to work. You can choose either option:
+Potato needs a large language model to work. You can choose either option:
 
 **Option A: Use cloud models (requires API Key)**
 
@@ -333,14 +335,14 @@ See [Models - Configure cloud providers](./models).
 
 1. Install local model backend:
 
-- QwenPaw Local (llama.cpp): download `llama.cpp` inside QwenPaw Local provider settings, see [Models - Local providers Configuration](./models) for details.
+- Potato Local (llama.cpp): download `llama.cpp` inside Potato Local provider settings, see [Models - Local providers Configuration](./models) for details.
 - Ollama: install Ollama from [Ollama website](https://ollama.com/download) and run the Ollama service.
 - LM Studio: install LM Studio from [LM Studio website](https://lmstudio.ai/download) and run the LM Studio service.
 
 2. Download models:
 
-- For QwenPaw Local (llama.cpp), you can download models directly from the provider settings in the Console, or manually place GGUF model files in the local models directory (default `~/.qwenpaw/local_models/models/<org>/<model>`, for example: `~/.qwenpaw/local_models/models/Qwen/Qwen3-0.6B-GGUF`).
-- For Ollama and LM Studio, you need to add models in their respective services first, then QwenPaw can automatically fetch the model list and connect to them.
+- For Potato Local (llama.cpp), you can download models directly from the provider settings in the Console, or manually place GGUF model files in the local models directory (default `~/.potato/local_models/models/<org>/<model>`, for example: `~/.potato/local_models/models/Qwen/Qwen3-0.6B-GGUF`).
+- For Ollama and LM Studio, you need to add models in their respective services first, then Potato can automatically fetch the model list and connect to them.
 
 3. Select the local provider and model in the Console
 
@@ -349,7 +351,7 @@ After configuring the local model, you can select it in the Console's **Default 
 #### 🎯 2. Test chat in Console
 
 After model configuration is complete, send a message in the Console's **Chat**
-page to test functionality and confirm QwenPaw can reply normally.
+page to test functionality and confirm Potato can reply normally.
 
 ---
 
@@ -359,12 +361,12 @@ After configuring models and testing successfully, you can extend as needed:
 
 #### 📱 Connect messaging channels
 
-Chat with QwenPaw in DingTalk, Feishu, QQ, Discord, iMessage, and other apps:
+Chat with Potato in DingTalk, Feishu, QQ, Discord, iMessage, and other apps:
 
 1. In the Console, go to **Control → Channels**
 2. Select the channel to connect
 3. Follow the [Channels](./channels) documentation to obtain credentials and fill them in
-4. After saving, you can send messages to QwenPaw in the corresponding app
+4. After saving, you can send messages to Potato in the corresponding app
 
 #### 📊 Enable Langfuse tracing
 
@@ -386,7 +388,7 @@ FROM agentscope/qwenpaw:latest
 RUN pip install --no-cache-dir "langfuse>=4,<5"
 ```
 
-Then run QwenPaw with Langfuse environment variables:
+Then run Potato with Langfuse environment variables:
 
 ```bash
 docker run -p 127.0.0.1:8088:8088 \
@@ -396,12 +398,12 @@ docker run -p 127.0.0.1:8088:8088 \
   -v qwenpaw-data:/app/working \
   -v qwenpaw-secrets:/app/working.secret \
   -v qwenpaw-backups:/app/working.backups \
-  qwenpaw-langfuse:latest
+  potato-langfuse:latest
 ```
 
 #### 🔧 Enable and extend skills
 
-Give QwenPaw more capabilities (PDF processing, Office documents, news summaries, etc.):
+Give Potato more capabilities (PDF processing, Office documents, news summaries, etc.):
 
 - In the Console, go to **Agent → Skill Pool** or **Agent → Skills**
 - Import built-in skills, import from Skill Hub, or create custom skills
@@ -417,9 +419,9 @@ Extend external tool capabilities through MCP (Model Context Protocol):
 
 #### ⏰ Set up scheduled tasks and heartbeat
 
-Let QwenPaw execute tasks automatically:
+Let Potato execute tasks automatically:
 
-- **Scheduled tasks**: Create in Console **Control → Scheduled tasks**, or use `qwenpaw cron` command in [CLI](./cli)
+- **Scheduled tasks**: Create in Console **Control → Scheduled tasks**, or use `potato cron` command in [CLI](./cli)
 - **Heartbeat**: Configure scheduled check-ins or digests, see [Heartbeat](./heartbeat)
 
 #### 👥 Create multi-agent

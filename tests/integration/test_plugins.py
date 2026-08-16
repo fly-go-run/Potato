@@ -76,7 +76,7 @@ def _build_sample_plugin_zip(
         "version": version,
         "name": name or plugin_id,
         "description": "Sprint 1.3 integration sample plugin",
-        "author": "qwenpaw-test",
+        "author": "potato-test",
         "plugin_type": "general",
         "entry": {"backend": "plugin.py"},
     }
@@ -248,7 +248,7 @@ def test_plugins_list_returns_empty_array_contract(app_server) -> None:
     reason=(
         "Pre-existing product bug: GET /api/plugins/catalog returns HTTP "
         "500 instead of the documented graceful 200 fallback when the CDN "
-        "fetch in build_plugin_catalog (src/qwenpaw/plugins/"
+        "fetch in build_plugin_catalog (src/potato/plugins/"
         "download_catalog.py) raises an exception outside its narrow "
         "except set (urllib.error.URLError, json.JSONDecodeError, "
         "TimeoutError). In CI the fetch commonly fails with "

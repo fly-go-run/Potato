@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from qwenpaw.app.workspace.service_manager import (
+from potato.app.workspace.service_manager import (
     ServiceDependencyError,
     ServiceDescriptor,
     ServiceManager,

@@ -1,4 +1,4 @@
-# QwenPaw E2E Test Framework
+# Potato E2E Test Framework
 
 End-to-end test framework built on Playwright + pytest + the Page Object Pattern.
 
@@ -37,9 +37,9 @@ tests/
 >
 > E2E tests write seed data (inbox events, plan state, workspace
 > files) into the backend's working directory. If that directory is
-> your real `~/.qwenpaw` you will **corrupt your actual QwenPaw data**.
+> your real `~/.potato` you will **corrupt your actual Potato data**.
 >
-> The framework enforces this rule: if `QWENPAW_WORKING_DIR` is unset
+> The framework enforces this rule: if `POTATO_WORKING_DIR` is unset
 > or points inside your home directory, pytest will **refuse to start**
 > with a clear RuntimeError.
 
@@ -49,33 +49,33 @@ tests/
 # From the repo root:
 source e2e/scripts/start_test_server.sh --bg
 
-# This starts QwenPaw on port 7077 with:
-#   QWENPAW_WORKING_DIR=/tmp/qwenpaw-e2e-test-work-dir/working
+# This starts Potato on port 7077 with:
+#   POTATO_WORKING_DIR=/tmp/potato-e2e-test-work-dir/working
 # The env var is exported so pytest inherits it automatically.
 ```
 
 If you prefer manual setup:
 
 ```bash
-export QWENPAW_WORKING_DIR=/tmp/my-e2e-workdir
-mkdir -p "$QWENPAW_WORKING_DIR"
-QWENPAW_WORKING_DIR="$QWENPAW_WORKING_DIR" python -m qwenpaw app --port 7077 &
+export POTATO_WORKING_DIR=/tmp/my-e2e-workdir
+mkdir -p "$POTATO_WORKING_DIR"
+POTATO_WORKING_DIR="$POTATO_WORKING_DIR" python -m potato app --port 7077 &
 ```
 
 ### 1. Install dependencies
 
 ```bash
-cd /Users/ming/.qwenpaw/workspaces/Hv3HJ9
+cd /Users/ming/.potato/workspaces/Hv3HJ9
 pip install -r tests/requirements.txt
 playwright install chromium
 ```
 
-### 2. Ensure the QwenPaw service is running
+### 2. Ensure the Potato service is running
 
 ```bash
-qwenpaw start
+potato start
 # or
-cd /Users/ming/Desktop/qwenpaw && python -m qwenpaw
+cd /Users/ming/Desktop/potato && python -m potato
 ```
 
 ### 3. Run tests
@@ -98,7 +98,7 @@ pytest tests/tests/test_chat_p0.py -m "chat_file" -v
 ### 4. Headed mode (visual debugging)
 
 ```bash
-QWENPAW_HEADLESS=false pytest tests/tests/test_chat_p0.py -v
+POTATO_HEADLESS=false pytest tests/tests/test_chat_p0.py -v
 ```
 
 ### 5. Slow-motion mode (for debugging)
@@ -126,25 +126,25 @@ PLAYWRIGHT_SLOW_MO=1000 pytest tests/tests/test_chat_p0.py -v
 
 | Name | Default | Description |
 |------|---------|-------------|
-| `QWENPAW_WORKING_DIR` | **(required)** | Backend working directory for seed data. Must be outside `$HOME`. |
-| `QWENPAW_BASE_URL` | `http://localhost:7077` | QwenPaw service URL |
-| `QWENPAW_HEADLESS` | `true` | Headless mode (`true`/`false`) |
-| `QWENPAW_TIMEOUT` | `30000` | Timeout (milliseconds) |
-| `QWENPAW_USER_ID` | `default` | User ID |
-| `QWENPAW_CHANNEL` | `console` | Channel name |
+| `POTATO_WORKING_DIR` | **(required)** | Backend working directory for seed data. Must be outside `$HOME`. |
+| `POTATO_BASE_URL` | `http://localhost:7077` | Potato service URL |
+| `POTATO_HEADLESS` | `true` | Headless mode (`true`/`false`) |
+| `POTATO_TIMEOUT` | `30000` | Timeout (milliseconds) |
+| `POTATO_USER_ID` | `default` | User ID |
+| `POTATO_CHANNEL` | `console` | Channel name |
 | `PLAYWRIGHT_SLOW_MO` | `0` | Slow-motion delay (milliseconds) |
 
 ### Examples
 
 ```bash
 # Override the service URL
-QWENPAW_BASE_URL=http://127.0.0.1:9000 pytest tests/tests/test_chat_p0.py -v
+POTATO_BASE_URL=http://127.0.0.1:9000 pytest tests/tests/test_chat_p0.py -v
 
 # Headed mode + slow motion
-QWENPAW_HEADLESS=false PLAYWRIGHT_SLOW_MO=500 pytest tests/tests/test_chat_p0.py -v
+POTATO_HEADLESS=false PLAYWRIGHT_SLOW_MO=500 pytest tests/tests/test_chat_p0.py -v
 
 # Increase timeout
-QWENPAW_TIMEOUT=60000 pytest tests/tests/test_chat_p0.py -v
+POTATO_TIMEOUT=60000 pytest tests/tests/test_chat_p0.py -v
 ```
 
 ## Test Reports
@@ -277,27 +277,27 @@ def test_various_messages(self, chat_page, message, expected_keyword):
 
 ## FAQ
 
-### 1. Test failure: cannot connect to the QwenPaw service
+### 1. Test failure: cannot connect to the Potato service
 
 ```bash
 # Check service status
-qwenpaw status
+potato status
 
 # Start manually
-cd /Users/ming/Desktop/qwenpaw && python -m qwenpaw
+cd /Users/ming/Desktop/potato && python -m potato
 ```
 
 ### 2. Test failure: element not found
 
 ```bash
 # Debug in headed mode
-QWENPAW_HEADLESS=false pytest tests/tests/test_chat_p0.py::TestNewChatAndBasicQA -v
+POTATO_HEADLESS=false pytest tests/tests/test_chat_p0.py::TestNewChatAndBasicQA -v
 
 # Increase timeout
-QWENPAW_TIMEOUT=60000 pytest tests/tests/test_chat_p0.py -v
+POTATO_TIMEOUT=60000 pytest tests/tests/test_chat_p0.py -v
 
 # Use slow motion to inspect page loading
-PLAYWRIGHT_SLOW_MO=1000 QWENPAW_HEADLESS=false pytest tests/tests/test_chat_p0.py -v
+PLAYWRIGHT_SLOW_MO=1000 POTATO_HEADLESS=false pytest tests/tests/test_chat_p0.py -v
 ```
 
 ### 3. Browser fails to launch

@@ -1,5 +1,5 @@
 /* ============================================================
- * QwenPaw design tokens — 本文件只由 Claude（架构方）修改。
+ * Potato design tokens — 本文件只由 Claude（架构方）修改。
  * 语义变量在 :root / .dark 定义，经 @theme inline 映射为
  * Tailwind 工具类（bg-surface、text-ink、border-line …）。
  * 组件代码一律使用语义类，禁止硬编码色值。

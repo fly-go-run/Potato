@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QwenPaw Local Models module P0 end-to-end test cases.
+Potato Local Models module P0 end-to-end test cases.
 
 Combined test design:
 - MODEL-001: Local models page load + model list display + server status + empty state
@@ -74,7 +74,7 @@ class TestModelListDisplay:
 
         # Step 3: Verify server status card
         log_test_step("3. Verify server status card")
-        server_status = page.locator('[class*="serverStatus"], .qwenpaw-card:has-text("llama.cpp"), .qwenpaw-card:has-text("Server")').first
+        server_status = page.locator('[class*="serverStatus"], .potato-card:has-text("llama.cpp"), .potato-card:has-text("Server")').first
         if server_status.is_visible(timeout=5000):
             logger.info("Server status card is visible")
 
@@ -95,7 +95,7 @@ class TestModelListDisplay:
 
         provider_tiles = page.locator(
             '[class*="providerCard"], [class*="providerCards"], '
-            '[class*="modelList"], .qwenpaw-list, .qwenpaw-card'
+            '[class*="modelList"], .potato-list, .potato-card'
         ).all()
 
         page_text = page.locator("body").inner_text()
@@ -118,7 +118,7 @@ class TestModelListDisplay:
 
         # Step 5: Click a Provider card to verify interaction
         log_test_step("5. Click a Provider card to verify interaction")
-        provider_cards = page.locator('[class*="providerCard"], .qwenpaw-card').all()
+        provider_cards = page.locator('[class*="providerCard"], .potato-card').all()
         assert len(provider_cards) > 0, "Models page should render at least one Provider card"
         logger.info(f"Found {len(provider_cards)} Provider cards")
 
@@ -130,7 +130,7 @@ class TestModelListDisplay:
         page.wait_for_timeout(2000)
 
         # Verify response after click (modal or page change)
-        modal = page.locator('.qwenpaw-modal, .qwenpaw-drawer').first
+        modal = page.locator('.potato-modal, .potato-drawer').first
         if modal.count() > 0 and modal.is_visible(timeout=3000):
             modal_content = modal.text_content() or ""
             assert len(modal_content) > 10, "Provider modal content should not be empty"
@@ -144,8 +144,8 @@ class TestModelListDisplay:
 
         # Step 6: Check empty state or model list
         log_test_step("6. Check empty state or model list")
-        empty_state = page.locator('.qwenpaw-empty, [class*=empty]').first
-        data_items = page.locator('[class*="modelItem"], .qwenpaw-list-item, .qwenpaw-table-row').all()
+        empty_state = page.locator('.potato-empty, [class*=empty]').first
+        data_items = page.locator('[class*="modelItem"], .potato-list-item, .potato-table-row').all()
         assert empty_state.count() > 0 or len(data_items) >= 0, "Page should display empty state or model list"
         if empty_state.count() > 0 and empty_state.is_visible(timeout=2000):
             logger.info("Empty state displayed correctly")
@@ -246,7 +246,7 @@ class TestModelDownload:
 
         # Step 4: Verify the modal opened
         log_test_step("4. Verify manage modal displayed")
-        modal = page.locator('.qwenpaw-modal').first
+        modal = page.locator('.potato-modal').first
         if modal.count() > 0 and modal.is_visible(timeout=5000):
             logger.info("Manage modal opened")
 
@@ -259,13 +259,13 @@ class TestModelDownload:
             download_elements = modal.locator(
                 'button:has-text("下载"), button:has-text("Download"), '
                 'button:has-text("Install"), button:has-text("安装"), '
-                '.qwenpaw-progress, [class*="download" i]'
+                '.potato-progress, [class*="download" i]'
             ).all()
             logger.info(f"Found {len(download_elements)} download-related elements")
 
             # Step 6: Close the modal
             log_test_step("6. Close the modal")
-            close_btn = modal.locator('.qwenpaw-modal-close, button[aria-label="Close"]').first
+            close_btn = modal.locator('.potato-modal-close, button[aria-label="Close"]').first
             if close_btn.count() > 0 and close_btn.is_visible():
                 close_btn.click()
                 page.wait_for_timeout(500)
@@ -306,7 +306,7 @@ class TestModelServe:
 
         # Step 2: Find downloaded models
         log_test_step("2. Find downloaded models")
-        model_items = page.locator('[class*=modelItem], .qwenpaw-list-item, .qwenpaw-card').all()
+        model_items = page.locator('[class*=modelItem], .potato-list-item, .potato-card').all()
 
         if len(model_items) == 0:
             logger.info("No downloaded models, skipping start-service test")
@@ -317,7 +317,7 @@ class TestModelServe:
         # Step 3: Verify model action buttons
         log_test_step("3. Verify model action buttons")
         # Find start/serve buttons
-        serve_btns = page.locator('button:has-text("启动"), button:has-text("Serve"), button:has-text("服务"), .qwenpaw-btn:has-text("启动")').or_(page.get_by_text("启动")).or_(page.get_by_text("Serve")).or_(page.get_by_text("服务")).all()
+        serve_btns = page.locator('button:has-text("启动"), button:has-text("Serve"), button:has-text("服务"), .potato-btn:has-text("启动")').or_(page.get_by_text("启动")).or_(page.get_by_text("Serve")).or_(page.get_by_text("服务")).all()
 
         # Step 3: Find and click the start/serve button
         log_test_step("3. Find and click the start/serve button")
@@ -331,8 +331,8 @@ class TestModelServe:
 
             # Verify response after click (modal / status change / port config appears)
             response_indicators = page.locator(
-                '.qwenpaw-modal, .qwenpaw-drawer, '
-                '.qwenpaw-message, .qwenpaw-notification, '
+                '.potato-modal, .potato-drawer, '
+                '.potato-message, .potato-notification, '
                 '[class*="serving"], [class*="running"], [class*="port"]'
             ).all()
             visible_indicators = [ind for ind in response_indicators if ind.is_visible()]
@@ -350,7 +350,7 @@ class TestModelServe:
         # Step 4: Verify port config / status display
         log_test_step("4. Verify port or service status")
         port_display = page.locator('[class*=port]').or_(page.get_by_text("端口")).or_(page.get_by_text("Port")).first
-        status_display = page.locator('[class*="status"], [class*="serving"], .qwenpaw-tag, .qwenpaw-badge').first
+        status_display = page.locator('[class*="status"], [class*="serving"], .potato-tag, .potato-badge').first
         has_port = port_display.count() > 0 and port_display.is_visible(timeout=3000)
         has_status = status_display.count() > 0 and status_display.is_visible(timeout=2000)
         assert has_port or has_status or len(serve_btns) > 0, \
@@ -394,7 +394,7 @@ class TestModelManagement:
 
         # Step 2: Find the model action menu
         log_test_step("2. Find the model action menu")
-        more_btns = page.locator('button:has-text("⋮"), button:has-text("⋯"), .qwenpaw-btn-icon:has(.spark-icon-spark-more-line)').all()
+        more_btns = page.locator('button:has-text("⋮"), button:has-text("⋯"), .potato-btn-icon:has(.spark-icon-spark-more-line)').all()
 
         if len(more_btns) > 0:
             logger.info(f"Found {len(more_btns)} more-action buttons")
@@ -405,7 +405,7 @@ class TestModelManagement:
 
             # Step 3: Verify delete option
             log_test_step("3. Verify delete option")
-            delete_option = page.locator('.qwenpaw-dropdown-menu-item:has-text("删除"), .qwenpaw-dropdown-menu-item:has-text("Delete")').or_(page.get_by_text("删除")).or_(page.get_by_text("Delete")).first
+            delete_option = page.locator('.potato-dropdown-menu-item:has-text("删除"), .potato-dropdown-menu-item:has-text("Delete")').or_(page.get_by_text("删除")).or_(page.get_by_text("Delete")).first
             if delete_option.is_visible(timeout=3000):
                 logger.info("Delete option is visible")
 
@@ -417,7 +417,7 @@ class TestModelManagement:
 
         # Step 4: Find running services
         log_test_step("4. Find running services")
-        running_status = page.locator('[class*=running], .qwenpaw-tag:has-text("运行中")').or_(page.get_by_text("运行中")).or_(page.get_by_text("Running")).first
+        running_status = page.locator('[class*=running], .potato-tag:has-text("运行中")').or_(page.get_by_text("运行中")).or_(page.get_by_text("Running")).first
 
         if running_status.is_visible(timeout=3000):
             logger.info("Running service found")
@@ -469,7 +469,7 @@ class TestCustomProviderCreateAndDelete:
         page.wait_for_timeout(1000)
 
         log_test_step("Fill the custom provider form")
-        modal = page.locator(".qwenpaw-modal").first
+        modal = page.locator(".potato-modal").first
         expect(modal).to_be_visible(timeout=5000)
 
         id_input = modal.locator("input#id").first
@@ -487,7 +487,7 @@ class TestCustomProviderCreateAndDelete:
         page.wait_for_timeout(500)
 
         log_test_step("Submit the create form")
-        ok_button = modal.locator("button.qwenpaw-btn-primary").first
+        ok_button = modal.locator("button.potato-btn-primary").first
         if ok_button.count() == 0:
             ok_button = modal.locator("button[type='submit']").first
         ok_button.click()
@@ -546,7 +546,7 @@ class TestCustomProviderCreateAndDelete:
 
         # Find the delete button. Button text is the localized delete word (with a space) or "Delete".
         # Prefer the dangerous style class first; it is characteristic of delete buttons.
-        delete_btn = provider_card.locator("button.qwenpaw-btn-dangerous, button[class*='dangerous']").first
+        delete_btn = provider_card.locator("button.potato-btn-dangerous, button[class*='dangerous']").first
 
         # If the style class is not found, try text matching (note the Chinese button text has a space)
         if delete_btn.count() == 0:
@@ -561,7 +561,7 @@ class TestCustomProviderCreateAndDelete:
 
         # Delete confirmation modal - must find the confirm button inside the modal to avoid
         # matching the delete button on the card.
-        confirm_modal = page.locator(".qwenpaw-modal-confirm, .qwenpaw-modal, .qwenpaw-popconfirm").first
+        confirm_modal = page.locator(".potato-modal-confirm, .potato-modal, .potato-popconfirm").first
         if confirm_modal.count() > 0:
             try:
                 confirm_modal.wait_for(state="visible", timeout=3000)
@@ -569,7 +569,7 @@ class TestCustomProviderCreateAndDelete:
                 pass
             # Find the confirm button inside the modal (typically the localized "OK")
             confirm_btn = confirm_modal.locator(
-                "button.qwenpaw-btn-primary, "
+                "button.potato-btn-primary, "
                 "button:has-text('确 定'), button:has-text('确定'), "
                 "button:has-text('OK'), button:has-text('Confirm')"
             ).first
@@ -578,7 +578,7 @@ class TestCustomProviderCreateAndDelete:
                 page.wait_for_timeout(2000)
             else:
                 # Fallback: find a button in the modal's footer area
-                footer_btn = confirm_modal.locator(".qwenpaw-modal-confirm-btns button, .qwenpaw-modal-footer button").last
+                footer_btn = confirm_modal.locator(".potato-modal-confirm-btns button, .potato-modal-footer button").last
                 if footer_btn.count() > 0:
                     footer_btn.click()
                     page.wait_for_timeout(2000)
@@ -627,7 +627,7 @@ class TestProviderConfigAndConnection:
             add_provider_btn.click()
             page.wait_for_timeout(1500)
 
-            modal = page.locator(".qwenpaw-modal").first
+            modal = page.locator(".potato-modal").first
             expect(modal).to_be_visible(timeout=5000)
 
             id_input = modal.locator("input#id").first
@@ -643,7 +643,7 @@ class TestProviderConfigAndConnection:
                 base_url_input.fill(test_base_url)
 
             log_test_step("Submit the create form")
-            create_button = modal.locator("button.qwenpaw-btn-primary").first
+            create_button = modal.locator("button.potato-btn-primary").first
             expect(create_button).to_be_visible(timeout=5000)
             create_button.click()
             page.wait_for_timeout(2000)
@@ -672,22 +672,22 @@ class TestProviderConfigAndConnection:
                 page.goto(f"{config.base_url}/models")
                 page.wait_for_timeout(2000)
                 provider_card = page.locator(
-                    f".qwenpaw-card:has-text('{provider_id}'), "
+                    f".potato-card:has-text('{provider_id}'), "
                     f"[class*='providerCard']:has-text('{provider_id}'), "
                     f":has-text('{provider_id}')"
                 ).first
                 if provider_card.count() > 0:
                     provider_card.hover()
                     page.wait_for_timeout(500)
-                    delete_btn = provider_card.locator("button.qwenpaw-btn-dangerous, button[class*='dangerous']").first
+                    delete_btn = provider_card.locator("button.potato-btn-dangerous, button[class*='dangerous']").first
                     if delete_btn.count() == 0:
                         delete_btn = provider_card.locator("button:has-text('删 除'), button:has-text('Delete'), button:has-text('删除')").first
                     if delete_btn.count() > 0:
                         delete_btn.click()
                         page.wait_for_timeout(1000)
-                        confirm_modal = page.locator(".qwenpaw-modal-confirm, .qwenpaw-modal, .qwenpaw-popconfirm").first
+                        confirm_modal = page.locator(".potato-modal-confirm, .potato-modal, .potato-popconfirm").first
                         if confirm_modal.count() > 0:
-                            confirm_btn = confirm_modal.locator("button.qwenpaw-btn-primary, button:has-text('确 定'), button:has-text('OK')").first
+                            confirm_btn = confirm_modal.locator("button.potato-btn-primary, button:has-text('确 定'), button:has-text('OK')").first
                             if confirm_btn.count() > 0:
                                 confirm_btn.click()
                                 page.wait_for_timeout(2000)
@@ -723,7 +723,7 @@ class TestProviderSearchFilter:
         page.wait_for_timeout(3000)
 
         log_test_step("Verify search box exists")
-        search_input = page.locator('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"], input[placeholder*="搜索"], .qwenpaw-input-search input').first
+        search_input = page.locator('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"], input[placeholder*="搜索"], .potato-input-search input').first
         expect(search_input).to_be_visible(timeout=5000)
         logger.info("Search box exists")
 
@@ -748,11 +748,11 @@ class TestProviderSearchFilter:
         logger.info(f"Provider count before search: {initial_count}")
 
         log_test_step("Enter search keyword")
-        # Search box is a qwenpaw-select component (readonly input); need to click the parent container to open dropdown
+        # Search box is a potato-select component (readonly input); need to click the parent container to open dropdown
         is_readonly = search_input.get_attribute("readonly") is not None
         if is_readonly:
             # Click the Select container (parent) rather than the input itself
-            select_container = page.locator('.qwenpaw-select').first
+            select_container = page.locator('.potato-select').first
             select_container.click()
             page.wait_for_timeout(500)
             page.keyboard.type("ollama")
@@ -776,11 +776,11 @@ class TestProviderSearchFilter:
         log_test_step("Clear search to restore the full list")
         if is_readonly:
             # For Select components, clear the selection
-            clear_btn = page.locator('.qwenpaw-select-clear').first
+            clear_btn = page.locator('.potato-select-clear').first
             if clear_btn.count() > 0:
                 clear_btn.click()
             else:
-                select_container = page.locator('.qwenpaw-select').first
+                select_container = page.locator('.potato-select').first
                 select_container.click()
                 page.wait_for_timeout(300)
                 page.keyboard.press("Control+a")
@@ -854,7 +854,7 @@ class TestModelActivation:
             page.wait_for_timeout(2000)
 
             log_test_step("Verify model management modal")
-            modal = page.locator('.qwenpaw-modal').first
+            modal = page.locator('.potato-modal').first
             if modal.count() > 0:
                 expect(modal).to_be_visible(timeout=5000)
                 logger.info("Model management modal opened")
@@ -865,13 +865,13 @@ class TestModelActivation:
                 logger.info(f"Model management modal content length: {len(modal_content)}")
 
                 # Close modal
-                close_btn = modal.locator('.qwenpaw-modal-close, button:has-text("Cancel"), button:has-text("取消")').first
+                close_btn = modal.locator('.potato-modal-close, button:has-text("Cancel"), button:has-text("取消")').first
                 if close_btn.count() > 0:
                     close_btn.click()
                     page.wait_for_timeout(1000)
             else:
                 logger.info("No model management modal, may be a Drawer instead")
-                drawer = page.locator('.qwenpaw-drawer').first
+                drawer = page.locator('.potato-drawer').first
                 if drawer.count() > 0:
                     expect(drawer).to_be_visible(timeout=5000)
                     logger.info("Model management Drawer opened")
@@ -882,7 +882,7 @@ class TestModelActivation:
             provider_cards[0].click()
             page.wait_for_timeout(1500)
             # Verify response after click (modal or Drawer)
-            has_response = page.locator('.qwenpaw-modal, .qwenpaw-drawer').first.count() > 0
+            has_response = page.locator('.potato-modal, .potato-drawer').first.count() > 0
             logger.info(f"Response after clicking Provider card: {has_response}")
 
         log_test_result(test_name, True, 0)
@@ -928,9 +928,9 @@ class TestOpenRouterFilter:
         # settings button (which does not exist on this flow and caused a
         # 60s click timeout).
         config_modal = page.locator(
-            '.qwenpaw-modal:has-text("OpenRouter"), '
+            '.potato-modal:has-text("OpenRouter"), '
             '.ant-modal:has-text("OpenRouter"), '
-            '.qwenpaw-modal:has-text("Base URL"), '
+            '.potato-modal:has-text("Base URL"), '
             '.ant-modal:has-text("Base URL")'
         ).first
         try:
@@ -971,7 +971,7 @@ class TestModelJsonEditor:
         page.wait_for_timeout(3000)
 
         log_test_step("Find Provider cards")
-        provider_cards = page.locator('.qwenpaw-card').all()
+        provider_cards = page.locator('.potato-card').all()
         if len(provider_cards) == 0:
             pytest.skip("No Provider cards found, skipping test")
 
@@ -991,7 +991,7 @@ class TestModelJsonEditor:
             page.wait_for_timeout(1500)
 
         page.wait_for_timeout(500)
-        modal_or_drawer = page.locator('.qwenpaw-modal, .ant-modal, .qwenpaw-drawer, .ant-drawer').first
+        modal_or_drawer = page.locator('.potato-modal, .ant-modal, .potato-drawer, .ant-drawer').first
         if modal_or_drawer.count() > 0:
             expect(modal_or_drawer).to_be_visible(timeout=5000)
             logger.info("Settings modal/panel opened")

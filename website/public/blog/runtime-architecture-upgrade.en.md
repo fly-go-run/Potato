@@ -1,13 +1,13 @@
 ---
-title: "QwenPaw Runtime Architecture Upgrade: Design, Implementation & Extensibility"
+title: "Potato Runtime Architecture Upgrade: Design, Implementation & Extensibility"
 date: 2026-07-07
-author: QwenPaw Team
-tags: [ArchitectureUpgrade, EightPhaseOrchestration, HookSystem, QwenPaw2.0]
+author: Potato Team
+tags: [ArchitectureUpgrade, EightPhaseOrchestration, HookSystem, Potato2.0]
 cover: /blog/runtime-architecture-upgrade-cover.png
-excerpt: "QwenPaw Runtime was refactored from a 650-line god method into an 8-phase orchestration engine—enabling one-feature-one-directory extensibility with zero changes to Runtime core code."
+excerpt: "Potato Runtime was refactored from a 650-line god method into an 8-phase orchestration engine—enabling one-feature-one-directory extensibility with zero changes to Runtime core code."
 ---
 
-# QwenPaw Runtime Architecture Upgrade: Design, Implementation & Extensibility
+# Potato Runtime Architecture Upgrade: Design, Implementation & Extensibility
 
 ---
 
@@ -29,7 +29,7 @@ excerpt: "QwenPaw Runtime was refactored from a 650-line god method into an 8-ph
 
 ### Core Pain Points
 
-Before the Runtime architecture upgrade, QwenPaw's request handling was concentrated in a single `AgentRunner.query_handler()` method — a **god method exceeding 650 lines**. Every new feature (mission mode, coding mode, plan mode, cron isolation, skill injection, etc.) required **invasive modifications** to this core function, continuously adding if/else branches and cross-cutting state management.
+Before the Runtime architecture upgrade, Potato's request handling was concentrated in a single `AgentRunner.query_handler()` method — a **god method exceeding 650 lines**. Every new feature (mission mode, coding mode, plan mode, cron isolation, skill injection, etc.) required **invasive modifications** to this core function, continuously adding if/else branches and cross-cutting state management.
 
 A concrete example: adding a `/mission` feature at the time required changes across **8 files**, 2 of which were invasive modifications to core files. Each new feature added ~40 lines to runner.py. This development pattern created severe maintenance burden and merge conflicts.
 
@@ -94,7 +94,7 @@ Strict contract: `AppServiceManager` has **exactly three** fields — `task_trac
 Actual constraint in code:
 
 ```python
-# src/qwenpaw/app/app_services/app_service_manager.py
+# src/potato/app/app_services/app_service_manager.py
 
 class AppServiceManager:
     __slots__ = (
@@ -112,7 +112,7 @@ class AppServiceManager:
 
 The previous pain point was that the runner was a god method. The solution is to split request processing into **8 fixed phases**, each serving as a hook mounting point.
 
-The `Runtime` class (`src/qwenpaw/runtime/runtime.py`) is the per-workspace request orchestrator. Each request invokes `run()`, which produces SSE envelope objects through the 8-phase lifecycle.
+The `Runtime` class (`src/potato/runtime/runtime.py`) is the per-workspace request orchestrator. Each request invokes `run()`, which produces SSE envelope objects through the 8-phase lifecycle.
 
 ```python
 class Runtime:
@@ -123,7 +123,7 @@ class Runtime:
 
 ### The 8 Phases
 
-Defined in `src/qwenpaw/runtime/phases.py`:
+Defined in `src/potato/runtime/phases.py`:
 
 ```python
 class Phase(str, Enum):
@@ -161,7 +161,7 @@ Key design: **Phase positions are fixed; hooks registered at each phase are plug
 
 ### Three Hook Actions
 
-Each hook returns a `HookResult` containing one of three actions (`src/qwenpaw/runtime/hooks.py`):
+Each hook returns a `HookResult` containing one of three actions (`src/potato/runtime/hooks.py`):
 
 ```python
 class HookAction(str, Enum):
@@ -180,7 +180,7 @@ The previous pain points were hardcoded tools in the agent class and scattered p
 
 ### AgentBuilder — Per-Request Agent Assembly
 
-`AgentBuilder` (`src/qwenpaw/runtime/builder.py`) is responsible for constructing a complete `QwenPawAgent` for each request. It integrates:
+`AgentBuilder` (`src/potato/runtime/builder.py`) is responsible for constructing a complete `PotatoAgent` for each request. It integrates:
 
 | Component         | Source                                           | Description                                                                    |
 | ----------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
@@ -195,9 +195,9 @@ Key improvement: **Tools are no longer hardcoded in the agent class.** They are 
 
 ### AgentExecutor & Envelope
 
-`AgentExecutor` (`src/qwenpaw/runtime/executor.py`) drives the agent's reply stream and wraps a heartbeat mechanism — ensuring that during long idle periods (e.g., tool-guard approval waits), keep-alive envelopes are emitted instead of letting the SSE connection drop.
+`AgentExecutor` (`src/potato/runtime/executor.py`) drives the agent's reply stream and wraps a heartbeat mechanism — ensuring that during long idle periods (e.g., tool-guard approval waits), keep-alive envelopes are emitted instead of letting the SSE connection drop.
 
-`Envelope` (`src/qwenpaw/runtime/envelope.py`) is an SSE state machine that translates agentscope `EventType` events into the frontend's streaming envelope protocol, tracking per-request state (text blocks, reasoning blocks, tool calls, data blocks) and producing the correct event sequence.
+`Envelope` (`src/potato/runtime/envelope.py`) is an SSE state machine that translates agentscope `EventType` events into the frontend's streaming envelope protocol, tracking per-request state (text blocks, reasoning blocks, tool calls, data blocks) and producing the correct event sequence.
 
 ---
 
@@ -220,7 +220,7 @@ Both inherit from `HookBase` in `runtime/hooks.py`. `ModeGatedHook` automaticall
 
 ### HookRegistry — Topological Sorting
 
-`HookRegistry` (`src/qwenpaw/runtime/hooks.py`) manages hook registration and execution:
+`HookRegistry` (`src/potato/runtime/hooks.py`) manages hook registration and execution:
 
 - Hooks are grouped by `Phase`
 - Within the same phase, hooks are **topologically sorted** via `before` / `after` constraints, with priority as tiebreaker
@@ -263,7 +263,7 @@ A notable pattern: setup/cleanup hook pairs (e.g., `SkillEnvHook` in PRE_EXECUTE
 
 ### AgentMode — Feature Bundle
 
-`AgentMode` (`src/qwenpaw/modes/base.py`) is a **behavior bundle**: commands, tools, hooks, and prompt contributors packaged together.
+`AgentMode` (`src/potato/modes/base.py`) is a **behavior bundle**: commands, tools, hooks, and prompt contributors packaged together.
 
 ```python
 class AgentMode:
@@ -290,7 +290,7 @@ class AgentMode:
 
 ### WorkspacePlugins — Registry Container
 
-All per-workspace registries reside in `WorkspacePlugins` (`src/qwenpaw/app/workspace/workspace_plugins.py`):
+All per-workspace registries reside in `WorkspacePlugins` (`src/potato/app/workspace/workspace_plugins.py`):
 
 ```python
 @dataclass
@@ -316,7 +316,7 @@ class WorkspacePlugins:
 
 ### PromptManager — Composable System Prompt
 
-Previously, system prompt construction was scattered across mixin, runner, and env modules; adding a new prompt fragment required finding the correct injection point. Now, `PromptManager` (`src/qwenpaw/runtime/prompt_manager.py`) declaratively assembles the system prompt from ordered `PromptContributor` instances:
+Previously, system prompt construction was scattered across mixin, runner, and env modules; adding a new prompt fragment required finding the correct injection point. Now, `PromptManager` (`src/potato/runtime/prompt_manager.py`) declaratively assembles the system prompt from ordered `PromptContributor` instances:
 
 ```python
 class PromptContributor:
@@ -354,7 +354,7 @@ Adding a new prompt fragment = writing a `PromptContributor` and registering it.
 
 ### ToolRegistry — Declarative Tool Registration
 
-The previous pain point was that tools were hardcoded in the agent class; adding a tool required ~80 lines of invasive changes to the agent class. `ToolRegistry` (`src/qwenpaw/runtime/tool_registry.py`) replaces the old hardcoded tool dictionary with a declarative, filterable registry.
+The previous pain point was that tools were hardcoded in the agent class; adding a tool required ~80 lines of invasive changes to the agent class. `ToolRegistry` (`src/potato/runtime/tool_registry.py`) replaces the old hardcoded tool dictionary with a declarative, filterable registry.
 
 Each tool is described by a `ToolDescriptor` (core gating fields shown below; the full definition also includes `async_execution`, `description`, `metadata`, etc.):
 
@@ -386,7 +386,7 @@ At build time, `ToolRegistry.filter()` selects the correct tools based on the cu
 
 ### SlashCommandRegistry — Unified Command Dispatch
 
-Previously, QwenPaw had **four parallel command mechanisms**: conversation, control, daemon, and skill, each method written 3 times. `SlashCommandRegistry` (`src/qwenpaw/runtime/slash_command_registry.py`) unifies them into a single dispatch point.
+Previously, Potato had **four parallel command mechanisms**: conversation, control, daemon, and skill, each method written 3 times. `SlashCommandRegistry` (`src/potato/runtime/slash_command_registry.py`) unifies them into a single dispatch point.
 
 ```python
 @dataclass(frozen=True)
@@ -400,7 +400,7 @@ class CommandSpec:
 
 ### @api_action — Triple Auto-Generation
 
-Addressing the previously listed pain point of "three duplicate external interfaces," `@api_action` (`src/qwenpaw/api_action.py`) fundamentally solves this problem: **one decorator simultaneously generates HTTP API, CLI subcommands, and slash commands**.
+Addressing the previously listed pain point of "three duplicate external interfaces," `@api_action` (`src/potato/api_action.py`) fundamentally solves this problem: **one decorator simultaneously generates HTTP API, CLI subcommands, and slash commands**.
 
 ![@api_action — Triple Auto-Generation](https://img.alicdn.com/imgextra/i1/O1CN01WHSvAw1TncP49OphG_!!6000000002427-55-tps-820-410.svg)
 
@@ -442,7 +442,7 @@ Adding a new management interface = writing one `@api_action` method. Triple reg
 
 ### ToolCoordinator — Tool Call Lifecycle
 
-`ToolCoordinator` (`src/qwenpaw/tool_calls/`) provides **single tool call granularity** control. In the old system, `/stop` could only kill the entire agent. Now individual tool calls can be tracked, cancelled, or backgrounded.
+`ToolCoordinator` (`src/potato/tool_calls/`) provides **single tool call granularity** control. In the old system, `/stop` could only kill the entire agent. Now individual tool calls can be tracked, cancelled, or backgrounded.
 
 Key components include `ToolCallEntry` (per-call state), `ToolCallStatus` (PENDING → RUNNING → DONE / CANCELLED state machine), `ToolCoordinatorMiddleware` (injected into agent middleware stack), `ToolResultPruningMiddleware` (tool result pruning), `ToolStream` (streaming tool output), `ToolCallContext` / `ToolHookRegistry` (HITL lifecycle hooks), etc.
 
@@ -452,7 +452,7 @@ Key components include `ToolCallEntry` (per-call state), `ToolCallStatus` (PENDI
 
 ### ServiceManager — Per-Agent Resource Lifecycle
 
-`ServiceManager` (`src/qwenpaw/app/workspace/service_manager.py`) manages per-agent services, supporting:
+`ServiceManager` (`src/potato/app/workspace/service_manager.py`) manages per-agent services, supporting:
 
 - **Declarative descriptors** — Each service has a `ServiceDescriptor` with priority, dependencies, start/stop methods
 - **Priority-based parallel startup** — Same-priority services start concurrently
@@ -544,7 +544,7 @@ Key point: `skip_agent` skips Phase 3 ~ Fixed 3 (build and execution), but POST_
 
 ### Comparison: Developer Wants to Add a New Mode
 
-Suppose you are a developer wanting to add a new Mode to QwenPaw. You **do not need to modify a single line of Runtime code**.
+Suppose you are a developer wanting to add a new Mode to Potato. You **do not need to modify a single line of Runtime code**.
 
 Taking the existing `GoalMode` in the project as an example, its directory structure is:
 

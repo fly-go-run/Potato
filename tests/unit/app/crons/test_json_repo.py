@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.app.crons.repo.json_repo import (
+from potato.app.crons.repo.json_repo import (
     JsonJobRepository,
     migrate_legacy_weixin_jobs_file,
 )
-from qwenpaw.app.crons.models import JobsFile
+from potato.app.crons.models import JobsFile
 from tests.unit.app.conftest import make_cron_job_spec, make_execution_record
 
 

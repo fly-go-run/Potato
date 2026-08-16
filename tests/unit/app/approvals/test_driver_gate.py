@@ -15,18 +15,18 @@ import asyncio
 
 import pytest
 
-import qwenpaw.app.approvals as approvals_pkg
-from qwenpaw.app.approvals.driver_gate import (
-    QwenPawDriverApprovalGate,
+import potato.app.approvals as approvals_pkg
+from potato.app.approvals.driver_gate import (
+    PotatoDriverApprovalGate,
 )
-from qwenpaw.app.approvals.service import ApprovalService, PendingApproval
-from qwenpaw.drivers.errors import (
+from potato.app.approvals.service import ApprovalService, PendingApproval
+from potato.drivers.errors import (
     ApprovalRequiredError,
     DriverPermissionDeniedError,
 )
-from qwenpaw.drivers.policy_types import PolicyTarget
-from qwenpaw.drivers.policy import DriverInvocationContext
-from qwenpaw.security.tool_guard.approval import ApprovalDecision
+from potato.drivers.policy_types import PolicyTarget
+from potato.drivers.policy import DriverInvocationContext
+from potato.security.tool_guard.approval import ApprovalDecision
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -90,7 +90,7 @@ async def test_request_approval_allow_path_resolves_and_returns(
 ):
     """When the user approves, the gate returns normally and the pending
     record is removed from the store."""
-    gate = QwenPawDriverApprovalGate()
+    gate = PotatoDriverApprovalGate()
     ctx = _ctx(tool_call_id="tc-1")
 
     # Approve from another task as soon as the pending exists.
@@ -115,7 +115,7 @@ async def test_request_approval_allow_path_resolves_and_returns(
 async def test_request_approval_deny_path_raises_permission_denied(
     svc: ApprovalService,
 ):
-    gate = QwenPawDriverApprovalGate()
+    gate = PotatoDriverApprovalGate()
     ctx = _ctx(tool_call_id="tc-2")
 
     async def _denier() -> None:
@@ -139,7 +139,7 @@ async def test_request_approval_missing_session_id_raises_approval_required(
 ):
     """Without a session_id the gate cannot route the pending — it must
     fail fast with ApprovalRequiredError and never touch the service."""
-    gate = QwenPawDriverApprovalGate()
+    gate = PotatoDriverApprovalGate()
     ctx = _ctx(session_id="")
     with pytest.raises(ApprovalRequiredError):
         await gate.request_approval(ctx)
@@ -152,7 +152,7 @@ async def test_request_approval_stale_pending_cancelled_before_new_created(
     """A replayed Driver tool call must cancel the prior pending for the
     same ``tool_call_id`` before opening a fresh one, so orphaned records
     don't accumulate."""
-    gate = QwenPawDriverApprovalGate()
+    gate = PotatoDriverApprovalGate()
     ctx = _ctx(tool_call_id="tc-3")
 
     # Pre-seed an orphan pending for the same tool_call_id.
@@ -202,7 +202,7 @@ async def test_request_approval_with_tool_target_uses_target_name_in_summary(
 ):
     """When the policy target is a tool, the result_summary must refer to
     the tool name and source rather than the bare driver label."""
-    gate = QwenPawDriverApprovalGate()
+    gate = PotatoDriverApprovalGate()
     ctx = _ctx(
         tool_call_id="tc-4",
         target_kind="tool",

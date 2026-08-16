@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build QwenPaw backend with PyInstaller for Tauri sidecar
+# Build Potato backend with PyInstaller for Tauri sidecar
 # Creates an onedir backend bundle with embedded Python runtime
 #
 # Usage:
@@ -15,20 +15,20 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 DIST="${DIST:-dist}"
-VERSION=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/qwenpaw/__version__.py)
+VERSION=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/potato/__version__.py)
 
-BACKEND_DIR="${DIST}/pyinstaller/qwenpaw-backend"
+BACKEND_DIR="${DIST}/pyinstaller/potato-backend"
 BINARIES_DIR="${REPO_ROOT}/console/src-tauri/binaries"
-DEST="${BINARIES_DIR}/qwenpaw-backend"
-SIGNED_STAMP="${BINARIES_DIR}/.qwenpaw-backend-signed.stamp"
-PENDING_STAMP="${BINARIES_DIR}/.qwenpaw-backend-pending.stamp"
-REBUILT_MARKER="${BINARIES_DIR}/.qwenpaw-backend-rebuilt"
-REUSED_MARKER="${BINARIES_DIR}/.qwenpaw-backend-reused"
+DEST="${BINARIES_DIR}/potato-backend"
+SIGNED_STAMP="${BINARIES_DIR}/.potato-backend-signed.stamp"
+PENDING_STAMP="${BINARIES_DIR}/.potato-backend-pending.stamp"
+REBUILT_MARKER="${BINARIES_DIR}/.potato-backend-rebuilt"
+REUSED_MARKER="${BINARIES_DIR}/.potato-backend-reused"
 
 rm -f "${REBUILT_MARKER}" "${REUSED_MARKER}"
 
 echo "========================================="
-echo "QwenPaw PyInstaller Build"
+echo "Potato PyInstaller Build"
 echo "========================================="
 echo "Version: ${VERSION}"
 echo "Repository: ${REPO_ROOT}"
@@ -68,7 +68,7 @@ calculate_fingerprint() {
             "pyproject.toml" \
             "uv.lock" \
             "scripts/pack-tauri/build_pyinstaller.sh" \
-            "scripts/pack-tauri/qwenpaw.spec" \
+            "scripts/pack-tauri/potato.spec" \
             "scripts/pack-tauri/sign_macos_bundle.sh" \
             "scripts/pack-tauri/stage_python_runtime.py" \
             "scripts/pack-tauri/stage_node_runtime.py"; do
@@ -78,7 +78,7 @@ calculate_fingerprint() {
             fi
         done
 
-        for root in "${REPO_ROOT}/src/qwenpaw" "${REPO_ROOT}/app/dist"; do
+        for root in "${REPO_ROOT}/src/potato" "${REPO_ROOT}/app/dist"; do
             if [ -d "${root}" ]; then
                 while IFS= read -r file; do
                     printf 'input=%s\n' "${file#"${REPO_ROOT}/"}"
@@ -103,13 +103,13 @@ calculate_dependency_fingerprint() {
 
 BACKEND_FINGERPRINT="$(calculate_fingerprint)"
 BACKEND_CACHE_HIT=0
-if [[ "${QWENPAW_FORCE_PYINSTALLER:-0}" != "1" &&
+if [[ "${POTATO_FORCE_PYINSTALLER:-0}" != "1" &&
     -f "${SIGNED_STAMP}" &&
     "$(<"${SIGNED_STAMP}")" == "${BACKEND_FINGERPRINT}" &&
-    -f "${DEST}/qwenpaw-backend" &&
-    -f "${DEST}/qwenpaw" &&
-    -f "${BACKEND_DIR}/qwenpaw-backend" &&
-    -f "${BACKEND_DIR}/qwenpaw" ]]; then
+    -f "${DEST}/potato-backend" &&
+    -f "${DEST}/potato" &&
+    -f "${BACKEND_DIR}/potato-backend" &&
+    -f "${BACKEND_DIR}/potato" ]]; then
     BACKEND_CACHE_HIT=1
     touch "${REUSED_MARKER}"
     echo "Reusing signed PyInstaller backend (inputs unchanged)"
@@ -143,7 +143,7 @@ if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
     echo "PyInstaller installed"
 
     # Install project dependencies only when pyproject.toml or uv.lock changed.
-    DEPENDENCY_STAMP="${REPO_ROOT}/.venv/.qwenpaw-pack-deps.stamp"
+    DEPENDENCY_STAMP="${REPO_ROOT}/.venv/.potato-pack-deps.stamp"
     DEPENDENCY_FINGERPRINT="$(calculate_dependency_fingerprint)"
     if [ ! -f "${DEPENDENCY_STAMP}" ] ||
         [ "$(<"${DEPENDENCY_STAMP}")" != "${DEPENDENCY_FINGERPRINT}" ]; then
@@ -176,7 +176,7 @@ if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
     echo "== Running PyInstaller =="
     echo "Building onedir backend bundle..."
 
-    SPEC_FILE="${REPO_ROOT}/scripts/pack-tauri/qwenpaw.spec"
+    SPEC_FILE="${REPO_ROOT}/scripts/pack-tauri/potato.spec"
     if [ ! -f "$SPEC_FILE" ]; then
         echo "ERROR: Spec file not found at ${SPEC_FILE}"
         exit 1
@@ -188,7 +188,7 @@ if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
         --workpath "${DIST}/pyinstaller-build"
         --noconfirm
     )
-    if [[ "${QWENPAW_FAST:-0}" != "1" ]]; then
+    if [[ "${POTATO_FAST:-0}" != "1" ]]; then
         PYINSTALLER_ARGS+=(--clean)
     else
         echo "Fast mode: retaining PyInstaller analysis cache"
@@ -211,8 +211,8 @@ for forbidden_dir in torch whisper; do
 done
 
 # Verify output
-BACKEND_EXE="${BACKEND_DIR}/qwenpaw-backend"
-CLI_EXE="${BACKEND_DIR}/qwenpaw"
+BACKEND_EXE="${BACKEND_DIR}/potato-backend"
+CLI_EXE="${BACKEND_DIR}/potato"
 if [ ! -d "${BACKEND_DIR}" ]; then
     echo "ERROR: Backend bundle directory not found at ${BACKEND_DIR}"
     exit 1
@@ -242,8 +242,8 @@ if [ "${BACKEND_CACHE_HIT}" -eq 0 ]; then
     rm -rf "${DEST}"
     mkdir -p "${DEST}"
     cp -R "${BACKEND_DIR}/." "${DEST}/"
-    chmod +x "${DEST}/qwenpaw-backend"
-    chmod +x "${DEST}/qwenpaw"
+    chmod +x "${DEST}/potato-backend"
+    chmod +x "${DEST}/potato"
     printf '%s\n' "${BACKEND_FINGERPRINT}" > "${PENDING_STAMP}"
     touch "${REBUILT_MARKER}"
     echo "Copied to: ${DEST}"

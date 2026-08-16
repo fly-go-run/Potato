@@ -37,7 +37,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenpaw.app.channels.renderer import ChannelDisplayConfig
+from potato.app.channels.renderer import ChannelDisplayConfig
 
 
 # =============================================================================
@@ -210,7 +210,7 @@ def mattermost_channel(
     tmp_path: Path,
 ) -> Generator:
     """Create a MattermostChannel instance for testing."""
-    from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+    from potato.app.channels.mattermost.channel import MattermostChannel
 
     channel = MattermostChannel(
         process=mock_process_handler,
@@ -243,7 +243,7 @@ class TestMattermostChannelInit:
         tmp_path: Path,
     ):
         """Constructor should store all basic configuration parameters."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         channel = MattermostChannel(
             process=mock_process_handler,
@@ -270,7 +270,7 @@ class TestMattermostChannelInit:
         tmp_path: Path,
     ):
         """Constructor should store advanced configuration parameters."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         channel = MattermostChannel(
             process=mock_process_handler,
@@ -302,7 +302,7 @@ class TestMattermostChannelInit:
 
     def test_init_normalizes_url(self, mock_process_handler):
         """Constructor should normalize URL by stripping trailing slash."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         channel = MattermostChannel(
             process=mock_process_handler,
@@ -315,7 +315,7 @@ class TestMattermostChannelInit:
 
     def test_init_disables_when_empty_url(self, mock_process_handler):
         """Should disable channel when URL is empty but enabled=True."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         channel = MattermostChannel(
             process=mock_process_handler,
@@ -328,7 +328,7 @@ class TestMattermostChannelInit:
 
     def test_init_disables_when_empty_token(self, mock_process_handler):
         """Should disable channel when bot_token is empty but enabled=True."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         channel = MattermostChannel(
             process=mock_process_handler,
@@ -341,7 +341,7 @@ class TestMattermostChannelInit:
 
     def test_init_creates_required_data_structures(self, mock_process_handler):
         """Constructor should initialize required internal data structures."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         channel = MattermostChannel(
             process=mock_process_handler,
@@ -365,7 +365,7 @@ class TestMattermostChannelInit:
 
     def test_init_creates_http_client(self, mock_process_handler):
         """Constructor should create httpx client with auth header."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         channel = MattermostChannel(
             process=mock_process_handler,
@@ -387,7 +387,7 @@ class TestMattermostChannelFromEnv:
         monkeypatch,
     ):
         """from_env should read basic environment variables."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         monkeypatch.setenv("MATTERMOST_CHANNEL_ENABLED", "1")
         monkeypatch.setenv("MATTERMOST_URL", "https://env.mm.com")
@@ -407,7 +407,7 @@ class TestMattermostChannelFromEnv:
         monkeypatch,
     ):
         """from_env should read advanced environment variables."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         monkeypatch.setenv("MATTERMOST_MEDIA_DIR", "/env/media")
         monkeypatch.setenv("MATTERMOST_SHOW_TYPING", "0")
@@ -431,7 +431,7 @@ class TestMattermostChannelFromEnv:
         monkeypatch,
     ):
         """from_env should parse MATTERMOST_ALLOW_FROM correctly."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         monkeypatch.setenv("MATTERMOST_ALLOW_FROM", "user1,user2,user3")
 
@@ -447,7 +447,7 @@ class TestMattermostChannelFromEnv:
         monkeypatch,
     ):
         """from_env should handle empty MATTERMOST_ALLOW_FROM."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         monkeypatch.setenv("MATTERMOST_ALLOW_FROM", "")
 
@@ -457,7 +457,7 @@ class TestMattermostChannelFromEnv:
 
     def test_from_env_defaults(self, mock_process_handler, monkeypatch):
         """from_env should use sensible defaults."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         monkeypatch.delenv("MATTERMOST_CHANNEL_ENABLED", raising=False)
         monkeypatch.delenv("MATTERMOST_BOT_PREFIX", raising=False)
@@ -478,7 +478,7 @@ class TestMattermostChannelFromConfig:
 
     def test_from_config_uses_config_values(self, mock_process_handler):
         """from_config should use values from config object."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         class MockConfig:
             enabled = True
@@ -525,7 +525,7 @@ class TestMattermostChannelFromConfig:
 
     def test_from_config_handles_dict_config(self, mock_process_handler):
         """from_config should handle dict config."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         config_dict = {
             "enabled": True,
@@ -547,7 +547,7 @@ class TestMattermostChannelFromConfig:
 
     def test_from_config_handles_none_values(self, mock_process_handler):
         """from_config should handle None values gracefully."""
-        from qwenpaw.app.channels.mattermost.channel import MattermostChannel
+        from potato.app.channels.mattermost.channel import MattermostChannel
 
         config_dict = {
             "enabled": None,
@@ -685,7 +685,7 @@ class TestMattermostBuildAgentRequest:
 
     def test_build_agent_request_from_native(self, mattermost_channel):
         """Should create AgentRequest from native payload."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         payload = {
             "channel_id": "mattermost",
@@ -710,7 +710,7 @@ class TestMattermostBuildAgentRequest:
 
     def test_build_agent_request_auto_session(self, mattermost_channel):
         """Should auto-generate session_id when not provided."""
-        from qwenpaw.app.channels.base import TextContent, ContentType
+        from potato.app.channels.base import TextContent, ContentType
 
         payload = {
             "channel_id": "mattermost",
@@ -1113,7 +1113,7 @@ class TestMattermostSend:
         )
         mattermost_channel._http = mock_http_client
 
-        from qwenpaw.app.channels.base import ImageContent, ContentType
+        from potato.app.channels.base import ImageContent, ContentType
 
         part = ImageContent(type=ContentType.IMAGE, image_url=str(test_file))
 
@@ -1135,7 +1135,7 @@ class TestMattermostSend:
         """Should handle missing file gracefully."""
         mattermost_channel._http = mock_http_client
 
-        from qwenpaw.app.channels.base import FileContent, ContentType
+        from potato.app.channels.base import FileContent, ContentType
 
         part = FileContent(
             type=ContentType.FILE,
@@ -1737,7 +1737,7 @@ class TestMattermostChunkText:
     def test_chunk_text_long(self, mattermost_channel):
         """Should chunk long text at boundaries."""
         # Create text longer than MATTERMOST_POST_CHUNK_SIZE
-        from qwenpaw.app.channels.mattermost.channel import (
+        from potato.app.channels.mattermost.channel import (
             MATTERMOST_POST_CHUNK_SIZE,
         )
 
@@ -1752,7 +1752,7 @@ class TestMattermostChunkText:
 
     def test_chunk_text_breaks_at_newline(self, mattermost_channel):
         """Should prefer to break at newlines."""
-        from qwenpaw.app.channels.mattermost.channel import (
+        from potato.app.channels.mattermost.channel import (
             MATTERMOST_POST_CHUNK_SIZE,
         )
 
@@ -1899,7 +1899,7 @@ class TestMattermostEdgeCases:
 
     def test_default_media_dir(self, mock_process_handler):
         """Should use default media dir when not specified."""
-        from qwenpaw.app.channels.mattermost.channel import (
+        from potato.app.channels.mattermost.channel import (
             MattermostChannel,
             _DEFAULT_MEDIA_DIR,
         )

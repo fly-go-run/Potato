@@ -111,9 +111,9 @@ export default defineConfig(({ mode }) => {
       include: ["diff"],
     },
     build: {
-      // Output to QwenPaw's console directory,
+      // Output to Potato's console directory,
       // so we don't need to copy files manually after build.
-      // outDir: path.resolve(__dirname, "../src/qwenpaw/console"),
+      // outDir: path.resolve(__dirname, "../src/potato/console"),
       // emptyOutDir: true,
       cssCodeSplit: true,
       sourcemap: mode !== "production",

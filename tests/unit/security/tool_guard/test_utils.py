@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Tests for qwenpaw.security.tool_guard.utils."""
+"""Tests for potato.security.tool_guard.utils."""
 # pylint: disable=redefined-outer-name
 from __future__ import annotations
 
 from unittest.mock import patch
 
-from qwenpaw.security.tool_guard.models import (
+from potato.security.tool_guard.models import (
     GuardFinding,
     GuardSeverity,
     GuardThreatCategory,
     ToolGuardResult,
 )
-from qwenpaw.security.tool_guard.utils import (
+from potato.security.tool_guard.utils import (
     _DEFAULT_GUARDED_TOOLS,
     _parse_guarded_tokens,
     log_findings,
@@ -116,8 +116,8 @@ class TestResolveGuardedTools:
         result = resolve_guarded_tools(user_defined=["none"])
         assert result == set()
 
-    def test_env_var_qwenpaw_tool_guard_tools(self, mock_env_loader):
-        """Env var QWENPAW_TOOL_GUARD_TOOLS is consulted
+    def test_env_var_potato_tool_guard_tools(self, mock_env_loader):
+        """Env var POTATO_TOOL_GUARD_TOOLS is consulted
         when user_defined is None."""
         mock_env_loader.return_value = "execute_shell_command,write_file"
         result = resolve_guarded_tools()
@@ -186,7 +186,7 @@ class TestResolveGuardedTools:
         """If config loading fails, the default set is returned."""
         mock_env_loader.return_value = ""
         with patch(
-            "qwenpaw.security.tool_guard.utils._load_config_tool_guard",
+            "potato.security.tool_guard.utils._load_config_tool_guard",
             return_value=None,
         ):
             result = resolve_guarded_tools()
@@ -210,15 +210,15 @@ class TestResolveDeniedTools:
         """user_defined=None triggers env/config/default chain."""
         # This test just verifies the function doesn't crash with None
         with patch(
-            "qwenpaw.security.tool_guard.utils.EnvVarLoader.get_str",
+            "potato.security.tool_guard.utils.EnvVarLoader.get_str",
             return_value="",
         ):
             result = resolve_denied_tools(user_defined=None)
         # Default is empty
         assert isinstance(result, set)
 
-    def test_env_var_qwenpaw_tool_guard_denied_tools(self, mock_env_loader):
-        """Env var QWENPAW_TOOL_GUARD_DENIED_TOOLS is consulted."""
+    def test_env_var_potato_tool_guard_denied_tools(self, mock_env_loader):
+        """Env var POTATO_TOOL_GUARD_DENIED_TOOLS is consulted."""
         mock_env_loader.return_value = "tool_a,tool_b"
         result = resolve_denied_tools()
         assert result == {"tool_a", "tool_b"}
@@ -295,7 +295,7 @@ class TestResolveAutoDeniedRules:
         """An empty user-supplied iterable short-circuits to empty set
         and does NOT fall through to env/config."""
         with patch(
-            "qwenpaw.security.tool_guard.utils.EnvVarLoader.get_str",
+            "potato.security.tool_guard.utils.EnvVarLoader.get_str",
             return_value="SHOULD_NOT_BE_READ",
         ):
             result = resolve_auto_denied_rules(user_defined=[])
@@ -305,7 +305,7 @@ class TestResolveAutoDeniedRules:
         self,
         mock_env_loader,
     ):
-        """Env var QWENPAW_TOOL_GUARD_AUTO_DENIED_RULES is read next."""
+        """Env var POTATO_TOOL_GUARD_AUTO_DENIED_RULES is read next."""
         mock_env_loader.return_value = "RULE_X,RULE_Y"
         result = resolve_auto_denied_rules()
         assert result == {"RULE_X", "RULE_Y"}
@@ -367,7 +367,7 @@ class TestResolveAutoDeniedRules:
         assert result == {"SAFETY_CHECKS_DESTRUCTIVE_COMMAND"}
 
     def test_env_none_opts_out_of_auto_deny(self, mock_env_loader):
-        """QWENPAW_TOOL_GUARD_AUTO_DENIED_RULES=none disables auto-deny."""
+        """POTATO_TOOL_GUARD_AUTO_DENIED_RULES=none disables auto-deny."""
         mock_env_loader.return_value = "none"
         result = resolve_auto_denied_rules()
         assert result == set()
@@ -376,7 +376,7 @@ class TestResolveAutoDeniedRules:
         """If config loading fails, fall through to built-in default."""
         mock_env_loader.return_value = ""
         with patch(
-            "qwenpaw.security.tool_guard.utils._load_config_tool_guard",
+            "potato.security.tool_guard.utils._load_config_tool_guard",
             return_value=None,
         ):
             result = resolve_auto_denied_rules()
@@ -431,7 +431,7 @@ class TestLogFindings:
     """Tests for the log_findings structured logging function.
 
     The project's custom logging sets propagate=False on the
-    ``qwenpaw`` logger, so caplog cannot capture records.  Instead we
+    ``potato`` logger, so caplog cannot capture records.  Instead we
     patch the module-level logger and inspect the mock calls directly.
     """
 

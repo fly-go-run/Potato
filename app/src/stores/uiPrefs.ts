@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
-const TOOL_DETAIL_KEY = "qwenpaw.toolDetail";
-const CONTEXT_USAGE_KEY = "qwenpaw.contextUsage";
+const TOOL_DETAIL_KEY = "potato.toolDetail";
+const CONTEXT_USAGE_KEY = "potato.contextUsage";
 
 function initialDetailedTools(): boolean {
   if (typeof window === "undefined") return false;
@@ -66,7 +66,7 @@ export function showToolDebugStatus(): boolean {
     const locationText = `${window.location.search}${window.location.hash}`;
     return (
       /(?:[?&])debug=tools(?:&|$)/i.test(locationText) ||
-      window.localStorage.getItem("qwenpaw.toolDebug") === "1"
+      window.localStorage.getItem("potato.toolDebug") === "1"
     );
   } catch {
     return false;

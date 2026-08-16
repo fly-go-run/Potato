@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.app.chats.models import ChatSpec, ChatsFile
-from qwenpaw.app.chats.repo.json_repo import (
+from potato.app.chats.models import ChatSpec, ChatsFile
+from potato.app.chats.repo.json_repo import (
     JsonChatRepository,
     migrate_legacy_weixin_chats_file,
 )

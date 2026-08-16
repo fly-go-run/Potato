@@ -78,7 +78,7 @@ pytest tests/unit/channels/test_feishu.py -v
 
 # 带覆盖率检查运行
 pytest tests/unit/channels/ \
-    --cov=src/copaw/app/channels \
+    --cov=src/potato/app/channels \
     --cov-report=term-missing
 
 # 检查契约覆盖率状态
@@ -111,7 +111,7 @@ make check-contracts  # 应显示你的 Channel 在已测试列表
 """YourChannel 实现的单元测试。"""
 
 import pytest
-from src.copaw.app.channels.your_channel import YourChannel
+from potato.app.channels.your_channel import YourChannel
 
 
 class TestYourChannel:

@@ -1,6 +1,6 @@
 name: CodeQL
 
-# Security vulnerability scanning for QwenPaw.
+# Security vulnerability scanning for Potato.
 #
 # Phase 1 (current): dry-run mode — discoveries are reported as alerts
 # in the Security tab and as PR comments, but do NOT block merge.
@@ -12,7 +12,7 @@ name: CodeQL
 # Two shards, one per language — each scans its own file set, so findings
 # are deduplicated across languages and no CI time is wasted on
 # re-scanning the same files:
-#   python      → all Python (src/qwenpaw/** + scripts/**), minus the
+#   python      → all Python (src/potato/** + scripts/**), minus the
 #                  test/repro exclusions in codeql-config.yml
 #   typescript  → app/src/** and console/src/** (React/Vite frontends)
 # Tests are intentionally excluded (see codeql-config.yml paths-ignore):

@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pydantic import ValidationError
 
-from qwenpaw.config.config import MissionLoopModeConfig
-from qwenpaw.modes.mission.handler import (
+from potato.config.config import MissionLoopModeConfig
+from potato.modes.mission.handler import (
     parse_mission_args,
     start_mission,
 )
-from qwenpaw.modes.mission.prompts import build_master_prompt
-from qwenpaw.modes.mission.state import read_loop_config
+from potato.modes.mission.prompts import build_master_prompt
+from potato.modes.mission.state import read_loop_config
 
 
 def test_mission_config_defaults_and_bounds() -> None:
@@ -85,7 +85,7 @@ async def test_start_mission_persists_editable_defaults(tmp_path) -> None:
         "repo_root": "",
     }
     with patch(
-        "qwenpaw.modes.mission.handler.detect_git_context",
+        "potato.modes.mission.handler.detect_git_context",
         new=AsyncMock(return_value=git_context),
     ):
         _, loop_dir = await start_mission(

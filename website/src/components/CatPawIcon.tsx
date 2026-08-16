@@ -1,5 +1,5 @@
 /**
- * QwenPaw branding logo (logo.png). Favicon uses qwenpaw-symbol.svg.
+ * Potato branding logo (logo.png). Favicon uses potato-symbol.svg.
  */
 interface CatPawIconProps {
   size: number;

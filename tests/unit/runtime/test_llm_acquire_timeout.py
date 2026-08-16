@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from qwenpaw.providers.retry_chat_model import (
+from potato.providers.retry_chat_model import (
     RateLimitConfig,
     RetryChatModel,
     RetryConfig,
@@ -76,7 +76,7 @@ async def test_acquire_timeout_raises_typed_error() -> None:
     fake_limiter.on_success = AsyncMock()
 
     with patch(
-        "qwenpaw.providers.retry_chat_model.get_rate_limiter",
+        "potato.providers.retry_chat_model.get_rate_limiter",
         return_value=fake_limiter,
     ):
         with pytest.raises(_AcquireTimeoutError):
@@ -98,7 +98,7 @@ async def test_acquire_timeout_does_not_release_semaphore() -> None:
     fake_limiter.release = AsyncMock()
 
     with patch(
-        "qwenpaw.providers.retry_chat_model.get_rate_limiter",
+        "potato.providers.retry_chat_model.get_rate_limiter",
         return_value=fake_limiter,
     ):
         with pytest.raises(_AcquireTimeoutError):
@@ -116,7 +116,7 @@ async def test_acquire_timeout_leaves_no_pending_tasks() -> None:
 
     # A real limiter whose acquire sleeps longer than the timeout. This
     # exercises the real ``asyncio.wait_for`` cancellation path.
-    from qwenpaw.providers.rate_limiter import LLMRateLimiter
+    from potato.providers.rate_limiter import LLMRateLimiter
 
     real_limiter = LLMRateLimiter(
         max_concurrent=1,
@@ -131,7 +131,7 @@ async def test_acquire_timeout_leaves_no_pending_tasks() -> None:
 
     with patch.object(real_limiter, "acquire", side_effect=_hang_forever):
         with patch(
-            "qwenpaw.providers.retry_chat_model.get_rate_limiter",
+            "potato.providers.retry_chat_model.get_rate_limiter",
             return_value=real_limiter,
         ):
             with pytest.raises(_AcquireTimeoutError):
@@ -183,7 +183,7 @@ async def test_normal_call_after_timeout_succeeds() -> None:
         ),
     )
 
-    from qwenpaw.providers.rate_limiter import LLMRateLimiter
+    from potato.providers.rate_limiter import LLMRateLimiter
 
     limiter = LLMRateLimiter(
         max_concurrent=1,
@@ -199,7 +199,7 @@ async def test_normal_call_after_timeout_succeeds() -> None:
 
     with patch.object(limiter, "acquire", side_effect=_hang):
         with patch(
-            "qwenpaw.providers.retry_chat_model.get_rate_limiter",
+            "potato.providers.retry_chat_model.get_rate_limiter",
             return_value=limiter,
         ):
             with pytest.raises(_AcquireTimeoutError):
@@ -207,7 +207,7 @@ async def test_normal_call_after_timeout_succeeds() -> None:
 
     # Second call: real acquire path, inner model succeeds.
     with patch(
-        "qwenpaw.providers.retry_chat_model.get_rate_limiter",
+        "potato.providers.retry_chat_model.get_rate_limiter",
         return_value=limiter,
     ):
         result = await model2(messages=[{"role": "user", "content": "hi"}])

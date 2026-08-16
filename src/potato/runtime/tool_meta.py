@@ -1,0 +1,219 @@
+"""Structured metadata contract for Potato tool results."""
+
+from __future__ import annotations
+
+import json
+import logging
+from difflib import SequenceMatcher
+from typing import Any, Literal, Mapping, TypedDict, cast
+
+QP_META_VERSION = 1
+QP_META_MAX_BYTES = 4 * 1024
+
+ToolMetaKind = Literal[
+    "file_write",
+    "file_edit",
+    "file_read",
+    "shell",
+    "file_sent",
+    "web_search",
+    "batch",
+]
+
+TOOL_META_KINDS = frozenset(
+    {
+        "file_write",
+        "file_edit",
+        "file_read",
+        "shell",
+        "file_sent",
+        "web_search",
+        "batch",
+    },
+)
+
+logger = logging.getLogger(__name__)
+
+_REQUIRED_DATA_FIELDS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "file_write": (
+        frozenset({"path"}),
+        frozenset(
+            {"bytes_written", "additions", "deletions", "created"},
+        ),
+    ),
+    "file_edit": (
+        frozenset({"path"}),
+        frozenset({"replacements", "additions", "deletions"}),
+    ),
+    "file_read": (
+        frozenset({"path"}),
+        frozenset({"bytes_read", "line_start", "line_end", "total_lines"}),
+    ),
+    "shell": (
+        frozenset({"sandboxed"}),
+        frozenset({"exit_code"}),
+    ),
+    "file_sent": (
+        frozenset({"path"}),
+        frozenset({"size_bytes", "attached"}),
+    ),
+    "web_search": (
+        frozenset({"backend"}),
+        frozenset(),
+    ),
+    "batch": (
+        frozenset({"total", "completed", "failed", "truncated"}),
+        frozenset(),
+    ),
+}
+
+_OPTIONAL_DATA_FIELDS: dict[str, frozenset[str]] = {
+    "shell": frozenset({"violation"}),
+    "web_search": frozenset({"source_count"}),
+    "batch": frozenset({"steps"}),
+}
+
+
+class QpMeta(TypedDict):
+    """Versioned, JSON-safe metadata attached to a terminal tool chunk."""
+
+    v: Literal[1]
+    kind: ToolMetaKind
+    ok: bool
+    data: dict[str, Any]
+
+
+def _serialized_size(value: object) -> int:
+    try:
+        serialized = json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError("qp metadata must be JSON-serializable") from exc
+    return len(serialized.encode("utf-8"))
+
+
+def validate_qp_meta(meta: object) -> QpMeta:
+    """Validate and return one complete ``metadata['qp']`` value."""
+
+    if not isinstance(meta, dict):
+        raise ValueError("qp metadata must be a dict")
+    if set(meta) != {"v", "kind", "ok", "data"}:
+        raise ValueError("qp metadata must contain only v, kind, ok, and data")
+    if meta["v"] != QP_META_VERSION:
+        raise ValueError(f"unsupported qp metadata version: {meta['v']!r}")
+    if meta["kind"] not in TOOL_META_KINDS:
+        raise ValueError(f"unsupported qp metadata kind: {meta['kind']!r}")
+    if not isinstance(meta["ok"], bool):
+        raise ValueError("qp metadata ok must be a bool")
+    if not isinstance(meta["data"], dict):
+        raise ValueError("qp metadata data must be a dict")
+
+    kind = cast(str, meta["kind"])
+    always_required, success_required = _REQUIRED_DATA_FIELDS[kind]
+    required = always_required | (success_required if meta["ok"] else set())
+    data_fields = set(meta["data"])
+    known_fields = (
+        always_required
+        | success_required
+        | _OPTIONAL_DATA_FIELDS.get(kind, frozenset())
+    )
+    unknown_fields = data_fields - known_fields
+    if unknown_fields:
+        logger.warning(
+            "unknown qp metadata data fields for kind %s: %s",
+            kind,
+            ", ".join(sorted(map(str, unknown_fields))),
+        )
+    missing_fields = required - data_fields
+    if missing_fields:
+        raise ValueError(
+            f"qp metadata data missing required fields for {kind}: "
+            f"{', '.join(sorted(missing_fields))}",
+        )
+
+    size = _serialized_size(meta)
+    if size > QP_META_MAX_BYTES:
+        raise ValueError(
+            f"qp metadata exceeds {QP_META_MAX_BYTES} bytes: {size}",
+        )
+    return cast(QpMeta, meta)
+
+
+def build_qp_meta(
+    kind: ToolMetaKind | str,
+    ok: bool,
+    data: Mapping[str, Any],
+) -> QpMeta:
+    """Build a validated ``metadata['qp']`` value for a tool result."""
+
+    if not isinstance(data, Mapping):
+        raise ValueError("qp metadata data must be a mapping")
+    meta = {
+        "v": QP_META_VERSION,
+        "kind": kind,
+        "ok": ok,
+        "data": dict(data),
+    }
+    return validate_qp_meta(meta)
+
+
+def count_line_changes(before: str, after: str) -> tuple[int, int]:
+    """Return line additions/deletions for two text snapshots.
+
+    ``splitlines()`` makes a final line count as one whether or not it has a
+    trailing newline. A newline-only EOF change therefore does not invent a
+    line addition or deletion.
+    """
+
+    matcher = SequenceMatcher(
+        None,
+        before.splitlines(),
+        after.splitlines(),
+        autojunk=False,
+    )
+    additions = 0
+    deletions = 0
+    for tag, before_start, before_end, after_start, after_end in (
+        matcher.get_opcodes()
+    ):
+        if tag in {"replace", "delete"}:
+            deletions += before_end - before_start
+        if tag in {"replace", "insert"}:
+            additions += after_end - after_start
+    return additions, deletions
+
+
+def build_batch_qp_meta(
+    *,
+    ok: bool,
+    total: int,
+    completed: int,
+    failed: int,
+    steps: list[Mapping[str, Any]],
+) -> QpMeta:
+    """Build bounded batch metadata, retaining the earliest complete steps."""
+
+    retained = [dict(step) for step in steps[:50]]
+    truncated = len(retained) < len(steps)
+    while True:
+        try:
+            return build_qp_meta(
+                "batch",
+                ok,
+                {
+                    "total": total,
+                    "completed": completed,
+                    "failed": failed,
+                    "truncated": truncated,
+                    "steps": retained,
+                },
+            )
+        except ValueError as exc:
+            if "exceeds" not in str(exc) or not retained:
+                raise
+            retained.pop()
+            truncated = True

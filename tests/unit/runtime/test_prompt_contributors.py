@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from qwenpaw.runtime.prompt_contributors import (
+from potato.runtime.prompt_contributors import (
     PROGRESS_NARRATION_HINT_EN,
     PROGRESS_NARRATION_HINT_ZH,
     ProgressNarrationContributor,

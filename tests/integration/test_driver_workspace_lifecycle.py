@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.app.workspace import Workspace
-from qwenpaw.drivers.contracts import DriverCard
-from qwenpaw.drivers.storage import card_path, dump_card
+from potato.app.workspace import Workspace
+from potato.drivers.contracts import DriverCard
+from potato.drivers.storage import card_path, dump_card
 from tests.integration.driver_mcp_fakes import patch_mcp_runtime_clients
 
 

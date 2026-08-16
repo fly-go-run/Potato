@@ -2,7 +2,7 @@
 """Tests for WorkspaceBootstrapFactory."""
 from __future__ import annotations
 
-from qwenpaw.app.workspace.bootstrap_factory import WorkspaceBootstrapFactory
+from potato.app.workspace.bootstrap_factory import WorkspaceBootstrapFactory
 
 
 class TestWorkspaceBootstrapFactory:

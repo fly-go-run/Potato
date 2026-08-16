@@ -18,7 +18,7 @@ class WorkflowState:
     """Manage per-instance state directory and files.
 
     Path convention:
-        {workspace_dir}/.qwenpaw/omp_workflows/{mode_name}-{timestamp}/
+        {workspace_dir}/.potato/omp_workflows/{mode_name}-{timestamp}/
 
     Writers should prefer :meth:`update_state` so concurrent agent
     updates to other keys are preserved (read-merge-write + atomic
@@ -34,7 +34,7 @@ class WorkflowState:
         """Create a timestamped instance directory."""
         ts = time.strftime("%Y%m%d-%H%M%S")
         suffix = uuid.uuid4().hex[:6]
-        base = self.workspace_dir / ".qwenpaw" / "omp_workflows"
+        base = self.workspace_dir / ".potato" / "omp_workflows"
         self._instance_dir = base / f"{self.mode_name}-{ts}-{suffix}"
         self._instance_dir.mkdir(parents=True, exist_ok=True)
         self.append_log(f"[{self.mode_name}] instance created")

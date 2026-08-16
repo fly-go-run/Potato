@@ -3,13 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from qwenpaw.drivers.capabilities import DriverInvocation
-from qwenpaw.drivers.contracts import CredentialRef, DriverCard, PolicyRule
-from qwenpaw.drivers.credentials.store import AsyncCredentialStore
-from qwenpaw.drivers.credentials.types import CredentialRecord
-from qwenpaw.drivers.handlers.mcp import MCPDriverHandler
-from qwenpaw.drivers.manager import DriverManager
-from qwenpaw.drivers.storage import card_path, dump_card
+from potato.drivers.capabilities import DriverInvocation
+from potato.drivers.contracts import CredentialRef, DriverCard, PolicyRule
+from potato.drivers.credentials.store import AsyncCredentialStore
+from potato.drivers.credentials.types import CredentialRecord
+from potato.drivers.handlers.mcp import MCPDriverHandler
+from potato.drivers.manager import DriverManager
+from potato.drivers.storage import card_path, dump_card
 from tests.integration.driver_mcp_fakes import (
     FakeStdIOClient,
     patch_mcp_runtime_clients,

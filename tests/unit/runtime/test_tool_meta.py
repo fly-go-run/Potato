@@ -2,7 +2,7 @@
 
 import pytest
 
-from qwenpaw.runtime.tool_meta import (
+from potato.runtime.tool_meta import (
     QP_META_MAX_BYTES,
     build_qp_meta,
 )

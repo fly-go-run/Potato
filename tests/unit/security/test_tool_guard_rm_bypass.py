@@ -3,7 +3,7 @@
 
 Regression for #5090: rm protection must block root/home/absolute targets.
 
-The guard in ``qwenpaw.security.tool_guard.guardians.rule_guardian`` extracts
+The guard in ``potato.security.tool_guard.guardians.rule_guardian`` extracts
 rm targets, expands ``~``/``$HOME``/``${VAR}``, resolves them to absolute
 paths, and flags any target that falls outside the workspace. Issue #5090
 reported bypasses via ``~``, ``$HOME``, absolute paths and globs that expand
@@ -24,7 +24,7 @@ from unittest.mock import patch
 
 import pytest
 
-from qwenpaw.security.tool_guard.guardians.rule_guardian import (
+from potato.security.tool_guard.guardians.rule_guardian import (
     _check_rm_targets_outside_workspace,
 )
 
@@ -51,11 +51,11 @@ def workspace(tmp_path: Path) -> Iterator[Path]:
     home.mkdir()
     with (
         patch(
-            "qwenpaw.config.context.get_current_workspace_dir",
+            "potato.config.context.get_current_workspace_dir",
             return_value=ws,
         ),
         patch(
-            "qwenpaw.security.tool_guard.guardians."
+            "potato.security.tool_guard.guardians."
             "rule_guardian._get_workspace_root",
             return_value=ws,
         ),
