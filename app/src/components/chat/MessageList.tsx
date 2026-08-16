@@ -66,7 +66,6 @@ import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useChatStore } from "../../stores/chat";
 import { PotatoMark } from "../brand/PotatoMark";
-import { Spinner } from "../ui/Spinner";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChangeStat } from "./ChangeStat";
 import { MessageContent } from "./MessageContent";
@@ -158,7 +157,7 @@ export function MessageList({
       {showPendingTurn && (
         <div data-testid="turn-assistant" className={`mb-10 ${TAIL_MIN_HEIGHT}`}>
           <AssistantHeader />
-          <TurnFlow pieces={[]} foldEntries={[]} waiting pulsing live />
+          <TurnFlow pieces={[]} foldEntries={[]} waiting live />
         </div>
       )}
       {pendingApprovals.map((approval) => (
@@ -340,13 +339,7 @@ const AssistantTurn = memo(function AssistantTurn({
   }
   flushRun();
 
-  // 正文流式输出时脉冲让位给文字本身;其余流式阶段(等待/思考/工具间隙)保持活动感。
-  const hasStreamingText = presented.some(
-    (message) =>
-      isOrdinaryAssistantMessage(message) && message.status === "in_progress",
-  );
   const waiting = streaming && slots.length === 0;
-  const pulsing = streaming && !hasStreamingText;
 
   return (
     <div
@@ -358,7 +351,6 @@ const AssistantTurn = memo(function AssistantTurn({
         pieces={waiting ? [] : pieces}
         foldEntries={foldEntries}
         waiting={waiting}
-        pulsing={pulsing}
         live={streaming}
         onOpenFile={onOpenFile}
         onOpenChange={onOpenChange}
@@ -555,7 +547,6 @@ function TurnFlow({
   pieces,
   foldEntries,
   waiting,
-  pulsing,
   live,
   onOpenFile,
   onOpenChange,
@@ -566,7 +557,6 @@ function TurnFlow({
   /** 全部过程条目(时间序),驱动摘要行的状态与计数。 */
   foldEntries: ProcessEntry[];
   waiting: boolean;
-  pulsing: boolean;
   /** 本轮仍在流式中。 */
   live: boolean;
   onOpenFile?: (path: string) => void;
@@ -700,7 +690,6 @@ function TurnFlow({
   const inProgress = state.kind !== "done";
   const summaryContent = (
     <>
-      {pulsing && <Spinner size={13} />}
       <span className={inProgress ? "qp-shimmer" : undefined}>{summary}</span>
       {showDurationSuffix && (
         <span

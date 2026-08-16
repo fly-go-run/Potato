@@ -18,7 +18,7 @@ import { useTranslation, type TranslationKey } from "../../lib/i18n";
 import { Collapse } from "./Collapse";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
-import { richOutputText, toolPairStatus, ToolStatus } from "./ToolCard";
+import { richOutputText, toolPairStatus } from "./ToolCard";
 import {
   editDiffLines,
   pairChangeStats,
@@ -193,7 +193,6 @@ export function FileToolCard({
           </span>
         )
       )}
-      {running && <ToolStatus running failed={false} quiet />}
     </>
   );
 

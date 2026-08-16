@@ -1,5 +1,4 @@
 import { Check, CircleEllipsis, X } from "lucide-react";
-import { Spinner } from "../ui/Spinner";
 import type { DataContent, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
 import { useTranslation } from "../../lib/i18n";
@@ -25,7 +24,6 @@ export function ProgressCard({
         : t("chat.contextCompaction.running");
     return (
       <div className="flex items-center gap-1.5 py-1 text-[13px] text-ink-secondary">
-        {phase === "in_progress" && <Spinner size={13} />}
         <span
           className={`min-w-0 truncate ${
             phase === "in_progress" || shimmer ? "qp-shimmer" : ""
@@ -74,7 +72,6 @@ export function ProgressCard({
 
   return (
     <div className="flex items-center gap-1.5 py-1 text-[13px] text-ink-secondary">
-      <Spinner size={13} className="text-ink-tertiary" />
       <span className="min-w-0 truncate qp-shimmer">{title}</span>
       {status && (
         <span className="min-w-0 truncate text-ink-tertiary">

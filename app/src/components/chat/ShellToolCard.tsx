@@ -1,5 +1,4 @@
 import { Terminal } from "lucide-react";
-import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
 import { richOutputText, toolPairStatus } from "./ToolCard";
@@ -90,7 +89,6 @@ export function ShellToolCard({
               {command || t("tool.shell")}
             </code>
           </span>
-          {running && <Spinner size={13} className="text-ink-tertiary" />}
         </button>
         {preview ? (
           <pre className="font-mono text-xs leading-6 whitespace-pre-wrap break-words text-ink-secondary">
@@ -131,16 +129,10 @@ export function ShellToolCard({
       </span>
     </>
   );
-  // 行尾槽只在运行中占 13px 的 Spinner。完成态零落墨——成功是预期,
-  // 失败由整行 danger 色承担,不靠行尾图标。
-  const after = running ? (
-    <Spinner size={13} className="text-ink-tertiary" />
-  ) : null;
 
   return (
     <ToolDisclosure
       toggle={toggle}
-      after={after}
       failed={failed}
       open={open}
       onToggle={onToggle}

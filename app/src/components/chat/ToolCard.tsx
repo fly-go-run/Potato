@@ -10,7 +10,6 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { Spinner } from "../ui/Spinner";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { DataContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
@@ -243,14 +242,10 @@ function GenericToolCard({
       </span>
     </>
   );
-  const after = running ? (
-    <ToolStatus running={running} failed={failed} />
-  ) : null;
 
   return (
     <ToolDisclosure
       toggle={toggle}
-      after={after}
       failed={failed}
       open={open}
       onToggle={onToggle}
@@ -331,18 +326,16 @@ function firstLine(value: string, max = 80): string {
 }
 
 /**
- * 运行中的行尾指示:13px Spinner,不带文字。完成/失败态零落墨——
- * 成功是预期不配图标,失败由整行 danger 色承担(对号/叉号已整体移除)。
+ * 运行中不再挂行尾转圈:活着的信号是字上的扫光。保留导出以免旧调用崩。
  */
 export function ToolStatus({
-  running,
+  running: _running,
 }: {
   running: boolean;
   failed?: boolean;
   quiet?: boolean;
 }) {
-  if (!running) return null;
-  return <Spinner size={13} className="shrink-0 text-ink-tertiary" />;
+  return null;
 }
 
 export function toolData(message: StreamMessage | null) {

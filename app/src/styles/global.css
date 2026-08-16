@@ -165,28 +165,31 @@ select,
   animation: qp-fade-in var(--dur-fast) ease-out;
 }
 
-/* 进行中状态文字:ink-muted → ink → ink-muted 横向扫过 */
+/* 进行中文字:一道窄亮带扫过。谷用 ink 掺画布,峰用满 ink,深浅主题
+   都比 muted→ink 的缓坡更看得出「还在动」,好拿掉行尾转圈。 */
 @keyframes qp-shimmer {
   0% {
-    background-position: 100% 50%;
+    background-position: 120% 50%;
   }
   100% {
-    background-position: 0% 50%;
+    background-position: -20% 50%;
   }
 }
 .qp-shimmer {
   background-image: linear-gradient(
     90deg,
-    var(--ink-muted) 0%,
-    var(--ink) 45%,
-    var(--ink-muted) 100%
+    color-mix(in srgb, var(--ink) 40%, var(--canvas)) 0%,
+    color-mix(in srgb, var(--ink) 40%, var(--canvas)) 38%,
+    var(--ink) 50%,
+    color-mix(in srgb, var(--ink) 40%, var(--canvas)) 62%,
+    color-mix(in srgb, var(--ink) 40%, var(--canvas)) 100%
   );
-  background-size: 200% 100%;
+  background-size: 240% 100%;
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: qp-shimmer 1.8s linear infinite;
+  animation: qp-shimmer 1.25s ease-in-out infinite;
 }
 
 /* 运行状态指示环:只有当前步骤旋转,历史步骤应换成静态图标 */
