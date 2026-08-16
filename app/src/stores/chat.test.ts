@@ -191,7 +191,9 @@ describe("chat stream interruption recovery", () => {
       .sendMessage("must not be dropped", vi.fn());
 
     expect(accepted).toBe(true);
-    expect(chatApi.stream.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(vi.mocked(chatApi.stream).mock.calls.length).toBeGreaterThanOrEqual(
+      3,
+    );
     expect(
       useChatStore
         .getState()

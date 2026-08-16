@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import type { NavigateFunction } from "react-router-dom";
 import {
   ApiError,
@@ -795,8 +795,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
 async function enqueueFollowup(
   text: string,
-  set: typeof useChatStore.setState,
-  get: typeof useChatStore.getState,
+  set: StoreApi<ChatStore>["setState"],
+  get: StoreApi<ChatStore>["getState"],
 ): Promise<boolean> {
   const submittedImages = get().pendingImages;
   set({ isSubmitting: true, error: null });
