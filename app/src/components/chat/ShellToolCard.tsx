@@ -30,6 +30,8 @@ export function ShellToolCard({
 }) {
   const { t } = useTranslation();
   const command = shellCommand(pair.arguments);
+  const footnote =
+    command.length > 44 ? `${command.slice(0, 43)}…` : command;
   const { running, failed } = toolPairStatus(pair);
   const output = richOutputText(pair.result);
   // qp meta(有则展示,历史会话无 meta 时整段静默)。异常才落墨:
@@ -77,16 +79,17 @@ export function ShellToolCard({
         <button
           type="button"
           onClick={onToggle}
-          className="group flex w-full items-center gap-1.5 py-1 text-left text-[13px] text-ink-secondary transition-colors duration-[var(--dur-fast)] hover:text-ink"
+          className="group flex w-full items-center gap-1.5 py-0.5 text-left text-[12px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink-secondary"
         >
           <Terminal
-            size={14}
+            size={13}
             strokeWidth={1.8}
-            className="shrink-0 text-ink-muted"
+            className="shrink-0 text-ink-tertiary"
           />
           <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
+            <span className="mr-1.5">{t("chat.step.verb.shell")}</span>
             <code className="font-mono text-[12px]">
-              {command || t("tool.shell")}
+              {footnote || t("tool.shell")}
             </code>
           </span>
         </button>
@@ -110,21 +113,22 @@ export function ShellToolCard({
   const toggle = (
     <>
       <Terminal
-        size={14}
+        size={13}
         strokeWidth={1.8}
-        className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
+        className={`shrink-0 ${failed ? "text-danger" : "text-ink-tertiary"}`}
       />
       <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
+        <span className="mr-1.5">{t("chat.step.verb.shell")}</span>
         <code
           className={`font-mono text-[12px] ${
             failed && !shimmer
               ? "text-danger"
               : shimmer
                 ? ""
-                : "text-ink-tertiary group-hover:text-ink"
+                : "text-ink-tertiary group-hover:text-ink-secondary"
           }`}
         >
-          {command || t("tool.shell")}
+          {footnote || t("tool.shell")}
         </code>
       </span>
     </>

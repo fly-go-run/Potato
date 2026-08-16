@@ -23,6 +23,7 @@ import { skillDisplayName } from "../../lib/skillPresentation";
 import {
   extractPairObject,
   skillNameOf,
+  stepVerbKey,
   toolFamily,
   type ToolFamily,
 } from "../../lib/stepGroups";
@@ -184,9 +185,7 @@ function GenericToolCard({
   const family = toolFamily(pair.name);
   const Icon = FAMILY_ICONS[family];
   const object = pairObjectLabel(pair, family, language, t);
-  const keepRunningVerb = family === "skill" || family === "other";
-  const verb =
-    running && keepRunningVerb ? t("tool.tense.skill.running") : "";
+  const verb = t(stepVerbKey(family));
 
   const detail = (
     <div className="space-y-3">
@@ -229,7 +228,7 @@ function GenericToolCard({
         <Icon
           size={14}
           strokeWidth={1.8}
-          className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
+          className={`shrink-0 ${failed ? "text-danger" : "text-ink-tertiary"}`}
         />
       )}
       <span className={shimmer ? "qp-shimmer min-w-0 truncate" : "min-w-0 truncate"}>

@@ -3,7 +3,6 @@ import {
   memo,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -45,7 +44,10 @@ import {
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
 import { shouldShowProcessHeader } from "../../lib/processHeader";
-import { formatStepGroupObject } from "../../lib/stepGroupCopy";
+import {
+  formatStepGroupObject,
+  formatStepGroupVerb,
+} from "../../lib/stepGroupCopy";
 import {
   FOLD_WINDOW,
   focusFoldRowKey,
@@ -87,14 +89,6 @@ interface MessageListProps {
   onOpenFile?: (path: string) => void;
   onOpenChange?: (path: string) => void;
 }
-
-/**
- * 流式尾轮的最小高度:问题锚顶模型需要问题下方有足够的可滚动空间,
- * 否则短回答时 scrollTop 到不了「问题在视口顶部」的位置。只挂在
- * 「本会话流式出生的最后一轮」上——历史轮/被接替的轮立即释放,
- * 释放的时机恰好是下一个问题重新锚定的那一帧,不可见。
- */
-const TAIL_MIN_HEIGHT = "min-h-[calc(100dvh-16rem)]";
 
 interface Turn {
   id: string;
@@ -155,7 +149,7 @@ export function MessageList({
         ),
       )}
       {showPendingTurn && (
-        <div data-testid="turn-assistant" className={`mb-10 ${TAIL_MIN_HEIGHT}`}>
+        <div data-testid="turn-assistant" className="mb-10">
           <AssistantHeader />
           <TurnFlow pieces={[]} foldEntries={[]} waiting live />
         </div>
@@ -227,7 +221,6 @@ const AssistantTurn = memo(function AssistantTurn({
   showActions,
   regeneratePrompt,
   streaming,
-  tail,
   activeMessageId,
   onOpenFile,
   onOpenChange,
@@ -235,9 +228,6 @@ const AssistantTurn = memo(function AssistantTurn({
   assistantTimestamp,
 }: AssistantTurnProps) {
   // 入场动画已整体移除(设计裁决:内容直接出现,不做淡入)。
-  // 流式出生的轮在它还是尾轮期间保持锚定空间(见 TAIL_MIN_HEIGHT);
-  // 该判定只在挂载时定一次,与原 enterAnimation 同语义。
-  const bornStreaming = useRef(streaming).current;
   // 内联 <thinking> 标签的模型:思考段拆成轨道条目,正文只留干净文本。
   const presented = useMemo(
     () => messages.flatMap(presentInlineThinking),
@@ -344,7 +334,7 @@ const AssistantTurn = memo(function AssistantTurn({
   return (
     <div
       data-testid="turn-assistant"
-      className={`mb-10${tail && bornStreaming ? ` ${TAIL_MIN_HEIGHT}` : ""}`}
+      className="mb-10"
     >
       <AssistantHeader />
       <TurnFlow
@@ -719,7 +709,7 @@ function TurnFlow({
       <div
         key={trackKey || `track-${rendered.length}`}
         data-execution-track
-        className="mb-3 mt-1 border-l border-line pl-4"
+        className="my-1"
       >
         {trackBuf}
       </div>,
@@ -928,12 +918,19 @@ function FoldRowView({
   }
   const Icon = FAMILY_ICONS[row.family];
   const object = formatStepGroupObject(row, t, language);
+  const verb = formatStepGroupVerb(row.family, t);
   return (
     <StepGroupRow
       icon={
-        <Icon size={14} strokeWidth={1.8} className="shrink-0 text-ink-muted" />
+        <Icon
+          size={13}
+          strokeWidth={1.8}
+          className="shrink-0 text-ink-tertiary"
+        />
       }
-      summary={<TrackSummary object={object} shimmer={shimmer} />}
+      summary={
+        <TrackSummary verb={verb} object={object} shimmer={shimmer} />
+      }
       open={mode === "raw" || mode === "tail"}
       keepMounted={everRaw}
       onToggle={onToggle}

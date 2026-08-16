@@ -654,7 +654,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         {/* 单卡结构(2026-08-14 终版):托盘层退役,工作区/审批 chip
             收进输入卡底部控制行——与会话页 composer 同形。 */}
         <div className="overflow-visible">
-          <div className="relative z-10 rounded-[var(--radius-bubble)] border border-line bg-surface shadow-[var(--shadow-composer)] transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-line-strong focus-within:shadow-[var(--shadow-composer-focus)]">
+          <div className="relative z-10 rounded-[var(--radius-bubble)] border border-line-strong bg-surface shadow-[var(--shadow-composer)] transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-line-strong focus-within:shadow-[var(--shadow-composer-focus)]">
             {pendingImages.length > 0 && (
               <div className="flex gap-2 overflow-x-auto px-3 pt-3">
                 {pendingImages.map((attachment) => (

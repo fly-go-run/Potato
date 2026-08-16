@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ToolPair } from "../components/chat/ToolCard";
 import { translate, type Language, type TranslationKey } from "./i18n";
-import { formatStepGroupObject } from "./stepGroupCopy";
+import {
+  formatStepGroupObject,
+  formatStepGroupVerb,
+} from "./stepGroupCopy";
 import type { ToolGroupRow } from "./stepGroups";
 
 function stubs(count: number): ToolPair[] {
@@ -102,6 +105,29 @@ describe("formatStepGroupObject", () => {
       pairs: stubs(1),
     });
     expect(formatStepGroupObject(once, t("zh"), "zh")).toBe("关键词");
+  });
+
+  it("names the quiet verb for each family", () => {
+    expect(formatStepGroupVerb("search", t("zh"))).toBe("搜了");
+    expect(formatStepGroupVerb("shell", t("en"))).toBe("Ran");
+  });
+
+  it("truncates a shell command to a footnote", () => {
+    const row = group({
+      family: "shell",
+      object: "ssh",
+      objects: ["ssh"],
+      pairs: [
+        {
+          arguments: JSON.stringify({
+            command: "ssh macbook-m1 'echo FILES; find /Users/liuxu/project'",
+          }),
+        } as ToolPair,
+      ],
+    });
+    expect(formatStepGroupObject(row, t("zh"), "zh")).toBe(
+      "ssh macbook-m1 'echo FILES; find /Users/liu…",
+    );
   });
 
   it("appends 等 to a repeated shell argv0 when the group has several cmds", () => {

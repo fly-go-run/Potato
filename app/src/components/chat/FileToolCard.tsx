@@ -162,6 +162,9 @@ export function FileToolCard({
         shimmer ? "qp-shimmer" : ""
       }`}
     >
+      <span className="mr-1.5 font-sans">
+        {t(modifies ? "chat.step.verb.edit" : "chat.step.verb.read")}
+      </span>
       {path || t("tool.file.path")}
     </span>
   );
@@ -170,9 +173,9 @@ export function FileToolCard({
   const toggle = (
     <>
       <RowIcon
-        size={14}
+        size={13}
         strokeWidth={1.8}
-        className={`shrink-0 ${failed ? "text-danger" : "text-ink-muted"}`}
+        className={`shrink-0 ${failed ? "text-danger" : "text-ink-tertiary"}`}
       />
     </>
   );

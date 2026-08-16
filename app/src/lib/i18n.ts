@@ -3,7 +3,7 @@ import { useCallback } from "react";
 
 export type Language = "zh" | "en";
 
-const STORAGE_KEY = "qwenpaw_language";
+const STORAGE_KEY = "potato_language";
 
 export const dictionaries = {
   zh: {
@@ -87,6 +87,15 @@ export const dictionaries = {
     "chat.step.cmds": "{count} 条",
     "chat.step.overflow": "另有 {n} 步",
     "chat.step.more": "等",
+    "chat.step.verb.search": "搜了",
+    "chat.step.verb.fetch": "打开了",
+    "chat.step.verb.grep": "搜了",
+    "chat.step.verb.glob": "搜了",
+    "chat.step.verb.read": "读了",
+    "chat.step.verb.edit": "改了",
+    "chat.step.verb.shell": "运行了",
+    "chat.step.verb.skill": "用了",
+    "chat.step.verb.other": "调用了",
     "chat.waitingModel": "等待模型响应",
     "chat.waitingReply": "等待回复",
     "chat.toolsRunning": "{count} 个进行中",
@@ -828,6 +837,15 @@ export const dictionaries = {
     "chat.step.cmds": "{count} cmds",
     "chat.step.overflow": "{n} more",
     "chat.step.more": "etc.",
+    "chat.step.verb.search": "Searched",
+    "chat.step.verb.fetch": "Opened",
+    "chat.step.verb.grep": "Searched",
+    "chat.step.verb.glob": "Searched",
+    "chat.step.verb.read": "Read",
+    "chat.step.verb.edit": "Edited",
+    "chat.step.verb.shell": "Ran",
+    "chat.step.verb.skill": "Used",
+    "chat.step.verb.other": "Ran",
     "chat.waitingModel": "Waiting for response",
     "chat.waitingReply": "Waiting for reply",
     "chat.toolsRunning": "{count} running",

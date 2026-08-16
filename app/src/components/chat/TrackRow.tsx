@@ -27,8 +27,8 @@ export function TrackRow({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className={`group flex w-full items-center gap-1.5 py-1 text-left text-[13px] transition-colors duration-[var(--dur-fast)] ${
-        failed ? "text-danger" : "text-ink-secondary hover:text-ink"
+      className={`group flex w-full items-center gap-1.5 py-0.5 text-left text-[12px] transition-colors duration-[var(--dur-fast)] ${
+        failed ? "text-danger" : "text-ink-tertiary hover:text-ink-secondary"
       }`}
     >
       {icon}
@@ -61,7 +61,7 @@ export function TrackRowChevron({
   );
 }
 
-/** 动词 13px secondary + 对象等宽 12px tertiary。无动词时对象单独占行，避免空 span。 */
+/** 动词 + 对象同一档灰脚注。无动词时对象单独占行，避免空 span。 */
 export function TrackSummary({
   verb,
   object,
@@ -75,7 +75,11 @@ export function TrackSummary({
 }) {
   const tone = failed && !shimmer ? "text-danger" : undefined;
   const objectClass = `font-mono text-[12px] ${
-    shimmer ? "" : failed ? "text-danger" : "text-ink-tertiary group-hover:text-ink"
+    shimmer
+      ? ""
+      : failed
+        ? "text-danger"
+        : "text-ink-tertiary group-hover:text-ink-secondary"
   }`;
   if (!object) {
     return verb ? <span className={tone}>{verb}</span> : null;

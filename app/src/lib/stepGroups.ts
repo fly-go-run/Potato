@@ -85,6 +85,36 @@ const FAMILY_BY_NAME: Record<string, Exclude<ToolFamily, "other">> = {
 const OBJECT_LIMIT = 32;
 export const OBJECT_LIST_LIMIT = 3;
 
+export function stepVerbKey(
+  family: ToolFamily,
+):
+  | "chat.step.verb.search"
+  | "chat.step.verb.fetch"
+  | "chat.step.verb.read"
+  | "chat.step.verb.edit"
+  | "chat.step.verb.shell"
+  | "chat.step.verb.skill"
+  | "chat.step.verb.other" {
+  switch (family) {
+    case "search":
+    case "grep":
+    case "glob":
+      return "chat.step.verb.search";
+    case "fetch":
+      return "chat.step.verb.fetch";
+    case "read":
+      return "chat.step.verb.read";
+    case "edit":
+      return "chat.step.verb.edit";
+    case "shell":
+      return "chat.step.verb.shell";
+    case "skill":
+      return "chat.step.verb.skill";
+    default:
+      return "chat.step.verb.other";
+  }
+}
+
 export function toolFamily(name: string): ToolFamily {
   const normalized = name.replace(/^mcp__/i, "").toLocaleLowerCase();
   return FAMILY_BY_NAME[normalized] ?? "other";
@@ -110,7 +140,7 @@ export function extractPairObject(family: ToolFamily, pair: ToolPair): string {
   const args = parseArgs(pair.arguments);
   switch (family) {
     case "search":
-      return truncate32(
+      return compactSearchQuery(
         stringField(args, "search_term") || stringField(args, "query"),
       );
     case "fetch":
@@ -391,6 +421,22 @@ function stringField(data: Record<string, unknown>, key: string): string {
 
 function stringValue(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+const SEARCH_NOISE =
+  /^(天气|实时|温度|降水预报|预报|weather|temperature|forecast|realtime|current)$/i;
+const SEARCH_DATE =
+  /^\d{4}[-年/]\d{1,2}[-月/]\d{1,2}日?$|^\d{1,2}月\d{1,2}日$/;
+
+/** Keep the place/time object; drop date stamps and synonym stuffing. */
+export function compactSearchQuery(raw: string): string {
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const kept = tokens.filter(
+    (token) => !SEARCH_DATE.test(token) && !SEARCH_NOISE.test(token),
+  );
+  const picked = (kept.length > 0 ? kept : tokens).slice(0, 2);
+  const cjk = picked.every((token) => /[\u4e00-\u9fff]/.test(token));
+  return truncate32(picked.join(cjk ? "" : " "));
 }
 
 function truncate32(value: string): string {

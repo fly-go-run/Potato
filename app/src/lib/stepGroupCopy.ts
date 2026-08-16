@@ -1,7 +1,12 @@
 import { humanToolName } from "../components/chat/ToolCard";
 import { type Language, type TranslationKey } from "./i18n";
 import { skillDisplayName } from "./skillPresentation";
-import type { ToolFamily, ToolGroupRow } from "./stepGroups";
+import {
+  compactSearchQuery,
+  stepVerbKey,
+  type ToolFamily,
+  type ToolGroupRow,
+} from "./stepGroups";
 
 type Translate = (
   key: TranslationKey,
@@ -14,17 +19,27 @@ const SEARCH_FAMILIES = new Set<ToolFamily>(["search", "grep", "glob"]);
  * Fold-row object text. Icon carries the verb; this is only the object
  * (+ ± / ×N / 等) so a missing object never leaves a hanging unit.
  */
+export function formatStepGroupVerb(
+  family: ToolFamily,
+  translate: Translate,
+): string {
+  return translate(stepVerbKey(family));
+}
+
 export function formatStepGroupObject(
   row: ToolGroupRow,
   translate: Translate,
   language: Language,
 ): string {
+  const count = groupCount(row);
+  if (row.family === "shell") {
+    return formatShellObject(row, count, translate);
+  }
   if (SEARCH_FAMILIES.has(row.family)) {
     return formatSearchObject(row);
   }
 
   const names = objectNames(row, language);
-  const count = groupCount(row);
   let object = names.join(", ");
 
   if (!object) {
@@ -36,27 +51,44 @@ export function formatStepGroupObject(
   return withEditStats(object, row);
 }
 
-const SEARCH_NOISE =
-  /^(天气|实时|温度|降水预报|预报|weather|temperature|forecast|realtime|current)$/i;
-const SEARCH_DATE =
-  /^\d{4}[-年/]\d{1,2}[-月/]\d{1,2}日?$|^\d{1,2}月\d{1,2}日$/;
+function formatShellObject(
+  row: ToolGroupRow,
+  count: number,
+  translate: Translate,
+): string {
+  const command = firstShellCommand(row);
+  if (!command) return unitFallback(row, count, translate);
+  const clipped = truncateCommand(command);
+  if (shouldAppendMore(row)) {
+    return `${clipped} ${translate("chat.step.more")}`;
+  }
+  return clipped;
+}
+
+function firstShellCommand(row: ToolGroupRow): string {
+  const raw = row.pairs[0]?.arguments;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as { command?: unknown };
+      if (typeof parsed.command === "string" && parsed.command.trim()) {
+        return parsed.command.replace(/\s+/g, " ").trim();
+      }
+    } catch {
+      // Fall back to the argv0 already stored on the group.
+    }
+  }
+  return row.object || row.objects[0] || "";
+}
+
+function truncateCommand(command: string, max = 44): string {
+  return command.length > max ? `${command.slice(0, max - 1)}…` : command;
+}
 
 function formatSearchObject(row: ToolGroupRow): string {
   const keyword = compactSearchQuery(row.objects[0] || row.object);
   const count = row.pairs.length;
   if (!keyword) return "";
   return count > 1 ? `${keyword} ×${count}` : keyword;
-}
-
-/** Keep the place/time object; drop date stamps and synonym stuffing. */
-export function compactSearchQuery(raw: string): string {
-  const tokens = raw.split(/\s+/).filter(Boolean);
-  const kept = tokens.filter(
-    (token) => !SEARCH_DATE.test(token) && !SEARCH_NOISE.test(token),
-  );
-  const picked = (kept.length > 0 ? kept : tokens).slice(0, 2);
-  const cjk = picked.every((token) => /[\u4e00-\u9fff]/.test(token));
-  return picked.join(cjk ? "" : " ");
 }
 
 function objectNames(row: ToolGroupRow, language: Language): string[] {
