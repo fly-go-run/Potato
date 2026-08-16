@@ -483,8 +483,8 @@ export function ChatView() {
       ) : (
         <div className="qp-fade-in flex min-h-0 flex-1">
           <section className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-center justify-end px-2 pt-1.5">
-              <div className="pointer-events-auto flex items-center gap-0.5 rounded-[var(--radius-md)] bg-canvas/80 p-0.5 backdrop-blur-md">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex h-11 items-center justify-end px-2">
+              <div className="pointer-events-auto flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => setSearchOpen((value) => !value)}
@@ -516,7 +516,7 @@ export function ChatView() {
               </div>
             </div>
             {searchOpen && (
-              <div className="absolute right-2 top-10 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
+              <div className="absolute right-2 top-11 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
                 <div className="flex h-11 items-center gap-2 border-b border-line px-3">
                   <Search
                     size={14}

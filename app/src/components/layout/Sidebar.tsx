@@ -54,6 +54,10 @@ function navIconClass(active: boolean) {
   return cn("shrink-0", active ? "text-tint" : "text-icon");
 }
 
+/** 分组标签:比对话名矮一档,只作折叠说明,不跟条目抢墨色。 */
+const groupLabelClass =
+  "flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-1 text-left text-[11px] font-normal text-ink-tertiary transition-colors duration-[var(--dur-fast)]";
+
 function SidebarBrand() {
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -231,17 +235,20 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                   ? t("sidebar.collapseGroup")
                   : t("sidebar.expandGroup")
               }
-              className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink transition-colors"
+              className={groupLabelClass}
             >
               <span className="truncate">
                 {t("sidebar.projectsGroup", {
                   count: groupedChats.workspaces.length,
                 })}
               </span>
+              <span className="ml-auto tabular-nums">
+                {groupedChats.workspaces.length}
+              </span>
               <ChevronDown
-                size={14}
+                size={12}
                 strokeWidth={1.8}
-                className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
+                className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
                   projectsExpanded ? "" : "-rotate-90"
                 }`}
               />
@@ -313,15 +320,18 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 ? t("sidebar.collapseGroup")
                 : t("sidebar.expandGroup")
             }
-            className="flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-medium text-ink transition-colors duration-[var(--dur-fast)]"
+            className={groupLabelClass}
           >
             <span className="truncate">
               {t("sidebar.chatsGroup", { count: groupedChats.unbound.length })}
             </span>
+            <span className="ml-auto tabular-nums">
+              {groupedChats.unbound.length}
+            </span>
             <ChevronDown
-              size={14}
+              size={12}
               strokeWidth={1.8}
-              className={`shrink-0 text-ink-tertiary transition-transform duration-[var(--dur-fast)] ${
+              className={`shrink-0 transition-transform duration-[var(--dur-fast)] ${
                 chatsExpanded ? "" : "-rotate-90"
               }`}
             />

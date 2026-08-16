@@ -9,6 +9,8 @@ mod tray;
 mod window_state;
 #[cfg(target_os = "macos")]
 mod macos_icon;
+#[cfg(target_os = "macos")]
+mod macos_traffic_lights;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -37,6 +39,8 @@ fn frontend_ready(window: WebviewWindow, state: tauri::State<'_, backend::Backen
     if state.claim_frontend_reveal()
         && !INITIAL_REVEAL_DONE.swap(true, Ordering::SeqCst)
     {
+        #[cfg(target_os = "macos")]
+        macos_traffic_lights::align(&window);
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -102,11 +106,11 @@ pub fn run() {
             backend::setup(app)?;
             tray::setup(app)?;
             #[cfg(target_os = "macos")]
-            if let Some(theme) = app
-                .get_webview_window("main")
-                .and_then(|window| window.theme().ok())
-            {
-                macos_icon::set(theme);
+            if let Some(window) = app.get_webview_window("main") {
+                macos_traffic_lights::align(&window);
+                if let Ok(theme) = window.theme() {
+                    macos_icon::set(theme);
+                }
             }
             Ok(())
         })
@@ -128,6 +132,8 @@ pub fn run() {
                 .state::<backend::BackendState>()
                 .claim_frontend_reveal();
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                macos_traffic_lights::align(&window);
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -143,6 +149,8 @@ pub fn run() {
                     tray::request_close(window.app_handle());
                 }
                 WindowEvent::Resized(_) | WindowEvent::Moved(_) => {
+                    #[cfg(target_os = "macos")]
+                    macos_traffic_lights::align_main(window.app_handle());
                     window_state::schedule_save(window.app_handle());
                 }
                 _ => {}

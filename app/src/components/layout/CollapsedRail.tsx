@@ -87,8 +87,9 @@ export function CollapsedRail() {
     <div
       data-tauri-drag-region={mac || undefined}
       onMouseDown={onTitlebarMouseDown}
+      // mac：灯簇右缘约 70px，5.75rem 再空约 22px，避免贴绿灯。
       className={`absolute left-0 top-0 z-40 flex h-11 items-center gap-0.5 ${
-        mac ? "pl-[4.75rem] pr-2" : "pl-3 pr-2"
+        mac ? "pl-[5.75rem] pr-2" : "pl-3 pr-2"
       }`}
     >
       <ChromeActions sidebarCollapsed />

@@ -15,7 +15,7 @@
         "title": "Potato",
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 16, "y": 22 },
+        "trafficLightPosition": { "x": 16, "y": 30 },
         "width": 1280,
         "height": 800,
         "minWidth": 960,
