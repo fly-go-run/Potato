@@ -6,6 +6,7 @@ import type { ThemedToken } from "@shikijs/types";
 import { filePreviewUrl } from "../../lib/api";
 import { openLocalPathWithSystem } from "../../lib/desktop";
 import { highlightCode, isSupportedLanguage } from "../../lib/highlight";
+import { repairMarkdown } from "../../lib/repairMarkdown";
 
 interface MarkdownProps {
   children: string;
@@ -25,6 +26,7 @@ export function Markdown({
   resolveFilePath,
   onOpenFile,
 }: MarkdownProps) {
+  const source = repairMarkdown(children);
   return (
     <div className="min-w-0 text-[15px] leading-[1.75] text-ink">
       <ReactMarkdown
@@ -145,7 +147,7 @@ export function Markdown({
           },
         }}
       >
-        {children}
+        {source}
       </ReactMarkdown>
     </div>
   );

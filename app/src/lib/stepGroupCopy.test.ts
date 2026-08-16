@@ -77,6 +77,16 @@ describe("formatStepGroupObject", () => {
     ).toBe("3 cmds");
   });
 
+  it("compacts a stuffed weather query to the place and day", () => {
+    const row = group({
+      family: "search",
+      object: "北京 今天 2026年8月16日 天气 实时 温度 降水预报",
+      objects: ["北京 今天 2026年8月16日 天气 实时 温度 降水预报"],
+      pairs: stubs(1),
+    });
+    expect(formatStepGroupObject(row, t("zh"), "zh")).toBe("北京今天");
+  });
+
   it("writes search as 关键词 ×N and omits ×1", () => {
     const many = group({
       family: "search",

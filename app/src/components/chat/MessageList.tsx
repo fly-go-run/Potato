@@ -44,6 +44,7 @@ import {
   summarizeTrack,
   type TrackEntrySnapshot,
 } from "../../lib/executionTrack";
+import { shouldShowProcessHeader } from "../../lib/processHeader";
 import { formatStepGroupObject } from "../../lib/stepGroupCopy";
 import {
   FOLD_WINDOW,
@@ -651,13 +652,15 @@ function TurnFlow({
     failedTools > 0;
   const liveWindow = live || settling;
   const settledFailed = state.kind === "done" ? state.failed : 0;
-  const showSettledHeader =
-    (elapsedMs !== null && elapsedMs >= 60_000) ||
-    settledFailed > 0 ||
-    failedTools > 0 ||
-    foldRows.length > FOLD_WINDOW;
+  const toolFoldCount = foldRows.filter((row) => row.type !== "thinking").length;
   const showHeader =
-    hasProcess && (waiting || liveWindow || showSettledHeader);
+    hasProcess &&
+    shouldShowProcessHeader({
+      elapsedMs,
+      failed: Math.max(settledFailed, failedTools),
+      toolFoldCount,
+      foldWindow: FOLD_WINDOW,
+    });
   const toggleable = foldRows.length > 0 || failedTools > 0;
   const showDurationSuffix =
     Boolean(durationLabel) &&
@@ -752,6 +755,9 @@ function TurnFlow({
           <ToolCard pair={piece.pair} onOpenFile={onOpenFile} />
         </div>,
       );
+      continue;
+    }
+    if (piece.type === "fold" && piece.row.type === "thinking" && !showHeader) {
       continue;
     }
     if (!headerOpen || !shownKeys.has(piece.key)) continue;

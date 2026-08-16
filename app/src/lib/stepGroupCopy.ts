@@ -36,11 +36,27 @@ export function formatStepGroupObject(
   return withEditStats(object, row);
 }
 
+const SEARCH_NOISE =
+  /^(天气|实时|温度|降水预报|预报|weather|temperature|forecast|realtime|current)$/i;
+const SEARCH_DATE =
+  /^\d{4}[-年/]\d{1,2}[-月/]\d{1,2}日?$|^\d{1,2}月\d{1,2}日$/;
+
 function formatSearchObject(row: ToolGroupRow): string {
-  const keyword = row.objects[0] || row.object;
+  const keyword = compactSearchQuery(row.objects[0] || row.object);
   const count = row.pairs.length;
   if (!keyword) return "";
   return count > 1 ? `${keyword} ×${count}` : keyword;
+}
+
+/** Keep the place/time object; drop date stamps and synonym stuffing. */
+export function compactSearchQuery(raw: string): string {
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const kept = tokens.filter(
+    (token) => !SEARCH_DATE.test(token) && !SEARCH_NOISE.test(token),
+  );
+  const picked = (kept.length > 0 ? kept : tokens).slice(0, 2);
+  const cjk = picked.every((token) => /[\u4e00-\u9fff]/.test(token));
+  return picked.join(cjk ? "" : " ");
 }
 
 function objectNames(row: ToolGroupRow, language: Language): string[] {
