@@ -48,6 +48,7 @@ _SYNTHETIC_USER_TAGS = (
     "loop_continuation",
     "auto_continue",
     "rubric_evaluation",
+    "runtime_context",
 )
 
 _DATE_RE = re.compile(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})")

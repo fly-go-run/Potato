@@ -144,3 +144,24 @@ def test_progress_narration_hint_follows_agent_language(tmp_path):
         build_progress_narration_hint("en")
         == PROGRESS_NARRATION_HINT_EN.strip()
     )
+
+
+def test_default_system_prompt_excludes_env_and_driver_hints(tmp_path):
+    """Dynamic env/policy must not sit in the cached system prefix."""
+    ctx = _ctx(tmp_path, [])
+    ctx.extras["env_context"] = (
+        "====================\n"
+        "- Session ID: sess-cache\n"
+        "- Current date: 2026-08-16 UTC (Sunday)\n"
+        "===================="
+    )
+    ctx.extras["driver_prompt_hints"] = ["Driver policy: ask"]
+
+    prompt = build_default_prompt_manager().build_sync(ctx)
+
+    assert "Session ID: sess-cache" not in prompt
+    assert "Current date:" not in prompt
+    assert "Driver policy: ask" not in prompt
+    assert "env_context" not in build_default_prompt_manager().names()
+    assert "driver_policy_hint" not in build_default_prompt_manager().names()
+

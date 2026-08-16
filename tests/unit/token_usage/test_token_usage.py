@@ -644,6 +644,39 @@ class TestTokenRecordingModelWrapper:
         assert stored is not None
         assert stored["context_size"] == 1_000_000
         assert stored["compact_threshold"] == 0.8
+        assert stored["cached_tokens"] == 0
+
+
+    def test_record_usage_captures_cache_hits(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "potato.token_usage.manager.WORKING_DIR",
+            tmp_path,
+        )
+        monkeypatch.setattr(
+            "potato.token_usage.manager.TOKEN_USAGE_FILE",
+            "test_token_usage.json",
+        )
+        monkeypatch.setattr(
+            "potato.app.agent_context.get_current_session_id",
+            lambda: "sess-cache",
+        )
+
+        mock_model = MagicMock()
+        mock_model.model = "deepseek-chat"
+        wrapper = TokenRecordingModelWrapper(
+            provider_id="deepseek",
+            model=mock_model,
+        )
+        mock_usage = MagicMock()
+        mock_usage.input_tokens = 14000
+        mock_usage.output_tokens = 20
+        mock_usage.cache_input_tokens = 12800
+        wrapper._record_usage(mock_usage)
+
+        stored = TokenRecordingModelWrapper.pop_usage_for_session("sess-cache")
+        assert stored is not None
+        assert stored["cached_tokens"] == 12800
+        assert stored["prompt_tokens"] == 14000
 
     def test_pop_usage_for_session(self, monkeypatch):
         """Should pop usage for session."""

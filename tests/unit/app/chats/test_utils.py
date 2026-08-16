@@ -14,6 +14,7 @@ from potato.app.chats.utils import (
 from potato.app.chats.title_generator import _clean_title
 from potato.constant import (
     POTATO_MESSAGE_TAG_KEY,
+    RUNTIME_CONTEXT_MESSAGE_TAG,
     SCROLL_MEMORY_MESSAGE_TAG,
 )
 
@@ -203,6 +204,25 @@ def test_msg_to_message_omits_legacy_scroll_memory_placeholder():
     )
 
     assert not agentscope_msg_to_message(placeholder)
+
+
+def test_msg_to_message_omits_runtime_context_snapshot():
+    snapshot = Msg(
+        name="runtime",
+        role="user",
+        content=[
+            {
+                "type": "text",
+                "text": "<runtime_context>\n- Current date: 2026-08-16\n"
+                "</runtime_context>",
+            },
+        ],
+        metadata={
+            POTATO_MESSAGE_TAG_KEY: RUNTIME_CONTEXT_MESSAGE_TAG,
+        },
+    )
+
+    assert not agentscope_msg_to_message(snapshot)
 
 
 def test_msg_to_message_preserves_user_discussion_of_compressed_context():

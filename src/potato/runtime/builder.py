@@ -279,6 +279,14 @@ class AgentBuilder:
         if not hasattr(ctx, "extras") or ctx.extras is None:
             ctx.extras = {}
         ctx.extras["driver_prompt_hints"] = driver_prompt_hints
+        from .runtime_context import build_runtime_context_snapshot
+
+        runtime_snapshot = build_runtime_context_snapshot(
+            self._build_env_context(ctx, agent_config),
+            driver_prompt_hints,
+        )
+        ctx.extras["runtime_context_snapshot"] = runtime_snapshot
+        request_context["runtime_context_snapshot"] = runtime_snapshot
 
         # Model + formatter (built before the toolkit so the scroll context
         # strategy, which needs the model for token counting, can wire in).
@@ -1026,13 +1034,22 @@ class AgentBuilder:
 
         Order (onion model, outermost first):
         1. CompactionStatusMiddleware — lightweight UI lifecycle event
-        2. ToolResultPruningMiddleware — tiered tool result pruning
-        3. ToolCoordinatorMiddleware — tool call lifecycle management
-        4. Plugin-registered middlewares (sorted by priority)
+        2. RuntimeContextMiddleware — append-only env/policy snapshot
+        3. ToolResultPruningMiddleware — tiered tool result pruning
+        4. ToolCoordinatorMiddleware — tool call lifecycle management
+        5. Plugin-registered middlewares (sorted by priority)
         """
-        from ..agents.middlewares import CompactionStatusMiddleware
+        from ..agents.middlewares import (
+            CompactionStatusMiddleware,
+            RuntimeContextMiddleware,
+        )
 
-        mws: list[Any] = [CompactionStatusMiddleware()]
+        extras = getattr(ctx, "extras", {}) or {}
+        snapshot = extras.get("runtime_context_snapshot") or ""
+        mws: list[Any] = [
+            CompactionStatusMiddleware(),
+            RuntimeContextMiddleware(snapshot=str(snapshot)),
+        ]
 
         pruning_middleware = None
         try:

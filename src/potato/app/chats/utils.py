@@ -28,7 +28,7 @@ from potato.exceptions import (
 
 from ...config import load_config
 from ...constant import (
-    POTATO_MESSAGE_TAG_KEY,
+    RUNTIME_CONTEXT_MESSAGE_TAG,
     get_message_tag,
     SCROLL_MEMORY_MESSAGE_TAG,
 )
@@ -484,6 +484,10 @@ def agentscope_msg_to_message(
 
     for msg in msgs:
         if _is_scroll_memory_placeholder(msg):
+            continue
+        if get_message_tag(getattr(msg, "metadata", None)) == (
+            RUNTIME_CONTEXT_MESSAGE_TAG
+        ):
             continue
         role = msg.role or "assistant"
 

@@ -290,3 +290,45 @@ async def test_check_connection_probes_responses_when_model_known(
 
     assert await provider.check_connection() == (True, "")
     assert probed == ["gpt-5"]
+
+
+async def test_prompt_cache_key_is_session_id_on_openai(
+    monkeypatch,
+) -> None:
+    captured: dict = {}
+    monkeypatch.setattr(openai, "AsyncClient", _fake_client(captured))
+    monkeypatch.setattr(
+        "potato.app.agent_context.get_current_session_id",
+        lambda: "conv-123",
+    )
+    provider = _provider()
+    model = provider.get_chat_model_instance("gpt-5")
+
+    await model._call_api("gpt-5", [])
+
+    assert captured["prompt_cache_key"] == "conv-123"
+
+
+async def test_prompt_cache_key_is_sent_on_relay_responses_endpoint(
+    monkeypatch,
+) -> None:
+    """Third-party Responses relays forward the field to OpenAI."""
+    captured: dict = {}
+    monkeypatch.setattr(openai, "AsyncClient", _fake_client(captured))
+    monkeypatch.setattr(
+        "potato.app.agent_context.get_current_session_id",
+        lambda: "conv-123",
+    )
+    provider = OpenAIResponseProvider(
+        id="relay",
+        name="OpenAI Relay",
+        base_url="https://relay.example.com/v1",
+        api_key="sk-test",
+        chat_model="OpenAIResponseModel",
+        models=[],
+    )
+    model = provider.get_chat_model_instance("gpt-5")
+
+    await model._call_api("gpt-5", [])
+
+    assert captured["prompt_cache_key"] == "conv-123"

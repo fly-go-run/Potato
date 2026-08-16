@@ -217,6 +217,13 @@ class OpenAIResponseModelCompat(OpenAIResponseModel):
         ):
             generate_kwargs["max_output_tokens"] = max_tokens
         merged = {**self._extra_generate_kwargs, **generate_kwargs}
+        from ..app.agent_context import get_current_session_id
+        from .prompt_cache import apply_prompt_cache_key
+
+        apply_prompt_cache_key(
+            merged,
+            session_id=get_current_session_id(),
+        )
         if disable_thinking:
             # Internal utility calls opt out of reasoning.  ``NOT_GIVEN``
             # drops the key from the request body entirely; an explicit

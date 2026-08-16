@@ -12,6 +12,46 @@ from .buffer import _UsageEvent
 from .manager import get_token_usage_manager
 
 
+def _cached_tokens_from_usage(usage: Any) -> int:
+    """Read provider cache-hit tokens from a ChatUsage-like object.
+
+    AgentScope maps OpenAI ``cached_tokens``, DeepSeek
+    ``prompt_cache_hit_tokens``, and Anthropic cache-read tokens onto
+    ``cache_input_tokens``. Fall back through a few aliases so a
+    wrapper around a raw SDK usage object still records a hit.
+    """
+    for attr in (
+        "cache_input_tokens",
+        "cached_tokens",
+        "prompt_cache_hit_tokens",
+        "cache_read_input_tokens",
+    ):
+        parsed = _as_token_count(getattr(usage, attr, None))
+        if parsed:
+            return parsed
+    details = getattr(usage, "prompt_tokens_details", None)
+    if details is not None:
+        value = (
+            details.get("cached_tokens")
+            if isinstance(details, dict)
+            else getattr(details, "cached_tokens", None)
+        )
+        parsed = _as_token_count(value)
+        if parsed:
+            return parsed
+    return 0
+
+
+def _as_token_count(value: Any) -> int:
+    if isinstance(value, bool) or value is None:
+        return 0
+    if isinstance(value, int):
+        return value if value > 0 else 0
+    if isinstance(value, float):
+        return int(value) if value > 0 else 0
+    return 0
+
+
 class TokenRecordingModelWrapper(ChatModelBase):
     """Wraps a ChatModelBase to record token usage on each call."""
 
@@ -46,6 +86,7 @@ class TokenRecordingModelWrapper(ChatModelBase):
             return
         pt = getattr(usage, "input_tokens", 0) or 0
         ct = getattr(usage, "output_tokens", 0) or 0
+        cached = _cached_tokens_from_usage(usage)
         if pt <= 0 and ct <= 0:
             return
 
@@ -67,6 +108,7 @@ class TokenRecordingModelWrapper(ChatModelBase):
             "model_name": self.model,
             "prompt_tokens": pt,
             "completion_tokens": ct,
+            "cached_tokens": cached,
             "total_tokens": pt + ct,
             # Context window of the wrapped model, so the UI can show how full
             # the *current* context is (prompt_tokens / context_size), distinct

@@ -11,9 +11,11 @@ Contributors read configuration from ``ctx.extras``:
 * ``agent_id``      — from ``ctx.agent_id``
 * ``language``      — ``ctx.extras["language"]`` (default ``"zh"``)
 * ``heartbeat_enabled`` — ``ctx.extras.get("heartbeat_enabled", False)``
-* ``env_context``       — ``ctx.extras.get("env_context")``
 * ``agent_config``      — ``ctx.extras.get("agent_config")``
-* ``driver_prompt_hints`` — ``ctx.extras.get("driver_prompt_hints", [])``
+
+Environment and driver-policy text are **not** system-prompt fragments.
+They are appended as a tagged user-role snapshot so the system+tools
+prefix stays cacheable (see :mod:`potato.runtime.runtime_context`).
 """
 
 from __future__ import annotations
@@ -394,27 +396,29 @@ class ScrollContextContributor(SyncPromptContributor):
 
 
 class EnvContextContributor(SyncPromptContributor):
-    """Append the environment context block (time / session / OS)."""
+    """Legacy no-op. Env now lives in an append-only history snapshot.
+
+    Kept so older workspace registrations do not rewrite the system
+    prompt and bust the prefix cache.
+    """
 
     name = "env_context"
     priority = 90
 
     def contribute_sync(self, ctx: "HookContext") -> str | None:
-        extras = getattr(ctx, "extras", {}) or {}
-        return extras.get("env_context") or None
+        del ctx
+        return None
 
 
 class DriverPolicyHintContributor(SyncPromptContributor):
-    """Append request-time Driver policy guidance when tools are exposed."""
+    """Legacy no-op. Driver hints ride with the runtime-context snapshot."""
 
     name = "driver_policy_hint"
     priority = 88
 
     def contribute_sync(self, ctx: "HookContext") -> str | None:
-        extras = getattr(ctx, "extras", {}) or {}
-        hints = extras.get("driver_prompt_hints") or []
-        rendered = "\n\n".join(str(hint) for hint in hints if hint)
-        return rendered or None
+        del ctx
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -428,8 +432,6 @@ _ALL_CONTRIBUTORS = (
     ProgressNarrationContributor,
     CodingModeContributor,
     ScrollContextContributor,
-    DriverPolicyHintContributor,
-    EnvContextContributor,
 )
 
 

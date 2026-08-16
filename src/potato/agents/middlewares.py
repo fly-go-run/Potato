@@ -30,9 +30,9 @@ from .tools.utils import (
 )
 from ..constant import (
     EXTERNAL_USER_QUERY_MESSAGE_TAG,
-    POTATO_MESSAGE_TAG_KEY,
     get_message_tag,
 )
+from ..runtime.runtime_context import ensure_runtime_context_snapshot
 
 if TYPE_CHECKING:
     from agentscope.agent import Agent
@@ -162,6 +162,52 @@ class CompactionStatusMiddleware(MiddlewareBase):
             },
             metadata={"ui_kind": "context_compaction"},
         )
+
+
+class RuntimeContextMiddleware(MiddlewareBase):
+    """Keep env/policy out of the system prompt and append-only in history.
+
+    The snapshot is inserted before the latest external user query when
+    missing or changed, and re-applied after compaction evicts it.
+    """
+
+    def __init__(self, snapshot: str = "") -> None:
+        self._snapshot = snapshot or ""
+
+    def _snapshot_for(self, agent: "Agent") -> str:
+        request_context = getattr(agent, "_request_context", None) or {}
+        value = request_context.get("runtime_context_snapshot")
+        if isinstance(value, str) and value.strip():
+            return value
+        return self._snapshot
+
+    def _ensure(self, agent: "Agent") -> None:
+        snapshot = self._snapshot_for(agent)
+        if not snapshot:
+            return
+        context = getattr(getattr(agent, "state", None), "context", None)
+        if not isinstance(context, list):
+            return
+        ensure_runtime_context_snapshot(context, snapshot)
+
+    async def on_reply(
+        self,
+        agent: "Agent",
+        input_kwargs: dict[str, Any],
+        next_handler: Callable[..., AsyncGenerator[Any, None]],
+    ) -> AsyncGenerator[Any, None]:
+        self._ensure(agent)
+        async for item in next_handler(**input_kwargs):
+            yield item
+
+    async def on_compress_context(
+        self,
+        agent: "Agent",
+        input_kwargs: dict[str, Any],
+        next_handler: Callable[..., Any],
+    ) -> None:
+        await next_handler(**input_kwargs)
+        self._ensure(agent)
 
 
 class MemoryMiddleware(MiddlewareBase):
