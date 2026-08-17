@@ -395,7 +395,19 @@ export const approvalApi = {
 
 export const workspaceApi = {
   runningConfig: () =>
-    apiJson<{ approval_level?: string }>("/api/workspace/running-config"),
+    apiJson<{
+      approval_level?: string;
+      sandbox_mode?: string;
+      [key: string]: unknown;
+    }>("/api/workspace/running-config"),
+  putRunningConfig: (config: Record<string, unknown>) =>
+    apiJson<{
+      approval_level?: string;
+      sandbox_mode?: string;
+    }>("/api/workspace/running-config", {
+      method: "PUT",
+      body: JSON.stringify(config),
+    }),
 };
 
 export type TranscriptionProviderType =
@@ -525,6 +537,16 @@ export interface SandboxStatus {
   reason: string | null;
 }
 
+export interface ComputerUseStatus {
+  enabled: boolean;
+  driver_available: boolean;
+  driver_path: string;
+  driver_version: string;
+  always_allowed_apps: string[];
+  platform: string;
+  hint: string;
+}
+
 export const settingsApi = {
   uploadLimit: () => apiJson<UploadLimit>("/api/settings/upload-limit"),
   sandboxStatus: () => apiJson<SandboxStatus>("/api/config/security/sandbox"),
@@ -532,6 +554,15 @@ export const settingsApi = {
     apiJson<SandboxStatus>("/api/config/security/sandbox", {
       method: "PUT",
       body: JSON.stringify({ enabled }),
+    }),
+  computerUse: () => apiJson<ComputerUseStatus>("/api/computer-use"),
+  setComputerUse: (body: {
+    enabled?: boolean;
+    always_allowed_apps?: string[];
+  }) =>
+    apiJson<ComputerUseStatus>("/api/computer-use", {
+      method: "PUT",
+      body: JSON.stringify(body),
     }),
 };
 

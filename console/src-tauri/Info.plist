@@ -12,5 +12,7 @@
   <dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>Potato 需要使用麦克风,把你说的话转写成文字填进输入框。</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Potato 在你允许电脑控制时，需要和本机应用交换必要的辅助信息。</string>
   </dict>
 </plist>

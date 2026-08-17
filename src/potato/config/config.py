@@ -1602,6 +1602,13 @@ class AgentsRunningConfig(BaseModel):
             "the value is written back to the agent profile."
         ),
     )
+    sandbox_mode: Optional[str] = Field(
+        default=None,
+        description=(
+            "Standing sandbox cage (proxied from agent profile): "
+            "read-only, workspace-write, or danger-full-access."
+        ),
+    )
 
 
 class AgentsLLMRoutingConfig(BaseModel):
@@ -1739,6 +1746,13 @@ class AgentProfileConfig(BaseModel):
             "SMART (low-risk auto-allowed), "
             "AUTO (only guarded tools), "
             "OFF (guard disabled)"
+        ),
+    )
+    sandbox_mode: str = Field(
+        default="workspace-write",
+        description=(
+            "Standing sandbox cage: read-only, workspace-write, "
+            "or danger-full-access."
         ),
     )
     auto_review: AutoReviewConfig = Field(
@@ -2431,12 +2445,33 @@ class SecurityConfig(BaseModel):
         return cleaned
 
 
+class ComputerUseConfig(BaseModel):
+    """Host desktop control through Cua Driver. Off until the user opts in."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Expose the computer-use facade tools to the model.",
+    )
+    driver_path: str = Field(
+        default="",
+        description="Deprecated cua-driver path; production ignores it.",
+    )
+    always_allowed_apps: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Bundle ids or Windows AUMIDs that skip Computer Use approval "
+            "outside STRICT mode."
+        ),
+    )
+
+
 class Config(BaseModel):
     """Root config (config.json)."""
 
     channels: ChannelConfig = ChannelConfig()
     mcp: MCPConfig = MCPConfig()
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    computer_use: ComputerUseConfig = Field(default_factory=ComputerUseConfig)
     last_api: LastApiConfig = LastApiConfig()
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     last_dispatch: Optional[LastDispatchConfig] = None

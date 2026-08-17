@@ -46,6 +46,7 @@ import {
   type ChatModelName,
   type ModelInfo,
   type ProviderInfo,
+  type ComputerUseStatus,
   type SandboxStatus,
   type TranscriptionProviderType,
   type WebSearchBackend,
@@ -77,7 +78,11 @@ import {
   type CustomTheme,
   type ThemePreference,
 } from "../lib/theme";
-import { useChatStore } from "../stores/chat";
+import {
+  useChatStore,
+  type ApprovalLevel,
+  type SandboxMode,
+} from "../stores/chat";
 import { useUiPrefs } from "../stores/uiPrefs";
 
 /**
@@ -145,13 +150,6 @@ function defaultSearchModel(providerId: string, current: string): string {
   return current;
 }
 
-const APPROVAL_LABELS: Record<string, TranslationKey> = {
-  AUTO: "composer.approval.auto",
-  SMART: "composer.approval.smart",
-  STRICT: "composer.approval.strict",
-  OFF: "composer.approval.off",
-};
-
 /** 「模型与服务商」分区的三个视图:列表 / 供应商详情 / 新建自定义供应商。 */
 type ProviderView =
   | { kind: "list" }
@@ -218,7 +216,15 @@ export function SettingsView() {
   const [pluginCount, setPluginCount] = useState(0);
   const [sandbox, setSandbox] = useState<SandboxStatus | null>(null);
   const [savingSandbox, setSavingSandbox] = useState(false);
+  const [computerUse, setComputerUse] = useState<ComputerUseStatus | null>(
+    null,
+  );
+  const [savingComputerUse, setSavingComputerUse] = useState(false);
+  const [allowAppDraft, setAllowAppDraft] = useState("");
   const approvalLevel = useChatStore((state) => state.approvalLevel);
+  const sandboxMode = useChatStore((state) => state.sandboxMode);
+  const setApprovalLevel = useChatStore((state) => state.setApprovalLevel);
+  const setSandboxMode = useChatStore((state) => state.setSandboxMode);
   const [uploadLimitMb, setUploadLimitMb] = useState<
     number | "unlimited" | "unknown"
   >("unknown");
@@ -416,6 +422,21 @@ export function SettingsView() {
   useEffect(() => {
     let active = true;
     void settingsApi
+      .computerUse()
+      .then((status) => {
+        if (active) setComputerUse(status);
+      })
+      .catch(() => {
+        // Older backends hide the row.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void settingsApi
       .uploadLimit()
       .then((limit) => {
         if (!active) return;
@@ -496,6 +517,66 @@ export function SettingsView() {
       setError(readableError(reason));
     } finally {
       setSavingSandbox(false);
+    }
+  };
+
+  const toggleComputerUse = async () => {
+    if (!computerUse || savingComputerUse) return;
+    setSavingComputerUse(true);
+    clearBanners();
+    try {
+      const next = await settingsApi.setComputerUse({
+        enabled: !computerUse.enabled,
+      });
+      setComputerUse(next);
+      setNotice(
+        next.enabled
+          ? t("settings.computerUse.enabledNotice")
+          : t("settings.computerUse.disabledNotice"),
+      );
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setSavingComputerUse(false);
+    }
+  };
+
+  const addAlwaysAllowedApp = async () => {
+    if (!computerUse || savingComputerUse) return;
+    const app = allowAppDraft.trim();
+    if (!app) return;
+    setSavingComputerUse(true);
+    clearBanners();
+    try {
+      const next = await settingsApi.setComputerUse({
+        always_allowed_apps: [...computerUse.always_allowed_apps, app],
+      });
+      setComputerUse(next);
+      setAllowAppDraft("");
+      setNotice(t("settings.computerUse.allowAdded", { app }));
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setSavingComputerUse(false);
+    }
+  };
+
+  const removeAlwaysAllowedApp = async (app: string) => {
+    if (!computerUse || savingComputerUse) return;
+    setSavingComputerUse(true);
+    clearBanners();
+    try {
+      const next = await settingsApi.setComputerUse({
+        always_allowed_apps: computerUse.always_allowed_apps.filter(
+          (item) => item !== app,
+        ),
+      });
+      setComputerUse(next);
+      setNotice(t("settings.computerUse.allowRemoved", { app }));
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setSavingComputerUse(false);
     }
   };
 
@@ -1419,15 +1500,155 @@ export function SettingsView() {
                     </SettingRow>
                   )}
                   <SettingRow
-                    title={t("settings.security.approval")}
+                    title={t("settings.security.sandbox")}
+                    description={t("settings.security.sandboxHint")}
                   >
-                    <span className="text-[13px] text-ink-secondary">
-                      {t(
-                        APPROVAL_LABELS[approvalLevel] ??
-                          "composer.approval.auto",
-                      )}
-                    </span>
+                    <Select
+                      className="w-56"
+                      aria-label={t("settings.security.sandbox")}
+                      data-testid="settings-sandbox-mode"
+                      value={sandboxMode}
+                      onChange={(event) =>
+                        setSandboxMode(event.target.value as SandboxMode)
+                      }
+                    >
+                      <option value="read-only">
+                        {t("composer.sandbox.readonly")}
+                      </option>
+                      <option value="workspace-write">
+                        {t("composer.sandbox.workspace")}
+                      </option>
+                      <option value="danger-full-access">
+                        {t("composer.sandbox.host")}
+                      </option>
+                    </Select>
                   </SettingRow>
+                  <SettingRow
+                    title={t("settings.security.approval")}
+                    description={t("settings.security.approvalHint")}
+                  >
+                    <Select
+                      className="w-56"
+                      aria-label={t("settings.security.approval")}
+                      data-testid="settings-approval-level"
+                      value={approvalLevel}
+                      onChange={(event) =>
+                        setApprovalLevel(event.target.value as ApprovalLevel)
+                      }
+                    >
+                      <option value="AUTO">{t("composer.approval.auto")}</option>
+                      <option value="SMART">
+                        {t("composer.approval.smart")}
+                      </option>
+                      <option value="STRICT">
+                        {t("composer.approval.strict")}
+                      </option>
+                      <option value="OFF">{t("composer.approval.off")}</option>
+                    </Select>
+                  </SettingRow>
+                  {computerUse && (
+                    <>
+                      <SettingRow
+                        title={t("settings.computerUse.label")}
+                        description={
+                          <>
+                            <span className="block">
+                              {t("settings.computerUse.hint")}
+                            </span>
+                            {computerUse.enabled
+                              ? t("settings.computerUse.on")
+                              : t("settings.computerUse.off")}
+                            <span className="mt-1 block">
+                              {computerUse.driver_available
+                                ? t("settings.computerUse.driverReady", {
+                                    version: computerUse.driver_version
+                                      ? ` ${computerUse.driver_version}`
+                                      : "",
+                                  })
+                                : t("settings.computerUse.driverMissing")}
+                            </span>
+                            {computerUse.hint && (
+                              <span className="mt-1 block text-ink-secondary">
+                                {computerUse.hint}
+                              </span>
+                            )}
+                          </>
+                        }
+                      >
+                        <Switch
+                          checked={computerUse.enabled}
+                          disabled={savingComputerUse}
+                          onChange={() => void toggleComputerUse()}
+                          aria-label={t("settings.computerUse.label")}
+                          data-testid="settings-computer-use"
+                        />
+                      </SettingRow>
+                      <SettingRow
+                        title={t("settings.computerUse.allowTitle")}
+                        description={t("settings.computerUse.allowHint")}
+                      >
+                        <div className="flex w-full max-w-md flex-col gap-2">
+                          <div className="flex gap-2">
+                            <Input
+                              value={allowAppDraft}
+                              onChange={(event) =>
+                                setAllowAppDraft(event.target.value)
+                              }
+                              placeholder={t(
+                                "settings.computerUse.allowPlaceholder",
+                              )}
+                              aria-label={t("settings.computerUse.allowTitle")}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  void addAlwaysAllowedApp();
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              disabled={
+                                savingComputerUse || !allowAppDraft.trim()
+                              }
+                              onClick={() => void addAlwaysAllowedApp()}
+                            >
+                              {t("settings.computerUse.allowAdd")}
+                            </Button>
+                          </div>
+                          {computerUse.always_allowed_apps.length === 0 ? (
+                            <p className="text-[12px] text-ink-secondary">
+                              {t("settings.computerUse.allowEmpty")}
+                            </p>
+                          ) : (
+                            <ul className="flex flex-wrap gap-1.5">
+                              {computerUse.always_allowed_apps.map((app) => (
+                                <li key={app}>
+                                  <Badge>
+                                    <span className="max-w-[12rem] truncate">
+                                      {app}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="ml-1 text-ink-secondary"
+                                      aria-label={t(
+                                        "settings.computerUse.allowRemoved",
+                                        { app },
+                                      )}
+                                      onClick={() =>
+                                        void removeAlwaysAllowedApp(app)
+                                      }
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </Badge>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </SettingRow>
+                    </>
+                  )}
                 </SettingsGroup>
               ) : activeSection === "data" ? (
                 <SettingsGroup>

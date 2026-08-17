@@ -119,6 +119,13 @@ class PotatoLocalWorkspace(AgentScopeLocalWorkspace):
         explicit_enabled = {
             n for n, c in cfg.items() if getattr(c, "enabled", True)
         }
+        from ...computer_use.constants import COMPUTER_USE_TOOL_NAMES
+        from ...computer_use.settings import computer_use_enabled
+
+        if computer_use_enabled():
+            denied -= set(COMPUTER_USE_TOOL_NAMES)
+        else:
+            denied |= set(COMPUTER_USE_TOOL_NAMES)
 
         defaults = self._tool_registry.default_enabled_names()
         plugin_opt_ins = explicit_enabled - defaults

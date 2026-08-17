@@ -71,7 +71,8 @@ calculate_fingerprint() {
             "scripts/pack-tauri/potato.spec" \
             "scripts/pack-tauri/sign_macos_bundle.sh" \
             "scripts/pack-tauri/stage_python_runtime.py" \
-            "scripts/pack-tauri/stage_node_runtime.py"; do
+            "scripts/pack-tauri/stage_node_runtime.py" \
+            "scripts/pack-tauri/stage_cua_driver.py"; do
             if [ -f "${REPO_ROOT}/${input}" ]; then
                 printf 'input=%s\n' "${input}"
                 shasum -a 256 "${REPO_ROOT}/${input}"
@@ -260,9 +261,31 @@ echo "== Staging bundled Python runtime =="
     --dest "${BINARIES_DIR}/python-runtime"
 echo ""
 
+# Install Potato into that CPython so the desktop shell can skip PyInstaller
+# on the hot path. Failure is non-fatal: command.rs falls back to the frozen
+# sidecar if import potato is missing.
+BUNDLED_PY="${BINARIES_DIR}/python-runtime/python/bin/python3"
+if [ ! -x "${BUNDLED_PY}" ]; then
+    BUNDLED_PY="${BINARIES_DIR}/python-runtime/python/bin/python"
+fi
+if [ -x "${BUNDLED_PY}" ]; then
+    echo "== Installing Potato into bundled CPython =="
+    if ! "$PYTHON_BIN" "${REPO_ROOT}/scripts/pack-tauri/stage_potato_runtime.py" \
+        --python "${BUNDLED_PY}" \
+        --repo "${REPO_ROOT}"; then
+        echo "WARNING: bundled CPython Potato install failed; desktop will use the frozen sidecar"
+    fi
+    echo ""
+fi
+
 echo "== Staging bundled Node runtime =="
 "$PYTHON_BIN" "${REPO_ROOT}/scripts/pack-tauri/stage_node_runtime.py" \
     --dest "${BINARIES_DIR}/node-runtime"
+echo ""
+
+echo "== Staging bundled cua-driver =="
+"$PYTHON_BIN" "${REPO_ROOT}/scripts/pack-tauri/stage_cua_driver.py" \
+    --dest "${BINARIES_DIR}/cua-driver"
 echo ""
 
 echo "========================================="

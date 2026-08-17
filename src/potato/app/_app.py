@@ -669,6 +669,7 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
         # These three cleanup tasks are independent; run in parallel.
         from ..agents.skill_system.hub import aclose_hub_client
         from ..agents.tools.browser_control import stop_all_browsers
+        from ..agents.tools.computer_use import shutdown_computer_use
 
         async def _stop_token_usage():
             logger.info("Stopping TokenUsageManager...")
@@ -687,6 +688,14 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
                     f"Error stopping browsers: {e}",
                 )
 
+        async def _stop_computer_use():
+            try:
+                await shutdown_computer_use()
+            except Exception as e:
+                logger.error(
+                    f"Error stopping computer-use driver: {e}",
+                )
+
         async def _close_hub():
             try:
                 await aclose_hub_client()
@@ -698,6 +707,7 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
         await asyncio.gather(
             _stop_token_usage(),
             _stop_browsers(),
+            _stop_computer_use(),
             _close_hub(),
         )
 

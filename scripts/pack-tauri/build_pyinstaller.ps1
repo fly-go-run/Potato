@@ -216,10 +216,28 @@ Write-Host "== Staging bundled Python runtime ==" -ForegroundColor Yellow
 Assert-LastExit "Failed to stage bundled Python runtime"
 Write-Host ""
 
+$bundledPy = Join-Path $BINARIES_DIR "python-runtime\python\python.exe"
+if (Test-Path $bundledPy) {
+    Write-Host "== Installing Potato into bundled CPython ==" -ForegroundColor Yellow
+    & $PYTHON_BIN (Join-Path $REPO_ROOT "scripts\pack-tauri\stage_potato_runtime.py") `
+        --python $bundledPy `
+        --repo $REPO_ROOT
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "WARNING: bundled CPython Potato install failed; desktop will use the frozen sidecar" -ForegroundColor Yellow
+    }
+    Write-Host ""
+}
+
 Write-Host "== Staging bundled Node runtime ==" -ForegroundColor Yellow
 & $PYTHON_BIN (Join-Path $REPO_ROOT "scripts\pack-tauri\stage_node_runtime.py") `
     --dest (Join-Path $BINARIES_DIR "node-runtime")
 Assert-LastExit "Failed to stage bundled Node runtime"
+Write-Host ""
+
+Write-Host "== Staging bundled cua-driver ==" -ForegroundColor Yellow
+& $PYTHON_BIN (Join-Path $REPO_ROOT "scripts\pack-tauri\stage_cua_driver.py") `
+    --dest (Join-Path $BINARIES_DIR "cua-driver")
+Assert-LastExit "Failed to stage bundled cua-driver"
 Write-Host ""
 
 Write-Host "=========================================" -ForegroundColor Cyan

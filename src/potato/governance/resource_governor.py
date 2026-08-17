@@ -18,12 +18,24 @@ from .policy import (
     GovernanceAction,
     GovernanceDecision,
     ToolCallSpec,
-    DEFAULT_SANDBOX_DENY_PATHS,
     FILE_READ_TOOLS,
     FILE_WRITE_TOOLS,
     load_governance_policy,
     save_governance_policy,
     _parse_match,
+)
+from .escalation import (
+    DANGER_FULL_ACCESS,
+    EscalationLevel,
+    extra_writable_path,
+    has_session_grant,
+    parse_escalation_request,
+    path_permission_key,
+)
+from .write_boundary import (
+    refine_file_write_decision,
+    sandbox_deny_paths,
+    validate_extra_writable,
 )
 from .audit import AuditLog
 from .tool_registry import DEFAULT_REGISTRY
@@ -93,6 +105,7 @@ class ResourceGovernor:
         self._policy: Optional[GovernancePolicy] = None
         self._sandbox_available: bool = False
         self._sandbox_capability: Optional[SandboxCapability] = None
+        self.session_sandbox_mode: str = "workspace-write"
 
     # ------------------------------------------------------------------
     # Lifecycle (kept but not expanded, overlaps with runtime)
@@ -169,8 +182,8 @@ class ResourceGovernor:
         """Effective sandbox availability: platform support AND global switch.
 
         When the operator turns the switch off, the sandbox is treated as
-        unavailable and shell execution is surfaced as an explicit
-        ``ALLOW_UNSANDBOXED`` decision.
+        unavailable and shell calls that needed containment are DENY
+        (``SANDBOX_UNAVAILABLE``).
         """
         return self._sandbox_available and self._sandbox_globally_enabled()
 
@@ -208,8 +221,8 @@ class ResourceGovernor:
         if not self._sandbox_available:
             logger.warning(
                 "ResourceGovernor: sandbox not available — %s. "
-                "Shell execution will be explicitly audited as "
-                "ALLOW_UNSANDBOXED after policy checks.",
+                "Shell calls that need containment will be DENY "
+                "(SANDBOX_UNAVAILABLE).",
                 self._sandbox_capability.reason,
             )
 
@@ -231,38 +244,168 @@ class ResourceGovernor:
 
         Flow:
             1. policy.evaluate(tc_spec) → GovernanceDecision
-            2. Sandbox degradation: a shell command with unavailable
-               containment → explicit ALLOW_UNSANDBOXED
-            3. Sandboxed shell decisions → compile sandbox config and attach
-            4. Log the governance decision (observability)
-            5. Return decision (does NOT record audit)
+            2. Explicit ``danger-full-access`` → session grant or ASK
+            3. Sandbox unavailable: a shell command that needed
+               containment → DENY (SANDBOX_UNAVAILABLE)
+            4. Sandboxed shell decisions (including ASK) compile a cage
+            5. Log the governance decision (observability)
+            6. Return decision (does NOT record audit)
 
         Returns GovernanceDecision:
             ALLOW            → explicit resource tool executes directly;
                                bash tool executes with sandbox
                                pre-authorization
-            ALLOW_UNSANDBOXED→ shell command runs without containment only
-                               when it was explicitly disabled/unavailable
+            ALLOW_UNSANDBOXED→ explicit host grant only (model declared
+                               danger-full-access and a human approved it)
             DENY             → rejected
             ASK              → ask user
             SANDBOX_FALLBACK → bash tool with no rule match, sandbox fallback
         """
         decision = self.policy.evaluate(tc_spec)
+        decision = refine_file_write_decision(
+            decision,
+            tc_spec,
+            workspace_dir=self.workspace_dir,
+            coding_project_dir=self.coding_project_dir,
+            policy_dir=self._policy_dir,
+        )
 
         is_shell = DEFAULT_REGISTRY.get_type(tc_spec.tool_name) == "shell"
-        needs_sandbox = (
-            decision.action is GovernanceAction.SANDBOX_FALLBACK
-            or decision.action is GovernanceAction.ALLOW
-            and is_shell
+        if is_shell:
+            requested, esc_error = parse_escalation_request(tc_spec.raw_params)
+        else:
+            requested, esc_error = None, None
+        if esc_error:
+            return GovernanceDecision(
+                action=GovernanceAction.DENY,
+                reason=esc_error,
+                findings=decision.findings,
+                source="escalation",
+            )
+        if (
+            is_shell
+            and requested
+            in (
+                EscalationLevel.DANGER_FULL_ACCESS,
+                EscalationLevel.NETWORK,
+                EscalationLevel.PATH,
+            )
+            and decision.action is not GovernanceAction.DENY
+        ):
+            extra_path = ""
+            if requested is EscalationLevel.PATH:
+                extra_path, path_err = validate_extra_writable(
+                    extra_writable_path(tc_spec.raw_params),
+                    workspace_dir=self.workspace_dir,
+                    coding_project_dir=self.coding_project_dir,
+                    policy_dir=self._policy_dir,
+                )
+                if path_err or not extra_path:
+                    return GovernanceDecision(
+                        action=GovernanceAction.DENY,
+                        reason=path_err or "invalid extra writable path",
+                        findings=decision.findings,
+                        source="escalation",
+                    )
+            permission = (
+                path_permission_key(extra_path)
+                if requested is EscalationLevel.PATH
+                else requested.value
+            )
+            just = str(
+                (tc_spec.raw_params or {}).get("justification") or "",
+            ).strip()
+            increment_ready = has_session_grant(
+                session_id=tc_spec.session_id,
+                tool_name=tc_spec.tool_name,
+                command=tc_spec.target,
+                permission=permission,
+            )
+            # A session increment only adds capability. It must not
+            # replace a policy ASK (STRICT / HIGH finding / builtin).
+            if increment_ready and decision.action in (
+                GovernanceAction.ALLOW,
+                GovernanceAction.SANDBOX_FALLBACK,
+            ):
+                if requested is EscalationLevel.DANGER_FULL_ACCESS:
+                    return GovernanceDecision(
+                        action=GovernanceAction.ALLOW_UNSANDBOXED,
+                        reason="session grant: danger-full-access",
+                        findings=decision.findings,
+                        source="escalation",
+                    )
+                granted = GovernanceDecision(
+                    action=GovernanceAction.ALLOW,
+                    reason=f"session grant: {requested.value}",
+                    findings=decision.findings,
+                    source="escalation",
+                )
+                if self._sandbox_usable():
+                    granted.sandbox_config = self.compile_sandbox_config(
+                        tc_spec,
+                        allow_network=requested is EscalationLevel.NETWORK,
+                        extra_writable=extra_path or None,
+                    )
+                return granted
+            if increment_ready and decision.action is GovernanceAction.ASK:
+                ask = GovernanceDecision(
+                    action=GovernanceAction.ASK,
+                    reason=decision.reason,
+                    findings=decision.findings,
+                    source=decision.source,
+                )
+            else:
+                ask = GovernanceDecision(
+                    action=GovernanceAction.ASK,
+                    reason=just
+                    or (
+                        "request extra writable path"
+                        if requested is EscalationLevel.PATH
+                        else "request network access"
+                        if requested is EscalationLevel.NETWORK
+                        else "request host execution"
+                    ),
+                    findings=decision.findings,
+                    source="escalation",
+                )
+            if (
+                requested is not EscalationLevel.DANGER_FULL_ACCESS
+                and self._sandbox_usable()
+            ):
+                ask.sandbox_config = self.compile_sandbox_config(
+                    tc_spec,
+                    allow_network=requested is EscalationLevel.NETWORK,
+                    extra_writable=extra_path or None,
+                )
+            return ask
+
+        needs_sandbox = is_shell and decision.action in (
+            GovernanceAction.SANDBOX_FALLBACK,
+            GovernanceAction.ALLOW,
+            GovernanceAction.ASK,
         )
 
         # Sandbox not usable (platform unsupported OR the global
-        # security.sandbox_enabled switch is off): a shell decision cannot
-        # preserve its containment guarantee.  Keep the degraded execution as
-        # a distinct action so audit/UI consumers can tell it from ALLOW.  The
-        # command has still cleared all policy/detector checks; only the
-        # containment layer is unavailable.
+        # security.sandbox_enabled switch is off). A missing cage must not
+        # become host execution — that is an implicit privilege expansion.
+        # Unsandboxed run requires a separate, explicit grant before the call.
         if needs_sandbox and not self._sandbox_usable():
+            # Standing host mode is the explicit "run without a cage"
+            # knob. It must not collapse to SANDBOX_UNAVAILABLE.
+            if self.session_sandbox_mode == DANGER_FULL_ACCESS:
+                if decision.action in (
+                    GovernanceAction.ALLOW,
+                    GovernanceAction.SANDBOX_FALLBACK,
+                ):
+                    return GovernanceDecision(
+                        action=GovernanceAction.ALLOW_UNSANDBOXED,
+                        reason="standing sandbox_mode=danger-full-access",
+                        findings=decision.findings,
+                        source=decision.source,
+                    )
+                if decision.action is GovernanceAction.ASK:
+                    decision.sandbox_config = None
+                    return decision
             if self._sandbox_available:
                 reason = "sandbox disabled by config"
             else:
@@ -273,23 +416,26 @@ class ResourceGovernor:
                 )
                 reason = f"sandbox unavailable ({capability_reason})"
             logger.info(
-                "ResourceGovernor: %s, running '%s' unsandboxed "
-                "(ALLOW_UNSANDBOXED)",
+                "ResourceGovernor: %s, denying '%s' (SANDBOX_UNAVAILABLE)",
                 reason,
                 tc_spec.tool_name,
             )
             decision = GovernanceDecision(
-                action=GovernanceAction.ALLOW_UNSANDBOXED,
-                reason=f"{reason}, running unsandboxed",
+                action=GovernanceAction.DENY,
+                reason=f"SANDBOX_UNAVAILABLE: {reason}",
+                findings=decision.findings,
                 source=decision.source,
             )
 
-        # Explicit Bash ALLOW is also sandboxed.  Only resource-oriented
-        # tools execute directly on ALLOW; shell commands must carry an actual
-        # config to the adapter.  SANDBOX_FALLBACK follows the same path.
+        # Shell ALLOW / fallback / policy ASK stay caged. Host execution
+        # is only the explicit danger-full-access branch above.
         if (
             decision.action
-            in (GovernanceAction.SANDBOX_FALLBACK, GovernanceAction.ALLOW)
+            in (
+                GovernanceAction.SANDBOX_FALLBACK,
+                GovernanceAction.ALLOW,
+                GovernanceAction.ASK,
+            )
             and is_shell
         ):
             decision.sandbox_config = self.compile_sandbox_config(tc_spec)
@@ -350,6 +496,9 @@ class ResourceGovernor:
     def compile_sandbox_config(  # pylint: disable=unused-argument
         self,
         tc_spec: ToolCallSpec,
+        *,
+        allow_network: bool = False,
+        extra_writable: str | None = None,
     ) -> SandboxConfig:
         """Compile sandbox filesystem permission config based on policy.
 
@@ -372,6 +521,7 @@ class ResourceGovernor:
         Returns SandboxConfig dataclass (from potato.sandbox.config).
         """
         ws = str(self.workspace_dir)
+        workspace_writable = self.session_sandbox_mode != "read-only"
 
         # ── Compile mounts from user_rules ──
         # path → writable mapping: same path uses the most permissive access
@@ -397,9 +547,17 @@ class ResourceGovernor:
                 # readwrite mount
                 mount_map[path] = True
 
-        mounts = [MountSpec(path=p, writable=w) for p, w in mount_map.items()]
-        # Workspace is always readwrite
-        mounts.insert(0, MountSpec(path=ws, writable=True))
+        mounts = [
+            MountSpec(
+                path=p,
+                writable=w if workspace_writable else False,
+            )
+            for p, w in mount_map.items()
+        ]
+        mounts.insert(
+            0,
+            MountSpec(path=ws, writable=workspace_writable),
+        )
 
         # Coding project dir is readwrite by default (Coding Mode). When
         # it is distinct from the workspace, mount it explicitly so Bash
@@ -407,23 +565,27 @@ class ResourceGovernor:
         # sandboxed shell tools.
         cpd = str(self.coding_project_dir)
         if cpd and cpd != ws and not any(m.path == cpd for m in mounts):
-            mounts.append(MountSpec(path=cpd, writable=True))
+            mounts.append(
+                MountSpec(path=cpd, writable=workspace_writable),
+            )
+        if extra_writable and not any(
+            m.path == extra_writable for m in mounts
+        ):
+            mounts.append(MountSpec(path=extra_writable, writable=True))
 
         return SandboxConfig(
             mode=detect_platform_mode(),
             workspace_dir=ws,
             mounts=mounts,
-            deny_paths=list(DEFAULT_SANDBOX_DENY_PATHS),
-            # NOTE: network_allow=["*"] grants full network access inside
-            # the sandbox. This is intentional for now because:
-            #   1. Many common commands need network (pip, git, npm, curl).
-            #   2. Landlock network restriction requires ABI v4 (kernel 6.7+),
-            #      which is not yet widely available in production.
-            #   3. macOS Seatbelt can deny network but lacks domain-level
-            #      filtering, making blanket denial too disruptive.
-            # TODO: revisit default when Landlock ABI v4 is mainstream;
-            #       consider making this configurable in policy.yaml.
-            network_allow=["*"],
+            deny_paths=sandbox_deny_paths(
+                workspace_dir=ws,
+                coding_project_dir=self.coding_project_dir,
+                policy_dir=self._policy_dir,
+            ),
+            # Default is no network (Codex workspace-write). Opening the
+            # network is an explicit increment: sandbox_permissions=network.
+            # Domain filtering is best-effort, so the grant is all outbound.
+            network_allow=["*"] if allow_network else [],
             timeout_seconds=60,
             env_vars={k: "" for k in self.policy.env_blacklist},
         )
@@ -487,19 +649,46 @@ class ResourceGovernor:
         tc_spec: ToolCallSpec,
         *,
         generalized_target: str,
+        duration: str = "permanent",
     ) -> bool:
-        """Add an ALLOW rule for a user-approved tool call.
+        """Add an ALLOW rule for a human-approved tool call.
+
+        Human exact/similar grants persist like Codex ``default.rules``:
+        ``duration=permanent`` and no session binding, so the next chat
+        does not re-prompt. Automatic review must never call this.
 
         Args:
             generalized_target: the generalized target/pattern (e.g.
                 ``"git *"``), already computed upstream by
                 ``generalize_target_for_approval``.
+            duration: ``permanent`` (default) or ``session``.
 
         Returns True if a rule was actually added, False if skipped
-        (e.g. builtin ask, empty target pattern).
+        (e.g. builtin ask, empty target, hard write boundary).
         """
         if self.is_builtin_ask(tc_spec):
             return False
+        if self._is_hard_denied_write(tc_spec):
+            return False
+
+        if (
+            DEFAULT_REGISTRY.get_type(tc_spec.tool_name) == "computer"
+            or tc_spec.tool_name.startswith("Computer")
+        ):
+            from ..computer_use.protect import live_observation_bundle_id
+            from ..computer_use.settings import is_stable_app_id
+
+            live_bundle_id = live_observation_bundle_id(tc_spec.raw_params)
+            if (
+                not is_stable_app_id(live_bundle_id)
+                or tc_spec.target != live_bundle_id
+            ):
+                logger.debug(
+                    "ResourceGovernor: skipping Computer Use rule without "
+                    "a live observation bundle id",
+                )
+                return False
+            generalized_target = live_bundle_id
 
         try:
             if not generalized_target:
@@ -511,19 +700,31 @@ class ResourceGovernor:
                 )
                 return False
 
+            persist_duration = (
+                "session" if duration == "session" else "permanent"
+            )
             match = f"{tc_spec.tool_name}({generalized_target})"
             rule = GovernanceRule(
                 match=match,
                 action=GovernanceAction.ALLOW,
                 reason="user approved",
                 grantee=tc_spec.agent_id or "*",
-                duration="session",
-                session_id=tc_spec.session_id,
+                duration=persist_duration,
+                session_id=(
+                    tc_spec.session_id
+                    if persist_duration == "session"
+                    else None
+                ),
             )
             await run_sync_io(self.add_rule, rule)
+            if persist_duration == "permanent":
+                from .global_rules import append_global_user_rule
+
+                await run_sync_io(append_global_user_rule, rule)
             logger.info(
-                "ResourceGovernor: added approved rule: %s",
+                "ResourceGovernor: added approved rule: %s duration=%s",
                 rule.match,
+                persist_duration,
             )
             return True
         except Exception:
@@ -532,6 +733,36 @@ class ResourceGovernor:
                 exc_info=True,
             )
             return False
+
+    def _is_hard_denied_write(self, tc_spec: ToolCallSpec) -> bool:
+        """True when a file write hits a hard capability boundary."""
+        from .write_boundary import (
+            canonical_path,
+            classify_write_target,
+            default_writable_roots,
+            extra_denied_roots,
+            is_file_write_tool,
+            read_only_subpaths,
+        )
+
+        if not is_file_write_tool(tc_spec.tool_name):
+            return False
+
+        project = [canonical_path(self.workspace_dir)]
+        if self.coding_project_dir:
+            coding = canonical_path(self.coding_project_dir)
+            if coding not in project:
+                project.append(coding)
+        kind = classify_write_target(
+            tc_spec.target,
+            default_writable_roots(
+                self.workspace_dir,
+                self.coding_project_dir,
+            ),
+            read_only_subpaths(project)
+            + extra_denied_roots(policy_dir=self._policy_dir),
+        )
+        return kind == "denied"
 
     def is_builtin_ask(self, tc_spec: ToolCallSpec) -> bool:
         """Determine whether a tool call's ASK comes from builtin_rules.

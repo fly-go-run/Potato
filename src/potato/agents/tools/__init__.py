@@ -33,6 +33,16 @@ from .send_file import send_file_to_user
 from .browser_control import browser_use
 from .web_search import web_search, web_fetch
 from .desktop_screenshot import desktop_screenshot
+from .computer_use import (
+    computer_click,
+    computer_drag,
+    computer_list_apps,
+    computer_observe,
+    computer_press_key,
+    computer_scroll,
+    computer_set_value,
+    computer_type_text,
+)
 from .view_media import view_image, view_video
 from .get_current_time import get_current_time, set_user_timezone
 from .get_token_usage import get_token_usage

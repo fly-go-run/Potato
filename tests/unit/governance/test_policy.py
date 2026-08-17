@@ -610,11 +610,11 @@ class TestAssertPolicySSHCommands:
         decision = governor.assert_policy(tc)
         governor.audit(tc, decision)
         # Sandbox available -> SANDBOX_FALLBACK (runs in sandbox); sandbox
-        # unavailable -> ALLOW_UNSANDBOXED (visible degraded mode). Either
-        # way it must not be DENY or the SSH-related ASK.
+        # unavailable -> DENY (SANDBOX_UNAVAILABLE). Either way it must
+        # not be a silent host ALLOW or the SSH-related ASK.
         assert decision.action in (
             GovernanceAction.SANDBOX_FALLBACK,
-            GovernanceAction.ALLOW_UNSANDBOXED,
+            GovernanceAction.DENY,
         )
 
     def test_audit_level_none_skips_persistence(self, governor):
@@ -826,10 +826,9 @@ class TestGovernancePolicyEvaluate:
 
 
 class TestAssertPolicySandboxEscalation:
-    """When sandbox is unavailable, a shell SANDBOX_FALLBACK runs unsandboxed
-    (ALLOW_UNSANDBOXED) instead of prompting — the command already cleared
-    all danger checks, and the operator has accepted running without the
-    sandbox."""
+    """When sandbox is unavailable, a shell command that needed
+    containment is DENY (SANDBOX_UNAVAILABLE). Missing confinement is
+    not an implicit grant of host execution."""
 
     @pytest.fixture()
     def governor_no_sandbox(self, tmp_path):
@@ -847,13 +846,17 @@ class TestAssertPolicySandboxEscalation:
         AuditLog._instance = None
         shutil.rmtree(gov._policy_dir, ignore_errors=True)
 
-    def test_bash_echo_allows_unsandboxed(self, governor_no_sandbox):
+    def test_bash_echo_denies_when_sandbox_unavailable(
+        self,
+        governor_no_sandbox,
+    ):
         """Bash(echo hello) — no rule match → SANDBOX_FALLBACK, but sandbox
-        unavailable → run unsandboxed (ALLOW_UNSANDBOXED)."""
+        unavailable → DENY SANDBOX_UNAVAILABLE."""
         tc = _tc("Bash", "echo hello")
         decision = governor_no_sandbox.assert_policy(tc)
         governor_no_sandbox.audit(tc, decision)
-        assert decision.action == GovernanceAction.ALLOW_UNSANDBOXED
+        assert decision.action == GovernanceAction.DENY
+        assert "SANDBOX_UNAVAILABLE" in decision.reason
 
     def test_uninitialized_sandbox_reports_a_safe_reason(
         self,
@@ -865,7 +868,8 @@ class TestAssertPolicySandboxEscalation:
             _tc("Bash", "echo startup-race"),
         )
 
-        assert decision.action is GovernanceAction.ALLOW_UNSANDBOXED
+        assert decision.action is GovernanceAction.DENY
+        assert "SANDBOX_UNAVAILABLE" in decision.reason
         assert "probe has not completed" in decision.reason
 
     def test_explicit_bash_allow_carries_sandbox_config(
@@ -1231,8 +1235,38 @@ class TestAddApprovedRuleGeneralization:
         )
         assert added is True
         assert governor.policy.user_rules[0].match == "Bash(git *)"
+        assert governor.policy.user_rules[0].duration == "permanent"
+        assert governor.policy.user_rules[0].session_id is None
         # add_approved_rule does NOT call the model itself.
         assert calls["n"] == 0
+
+    async def test_permanent_rule_applies_in_a_new_session(self, governor):
+        """A remembered prefix must not be bound to the approving chat."""
+        added = await governor.add_approved_rule(
+            _tc("Bash", "git status"),
+            generalized_target="git *",
+        )
+        assert added is True
+        later = ToolCallSpec(
+            tool_name="Bash",
+            target="git push",
+            agent_id="test-agent",
+            session_id="a-different-session",
+        )
+        decision = governor.policy.evaluate(later)
+        assert decision.action is GovernanceAction.ALLOW
+        assert decision.source == "user_rules"
+
+    async def test_hard_denied_write_is_not_persisted(self, governor, tmp_path):
+        hooks = tmp_path / ".git" / "hooks"
+        hooks.mkdir(parents=True)
+        before = list(governor.policy.user_rules)
+        added = await governor.add_approved_rule(
+            _tc("Write", str(hooks / "pre-commit")),
+            generalized_target=str(hooks / "**"),
+        )
+        assert added is False
+        assert governor.policy.user_rules == before
 
     async def test_records_exact_target(self, governor):
         """An exact target (generalization failed upstream) is recorded."""
@@ -1274,6 +1308,64 @@ class TestAddApprovedRuleGeneralization:
         )
         assert added is False
         assert governor.policy.user_rules == before
+
+    async def test_computer_rule_requires_live_observation(self, governor):
+        before = list(governor.policy.user_rules)
+        tc = ToolCallSpec(
+            tool_name="ComputerClick",
+            target="com.apple.calculator",
+            agent_id="test-agent",
+            session_id="test-session",
+            raw_params={
+                "observation_id": "obs_missing",
+                "app": "com.apple.calculator",
+            },
+        )
+        added = await governor.add_approved_rule(
+            tc,
+            generalized_target="com.apple.*",
+        )
+        assert added is False
+        assert governor.policy.user_rules == before
+
+    async def test_computer_rule_uses_live_bundle_id(self, governor):
+        from potato.computer_use.session import Observation, observation_store
+
+        store = observation_store()
+        observation = store.put(
+            Observation(
+                observation_id="obs_approval",
+                session_id="potato-obs_approval",
+                app="Calculator",
+                bundle_id="com.apple.calculator",
+                pid=42,
+                window_id=7,
+                snapshot_id="snap",
+            ),
+        )
+        try:
+            tc = ToolCallSpec(
+                tool_name="ComputerClick",
+                target=observation.bundle_id,
+                agent_id="test-agent",
+                session_id="test-session",
+                raw_params={
+                    "observation_id": observation.observation_id,
+                    "app": observation.bundle_id,
+                },
+            )
+            added = await governor.add_approved_rule(
+                tc,
+                generalized_target="com.apple.*",
+            )
+            assert added is True
+            assert (
+                governor.policy.user_rules[0].match
+                == "ComputerClick(com.apple.calculator)"
+            )
+        finally:
+            store.clear()
+            store.drain_reaped_session_ids()
 
     async def test_missing_generalized_target_raises(self, governor):
         """The keyword arg is required — calling without it is a TypeError,

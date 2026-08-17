@@ -733,13 +733,56 @@ class GovernancePolicy:
                 reason="internal",
             )
 
+        if tool_type == "computer" and _computer_target_invalid(tc_spec.target):
+            return GovernanceDecision(
+                action=GovernanceAction.DENY,
+                reason="Computer Use observation is missing or expired",
+                source="computer_use.invalid_observation",
+            )
+
+        if tool_type == "computer" and _computer_app_protected(tc_spec.target):
+            return GovernanceDecision(
+                action=GovernanceAction.DENY,
+                reason="Computer Use cannot operate Potato, Terminal, or System Settings",
+                source="computer_use.protected_apps",
+            )
+
+        # Computer Use always-allow is an explicit settings lease on one
+        # app, not a tool-wide skip. STRICT still asks.
+        if (
+            tool_type == "computer"
+            and self.execution_level != "strict"
+            and _computer_app_always_allowed(tc_spec.target)
+        ):
+            return GovernanceDecision(
+                action=GovernanceAction.ALLOW,
+                reason="Computer Use always-allowed app",
+                source="computer_use.always_allowed_apps",
+            )
+
         # execution_level == OFF → skip Phase 1, go to Phase 2
         skip_deep_scan = self.execution_level.lower() == "off"
 
         # ── Phase 1: Deep security scan ──
         findings: list[Any] = []
         if not skip_deep_scan:
-            findings = self._deep_security_scan(tc_spec, tool_type)
+            try:
+                findings = self._deep_security_scan(tc_spec, tool_type)
+            except Exception as exc:
+                logger.warning(
+                    "deep_security_scan failed: %s",
+                    exc,
+                )
+                if _scan_fail_closed(tool_type, tc_spec.tool_name):
+                    return GovernanceDecision(
+                        action=GovernanceAction.DENY,
+                        reason=(
+                            "Security scan unavailable; write/shell/"
+                            "network calls fail closed"
+                        ),
+                        source="detection_rules",
+                    )
+                findings = []
             # CRITICAL findings → immediate DENY
             if any(getattr(f, "severity", "") == "CRITICAL" for f in findings):
                 top = _top_finding(findings)
@@ -781,6 +824,9 @@ class GovernancePolicy:
                         findings=findings or None,
                         source="STRICT mode",
                     )
+                high_block = _high_finding_overrides_allow(action, findings)
+                if high_block is not None:
+                    return high_block
                 return GovernanceDecision(
                     action=action,
                     reason=rule.reason,
@@ -788,7 +834,7 @@ class GovernancePolicy:
                     source="builtin_rules",
                 )
 
-        for rule in self.user_rules:
+        for rule in self.user_rules + _cached_global_user_rules():
             if rule.matches_tool_call(
                 tc_spec,
                 tool_type=tool_type,
@@ -801,6 +847,9 @@ class GovernancePolicy:
                         findings=findings or None,
                         source="STRICT mode",
                     )
+                high_block = _high_finding_overrides_allow(action, findings)
+                if high_block is not None:
+                    return high_block
                 return GovernanceDecision(
                     action=action,
                     reason=rule.reason,
@@ -872,12 +921,12 @@ class GovernancePolicy:
                 shell_evasion_checks=shell_evasion_checks,
                 raw_params=tc_spec.raw_params,
             )
-        except Exception as exc:
+        except Exception:
             logger.warning(
-                "deep_security_scan failed: %s; continuing without",
-                exc,
+                "deep_security_scan failed; caller decides fail-closed",
+                exc_info=True,
             )
-            return []
+            raise
 
     def _merge_config_rules(
         self,
@@ -1025,7 +1074,7 @@ class GovernancePolicy:
                 tool_type=tool_type,
             ):
                 return "builtin_rules"
-        for rule in self.user_rules:
+        for rule in self.user_rules + _cached_global_user_rules():
             if rule.matches_tool_call(
                 tc_spec,
                 tool_type=tool_type,
@@ -1107,6 +1156,63 @@ def _parse_match(match_str: str) -> tuple[str, str]:
 
 
 _SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+_SCAN_FAIL_CLOSED_TYPES = frozenset({"shell", "network"})
+
+
+def _computer_app_protected(target: str) -> bool:
+    if not (target or "").strip():
+        return False
+    try:
+        from ..computer_use.protect import is_protected_app
+
+        return is_protected_app(bundle_id=target, app_name=target)
+    except Exception:
+        return False
+
+
+def _computer_target_invalid(target: str) -> bool:
+    from ..computer_use.protect import INVALID_COMPUTER_TARGET
+
+    return target == INVALID_COMPUTER_TARGET
+
+
+def _computer_app_always_allowed(target: str) -> bool:
+    """True when settings lists this Computer Use app as always allowed."""
+    if not (target or "").strip():
+        return False
+    try:
+        from ..computer_use.settings import is_app_always_allowed
+
+        return is_app_always_allowed(target)
+    except Exception:
+        return False
+
+
+def _scan_fail_closed(tool_type: str, tool_name: str) -> bool:
+    """Write / shell / network calls must not proceed if the scan dies."""
+    return (
+        tool_type in _SCAN_FAIL_CLOSED_TYPES
+        or tool_name in FILE_WRITE_TOOLS
+    )
+
+
+def _high_finding_overrides_allow(
+    action: GovernanceAction,
+    findings: list[Any],
+) -> GovernanceDecision | None:
+    """HIGH findings cannot be papered over by an ALLOW rule."""
+    if action is not GovernanceAction.ALLOW:
+        return None
+    if _max_severity(findings) != "HIGH":
+        return None
+    top = _top_finding(findings)
+    return GovernanceDecision(
+        action=GovernanceAction.ASK,
+        reason=getattr(top, "description", "") or top.title,
+        findings=findings,
+        source=_findings_source(findings),
+    )
+
 
 # Map a GuardFinding's ``detector`` field to the policy.yaml key that
 # drives it. Used so ``GovernanceDecision.source`` reports which policy
@@ -1377,6 +1483,32 @@ _DEFAULT_SENSITIVE_PATHS: List[str] = [
     "~/.npmrc",
     "~/.pypirc",
 ]
+
+
+_GLOBAL_RULES_CACHE: tuple[float, List[GovernanceRule]] | None = None
+
+
+def clear_global_rules_cache() -> None:
+    """Drop the in-process global-rules snapshot (tests / file replace)."""
+    global _GLOBAL_RULES_CACHE
+    _GLOBAL_RULES_CACHE = None
+
+
+def _cached_global_user_rules() -> List[GovernanceRule]:
+    """Load portable user-global rules, refreshed when the file changes."""
+    global _GLOBAL_RULES_CACHE
+    try:
+        from .global_rules import global_rules_path, load_global_user_rules
+
+        path = global_rules_path()
+        mtime = path.stat().st_mtime if path.is_file() else 0.0
+    except Exception:
+        return []
+    if _GLOBAL_RULES_CACHE and _GLOBAL_RULES_CACHE[0] == mtime:
+        return list(_GLOBAL_RULES_CACHE[1])
+    extras = load_global_user_rules()
+    _GLOBAL_RULES_CACHE = (mtime, extras)
+    return list(extras)
 
 
 def _create_default_policy(

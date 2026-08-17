@@ -54,7 +54,7 @@ class ToolRegistry:
 
         Args:
             tool_name: policy-layer tool name, e.g. "Read"
-            tool_type: "file" | "network" | "shell" | "internal"
+            tool_type: "file" | "network" | "shell" | "internal" | "computer"
             target_param: target parameter name, e.g. "file_path", "command"
             pattern_param: for file-search tools (e.g. Glob), the parameter
                 name holding the glob pattern. When set, ``extract_target``
@@ -169,6 +169,11 @@ class ToolRegistry:
         workspace_dir: str = "",
     ) -> str:
         """Extract the target from tool call arguments."""
+        if self.get_type(tool_name) == "computer":
+            from ..computer_use.protect import policy_target_for_computer
+
+            return policy_target_for_computer(input_data)
+
         param = self.get_target_param(tool_name)
         if not param:
             return ""
@@ -226,7 +231,9 @@ def snake_to_pascal(name: str) -> str:
     return "".join(p.capitalize() for p in name.split("_"))
 
 
-ALLOWED_TOOL_TYPES = frozenset({"file", "network", "shell", "internal"})
+ALLOWED_TOOL_TYPES = frozenset(
+    {"file", "network", "shell", "internal", "computer"},
+)
 ALLOWED_DEFAULT_POLICIES = frozenset({"allow", "ask", "deny", ""})
 
 

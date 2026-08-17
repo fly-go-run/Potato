@@ -47,7 +47,8 @@
     "resources": [
       "binaries/potato-backend",
       "binaries/python-runtime",
-      "binaries/node-runtime"
+      "binaries/node-runtime",
+      "binaries/cua-driver"
     ],
     "windows": {
       "webviewInstallMode": {
