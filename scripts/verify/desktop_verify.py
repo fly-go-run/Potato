@@ -5,14 +5,13 @@ Drives a running Potato desktop backend (either Tauri packaging flavour:
 tauri-win / tauri-mac) end-to-end:
 
 1. ``GET /api/version`` — health + version match.
-2. ``GET /``           — frontend HTML served.
-3. ``PUT /api/models/<provider>/config``            — install API key.
-4. ``POST /api/models/<provider>/models``           — register the chat model
+2. ``PUT /api/models/<provider>/config``            — install API key.
+3. ``POST /api/models/<provider>/models``           — register the chat model
                                                        (newer aliases like
                                                        qwen3.6-plus aren't in
                                                        the built-in catalogue).
-5. ``PUT /api/models/active``                       — mark it active globally.
-6. **UI single-round factual Q&A**                  — drive the real SPA:
+4. ``PUT /api/models/active``                       — mark it active globally.
+5. **UI single-round factual Q&A**                  — drive the real SPA:
    - Open the page and wait for the chat input to render.
    - Send "What is the tallest mountain in the world?" via the
      input box.
@@ -964,7 +963,16 @@ def main() -> int:
     try:
         # ---- API-level checks (always run, no key needed) ----
         health_check(base_url)
-        verify_frontend(base_url)
+
+        # Tauri embeds app/dist in the desktop executable; the backend root
+        # deliberately returns a JSON "web UI unavailable" response. Only
+        # the attached WebView can prove the embedded SPA. When WebView2 CDP
+        # is unavailable on a hosted runner, keep the install/backend smoke
+        # check and report an explicit UI skip instead of navigating a
+        # standalone browser to the unrelated backend root.
+        if not args.cdp_url and not args.skip_ui:
+            args.skip_ui = True
+            print("SKIP  embedded Tauri UI verification (CDP unavailable)")
 
         # ---- UI load (always run unless --skip-ui, no key needed) ----
         # This catches broken Vite bundles, missing assets, CSP issues,
