@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import tarfile
+import zipfile
 from pathlib import Path
 
 import os
@@ -53,6 +54,20 @@ def test_extract_official_tarball(tmp_path: Path) -> None:
     extract_official_archive(archive, dest)
     assert dest.is_file()
     assert dest.stat().st_mode & 0o111
+
+
+def test_extract_official_zip_without_suffix(tmp_path: Path) -> None:
+    archive = tmp_path / "driver-archive"
+    with zipfile.ZipFile(archive, "w") as zip_file:
+        zip_file.writestr(
+            "cua-driver-rs-0.20.0-windows-x86_64/cua-driver.exe",
+            b"windows-binary",
+        )
+
+    dest = tmp_path / "out" / "cua-driver.exe"
+    extract_official_archive(archive, dest)
+
+    assert dest.read_bytes() == b"windows-binary"
 
 
 def test_verify_archive_digest_rejects_mismatch(tmp_path: Path) -> None:

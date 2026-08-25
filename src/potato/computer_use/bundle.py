@@ -147,7 +147,10 @@ def extract_official_archive(archive: Path, dest_binary: Path) -> None:
     """Extract the official GitHub release archive to *dest_binary*."""
     dest_binary.parent.mkdir(parents=True, exist_ok=True)
     name = dest_binary.name
-    if archive.suffix == ".zip" or archive.name.endswith(".zip"):
+    # Downloads intentionally use a neutral temporary name
+    # (``driver-archive``), so detect ZIP from its signature instead of
+    # relying on a suffix.  Windows release assets are ZIP files.
+    if zipfile.is_zipfile(archive):
         with zipfile.ZipFile(archive) as zip_file:
             member = _pick_archive_member(zip_file.namelist(), name)
             dest_binary.write_bytes(zip_file.read(member))
