@@ -3,10 +3,53 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env file from project root before reading any env vars
-_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-if _env_path.exists():
-    load_dotenv(_env_path)
+from .user_home import (
+    is_working_data_home,
+    resolve_secret_dir,
+    resolve_working_dir,
+)
+
+
+def user_env_file_paths() -> tuple[Path, ...]:
+    """User-level secret files. ``~/.potato/.env`` is the canonical one."""
+    home = Path.home()
+    return (
+        home / ".potato" / ".env",
+        home / ".qwenpaw" / ".env",
+        home / ".copaw" / ".env",
+    )
+
+
+def repo_env_file_path() -> Path:
+    """Checkout ``.env`` — used by local `qwenpaw app`, not the .app."""
+    return Path(__file__).resolve().parent.parent.parent / ".env"
+
+
+def load_dotenv_files() -> list[Path]:
+    """Load user then repo ``.env`` files. Already-set keys win.
+
+    Desktop Potato.app has no repo ``.env``. Secrets belong in
+    ``~/.potato/.env``. Creating that file must not steal
+    ``WORKING_DIR`` from an existing ``~/.qwenpaw``.
+    """
+    loaded: list[Path] = []
+    # Isolated runtimes (pytest, POTATO_WORKING_DIR=tmp) must not inherit
+    # the developer's ~/.potato/.env. Desktop .app does not set this.
+    if os.environ.get("POTATO_WORKING_DIR"):
+        work_env = (
+            Path(os.environ["POTATO_WORKING_DIR"]).expanduser() / ".env"
+        )
+        candidates = (work_env, repo_env_file_path())
+    else:
+        candidates = (*user_env_file_paths(), repo_env_file_path())
+    for path in candidates:
+        if path.is_file():
+            load_dotenv(path, override=False)
+            loaded.append(path)
+    return loaded
+
+
+load_dotenv_files()
 
 
 def _get_env(key: str, default: str = "") -> str:
@@ -19,7 +62,7 @@ def _get_env(key: str, default: str = "") -> str:
     if key in os.environ:
         return os.environ[key]
     if key.startswith("POTATO_"):
-        suffix = key[len("POTATO_") :]
+        suffix = key[len("POTATO_"):]
         for prefix in ("QWENPAW_", "COPAW_"):
             legacy_key = prefix + suffix
             if legacy_key in os.environ:
@@ -99,35 +142,12 @@ CUSTOM_AGENT_STARTUP_CONCURRENCY = EnvVarLoader.get_int(
 )
 
 
-# WORKING_DIR priority:
-# 1. POTATO_WORKING_DIR / legacy env var is set → use it
-# 2. ~/.potato exists → use it
-# 3. ~/.qwenpaw or ~/.copaw exists → use the newest legacy dir as-is
-# 4. Default → ~/.potato
-_explicit_working_dir = _get_env("POTATO_WORKING_DIR")
-if _explicit_working_dir:
-    WORKING_DIR = Path(_explicit_working_dir).expanduser().resolve()
-else:
-    _potato_dir = Path("~/.potato").expanduser()
-    _legacy_qwenpaw_dir = Path("~/.qwenpaw").expanduser()
-    _legacy_copaw_dir = Path("~/.copaw").expanduser()
-    if _potato_dir.exists():
-        WORKING_DIR = _potato_dir.resolve()
-    elif _legacy_qwenpaw_dir.exists():
-        WORKING_DIR = _legacy_qwenpaw_dir.resolve()
-    elif _legacy_copaw_dir.exists():
-        WORKING_DIR = _legacy_copaw_dir.resolve()
-    else:
-        WORKING_DIR = _potato_dir.resolve()
-SECRET_DIR = (
-    Path(
-        EnvVarLoader.get_str(
-            "POTATO_SECRET_DIR",
-            f"{WORKING_DIR}.secret",
-        ),
-    )
-    .expanduser()
-    .resolve()
+# WORKING_DIR / SECRET_DIR: old installs keep ~/.qwenpaw; new ones
+# get ~/.potato only. See resolve_working_dir.
+WORKING_DIR = resolve_working_dir(explicit=_get_env("POTATO_WORKING_DIR"))
+SECRET_DIR = resolve_secret_dir(
+    WORKING_DIR,
+    explicit=EnvVarLoader.get_str("POTATO_SECRET_DIR", ""),
 )
 
 # Env key for overriding the OS keychain account used for the master key.
@@ -148,6 +168,8 @@ def get_message_tag(metadata: object) -> object | None:
     return metadata.get(POTATO_MESSAGE_TAG_KEY) or metadata.get(
         QWENPAW_MESSAGE_TAG_KEY,
     )
+
+
 SCROLL_MEMORY_MESSAGE_TAG = "scroll_memory"
 AUTO_MEMORY_SEARCH_BLOCK_IDS_KEY = "auto_memory_search_block_ids"
 EXTERNAL_USER_QUERY_MESSAGE_TAG = "external_user_query"

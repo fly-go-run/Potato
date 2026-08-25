@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getDesktopBackendPort,
+  getDesktopFullscreen,
   getDesktopWindowStatePreference,
   hasDesktopHostBridge,
   isDesktopShell,
@@ -144,5 +145,28 @@ describe("desktop host bridge", () => {
     await expect(getDesktopWindowStatePreference()).resolves.toBeNull();
     await expect(setDesktopWindowStatePreference(true)).resolves.toBe(false);
     await expect(resetDesktopWindowState()).resolves.toBe(false);
+  });
+
+  it("reads native fullscreen through the window plugin", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "plugin:window|is_fullscreen") return true;
+      return undefined;
+    });
+    installDesktopHost(invoke, () => 1);
+
+    await expect(getDesktopFullscreen()).resolves.toBe(true);
+    expect(invoke).toHaveBeenCalledWith(
+      "plugin:window|is_fullscreen",
+      undefined,
+    );
+  });
+
+  it("treats a missing desktop bridge as not fullscreen", async () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { location: { protocol: "http:", hostname: "localhost", search: "" } },
+    });
+
+    await expect(getDesktopFullscreen()).resolves.toBe(false);
   });
 });

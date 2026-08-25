@@ -2,6 +2,7 @@ import { PanelLeft, SquarePen } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { MouseEvent } from "react";
 import { isMacDesktopShell, startDesktopWindowDrag } from "../../lib/desktop";
+import { useDesktopFullscreen } from "../../lib/useDesktopFullscreen";
 import { useTranslation } from "../../lib/i18n";
 import { shortcutLabel } from "../../lib/shortcuts";
 import { useChatStore } from "../../stores/chat";
@@ -62,6 +63,9 @@ export function CollapsedRail() {
   const chats = useChatStore((state) => state.chats);
   const activeChatId = useChatStore((state) => state.activeChatId);
   const mac = isMacDesktopShell();
+  const fullscreen = useDesktopFullscreen();
+  // 窗口态给灯簇让位；全屏灯隐藏后与网页/Windows 同左缘。
+  const insetForTrafficLights = mac && !fullscreen;
   const isChatRoute =
     location.pathname === "/" || location.pathname.startsWith("/chat/");
   const activeChat = activeChatId
@@ -87,9 +91,9 @@ export function CollapsedRail() {
     <div
       data-tauri-drag-region={mac || undefined}
       onMouseDown={onTitlebarMouseDown}
-      // mac：灯簇右缘约 70px，5.75rem 再空约 22px，避免贴绿灯。
-      className={`absolute left-0 top-0 z-40 flex h-11 items-center gap-0.5 ${
-        mac ? "pl-[5.75rem] pr-2" : "pl-3 pr-2"
+      // mac 窗口：灯簇右缘约 70px，5.75rem 再空约 22px，避免贴绿灯。
+      className={`absolute left-0 top-0 z-40 flex h-11 items-center gap-0.5 pr-2 transition-[padding-left] duration-200 ${
+        insetForTrafficLights ? "pl-[5.75rem]" : "pl-3"
       }`}
     >
       <ChromeActions sidebarCollapsed />

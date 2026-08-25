@@ -83,6 +83,15 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
           </div>
         )}
 
+        {approval.permission_increment && (
+          <div className="rounded-md bg-accent-soft px-3 py-2 text-xs text-accent">
+            <div className="font-medium">{t("approval.increment")}</div>
+            <div className="mt-0.5 text-ink-secondary">
+              {approval.permission_increment}
+            </div>
+          </div>
+        )}
+
         <details className="group rounded-md bg-bubble-tool">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-ink-secondary">
             <ChevronRight

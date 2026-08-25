@@ -600,6 +600,18 @@ class TestIsSafeGeneralization:
             "file",
         )
 
+    def test_file_hooks_and_agent_json_rejected(self):
+        assert not g._is_safe_generalization(
+            "/ws/.git/hooks/pre-commit",
+            "/ws/.git/hooks/**",
+            "file",
+        )
+        assert not g._is_safe_generalization(
+            "/ws/agent.json",
+            "/ws/agent.json",
+            "file",
+        )
+
     def test_file_no_parent_no_anchor_constraint(self):
         assert g._is_safe_generalization("foo.py", "*.py", "file")
 

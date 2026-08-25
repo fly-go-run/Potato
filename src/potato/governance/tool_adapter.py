@@ -4,7 +4,7 @@
 
 Replaces the GuardedFunctionTool. Each tool call goes through two layers:
 1. check_permissions: pre-execution decision
-2. __call__: actual execution — handles sandbox violation retry loop
+2. __call__: actual execution — applies sandbox_config; denials stay denied
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from .policy import (
     GovernanceDecision,
     GovernanceAction,
     ToolCallSpec,
+    _max_severity,
 )
 from .resource_governor import ResourceGovernor
 from .tool_registry import DEFAULT_REGISTRY
@@ -163,7 +164,8 @@ class PolicyGuardedTool:
 
     Dynamically inherits from FunctionTool, implementing:
     - check_permissions: calls assert_policy() + audit() for policy decision
-    - __call__: overrides to handle sandbox execution + violation retry
+    - __call__: overrides to apply sandbox_config; violations are not
+      retried unsandboxed
 
     .. warning:: Known limitation — dynamic anonymous class
 
@@ -316,24 +318,81 @@ async def _policy_tool_check_permissions(
     # ── Effective approval_level check (session > agent) ──
     request_ctx = getattr(self, "_qp_request_context", None) or {}
     effective_level = _resolve_effective_approval_level(request_ctx)
-    if effective_level is not None and effective_level.is_disabled():
-        # OFF means "never ask the user" — it does NOT mean "skip the
-        # sandbox". Sandbox isolation is an execution mechanism, not an
-        # approval gate. Fail-closed tools (the REPL) return DENIED without
-        # a sandbox_config, which the guard layer then misreads as a sandbox
-        # violation and escalates to a recurring approval prompt OFF can
-        # never resolve. So we still compile+attach the sandbox here; only
-        # the "ask the user" step is skipped.
-        _prepare_off_mode_sandbox(self, governor, invocation)
-        return PermissionDecision(
-            behavior=PermissionBehavior.ALLOW,
-            message="governance: approval_level=off, all tools allowed.",
-        )
+    from .escalation import (
+        DANGER_FULL_ACCESS,
+        apply_standing_sandbox_mode,
+        resolve_sandbox_mode,
+    )
+
+    sandbox_mode = resolve_sandbox_mode(request_ctx)
+    if governor is not None:
+        governor.session_sandbox_mode = sandbox_mode
 
     # Sync effective approval_level to the governor's policy
     # so the three-phase evaluation uses the correct threshold.
     if governor is not None and effective_level is not None:
         governor.policy.execution_level = effective_level.value
+
+    if effective_level is not None and effective_level.is_disabled():
+        # OFF means "never ask". The sandbox knob still decides the cage:
+        # workspace-write runs policy (ASK becomes allow) inside the
+        # sandbox; danger-full-access is the Codex Full Access preset.
+        if sandbox_mode == DANGER_FULL_ACCESS or governor is None:
+            _prepare_off_mode_sandbox(self, governor, invocation)
+            return PermissionDecision(
+                behavior=PermissionBehavior.ALLOW,
+                message="governance: approval_level=off, all tools allowed.",
+            )
+        decision = governor.assert_policy(invocation.tc_spec)
+        decision = apply_standing_sandbox_mode(
+            decision,
+            invocation.tc_spec,
+            sandbox_mode,
+        )
+        governor.audit(invocation.tc_spec, decision)
+        if decision.action is GovernanceAction.DENY:
+            _current_policy_invocation.set(None)
+            return PermissionDecision(
+                behavior=PermissionBehavior.DENY,
+                message=(
+                    f"governance: '{invocation.tc_spec.tool_name}' "
+                    "is denied by policy"
+                ),
+            )
+        # OFF never mints a capability increment. A self-declared
+        # danger-full-access / network / path request is stripped back
+        # to the default cage (or denied when no cage exists).
+        if decision.source == "escalation":
+            if not governor._sandbox_usable():
+                _current_policy_invocation.set(None)
+                return PermissionDecision(
+                    behavior=PermissionBehavior.DENY,
+                    message=(
+                        "governance: approval_level=off cannot grant "
+                        "sandbox_permissions without a sandbox"
+                    ),
+                )
+            decision.sandbox_config = governor.compile_sandbox_config(
+                invocation.tc_spec,
+            )
+        if decision.source == "read_only":
+            _current_policy_invocation.set(None)
+            return PermissionDecision(
+                behavior=PermissionBehavior.DENY,
+                message=(
+                    "governance: read-only sandbox blocks writes when "
+                    "approval_level=off"
+                ),
+            )
+        invocation.policy_decision = decision
+        invocation.sandbox_config = decision.sandbox_config
+        invocation.sandbox_mode = decision.sandbox_config is not None
+        if invocation.sandbox_config is None:
+            _prepare_off_mode_sandbox(self, governor, invocation)
+        return PermissionDecision(
+            behavior=PermissionBehavior.ALLOW,
+            message="governance: approval_level=off, ask skipped.",
+        )
 
     if governor is None:
         _current_policy_invocation.set(None)
@@ -363,6 +422,7 @@ async def _policy_tool_check_permissions(
     tc_spec = invocation.tc_spec
 
     decision = governor.assert_policy(tc_spec)
+    decision = apply_standing_sandbox_mode(decision, tc_spec, sandbox_mode)
     governor.audit(tc_spec, decision)
 
     invocation.policy_decision = decision
@@ -378,8 +438,7 @@ async def _policy_tool_check_permissions(
             message=(
                 "governance: tool allowed."
                 if decision.action is GovernanceAction.ALLOW
-                else "governance: tool allowed without sandbox "
-                "(containment unavailable)."
+                else "governance: tool allowed with explicit host grant."
             ),
         )
     elif decision.action is GovernanceAction.DENY:
@@ -406,6 +465,28 @@ async def _policy_tool_check_permissions(
         )
         if approval.behavior != PermissionBehavior.ALLOW:
             _current_policy_invocation.set(None)
+        else:
+            from .escalation import (
+                DANGER_FULL_ACCESS,
+                EscalationLevel,
+                has_session_grant,
+                parse_escalation_request,
+            )
+
+            requested, _err = parse_escalation_request(
+                invocation.tc_spec.raw_params,
+            )
+            if requested is EscalationLevel.DANGER_FULL_ACCESS and (
+                decision.source == "escalation"
+                or has_session_grant(
+                    session_id=tc_spec.session_id,
+                    tool_name=tc_spec.tool_name,
+                    command=tc_spec.target,
+                    permission=DANGER_FULL_ACCESS,
+                )
+            ):
+                invocation.sandbox_config = None
+                invocation.sandbox_mode = False
         return approval
     else:
         # Unknown decision → deny as safe default
@@ -421,11 +502,11 @@ async def _policy_tool_call(
     *args: Any,
     **kwargs: Any,
 ) -> Any:
-    """Override FunctionTool.__call__ for sandbox execution + retry.
+    """Override FunctionTool.__call__ to attach sandbox_config.
 
-    If sandbox execution triggers a violation (ToolChunk state=DENIED),
-    request user approval.
-    If the user approves, retry without sandbox.
+    A sandbox denial is a containment result, not an implicit escalation.
+    The command is not retried on the host; unsandboxed execution requires
+    an explicit pre-declared grant on a later call.
     """
     invocation = _current_policy_invocation.get()
     if invocation is not None and not invocation.consume_if_matches(kwargs):
@@ -463,93 +544,46 @@ async def _policy_tool_call(
                 break
 
     logger.info(
-        "PolicyGuardedTool: sandbox violation for '%s': %s",
+        "PolicyGuardedTool: sandbox violation for '%s': %s "
+        "(not retrying unsandboxed)",
         getattr(self, "name", "Unknown"),
         violation_msg,
     )
 
     governor = getattr(self, "_qp_governor", None)
-    request_context = getattr(self, "_qp_request_context", {}) or {}
-
-    if governor is None:
-        # No governor, can't approve — return the violation as DENIED
-        return ToolChunk(
-            is_last=True,
-            state=ToolResultState.DENIED,
-            content=[
-                TextBlock(
-                    type="text",
-                    text=f"Sandbox violation: {violation_msg}\n"
-                    f"Command was blocked by sandbox security policy.",
-                ),
-            ],
-        )
-
-    # Trigger approval flow using this invocation's policy state.  A direct
-    # call without a preceding permission check has no policy state and must
-    # never reuse one from an unrelated concurrent invocation.
     tc_spec = invocation.tc_spec if invocation is not None else None
     if tc_spec is None:
         tc_spec = self._build_tc_spec({})
-
-    governance_reason = getattr(
-        invocation.policy_decision if invocation is not None else None,
-        "reason",
-        None,
-    )
-    governance_source = getattr(
-        invocation.policy_decision if invocation is not None else None,
-        "source",
-        "No rule hit",
-    )
-
-    # Record the ASK escalation (sandbox violation → ask user)
-    governor.audit(
-        tc_spec,
-        GovernanceDecision(
-            action=GovernanceAction.ASK,
-            reason=(
-                f"sandbox violation: {violation_msg}"
-                if violation_msg
-                else "sandbox violation, ask user"
-            ),
-        ),
-    )
-
-    from agentscope.permission import PermissionBehavior
-
-    decision = await _ask_user_approval(
-        governor=governor,
-        tc_spec=tc_spec,
-        request_context=request_context,
-        violation_msg=violation_msg or None,
-        governance_reason=governance_reason,
-        source=governance_source,
-    )
-
-    if decision.behavior == PermissionBehavior.ALLOW:
-        # User approved: retry without sandbox
-        logger.info(
-            "PolicyGuardedTool: user approved sandbox violation, "
-            "retrying without sandbox for '%s'",
-            getattr(self, "name", "Unknown"),
-        )
-        kwargs.pop("sandbox_config", None)
-        return await FunctionTool.__call__(self, *args, **kwargs)
-    else:
-        # User denied: return the violation as DENIED
-        return ToolChunk(
-            is_last=True,
-            state=ToolResultState.DENIED,
-            content=[
-                TextBlock(
-                    type="text",
-                    text=f"Sandbox violation: {violation_msg}\n"
-                    f"Command was blocked and user denied approval.\n\n"
-                    f"{_NO_RETRY_INSTRUCTION}",
+    if governor is not None:
+        governor.audit(
+            tc_spec,
+            GovernanceDecision(
+                action=GovernanceAction.DENY,
+                reason=(
+                    f"sandbox violation: {violation_msg}"
+                    if violation_msg
+                    else "sandbox violation"
                 ),
-            ],
+                source="sandbox",
+            ),
         )
+
+    return ToolChunk(
+        is_last=True,
+        state=ToolResultState.DENIED,
+        content=[
+            TextBlock(
+                type="text",
+                text=(
+                    f"Sandbox violation: {violation_msg}\n"
+                    "The command was not retried outside the sandbox. "
+                    "Host execution requires an explicit pre-declared "
+                    "grant, not a post-failure retry."
+                    f"{_NO_RETRY_INSTRUCTION}"
+                ),
+            ),
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -572,6 +606,7 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
 
     from ..app.approvals import get_approval_service
     from ..constant import TOOL_GUARD_APPROVAL_TIMEOUT_SECONDS
+    from .escalation import describe_permission_increment
     from ..security.tool_guard.approval import (
         ApprovalDecision,
         ApprovalScope,
@@ -601,8 +636,23 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
     # active chat model when no such model is listed. Review failures are
     # fail-closed and return immediately instead of leaving the task parked on
     # a human approval waiter. SMART / STRICT retain the existing human flow.
+    # HIGH findings are not eligible for automatic review — only a human
+    # one-shot grant can open that gate.
     effective_level = _resolve_effective_approval_level(ctx)
-    if effective_level is not None and effective_level.value == "auto":
+    findings_are_high = _max_severity(policy_findings or []) in {
+        "HIGH",
+        "CRITICAL",
+    }
+    if (
+        effective_level is not None
+        and effective_level.value == "auto"
+        and not findings_are_high
+        and source not in {
+            "escalation",
+            "write_boundary",
+            "read_only",
+        }
+    ):
         from .auto_review import review_tool_call
 
         review = await review_tool_call(
@@ -625,30 +675,32 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                 "approval_level": effective_level.value,
             },
         )
-        auto_decision = GovernanceDecision(
-            action=(
-                GovernanceAction.ALLOW
-                if review.approved
-                else GovernanceAction.DENY
-            ),
-            reason=(
-                "Auto Review Approve"
-                if review.approved
-                else f"Auto Review Deny: {review.reason}"
-            ),
-        )
-        governor.audit(tc_spec, auto_decision)
         logger.info(
             "PolicyGuardedTool: AUTO review tool=%s model=%s dedicated=%s "
-            "approved=%s risk=%s authorization=%s",
+            "approved=%s human=%s risk=%s authorization=%s",
             tool_name,
             review.model_id or "unavailable",
             review.used_dedicated_model,
             review.approved,
+            review.require_human,
             review.risk_level,
             review.user_authorization,
         )
-        if review.approved:
+        if review.require_human:
+            logger.info(
+                "PolicyGuardedTool: AUTO review deferred to human "
+                "tool=%s reason=%s",
+                tool_name,
+                review.reason,
+            )
+        elif review.approved:
+            governor.audit(
+                tc_spec,
+                GovernanceDecision(
+                    action=GovernanceAction.ALLOW,
+                    reason="Auto Review Approve",
+                ),
+            )
             return PermissionDecision(
                 behavior=PermissionBehavior.ALLOW,
                 message=(
@@ -656,13 +708,21 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                     + (f" ({review.model_id})." if review.model_id else ".")
                 ),
             )
-        return PermissionDecision(
-            behavior=PermissionBehavior.DENY,
-            message=(
-                f"Automatic command review denied '{tool_name}': "
-                f"{review.reason}." + _NO_RETRY_INSTRUCTION
-            ),
-        )
+        else:
+            governor.audit(
+                tc_spec,
+                GovernanceDecision(
+                    action=GovernanceAction.DENY,
+                    reason=f"Auto Review Deny: {review.reason}",
+                ),
+            )
+            return PermissionDecision(
+                behavior=PermissionBehavior.DENY,
+                message=(
+                    f"Automatic command review denied '{tool_name}': "
+                    f"{review.reason}." + _NO_RETRY_INSTRUCTION
+                ),
+            )
 
     from .generalize import generalize_target_for_approval
 
@@ -737,19 +797,17 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                         + (
                             f"\n\n\u26a0\ufe0f Sandbox violation: "
                             f"{violation_msg}"
-                            f"\n\n**If you approve, this command will be "
-                            f"re-executed WITHOUT sandbox isolation (full "
-                            f"host access).** The kernel-level filesystem "
-                            f"restrictions that blocked it will no longer "
-                            f"apply."
+                            "\n\nThis call is not retried on the host. "
+                            "Approve only records the grant for a later "
+                            "explicit request."
                             if violation_msg
                             else ""
                         )
                     ),
                     tool_name=tool_name,
                     remediation=(
-                        "Approve to re-run without sandbox (full host "
-                        "access), or deny to block the command."
+                        "Approve or deny this tool call. A sandbox "
+                        "denial is not re-run unsandboxed."
                         if violation_msg
                         else "Approve or deny this tool call"
                     ),
@@ -797,6 +855,10 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                 "exact_target": target,
                 "similar_target": display_target,
                 "is_generalized": display_target != target,
+                "permission_increment": describe_permission_increment(
+                    source=source,
+                    raw_params=params,
+                ),
             },
             "channel_meta": ctx.get("channel_meta"),
             "_channel_instance": ctx.get("_channel_instance"),
@@ -848,10 +910,46 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
         rule_target = (
             generalized_target if scope == ApprovalScope.SIMILAR else target
         )
+        # Human grants persist across chats (Codex default.rules analog).
+        # AUTO review never reaches this branch. Host execution is a
+        # session-scoped increment, not a permanent unsandbox rule.
         await governor.add_approved_rule(
             tc_spec,
             generalized_target=rule_target,
+            duration="permanent",
         )
+        if source == "escalation":
+            from .escalation import (
+                DANGER_FULL_ACCESS,
+                EscalationLevel,
+                NETWORK,
+                extra_writable_path,
+                parse_escalation_request,
+                path_permission_key,
+                remember_session_grant,
+            )
+            from .write_boundary import validate_extra_writable
+
+            requested, _err = parse_escalation_request(params)
+            permission = DANGER_FULL_ACCESS
+            if requested is EscalationLevel.NETWORK:
+                permission = NETWORK
+            elif requested is EscalationLevel.PATH:
+                extra, path_err = validate_extra_writable(
+                    extra_writable_path(params),
+                    workspace_dir=governor.workspace_dir,
+                    coding_project_dir=governor.coding_project_dir,
+                    policy_dir=governor._policy_dir,
+                )
+                if extra and not path_err:
+                    permission = path_permission_key(extra)
+            remember_session_grant(
+                session_id=session_id,
+                tool_name=tool_name,
+                pattern=rule_target,
+                permission=permission,
+                glob=scope == ApprovalScope.SIMILAR,
+            )
         return PermissionDecision(
             behavior=PermissionBehavior.ALLOW,
             message=f"Approved by user ({scope_label}).\n{summary}",

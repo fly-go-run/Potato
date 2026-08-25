@@ -101,7 +101,7 @@ action, findings, and bounded user context.
 
 Return exactly one JSON object and no markdown:
 {
-  "outcome": "allow" or "deny",
+  "outcome": "allow", "deny", or "require_human",
   "risk_level": "low", "medium", "high", "critical", or "unknown",
   "user_authorization": "explicit", "implied", "unknown", or "none",
   "rationale": "short explanation"
@@ -109,9 +109,11 @@ Return exactly one JSON object and no markdown:
 
 Allow only when the requested tool call is clearly in scope, routine,
 reversible, and does not expose secrets or materially expand access.
-Deny destructive deletion, privilege escalation, credential access,
-exfiltration, obfuscation, sandbox escape, ambiguous targets, or anything
-whose safety cannot be established from the supplied facts.
+Use require_human when risk or user authorization is not clearly
+established. Deny destructive deletion, privilege escalation, credential
+access, exfiltration, obfuscation, sandbox escape, ambiguous targets,
+or anything whose safety cannot be established from the supplied facts.
+Bare APPROVE/DENY text is not a valid decision.
 """
 
 
@@ -120,6 +122,7 @@ class ReviewDecision:
     """Parsed model decision before it is recorded by governance."""
 
     approved: bool
+    require_human: bool = False
     risk_level: str = "unknown"
     user_authorization: str = "unknown"
     rationale: str = ""
@@ -136,6 +139,7 @@ class AutoReviewResult:
     risk_level: str = "unknown"
     user_authorization: str = "unknown"
     rationale: str = ""
+    require_human: bool = False
 
 
 def select_review_model_id(
@@ -180,52 +184,53 @@ def _normalise_choice(value: Any, allowed: set[str]) -> str:
 def parse_review_response(  # pylint: disable=too-many-return-statements
     text: str,
 ) -> ReviewDecision | None:
-    """Parse a structured reviewer response or the legacy bare token.
+    """Parse a structured reviewer response.
 
-    The bare ``APPROVE``/``DENY`` form remains accepted for gateways whose
-    constrained decoding only supports plain text.  Empty or malformed output
-    returns ``None`` so the caller can fail closed.
+    Bare ``APPROVE``/``DENY`` tokens are rejected. Empty or malformed
+    output returns ``None`` so the caller can fail closed.
     """
     raw = str(text or "").strip()
     if not raw:
         return None
 
+    decoded: Any = None
     if raw.startswith("{"):
         try:
             decoded = json.loads(raw)
         except (TypeError, ValueError, json.JSONDecodeError):
             decoded = None
-        if isinstance(decoded, dict):
-            outcome = str(decoded.get("outcome") or "").strip().lower()
-            if outcome in {"allow", "approve", "approved"}:
-                approved = True
-            elif outcome in {"deny", "denied", "block", "blocked"}:
-                approved = False
-            else:
-                return None
-            rationale = str(decoded.get("rationale") or "").strip()
-            return ReviewDecision(
-                approved=approved,
-                risk_level=_normalise_choice(
-                    decoded.get("risk_level"),
-                    _KNOWN_RISK_LEVELS,
-                ),
-                user_authorization=_normalise_choice(
-                    decoded.get("user_authorization"),
-                    _KNOWN_AUTH_LEVELS,
-                ),
-                rationale=rationale[:_MAX_RATIONALE_CHARS],
-            )
-
-    first_tokens = raw.split(None, 1)
-    if not first_tokens:
+    if not isinstance(decoded, dict):
         return None
-    first = first_tokens[0].upper().strip("`.,:;!")
-    if first in {"APPROVE", "ALLOW"}:
-        return ReviewDecision(approved=True)
-    if first in {"DENY", "BLOCK"}:
-        return ReviewDecision(approved=False)
-    return None
+    outcome = str(decoded.get("outcome") or "").strip().lower()
+    rationale = str(decoded.get("rationale") or "").strip()
+    risk_level = _normalise_choice(
+        decoded.get("risk_level"),
+        _KNOWN_RISK_LEVELS,
+    )
+    user_authorization = _normalise_choice(
+        decoded.get("user_authorization"),
+        _KNOWN_AUTH_LEVELS,
+    )
+    if outcome in {"require_human", "ask", "human"}:
+        return ReviewDecision(
+            approved=False,
+            require_human=True,
+            risk_level=risk_level,
+            user_authorization=user_authorization,
+            rationale=rationale[:_MAX_RATIONALE_CHARS],
+        )
+    if outcome in {"allow", "approve", "approved"}:
+        approved = True
+    elif outcome in {"deny", "denied", "block", "blocked"}:
+        approved = False
+    else:
+        return None
+    return ReviewDecision(
+        approved=approved,
+        risk_level=risk_level,
+        user_authorization=user_authorization,
+        rationale=rationale[:_MAX_RATIONALE_CHARS],
+    )
 
 
 def parse_review_decision(text: str) -> bool | None:
@@ -642,13 +647,20 @@ async def review_tool_call(
             if decision is None:
                 errors.append(f"{slot.model}: invalid decision")
                 continue
-            # Do not let a contradictory structured response open the gate.
-            # The reviewer is remote/untrusted from the governance layer's
-            # perspective: an ``allow`` paired with a high/critical risk (or
-            # an explicit ``none`` authorization) is unsafe even if the
-            # model's outcome field says otherwise.  Return DENY directly;
-            # falling back to another model would turn a malformed reviewer
-            # response into an approval race.
+            if decision.require_human:
+                return AutoReviewResult(
+                    approved=False,
+                    require_human=True,
+                    model_id=slot.model,
+                    used_dedicated_model=dedicated,
+                    reason=decision.rationale or "reviewer requested a human",
+                    risk_level=decision.risk_level,
+                    user_authorization=decision.user_authorization,
+                    rationale=decision.rationale,
+                )
+            # Do not let a contradictory or underspecified response open
+            # the gate. High/critical or explicit none is DENY. Allow
+            # with unknown risk/authorization escalates to a human.
             if decision.approved and (
                 decision.risk_level in {"high", "critical"}
                 or decision.user_authorization == "none"
@@ -659,6 +671,23 @@ async def review_tool_call(
                     used_dedicated_model=dedicated,
                     reason=(
                         "reviewer returned allow with unsafe risk or "
+                        "authorization"
+                    ),
+                    risk_level=decision.risk_level,
+                    user_authorization=decision.user_authorization,
+                    rationale=decision.rationale,
+                )
+            if decision.approved and (
+                decision.risk_level == "unknown"
+                or decision.user_authorization == "unknown"
+            ):
+                return AutoReviewResult(
+                    approved=False,
+                    require_human=True,
+                    model_id=slot.model,
+                    used_dedicated_model=dedicated,
+                    reason=(
+                        "reviewer returned allow with unknown risk or "
                         "authorization"
                     ),
                     risk_level=decision.risk_level,

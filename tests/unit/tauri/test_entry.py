@@ -161,7 +161,11 @@ def test_main_supports_frozen_entry_without_package_context(
     monkeypatch.setattr(entry, "_install_desktop_runtime", lambda: None)
     monkeypatch.setattr(entry, "install_sidecar_logging", lambda path: None)
     monkeypatch.setattr(entry, "_install_certifi_env", lambda: None)
-    monkeypatch.setattr(entry, "_run_backend_server", calls.append)
+    monkeypatch.setattr(
+        entry,
+        "_run_backend_server",
+        lambda level, first_run=False: calls.append(level),
+    )
     monkeypatch.setattr("potato.constant.WORKING_DIR", tmp_path)
     monkeypatch.setattr(
         "potato.utils.platform.auto_disable_sandbox_on_windows",

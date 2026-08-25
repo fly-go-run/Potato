@@ -205,7 +205,7 @@ class GeminiProvider(Provider):
         genai_sdk, _, genai_types = _google_genai_types()
         headers = self._build_default_headers() or None
         return genai_sdk.Client(
-            api_key=self.api_key,
+            api_key=self.effective_api_key(),
             http_options=genai_types.HttpOptions(
                 timeout=int(timeout * 1000),
                 headers=headers,
@@ -334,7 +334,7 @@ class GeminiProvider(Provider):
 
         credential = GeminiCredential(
             id=f"potato-{self.id}",
-            api_key=self.api_key,
+            api_key=self.effective_api_key(model_id),
         )
 
         gen_kwargs = self._adapt_generate_kwargs_for_gemini(

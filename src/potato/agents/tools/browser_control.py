@@ -76,12 +76,43 @@ def _workspace_dir_for_browser_state(state: dict) -> str:
 
 
 def _resolve_output_path(path: str) -> str:
-    """Resolve relative output paths under workspace_dir/browser/."""
-    if Path(path).is_absolute():
-        return path
-    base_dir = (get_current_workspace_dir() or WORKING_DIR) / "browser"
-    base_dir.mkdir(parents=True, exist_ok=True)
-    return str(base_dir / path)
+    """Resolve output paths and keep them inside writable roots.
+
+    Relative paths land under workspace_dir/browser/. Absolute paths
+    must still sit inside the default workspace/temp roots — browser
+    downloads cannot punch through the write boundary.
+    """
+    raw = (path or "").strip() or "download"
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        resolved = str(candidate)
+    else:
+        base_dir = (get_current_workspace_dir() or WORKING_DIR) / "browser"
+        resolved = str(base_dir / raw)
+    from potato.governance.write_boundary import assert_inside_writable_roots
+
+    workspace = get_current_workspace_dir() or WORKING_DIR
+    allowed, err = assert_inside_writable_roots(
+        resolved,
+        workspace_dir=workspace,
+    )
+    if err or not allowed:
+        raise ValueError(err or "output path rejected")
+    Path(allowed).parent.mkdir(parents=True, exist_ok=True)
+    return allowed
+
+
+def _checked_output_path(path: str) -> tuple[str | None, ToolChunk | None]:
+    try:
+        return _resolve_output_path(path), None
+    except ValueError as exc:
+        return None, _tool_response(
+            json.dumps(
+                {"ok": False, "error": str(exc)},
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
 
 
 def _browser_output_dir(state: dict, name: str) -> Path:
@@ -2042,7 +2073,9 @@ async def _action_screenshot(
     if not path:
         ext = "jpeg" if screenshot_type == "jpeg" else "png"
         path = f"page-{int(time.time())}.{ext}"
-    path = _resolve_output_path(path)
+    path, path_err = _checked_output_path(path)
+    if path_err:
+        return path_err
     page = _get_page(state, page_id)
     if not page:
         return _tool_response(
@@ -2511,7 +2544,9 @@ async def _action_eval(state: dict, page_id: str, code: str) -> ToolChunk:
 
 async def _action_pdf(state: dict, page_id: str, path: str) -> ToolChunk:
     path = (path or "page.pdf").strip() or "page.pdf"
-    path = _resolve_output_path(path)
+    path, path_err = _checked_output_path(path)
+    if path_err:
+        return path_err
     page = _get_page(state, page_id)
     if not page:
         return _tool_response(
@@ -2637,7 +2672,9 @@ async def _action_snapshot(
         if frame_selector and frame_selector.strip():
             out["frame_selector"] = frame_selector.strip()
         if filename and filename.strip():
-            resolved = _resolve_output_path(filename.strip())
+            resolved, path_err = _checked_output_path(filename.strip())
+            if path_err:
+                return path_err
             with open(resolved, "w", encoding="utf-8") as f:
                 f.write(snapshot)
             out["filename"] = resolved
@@ -2847,7 +2884,9 @@ async def _action_console_messages(
     lines = [f"[{m['level']}] {m['text']}" for m in filtered]
     text = "\n".join(lines)
     if filename and filename.strip():
-        resolved = _resolve_output_path(filename.strip())
+        resolved, path_err = _checked_output_path(filename.strip())
+        if path_err:
+            return path_err
         with open(resolved, "w", encoding="utf-8") as f:
             f.write(text)
         return _tool_response(
@@ -3111,7 +3150,9 @@ async def _action_file_download(  # pylint: disable=too-many-branches,too-many-r
                 indent=2,
             ),
         )
-    resolved = _resolve_output_path(file_path)
+    resolved, path_err = _checked_output_path(file_path)
+    if path_err:
+        return path_err
     Path(resolved).parent.mkdir(parents=True, exist_ok=True)
 
     page = _get_page(state, page_id)
@@ -3619,7 +3660,9 @@ async def _action_network_requests(
     ]
     text = "\n".join(lines)
     if filename and filename.strip():
-        resolved = _resolve_output_path(filename.strip())
+        resolved, path_err = _checked_output_path(filename.strip())
+        if path_err:
+            return path_err
         with open(resolved, "w", encoding="utf-8") as f:
             f.write(text)
         return _tool_response(

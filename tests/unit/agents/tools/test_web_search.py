@@ -177,6 +177,8 @@ class TestDispatch:
     @pytest.mark.asyncio
     async def test_successful_hosted_search_is_returned(self, monkeypatch):
         _patch_config(monkeypatch, _agents_config())
+        monkeypatch.delenv("EXA_API_KEY", raising=False)
+        monkeypatch.delenv("POTATO_EXA_API_KEY", raising=False)
         monkeypatch.setattr(hs, "is_available", lambda _pid: True)
         monkeypatch.setattr(
             hs,
@@ -202,6 +204,8 @@ class TestDispatch:
         """Web text reaches a model holding shell and file tools, so it must
         not arrive looking like part of the conversation."""
         _patch_config(monkeypatch, _agents_config())
+        monkeypatch.delenv("EXA_API_KEY", raising=False)
+        monkeypatch.delenv("POTATO_EXA_API_KEY", raising=False)
         monkeypatch.setattr(hs, "is_available", lambda _pid: True)
         monkeypatch.setattr(
             hs,

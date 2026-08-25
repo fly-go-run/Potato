@@ -749,6 +749,9 @@ async def execute_shell_command(
     cwd: Optional[Path] = None,
     sandbox_config: Optional[Any] = None,
     run_in_background: bool | str | int = False,
+    sandbox_permissions: Optional[str] = None,
+    justification: Optional[str] = None,
+    additional_writable_path: Optional[str] = None,
 ) -> ToolChunk | AsyncGenerator[ToolChunk, None]:
     """Execute a shell command and return its output.
 
@@ -759,6 +762,16 @@ async def execute_shell_command(
     Set `run_in_background=true` for long work: the call returns a job
     id immediately (no timeout). Collect with `job_output`, stop with
     `job_kill`. Do not busy-poll; you are notified when it finishes.
+
+    Commands run inside the workspace sandbox with no network by default.
+    If a previous call failed because the sandbox blocked the network
+    (git fetch, npm install, curl) and finishing the request requires
+    it, retry with sandbox_permissions="network" and a one-sentence
+    justification. To write one extra directory this turn, use
+    sandbox_permissions="path", additional_writable_path, and a
+    justification. Only use sandbox_permissions="danger-full-access"
+    when the command must leave the cage (GUI apps, ssh agent). Do
+    not request extra access speculatively.
 
     IMPORTANT: Check the 'Default Shell' field to
     determine which shell is active, and generate commands using the
@@ -780,6 +793,21 @@ async def execute_shell_command(
         run_in_background:
             If true, detach the process and return a job id. Tool-call
             cancel does not kill it.
+        sandbox_permissions (`Optional[str]`, defaults to `None`):
+            Optional wider sandbox for this call only:
+            "workspace-write" (default, no network),
+            "network" (same cage, outbound network),
+            "path" (same cage plus one extra writable directory),
+            or "danger-full-access" (host execution).
+            Extra access is approved per call and never implied by a
+            previous sandbox denial.
+        justification (`Optional[str]`, defaults to `None`):
+            Required with network, path, or danger-full-access: one
+            sentence for the user explaining why this command needs
+            the extra access.
+        additional_writable_path (`Optional[str]`, defaults to `None`):
+            Required with sandbox_permissions="path": the extra
+            directory to mount writable for this call.
 
     Returns:
         `ToolChunk | AsyncGenerator[ToolChunk, None]`:

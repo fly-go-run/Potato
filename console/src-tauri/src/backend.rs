@@ -16,8 +16,10 @@ use uuid::Uuid;
 
 use crate::tray;
 
+mod adopt;
 mod command;
 mod events;
+mod paths;
 
 /// Path of the desktop-only graceful shutdown endpoint on the backend.
 const DESKTOP_SHUTDOWN_PATH: &str = "/api/desktop/shutdown";
@@ -43,6 +45,7 @@ pub(crate) struct BackendState {
 #[derive(Default)]
 struct BackendInner {
     child: Option<CommandChild>,
+    adopted_pid: Option<u32>,
     port: Option<u16>,
     shutdown_token: Option<String>,
     terminated: Option<watch::Receiver<bool>>,
@@ -54,6 +57,9 @@ struct BackendInner {
 enum StopPlan {
     NoProcess,
     Wait(watch::Receiver<bool>),
+    KillAdopted {
+        pid: u32,
+    },
     Request {
         pid: u32,
         port: Option<u16>,
@@ -128,6 +134,7 @@ impl BackendState {
 
     fn clear_startup_state(&self) {
         self.with_inner(|inner| {
+            inner.adopted_pid = None;
             inner.port = None;
             inner.shutdown_token = None;
             inner.terminated = None;
@@ -150,6 +157,10 @@ impl BackendState {
 
     fn begin_stop(&self) -> StopPlan {
         self.with_inner(|inner| {
+            if let Some(pid) = inner.adopted_pid.take() {
+                inner.stopping = true;
+                return StopPlan::KillAdopted { pid };
+            }
             let Some(terminated) = &inner.terminated else {
                 return StopPlan::NoProcess;
             };
@@ -196,6 +207,7 @@ impl BackendState {
     fn finish_stop(&self) {
         self.with_inner(|inner| {
             inner.child.take();
+            inner.adopted_pid = None;
             inner.port = None;
             inner.shutdown_token = None;
             inner.terminated = None;
@@ -228,6 +240,12 @@ impl BackendState {
     async fn stop_and_wait(&self) -> Result<(), String> {
         let terminated = match self.begin_stop() {
             StopPlan::NoProcess => return Ok(()),
+            StopPlan::KillAdopted { pid } => {
+                log::info!("[backend] stopping adopted sidecar pid={pid}");
+                adopt::terminate_pid(pid);
+                self.finish_stop();
+                return Ok(());
+            }
             StopPlan::Wait(terminated) => terminated,
             StopPlan::Request {
                 pid,
@@ -375,9 +393,24 @@ fn start(app: &tauri::AppHandle) {
     let state = app.state::<BackendState>();
     let generation = state.next_generation();
     state.clear_startup_state();
+
+    if let Some(adopted) = adopt::try_adopt_running_backend() {
+        log::info!(
+            "[backend] adopted running sidecar port={} pid={:?}",
+            adopted.port,
+            adopted.pid
+        );
+        state.with_inner(|inner| {
+            inner.port = Some(adopted.port);
+            inner.adopted_pid = adopted.pid;
+            inner.error = None;
+        });
+        return;
+    }
+
     let shutdown_token = Uuid::new_v4().to_string();
 
-    let command = match command::create(app) {
+    let mut command = match command::create(app) {
         Ok(command) => command,
         Err(message) => {
             state.set_error(message);
@@ -391,6 +424,13 @@ fn start(app: &tauri::AppHandle) {
     .env("PYTHONFAULTHANDLER", "1")
     .env("POTATO_DESKTOP_APP", "1")
     .env(DESKTOP_SHUTDOWN_TOKEN_ENV, &shutdown_token);
+    if let Some(driver) = command::cua_driver_binary(app) {
+        log::info!("[backend] bundled cua-driver: {}", driver.display());
+        command = command.env(
+            "POTATO_DESKTOP_CUA_DRIVER",
+            driver.to_string_lossy().to_string(),
+        );
+    }
 
     log::info!("[backend] starting generation={generation}");
 

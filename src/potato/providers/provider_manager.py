@@ -1989,6 +1989,51 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
             os.chmod(provider_path, 0o600)
         except OSError:
             pass
+        self._mirror_provider_key_to_dotenv(provider)
+
+    def _mirror_provider_key_to_dotenv(self, provider: Provider) -> None:
+        key = (getattr(provider, "api_key", None) or "").strip()
+        if not key:
+            return
+        try:
+            from potato.envs.dotenv_file import (
+                potato_dotenv_path,
+                should_touch_user_dotenv,
+                upsert_dotenv,
+            )
+            from potato.providers.env_api_key import provider_env_ident
+
+            if not should_touch_user_dotenv():
+                return
+            name = f"{provider_env_ident(provider.id)}_API_KEY"
+            upsert_dotenv(potato_dotenv_path(), {name: key})
+        except Exception:
+            logger.debug("dotenv provider key mirror skipped", exc_info=True)
+
+    def _export_api_keys_to_dotenv(self) -> None:
+        try:
+            from potato.envs.dotenv_file import (
+                potato_dotenv_path,
+                should_touch_user_dotenv,
+                upsert_dotenv,
+            )
+            from potato.providers.env_api_key import provider_env_ident
+
+            if not should_touch_user_dotenv():
+                return
+            updates: dict[str, str] = {}
+            for provider in (
+                *self.builtin_providers.values(),
+                *self.custom_providers.values(),
+            ):
+                key = (getattr(provider, "api_key", None) or "").strip()
+                if key:
+                    name = f"{provider_env_ident(provider.id)}_API_KEY"
+                    updates[name] = key
+            if updates:
+                upsert_dotenv(potato_dotenv_path(), updates)
+        except Exception:
+            logger.debug("dotenv provider key export skipped", exc_info=True)
 
     def _save_plugin_provider(self, provider: Provider):
         """Save a plugin provider configuration to disk.
@@ -2006,6 +2051,7 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
             os.chmod(provider_path, 0o600)
         except OSError:
             pass
+        self._mirror_provider_key_to_dotenv(provider)
 
     def save_provider_config(
         self,
@@ -2422,6 +2468,7 @@ class ProviderManager:  # pylint: disable=too-many-public-methods
 
         # Migrate copaw-local to potato-local for backwards compatibility
         self._migrate_copaw_config()
+        self._export_api_keys_to_dotenv()
 
     def _apply_default_annotations(self):
         """Apply doc-based default annotations for unprobed models.

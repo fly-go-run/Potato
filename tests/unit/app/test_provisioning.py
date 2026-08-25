@@ -48,7 +48,10 @@ class TestEnvSeeding:
 
         await provisioning.apply_provision_file(manager, "default", tmp_path)
 
-        assert seeded == {"apikey": "sk-voice", "keyid": "app-1"}
+        assert seeded == {
+            "VOLCENGINE_SPEECH_API_KEY": "sk-voice",
+            "VOLCENGINE_SPEECH_APP_ID": "app-1",
+        }
         # 应用成功后归档,重启不会重复种。
         assert (tmp_path / provisioning.APPLIED_FILE).exists()
         assert not (tmp_path / provisioning.PROVISION_FILE).exists()
@@ -69,6 +72,41 @@ class TestEnvSeeding:
         await provisioning.apply_provision_file(manager, "default", tmp_path)
 
         assert seeded == {"ok": "1"}
+
+    async def test_overwrites_old_dotenv_values(
+        self,
+        manager,
+        monkeypatch,
+        tmp_path,
+    ):
+        dest = tmp_path / ".potato" / ".env"
+        dest.parent.mkdir()
+        dest.write_text(
+            "VOLCENGINE_SPEECH_API_KEY=old\nUNRELATED=keep\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(
+            "potato.envs.set_env_var",
+            lambda _key, _value: None,
+        )
+        monkeypatch.setattr(
+            "potato.envs.dotenv_file.potato_dotenv_path",
+            lambda: dest,
+        )
+        monkeypatch.setattr(
+            "potato.envs.dotenv_file.should_touch_user_dotenv",
+            lambda: True,
+        )
+        _write(tmp_path, {"envs": {"apikey": "new"}})
+
+        await provisioning.apply_provision_file(manager, "default", tmp_path)
+
+        from potato.envs.dotenv_file import parse_dotenv
+
+        assert parse_dotenv(dest) == {
+            "UNRELATED": "keep",
+            "VOLCENGINE_SPEECH_API_KEY": "new",
+        }
 
 
 class TestTranscriptionSetting:
@@ -103,6 +141,52 @@ class TestTranscriptionSetting:
         await provisioning.apply_provision_file(manager, "default", tmp_path)
 
         assert not saved
+
+
+class TestProviderOverwrite:
+    async def test_existing_provider_key_wins_over_old_dotenv(
+        self,
+        manager,
+        monkeypatch,
+        tmp_path,
+    ):
+        manager.get_provider.return_value = object()
+        dest = tmp_path / ".potato" / ".env"
+        dest.parent.mkdir()
+        dest.write_text("SUB2API_API_KEY=old\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "potato.envs.dotenv_file.potato_dotenv_path",
+            lambda: dest,
+        )
+        monkeypatch.setattr(
+            "potato.envs.dotenv_file.should_touch_user_dotenv",
+            lambda: True,
+        )
+        monkeypatch.setenv("SUB2API_API_KEY", "old")
+        _write(
+            tmp_path,
+            {
+                "custom_providers": [
+                    {
+                        "id": "sub2api",
+                        "api_key": "new-provider-key",
+                    },
+                ],
+            },
+        )
+
+        await provisioning.apply_provision_file(manager, "default", tmp_path)
+
+        manager.update_provider.assert_called_once_with(
+            "sub2api",
+            {"api_key": "new-provider-key"},
+        )
+        from potato.envs.dotenv_file import parse_dotenv
+
+        assert parse_dotenv(dest)["SUB2API_API_KEY"] == "new-provider-key"
+        assert __import__("os").environ["SUB2API_API_KEY"] == (
+            "new-provider-key"
+        )
 
 
 class TestFailureHandling:

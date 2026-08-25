@@ -229,6 +229,23 @@ def test_retruncate_does_not_allow_byte_slack():
     assert info["max_bytes"] == 950
 
 
+def test_truncate_keeps_head_and_tail():
+    lines = [f"HEAD-{i:03d} " + "x" * 40 for i in range(80)]
+    lines += [f"TAIL-{i:03d} " + "y" * 40 for i in range(20)]
+    text = "\n".join(lines)
+    excerpt, metadata = truncate_text_output(
+        text,
+        total_lines=100,
+        max_bytes=2000,
+    )
+    notice = metadata[TRUNCATION_METADATA_KEY]["0"]["notice"]
+    body = excerpt[: -len(notice)]
+    assert "HEAD-000" in body
+    assert "TAIL-019" in body
+    assert "middle omitted" in body
+    assert len(body.encode("utf-8")) <= 2000
+
+
 @pytest.mark.asyncio
 async def test_multi_block_tool_response_keeps_metadata_isolated(tmp_path):
     middleware = ToolResultPruningMiddleware(

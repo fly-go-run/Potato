@@ -14,6 +14,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from potato.governance import tool_adapter
 from potato.governance.resource_governor import ResourceGovernor
 from potato.governance.tool_registry import DEFAULT_REGISTRY
@@ -247,3 +249,62 @@ class TestSandboxSwitchHotReload:
 
         assert invocation.sandbox_mode is False
         assert invocation.sandbox_config is None
+
+
+@pytest.mark.asyncio
+async def test_off_mode_strips_danger_full_access_increment(
+    tmp_path,
+    monkeypatch,
+):
+    """OFF + workspace-write must not honor a self-declared host grant."""
+    from agentscope.permission import PermissionBehavior
+
+    from potato.governance.policy import ToolCallSpec
+    from potato.governance.tool_adapter import (
+        _current_policy_invocation,
+        _policy_tool_check_permissions,
+    )
+    from .test_policy import _make_governor
+
+    gov = _make_governor(tmp_path)
+    gov.start()
+    monkeypatch.setattr(gov, "_sandbox_usable", lambda: True)
+    monkeypatch.setattr(
+        gov,
+        "compile_sandbox_config",
+        lambda tc, **_k: f"cage-for-{tc.target}",
+    )
+
+    class _Tool:
+        name = "execute_shell_command"
+        _qp_governor = gov
+        _qp_request_context = {
+            "approval_level": "off",
+            "sandbox_mode": "workspace-write",
+        }
+
+        def _build_tc_spec(self, input_data):
+            return ToolCallSpec(
+                tool_name="Bash",
+                target=str(input_data.get("command") or ""),
+                agent_id="agent-1",
+                session_id="sess-1",
+                raw_params=dict(input_data or {}),
+            )
+
+    try:
+        decision = await _policy_tool_check_permissions(
+            _Tool(),
+            {
+                "command": "echo hi",
+                "sandbox_permissions": "danger-full-access",
+                "justification": "please",
+            },
+        )
+        assert decision.behavior is PermissionBehavior.ALLOW
+        invocation = _current_policy_invocation.get()
+        assert invocation is not None
+        assert invocation.sandbox_config == "cage-for-echo hi"
+    finally:
+        gov.stop()
+        _current_policy_invocation.set(None)

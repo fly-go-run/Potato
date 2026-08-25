@@ -257,7 +257,7 @@ def _emit_backend_ready(port: int) -> None:
     print(f"{DESKTOP_READY_PREFIX} {payload}", flush=True)
 
 
-def _run_backend_server(log_level: str) -> None:
+def _run_backend_server(log_level: str, first_run: bool = False) -> None:
     import uvicorn
 
     from potato.config.utils import write_last_api
@@ -333,6 +333,18 @@ def _run_backend_server(log_level: str) -> None:
         # Exposed so /api/desktop/shutdown can trigger a graceful exit.
         fastapi_app.state.uvicorn_server = server
         _emit_backend_ready(port)
+        if first_run:
+            import threading
+
+            from potato.tauri.desktop_init import finish_desktop_defaults
+            from potato.constant import WORKING_DIR as _working_dir
+
+            threading.Thread(
+                target=finish_desktop_defaults,
+                args=(_working_dir,),
+                name="potato-desktop-defaults",
+                daemon=True,
+            ).start()
         server.run(sockets=[backend_socket])
     except Exception:
         backend_socket.close()
@@ -359,16 +371,11 @@ def main() -> None:
     install_sidecar_logging(WORKING_DIR / "desktop.log")
     _install_certifi_env()
 
-    # Auto-initialize if no config exists
-    config_path = WORKING_DIR / "config.json"
-    if not config_path.exists():
-        from potato.cli.init_cmd import init_cmd
+    # Do not block listen on first-run skill/markdown copies. A tiny
+    # config.json is enough for Uvicorn; the rest finishes after ready.
+    from potato.tauri.desktop_init import ensure_minimal_desktop_config
 
-        _run_click_command(
-            init_cmd,
-            args=["--defaults", "--accept-security"],
-            label="initialization",
-        )
+    first_run = ensure_minimal_desktop_config(WORKING_DIR)
 
     # On Windows, auto-disable sandbox when not running as admin so the
     # desktop backend starts without a half-broken sandbox layer (mirrors
@@ -377,7 +384,10 @@ def main() -> None:
 
     auto_disable_sandbox_on_windows()
 
-    _run_backend_server(os.environ.get(LOG_LEVEL_ENV, "info"))
+    _run_backend_server(
+        os.environ.get(LOG_LEVEL_ENV, "info"),
+        first_run=first_run,
+    )
 
 
 if __name__ == "__main__":

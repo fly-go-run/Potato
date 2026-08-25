@@ -89,7 +89,7 @@ class OllamaProvider(OpenAIProvider):
 
         credential = OpenAICredential(
             id=f"potato-{self.id}",
-            api_key=self.api_key or "ollama",
+            api_key=self.effective_api_key(model_id) or "ollama",
             base_url=self._openai_compatible_base_url(),
         )
         gen_kwargs = self.get_effective_generate_kwargs(model_id)

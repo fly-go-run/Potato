@@ -24,6 +24,7 @@ from agentscope.middleware import MiddlewareBase
 from agentscope.message import Msg
 from agentscope.tool import ToolResponse
 
+from .context.types import ContextWindowUnfitError
 from .tools.utils import (
     DEFAULT_MAX_BYTES,
     ToolResultPruner,
@@ -133,6 +134,12 @@ class CompactionStatusMiddleware(MiddlewareBase):
         try:
             await next_handler(**input_kwargs)
         except asyncio.CancelledError:  # pylint: disable=try-except-raise
+            raise
+        except ContextWindowUnfitError:
+            if queue is not None:
+                await queue.put(
+                    ("event", self._event(operation_id, "fallback")),
+                )
             raise
         except Exception:
             if queue is not None:

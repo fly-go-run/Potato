@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Default truncation limit
 DEFAULT_MAX_BYTES = 50 * 1024
+_MIDDLE_OMIT_MARKER = "\n\n[... middle omitted ...]\n\n"
 
 # Maximum file size to read into memory (200MB)
 MAX_FILE_READ_BYTES = 200 * 1024 * 1024
@@ -265,6 +266,20 @@ class ToolResultPruner:
         return candidate, patch
 
 
+def _head_and_tail_bytes(text_bytes: bytes, max_bytes: int) -> bytes:
+    """Keep a head and a smaller tail when *text_bytes* exceeds *max_bytes*."""
+    if len(text_bytes) <= max_bytes:
+        return text_bytes
+    marker = _MIDDLE_OMIT_MARKER.encode("utf-8")
+    tail_budget = min(8192, max(256, max_bytes // 10))
+    if max_bytes <= len(marker) + tail_budget + 256:
+        return text_bytes[:max_bytes]
+    head_budget = max_bytes - tail_budget - len(marker)
+    if head_budget <= 0 or head_budget + tail_budget >= len(text_bytes):
+        return text_bytes[:max_bytes]
+    return text_bytes[:head_budget] + marker + text_bytes[-tail_budget:]
+
+
 # pylint: disable=too-many-return-statements
 # pylint: disable=too-many-arguments
 def _truncate_fresh(
@@ -291,19 +306,21 @@ def _truncate_fresh(
     if len(text_bytes) <= max_bytes:
         return text, {}
 
-    # Slice at the byte boundary.
-    # Assuming every single line is shorter than DEFAULT_MAX_BYTES, this cut always
-    # lands mid-line, guaranteeing at least one complete line before the boundary.
-    # Lines that exceed DEFAULT_MAX_BYTES are not handled and may be skipped entirely.
-    truncated = text_bytes[:max_bytes]
+    # Keep a head and a smaller tail so stack traces / exit codes survive.
+    # Assuming every single line is shorter than DEFAULT_MAX_BYTES, the head
+    # cut still lands mid-line. Lines that exceed DEFAULT_MAX_BYTES are not
+    # handled and may be skipped entirely.
+    truncated = _head_and_tail_bytes(text_bytes, max_bytes)
     # Decode back to str; errors="ignore" drops any split multi-byte character
     # at the cut boundary without raising an exception.
     result = truncated.decode(encoding, errors="ignore")
+    head_only = result.split(_MIDDLE_OMIT_MARKER, 1)[0]
 
     # Count '\n' characters to determine how many complete lines are included.
     # The tail after the final '\n' is a partial line that will be covered by
-    # the next read starting at next_line.
-    newline_count = result.count("\n")
+    # the next read starting at next_line. Use the head only so a retained
+    # suffix does not skip the omitted middle.
+    newline_count = head_only.count("\n")
 
     # Compute the first line number not yet fully included in this chunk.
     # max(1, ...) prevents next_line from equaling start_line when a single line
@@ -421,15 +438,12 @@ def _retruncate(
     if len(text_bytes) <= max_bytes:
         return text, {}
 
-    # Re-slice to the new byte limit.
-    # Because every line is assumed to be shorter than DEFAULT_MAX_BYTES, the cut
-    # always falls somewhere mid-line, so at least one complete line is preserved.
-    truncated_bytes = text_bytes[:max_bytes]
+    # Re-slice to the new byte limit, still keeping a small tail.
+    truncated_bytes = _head_and_tail_bytes(text_bytes, max_bytes)
     # errors="ignore" silently drops any incomplete multi-byte character at the cut boundary.
     result = truncated_bytes.decode(encoding, errors="ignore")
-    # Each '\n' in result corresponds to one fully-included line;
-    # anything after the last '\n' is a partial line that was cut off.
-    newline_count = result.count("\n")
+    head_only = result.split(_MIDDLE_OMIT_MARKER, 1)[0]
+    newline_count = head_only.count("\n")
 
     # The next read should start at the line immediately after all complete lines.
     # max(1, ...) guards against the theoretical zero-newline case

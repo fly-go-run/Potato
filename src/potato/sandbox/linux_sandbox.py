@@ -344,6 +344,11 @@ def _generate_sandbox_script(  # noqa: E501  pylint: disable=too-many-branches,t
         is_critical = mount.path == config.workspace_dir
         path_rules.append((mount.path, access, is_critical))
 
+    # Landlock cannot revoke a subdirectory once a parent is RW.
+    # ``deny_paths`` under the workspace (``.git/hooks``, agent.json)
+    # are therefore not enforceable here; file-tool write_boundary is
+    # the remaining control.
+
     # allow_read_all mode:
     # On Linux Landlock (whitelist model), granting "/" would make
     # deny_paths ineffective because there's no way to revoke access for

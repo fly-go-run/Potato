@@ -55,7 +55,7 @@ class OpenRouterProvider(Provider):
         AsyncOpenAI, _ = _openai_types()
         return AsyncOpenAI(
             base_url=self.base_url,
-            api_key=self.api_key,
+            api_key=self.effective_api_key(),
             timeout=timeout,
             default_headers=self._build_default_headers(),
         )
@@ -386,7 +386,7 @@ class OpenRouterProvider(Provider):
 
         credential = OpenAICredential(
             id=f"potato-{self.id}",
-            api_key=self.api_key,
+            api_key=self.effective_api_key(model_id),
             base_url=self.base_url,
         )
         return OpenAIChatModelCompat(

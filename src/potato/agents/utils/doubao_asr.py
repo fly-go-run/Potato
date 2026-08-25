@@ -50,7 +50,7 @@ def resolve_speech_credentials() -> Optional[Tuple[str, str]]:
     ``api_key`` is always required (new-console single key, or legacy access
     token). ``app_id`` is optional; when set, legacy dual-header auth is used.
     """
-    # Ensure project-root .env is loaded (keyid / apikey).
+    # Ensure ~/.potato/.env (and checkout .env) are loaded.
     try:
         # pylint: disable=unused-import,import-outside-toplevel
         import potato.constant  # noqa: F401

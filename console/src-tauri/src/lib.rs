@@ -180,9 +180,9 @@ pub fn run() {
                     #[cfg(not(target_os = "macos"))]
                     let _ = (&api, &code);
                     window_state::flush_sync(app_handle);
-                    if let Err(err) = tauri::async_runtime::block_on(backend::stop_and_wait(app_handle)) {
-                        log::warn!("[backend] graceful shutdown did not complete: {err}");
-                    }
+                    // Leave the sidecar running so the next launch can adopt
+                    // it instead of paying another packaged cold start.
+                    // Updates and restart_backend still stop it explicitly.
                 }
                 // macOS emits this when the user clicks the Dock icon. Without
                 // it, a window hidden via "minimize to tray" can only be

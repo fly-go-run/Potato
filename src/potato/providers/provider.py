@@ -331,6 +331,12 @@ class Provider(ProviderInfo, ABC):
         ]
         return True, ""
 
+    def effective_api_key(self, model_id: str | None = None) -> str:
+        """API key from ``~/.potato/.env`` / process env, else the store."""
+        from .env_api_key import resolve_provider_api_key
+
+        return resolve_provider_api_key(self.id, self.api_key, model_id)
+
     def update_config(self, config: Dict) -> None:
         """Update provider configuration with the given dictionary."""
         if "name" in config and config["name"] is not None:
@@ -625,7 +631,8 @@ class Provider(ProviderInfo, ABC):
 
     async def get_info(self, mock_secret: bool = True) -> ProviderInfo:
         """Return a ProviderInfo instance with the provider's details."""
-        if mock_secret and self.api_key:
+        live_key = self.effective_api_key()
+        if mock_secret and live_key:
             # Determine which prefix to show in the masked key.
             # If api_key_prefixes is set, pick the one matching the
             # actual key; otherwise fall back to api_key_prefix.
@@ -635,13 +642,13 @@ class Provider(ProviderInfo, ABC):
                     (
                         p
                         for p in self.api_key_prefixes
-                        if self.api_key.startswith(p)
+                        if live_key.startswith(p)
                     ),
                     self.api_key_prefix,
                 )
             api_key = prefix_for_mask + "*" * 6
         else:
-            api_key = self.api_key
+            api_key = live_key
         # Serialize models/extra_models to plain dicts so that
         # ProviderInfo constructs fresh ModelInfo instances using
         # the class in its own module scope.  This avoids pydantic
@@ -670,7 +677,7 @@ class Provider(ProviderInfo, ABC):
             auth_mode=self.auth_mode,
             supports_oauth=meta.get("supports_oauth", False),
             oauth_connected=bool(
-                meta.get("supports_oauth") and self.api_key,
+                meta.get("supports_oauth") and live_key,
             ),
             is_free_tier=meta.get("is_free_tier", False),
             provider_group=self.provider_group,

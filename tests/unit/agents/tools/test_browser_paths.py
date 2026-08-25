@@ -62,3 +62,32 @@ def test_browser_type_and_profile_directory_preserve_default_profile() -> None:
 )
 def test_safe_download_filename(value: str | None, expected: str) -> None:
     assert safe_download_filename(value) == expected
+
+
+def test_browser_output_path_rejects_desktop(tmp_path, monkeypatch) -> None:
+    from potato.agents.tools import browser_control
+
+    monkeypatch.setattr(
+        browser_control,
+        "get_current_workspace_dir",
+        lambda: tmp_path,
+    )
+    desktop = str(Path.home() / "Desktop" / "stolen.html")
+    with pytest.raises(ValueError, match="outside"):
+        browser_control._resolve_output_path(desktop)
+
+
+def test_browser_output_path_keeps_relative_in_workspace(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from potato.agents.tools import browser_control
+
+    monkeypatch.setattr(
+        browser_control,
+        "get_current_workspace_dir",
+        lambda: tmp_path,
+    )
+    resolved = browser_control._resolve_output_path("page.png")
+    assert resolved.startswith(str(tmp_path.resolve()))
+    assert resolved.endswith("page.png")

@@ -174,6 +174,47 @@ class TestMasterKeyGeneration:
 
         assert key == bytes.fromhex(key_hex)
 
+    def test_file_is_preferred_over_keychain(self, tmp_path, monkeypatch):
+        import potato.security.secret_store as mod
+
+        key_hex = "cc" * 32
+        (tmp_path / ".master_key").write_text(key_hex)
+        monkeypatch.setattr(mod, "_cached_master_key", None)
+        monkeypatch.setattr(mod, "_get_secret_dir", lambda: tmp_path)
+
+        with patch.object(
+            mod,
+            "_try_keyring_get",
+            return_value="dd" * 32,
+        ) as get_kr, patch.object(
+            mod,
+            "_try_keyring_set",
+            return_value=True,
+        ) as set_kr:
+            key = mod._get_master_key()
+
+        assert key == bytes.fromhex(key_hex)
+        get_kr.assert_not_called()
+        set_kr.assert_not_called()
+
+    def test_exports_keychain_to_file_once(self, tmp_path, monkeypatch):
+        import potato.security.secret_store as mod
+
+        exported = "ee" * 32
+        monkeypatch.setattr(mod, "_cached_master_key", None)
+        monkeypatch.setattr(mod, "_get_secret_dir", lambda: tmp_path)
+
+        with patch.object(
+            mod,
+            "_try_keyring_get",
+            return_value=exported,
+        ), patch.object(mod, "_try_keyring_set", return_value=True) as set_kr:
+            key = mod._get_master_key()
+
+        assert key == bytes.fromhex(exported)
+        assert (tmp_path / ".master_key").read_text() == exported
+        set_kr.assert_not_called()
+
 
 class TestKeyringAccountIsolation:
     """The keychain account must isolate relocated (dev) installs from the

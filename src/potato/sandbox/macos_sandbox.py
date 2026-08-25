@@ -168,16 +168,57 @@ class MacOSSandbox(LocalSandbox):
                 lines.append("(allow file-read*")
                 lines.append(f'  (subpath "{_san(mount.path)}"))')
 
-        # Deny sensitive paths (read + write)
-        if config.deny_paths:
+        # Deny sensitive paths. Nested write-denies under a writable
+        # mount cannot be a later ``(allow file-write* (subpath ws))``
+        # — Seatbelt last-match wins, so those become require-not on
+        # the allow rule. Standalone paths (credentials) stay
+        # deny-read + deny-write.
+        expanded_denies = [
+            os.path.expanduser(p) for p in (config.deny_paths or [])
+        ]
+        writable_mounts = [m for m in config.mounts if m.writable]
+        nested_write_denies: dict[str, list[str]] = {
+            m.path: [] for m in writable_mounts
+        }
+        standalone_denies: list[str] = []
+        for denied in expanded_denies:
+            parent = next(
+                (
+                    m.path
+                    for m in writable_mounts
+                    if denied == m.path
+                    or denied.startswith(m.path.rstrip("/") + "/")
+                ),
+                None,
+            )
+            if parent is not None:
+                nested_write_denies[parent].append(denied)
+            else:
+                standalone_denies.append(denied)
+
+        if standalone_denies:
             lines.append("")
             lines.append("; Denied sensitive paths")
-            for p in config.deny_paths:
-                expanded = _san(os.path.expanduser(p))
+            for expanded in standalone_denies:
+                safe = _san(expanded)
                 lines.append("(deny file-read*")
-                lines.append(f'  (subpath "{expanded}"))')
+                lines.append(f'  (subpath "{safe}"))')
                 lines.append("(deny file-write*")
-                lines.append(f'  (subpath "{expanded}"))')
+                lines.append(f'  (subpath "{safe}"))')
+
+        hooks_suffix = os.path.join(".git", "hooks")
+        nested_read_denies = [
+            denied
+            for denied in expanded_denies
+            if denied not in standalone_denies
+            and not denied.endswith(hooks_suffix)
+        ]
+        if nested_read_denies:
+            lines.append("")
+            lines.append("; Denied reads inside writable mounts")
+            for expanded in nested_read_denies:
+                lines.append("(deny file-read*")
+                lines.append(f'  (subpath "{_san(expanded)}"))')
 
         # File write paths (whitelist)
         lines.append("")
@@ -194,9 +235,20 @@ class MacOSSandbox(LocalSandbox):
             lines.append("(allow file-write*")
             lines.append(f'  (subpath "{p}"))')
 
-        # Workspace and explicit mounts
-        for mount in config.mounts:
-            if mount.writable:
+        # Workspace and explicit mounts. Nested deny_paths are
+        # require-not so they are not re-opened by the parent allow.
+        for mount in writable_mounts:
+            nested = nested_write_denies.get(mount.path) or []
+            if nested:
+                lines.append("(allow file-write*")
+                lines.append("  (require-all")
+                lines.append(f'    (subpath "{_san(mount.path)}")')
+                for denied in nested:
+                    lines.append(
+                        f'    (require-not (subpath "{_san(denied)}"))',
+                    )
+                lines.append("  ))")
+            else:
                 lines.append("(allow file-write*")
                 lines.append(f'  (subpath "{_san(mount.path)}"))')
 

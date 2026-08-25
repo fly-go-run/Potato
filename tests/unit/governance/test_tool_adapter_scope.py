@@ -75,8 +75,9 @@ class _FakeGovernor:
         tc_spec,
         *,
         generalized_target,
+        duration="permanent",
     ):  # noqa: ANN
-        self.added.append((tc_spec, generalized_target))
+        self.added.append((tc_spec, generalized_target, duration))
         return True
 
     def is_builtin_ask(self, _tc_spec):  # noqa: ANN
@@ -161,7 +162,8 @@ class TestApprovalScopeConsumer:
             monkeypatch,
         )
         assert governor.added, "no rule was recorded"
-        _tc_spec, target = governor.added[0]
+        _tc_spec, target, duration = governor.added[0]
+        assert duration == "permanent"
         assert target == "git *"
         # Audit reason carries the scope label.
         _spec, decision = governor.audits[-1]
@@ -172,18 +174,143 @@ class TestApprovalScopeConsumer:
             ApprovalScope.EXACT,
             monkeypatch,
         )
-        _tc_spec, target = governor.added[0]
+        _tc_spec, target, duration = governor.added[0]
         assert target == "git status"
+        assert duration == "permanent"
         _spec, decision = governor.audits[-1]
         assert "exact" in decision.reason
 
     async def test_none_scope_defaults_to_exact(self, monkeypatch):
         """No scope (IM channel / CLI) → records the literal target."""
         governor, _pending = await _run_approval(None, monkeypatch)
-        _tc_spec, target = governor.added[0]
+        _tc_spec, target, duration = governor.added[0]
         assert target == "git status"
+        assert duration == "permanent"
         _spec, decision = governor.audits[-1]
         assert "exact" in decision.reason
+
+    async def test_auto_review_skips_write_boundary(self, monkeypatch):
+        from potato.governance import tool_adapter
+        import potato.governance.auto_review as auto_review_mod
+
+        called = {"n": 0}
+
+        async def _fake_review(**_kwargs):
+            called["n"] += 1
+            raise AssertionError("AUTO review must not see write_boundary")
+
+        monkeypatch.setattr(auto_review_mod, "review_tool_call", _fake_review)
+        import potato.governance.generalize as generalize_mod
+
+        async def _fake_generalize(*_a, **_k):
+            return "notes.txt"
+
+        monkeypatch.setattr(
+            generalize_mod,
+            "generalize_target_for_approval",
+            _fake_generalize,
+        )
+        fake_svc = _FakeApprovalService(ApprovalScope.EXACT)
+        import potato.app.approvals as approvals_mod
+
+        monkeypatch.setattr(
+            approvals_mod,
+            "get_approval_service",
+            lambda: fake_svc,
+        )
+        governor = _FakeGovernor()
+        await tool_adapter._ask_user_approval(
+            governor=governor,
+            tc_spec=_tc("notes.txt"),
+            request_context={
+                "user_id": "u",
+                "channel": "console",
+                "approval_level": "auto",
+            },
+            source="write_boundary",
+        )
+        assert called["n"] == 0
+        assert governor.added
+
+    async def test_auto_review_skips_explicit_escalation(self, monkeypatch):
+        """danger-full-access must not be granted by the AUTO reviewer."""
+        from potato.governance import tool_adapter
+        import potato.governance.auto_review as auto_review_mod
+
+        called = {"n": 0}
+
+        async def _fake_review(**_kwargs):
+            called["n"] += 1
+            raise AssertionError("AUTO review must not see escalation")
+
+        monkeypatch.setattr(auto_review_mod, "review_tool_call", _fake_review)
+        import potato.governance.generalize as generalize_mod
+
+        async def _fake_generalize(*_a, **_k):
+            return "ssh *"
+
+        monkeypatch.setattr(
+            generalize_mod,
+            "generalize_target_for_approval",
+            _fake_generalize,
+        )
+        fake_svc = _FakeApprovalService(ApprovalScope.SIMILAR)
+        import potato.app.approvals as approvals_mod
+
+        monkeypatch.setattr(
+            approvals_mod,
+            "get_approval_service",
+            lambda: fake_svc,
+        )
+        governor = _FakeGovernor()
+        await tool_adapter._ask_user_approval(
+            governor=governor,
+            tc_spec=_tc("ssh home"),
+            request_context={
+                "user_id": "u",
+                "channel": "console",
+                "approval_level": "auto",
+                "session_id": "session-1",
+            },
+            source="escalation",
+        )
+        assert called["n"] == 0
+        assert governor.added, "human grant should still be recorded"
+
+    async def test_auto_review_does_not_persist_rule(self, monkeypatch):
+        """AUTO review may allow this call but must not write user_rules."""
+        from potato.governance import tool_adapter
+        from potato.governance.auto_review import AutoReviewResult
+        import potato.governance.auto_review as auto_review_mod
+
+        async def _fake_review(**_kwargs):
+            return AutoReviewResult(
+                approved=True,
+                model_id="test-reviewer",
+                used_dedicated_model=False,
+                reason="ok",
+                risk_level="low",
+                user_authorization="implied",
+            )
+
+        monkeypatch.setattr(
+            auto_review_mod,
+            "review_tool_call",
+            _fake_review,
+        )
+        governor = _FakeGovernor()
+        await tool_adapter._ask_user_approval(
+            governor=governor,
+            tc_spec=_tc(),
+            request_context={
+                "user_id": "u",
+                "channel": "console",
+                "approval_level": "auto",
+            },
+            source="No rule hit",
+        )
+        assert governor.added == []
+        assert governor.audits[-1][1].reason == "Auto Review Approve"
 
     async def test_display_payload_carries_both_targets(self, monkeypatch):
         _governor, pending = await _run_approval(
@@ -194,6 +321,54 @@ class TestApprovalScopeConsumer:
         assert display["is_generalized"] is True
         assert display["exact_target"] == "git status"
         assert display["similar_target"] == "git *"
+        assert "permission_increment" in display
+
+    async def test_auto_require_human_falls_through(self, monkeypatch):
+        from potato.governance import tool_adapter
+        from potato.governance.auto_review import AutoReviewResult
+        import potato.governance.auto_review as auto_review_mod
+        import potato.governance.generalize as generalize_mod
+        import potato.app.approvals as approvals_mod
+
+        async def _fake_review(**_kwargs):
+            return AutoReviewResult(
+                approved=False,
+                require_human=True,
+                model_id="test-reviewer",
+                used_dedicated_model=False,
+                reason="not sure",
+                risk_level="medium",
+                user_authorization="unknown",
+            )
+
+        monkeypatch.setattr(auto_review_mod, "review_tool_call", _fake_review)
+
+        async def _fake_generalize(*_a, **_k):
+            return "git *"
+
+        monkeypatch.setattr(
+            generalize_mod,
+            "generalize_target_for_approval",
+            _fake_generalize,
+        )
+        fake_svc = _FakeApprovalService(ApprovalScope.EXACT)
+        monkeypatch.setattr(
+            approvals_mod,
+            "get_approval_service",
+            lambda: fake_svc,
+        )
+        governor = _FakeGovernor()
+        await tool_adapter._ask_user_approval(
+            governor=governor,
+            tc_spec=_tc(),
+            request_context={
+                "user_id": "u",
+                "channel": "console",
+                "approval_level": "auto",
+            },
+            source="No rule hit",
+        )
+        assert governor.added, "human should still be asked"
 
 
 class _SandboxDecisionGovernor:
@@ -256,3 +431,39 @@ async def test_policy_guarded_tool_keeps_concurrent_invocations_isolated():
         ("first", "sandbox-for-first"),
         ("second", "sandbox-for-second"),
     ]
+
+
+async def test_sandbox_denial_is_not_retried_unsandboxed() -> None:
+    """A sandbox DENIED result must not pop sandbox_config and rerun."""
+    from agentscope.message import TextBlock, ToolResultState
+    from agentscope.tool import ToolChunk
+
+    governor = _SandboxDecisionGovernor()
+    calls: list[object] = []
+
+    async def shell_like_tool(
+        command: str,
+        sandbox_config=None,  # noqa: ANN001
+    ) -> ToolChunk:
+        del command
+        calls.append(sandbox_config)
+        return ToolChunk(
+            is_last=True,
+            state=ToolResultState.DENIED,
+            content=[TextBlock(type="text", text="blocked")],
+            metadata={"sandbox_violation": "write denied"},
+        )
+
+    tool = PolicyGuardedTool(
+        shell_like_tool,
+        governor=governor,
+        request_context={},
+    )
+    await tool.check_permissions({"command": "touch /etc/passwd"})
+    result = await tool(  # pylint: disable=not-callable
+        command="touch /etc/passwd",
+    )
+
+    assert calls == ["sandbox-for-touch /etc/passwd"]
+    assert result.state == ToolResultState.DENIED
+    assert "not retried" in result.content[0].text

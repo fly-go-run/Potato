@@ -10,8 +10,6 @@ use tauri::{
     Emitter, Manager,
 };
 
-use crate::backend;
-
 const SHOW_MENU_ID: &str = "show";
 const QUIT_MENU_ID: &str = "quit";
 
@@ -25,6 +23,7 @@ const CLOSE_ACK_TIMEOUT: Duration = Duration::from_millis(1500);
 /// the remembered preference or show the close prompt.
 pub(crate) const CLOSE_REQUESTED_EVENT: &str = "potato-close-requested";
 /// Emitted once a confirmed quit starts waiting for backend shutdown.
+#[allow(dead_code)]
 pub(crate) const SHUTDOWN_STARTED_EVENT: &str = "potato-shutdown-started";
 
 #[derive(Clone)]
@@ -211,17 +210,8 @@ pub(crate) fn hide_main_window(app: &tauri::AppHandle) {
 }
 
 fn exit_app(app: &tauri::AppHandle) {
-    // Keep a visible, non-interactive status while the sidecar finishes its
-    // bounded shutdown. This also gives tray-only exits an explicit status.
     crate::window_state::flush_sync(app);
-    show_main_window(app);
-    let _ = app.emit(SHUTDOWN_STARTED_EVENT, ());
-
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        if let Err(err) = backend::stop_and_wait(&app).await {
-            log::warn!("[backend] graceful shutdown did not complete: {err}");
-        }
-        app.exit(0);
-    });
+    // Do not stop the sidecar here. The next desktop launch adopts a
+    // healthy leftover instead of unpacking PyInstaller again.
+    app.exit(0);
 }

@@ -48,11 +48,24 @@ def test_uses_generic_command_review_then_main_fallback() -> None:
 
 
 def test_review_decision_parser_is_strict() -> None:
-    assert parse_review_decision("APPROVE") is True
-    assert parse_review_decision("deny\nreason") is False
+    assert parse_review_decision("APPROVE") is None
+    assert parse_review_decision("deny\nreason") is None
     assert parse_review_decision("looks safe") is None
     assert parse_review_decision("") is None
     assert parse_review_decision("   ") is None
+
+
+def test_structured_require_human_is_not_an_approve() -> None:
+    decision = parse_review_response(
+        '{"outcome":"require_human","risk_level":"medium",'
+        '"user_authorization":"unknown","rationale":"not sure"}',
+    )
+    assert decision is not None
+    assert decision.approved is False
+    assert decision.require_human is True
+    assert parse_review_decision(
+        '{"outcome":"require_human","rationale":"ask"}',
+    ) is False
 
 
 def test_structured_review_response_preserves_risk_and_authorization() -> None:
@@ -256,6 +269,48 @@ async def test_structured_allow_with_critical_risk_is_denied_locally(
     assert result.approved is False
     assert result.risk_level == "critical"
     assert "unsafe risk" in result.reason
+
+
+@pytest.mark.asyncio
+async def test_structured_allow_with_unknown_auth_asks_human(
+    monkeypatch,
+) -> None:
+    import potato.governance.auto_review as module
+
+    settings = SimpleNamespace(
+        enabled=True,
+        review_model=None,
+        timeout_seconds=1.0,
+        max_context_chars=100,
+    )
+    monkeypatch.setattr(module, "_load_review_config", lambda _agent: settings)
+    monkeypatch.setattr(
+        module,
+        "_review_slots",
+        lambda _agent, _settings: [(SimpleNamespace(model="reviewer"), True)],
+    )
+
+    async def fake_review_once(_slot, *, agent_id, payload):
+        del agent_id, payload
+        return module.ReviewDecision(
+            approved=True,
+            risk_level="unknown",
+            user_authorization="unknown",
+            rationale="maybe",
+        )
+
+    monkeypatch.setattr(module, "_review_once", fake_review_once)
+    result = await review_tool_call(
+        tool_name="shell",
+        target="echo hi",
+        params={},
+        agent_id=None,
+        governance_reason="no rule",
+        policy_findings=[],
+        violation_msg=None,
+    )
+    assert result.approved is False
+    assert result.require_human is True
 
 
 @pytest.mark.asyncio

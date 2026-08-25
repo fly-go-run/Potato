@@ -18,6 +18,7 @@ export interface PendingApproval {
   exact_target: string;
   similar_target: string;
   is_generalized: boolean;
+  permission_increment?: string;
 }
 
 export interface PushMessagesResponse {

@@ -430,7 +430,8 @@ async def _search_exa(query: str) -> ToolChunk:
     key = _exa_api_key()
     if not key:
         text = (
-            "web_search is not configured: set EXA_API_KEY in .env.\n\n"
+            "web_search is not configured: set EXA_API_KEY in "
+            "~/.potato/.env.\n\n"
             f"{_SEARCH_FALLBACK_HINT}"
         )
         return ToolChunk(

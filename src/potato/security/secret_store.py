@@ -3,10 +3,12 @@
 
 Provides transparent encryption/decryption for sensitive fields (API keys,
 tokens, etc.) stored on disk.  Secrets are encrypted with Fernet (AES-128-CBC
-+ HMAC-SHA256) using a master key that is:
++ HMAC-SHA256) using a master key kept in ``SECRET_DIR/.master_key``.
 
-1. Stored in the OS keychain via the ``keyring`` library (preferred), or
-2. Persisted to ``SECRET_DIR/.master_key`` with mode ``0o600`` (fallback).
+The OS keychain is not used. Older Mac installs may still have the
+key there: on first launch without a file we copy it to
+``.master_key`` once, then never read the keychain again.
+Provider keys in ``~/.potato/.env`` do not go through this layer.
 
 Encrypted values carry an ``ENC:`` prefix so readers can distinguish them
 from legacy plaintext and transparently migrate on first access.
@@ -294,9 +296,9 @@ def _get_master_key() -> bytes:
 
     Resolution order:
     1. In-process cache (fast path, no lock)
-    2. OS keychain (via ``keyring``)
-    3. File ``SECRET_DIR/.master_key``
-    4. Generate new → store in keychain (preferred) and file (fallback)
+    2. File ``SECRET_DIR/.master_key``
+    3. One-shot export from the OS keychain (legacy Mac), then write file
+    4. Generate new → write file only
     """
     global _cached_master_key
     if _cached_master_key is not None:
@@ -306,17 +308,22 @@ def _get_master_key() -> bytes:
         if _cached_master_key is not None:
             return _cached_master_key
 
-        key_hex = _try_keyring_get()
-
+        key_hex = _read_key_file()
         if not key_hex:
-            key_hex = _read_key_file()
-            if key_hex:
-                _try_keyring_set(key_hex)
+            exported = _try_keyring_get()
+            if exported:
+                _write_key_file(exported)
+                key_hex = exported
+                logger.info(
+                    "Exported master key from OS keychain to .master_key",
+                )
 
         if not key_hex:
             key_hex = _generate_master_key()
-            _try_keyring_set(key_hex)
             _write_key_file(key_hex)
+
+        if EnvVarLoader.get_bool("POTATO_USE_KEYRING"):
+            _try_keyring_set(key_hex)
 
         _cached_master_key = bytes.fromhex(key_hex)
         return _cached_master_key
@@ -365,7 +372,7 @@ def decrypt(value: str) -> str:
         return value
     try:
         f = _get_fernet()
-        token = value[len(_ENC_PREFIX) :].encode("ascii")
+        token = value[len(_ENC_PREFIX):].encode("ascii")
         return f.decrypt(token).decode("utf-8")
     except Exception:
         logger.warning(
@@ -381,19 +388,10 @@ def is_encrypted(value: str) -> bool:
 
 
 def reload_master_key_from_disk() -> None:
-    """Invalidate the in-process master-key cache and re-sync the OS keyring.
+    """Invalidate the in-process master-key cache after a restore.
 
-    Call this after a backup restore has replaced ``SECRET_DIR/.master_key``
-    on disk so that the running process and the OS keyring both pick up the
-    restored key instead of continuing to use the old one.
-
-    Resolution order after clearing the cache:
-    1. Read the new key from ``SECRET_DIR/.master_key``.
-    2. If successful and the OS keyring is available, overwrite the keyring
-       entry with the restored key so that the next process start does not
-       fall back to the old keyring value.
-    3. If anything goes wrong, log a warning but never propagate the error
-       to the restore caller.
+    Reads ``SECRET_DIR/.master_key``. Does not write the OS keychain
+    unless ``POTATO_USE_KEYRING`` is set.
     """
     global _cached_master_key, _cached_fernet
     try:
@@ -405,20 +403,18 @@ def reload_master_key_from_disk() -> None:
             if not key_hex:
                 logger.warning(
                     "reload_master_key_from_disk: .master_key file not found"
-                    " or unreadable after restore; cache cleared but keyring"
-                    " not updated",
+                    " or unreadable after restore; cache cleared",
                 )
                 return
 
-            _try_keyring_set(key_hex)
+            if EnvVarLoader.get_bool("POTATO_USE_KEYRING"):
+                _try_keyring_set(key_hex)
             logger.info(
-                "reload_master_key_from_disk: in-process cache invalidated"
-                " and keyring updated with restored master key",
+                "reload_master_key_from_disk: in-process cache invalidated",
             )
     except Exception:
         logger.warning(
-            "reload_master_key_from_disk: unexpected error; master-key cache"
-            " has been cleared but keyring sync may be incomplete",
+            "reload_master_key_from_disk: unexpected error; cache cleared",
             exc_info=True,
         )
 

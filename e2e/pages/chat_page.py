@@ -104,23 +104,28 @@ class ChatPage(BasePage):
     SESSION_EDIT_BTN = 'button:has(.spark-icon-spark-edit-line), button:has(.anticon-edit)'
     SESSION_DELETE_BTN = 'button:has(.spark-icon-spark-delete-line), button:has(.anticon-delete)'
 
-    # --- Tool approval level toggle (composer / sender area) — upstream #5685 ---
-    # A single antd Tag whose text is one of the 4 levels; clicking it opens a
-    # dropdown of exactly 4 options. No CSS-module class or data-testid, so we
-    # anchor on the level texts (browser locale is en-US; ZH kept as fallback).
+    # --- Tool approval / sandbox toggle (composer permission menu) ---
+    # Desktop app uses data-testid hooks. Legacy antd console kept as fallback.
+    APPROVAL_TOGGLE = '[data-testid="composer-permission"]'
     APPROVAL_LEVELS = {
-        "STRICT": ("Strict Mode", "严格模式"),
-        "SMART": ("Smart Mode", "智能模式"),
-        "AUTO": ("Auto Mode", "自动模式"),
-        "OFF": ("Off Mode", "关闭模式"),
+        "STRICT": ("Always", "每次", "Strict Mode", "严格模式"),
+        "SMART": ("Important", "重要", "Smart Mode", "智能模式"),
+        "AUTO": ("Auto", "自动", "Auto Mode", "自动模式"),
+        "OFF": ("Never", "从不", "Off Mode", "关闭模式"),
+    }
+    SANDBOX_MODES = {
+        "read-only": ("Read-only", "只读"),
+        "workspace-write": ("Workspace", "工作区"),
+        "danger-full-access": ("This Mac", "本机"),
     }
     _APPROVAL_LABEL_RE = re.compile(
-        r"Strict Mode|Smart Mode|Auto Mode|Off Mode|"
-        r"严格模式|智能模式|自动模式|关闭模式"
+        r"Always|Important|Never|Auto Mode|Strict Mode|Smart Mode|Off Mode|"
+        r"每次|重要|从不|自动模式|严格模式|智能模式|关闭模式|"
+        r"Read-only|Workspace|This Mac|只读|工作区|本机|自动"
     )
-    # Only items inside the currently-open dropdown (antd keeps closed menus in
-    # the DOM with a ``-hidden`` modifier).
-    APPROVAL_MENU_ITEM = (
+    APPROVAL_MENU_ITEM = '[data-testid="approval-menu-item"]'
+    SANDBOX_MENU_ITEM = '[data-testid="sandbox-menu-item"]'
+    _LEGACY_APPROVAL_MENU_ITEM = (
         '.potato-dropdown:not(.potato-dropdown-hidden) '
         '.potato-dropdown-menu-item'
     )
@@ -1084,34 +1089,47 @@ class ChatPage(BasePage):
     # ========== Tool approval level toggle ==========
 
     def get_approval_toggle(self) -> Locator:
-        """Locate the approval-level Tag in the composer (matches any level)."""
+        """Locate the permission control in the composer."""
+        modern = self.page.locator(self.APPROVAL_TOGGLE)
+        if modern.count() > 0:
+            return modern.first
         return (
             self.page.locator("span.potato-tag")
             .filter(has_text=self._APPROVAL_LABEL_RE)
             .first
         )
 
+    def _approval_item_selector(self) -> str:
+        if self.page.locator(self.APPROVAL_MENU_ITEM).count() > 0:
+            return self.APPROVAL_MENU_ITEM
+        return self._LEGACY_APPROVAL_MENU_ITEM
+
     def open_approval_menu(self) -> "ChatPage":
-        """Click the approval Tag and wait for its dropdown to render."""
+        """Click the permission control and wait for its dropdown."""
         self.get_approval_toggle().click()
-        self.page.locator(self.APPROVAL_MENU_ITEM).first.wait_for(
-            state="visible", timeout=5000
-        )
+        modern = self.page.locator(self.APPROVAL_MENU_ITEM)
+        try:
+            modern.first.wait_for(state="visible", timeout=2000)
+        except Exception:
+            self.page.locator(self._LEGACY_APPROVAL_MENU_ITEM).first.wait_for(
+                state="visible", timeout=5000
+            )
         self.wait(200)
         return self
 
     def get_approval_menu_items(self) -> List[Locator]:
-        """Return the visible approval dropdown items (expected: 4)."""
-        return self.page.locator(self.APPROVAL_MENU_ITEM).all()
+        """Return the visible approval-level items (expected: 4)."""
+        return self.page.locator(self._approval_item_selector()).all()
 
     def select_approval_level(self, level: str) -> "ChatPage":
         """Open the menu and pick a level by key (STRICT/SMART/AUTO/OFF)."""
-        en, zh = self.APPROVAL_LEVELS[level]
+        labels = self.APPROVAL_LEVELS[level]
         self.open_approval_menu()
-        item = self.page.locator(
-            f'{self.APPROVAL_MENU_ITEM}:has-text("{en}"), '
-            f'{self.APPROVAL_MENU_ITEM}:has-text("{zh}")'
-        ).first
+        selector = self._approval_item_selector()
+        clauses = ", ".join(
+            f'{selector}:has-text("{label}")' for label in labels
+        )
+        item = self.page.locator(clauses).first
         item.click()
         self.wait(500)
         self.step_shot(f"approval_select_{level}")
@@ -1124,7 +1142,11 @@ class ChatPage(BasePage):
                 const out = {};
                 for (let i = 0; i < localStorage.length; i++) {
                     const k = localStorage.key(i);
-                    if (k && k.indexOf('approval_level-') === 0) {
+                    if (
+                      k &&
+                      (k.indexOf('approval_level-') === 0 ||
+                        k === 'potato.approval_level')
+                    ) {
                         out[k] = localStorage.getItem(k);
                     }
                 }

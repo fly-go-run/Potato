@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -27,9 +29,39 @@ import urllib.request
 
 
 def _http_get(url: str) -> bytes:
+    curl = shutil.which("curl")
+    if curl:
+        result = subprocess.run(
+            [
+                curl,
+                "-fsSL",
+                "--retry",
+                "5",
+                "--retry-delay",
+                "2",
+                "--connect-timeout",
+                "30",
+                "-A",
+                "potato-build",
+                url,
+            ],
+            check=False,
+            capture_output=True,
+        )
+        if result.returncode == 0 and result.stdout:
+            return result.stdout
+        print(f"curl failed ({result.returncode}): {result.stderr.decode(errors='replace')}")
     request = urllib.request.Request(url, headers={"User-Agent": "potato-build"})
-    with urllib.request.urlopen(request, timeout=180) as response:
-        return response.read()
+    last_error: Exception | None = None
+    for attempt in range(1, 5):
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:
+                return response.read()
+        except Exception as exc:
+            last_error = exc
+            print(f"Download attempt {attempt} failed: {exc}")
+    assert last_error is not None
+    raise last_error
 
 
 def main() -> int:

@@ -817,7 +817,12 @@ async def get_web_search_backend() -> dict:
         **manager.builtin_providers,
         **manager.custom_providers,
     }.items():
-        if not (getattr(provider, "api_key", "") or "").strip():
+        has_key = ""
+        if hasattr(provider, "effective_api_key"):
+            has_key = provider.effective_api_key()
+        else:
+            has_key = getattr(provider, "api_key", "") or ""
+        if not has_key.strip():
             continue
         providers.append(
             {
@@ -1129,6 +1134,11 @@ async def get_agents_running_config(
     agent_config = load_agent_config(workspace.agent_id)
     running = agent_config.running or AgentsRunningConfig()
     running.approval_level = getattr(agent_config, "approval_level", "AUTO")
+    running.sandbox_mode = getattr(
+        agent_config,
+        "sandbox_mode",
+        "workspace-write",
+    )
     return running
 
 
@@ -1151,14 +1161,22 @@ async def put_agents_running_config(
 
     if running_config.approval_level is not None:
         agent_config.approval_level = running_config.approval_level
+    if running_config.sandbox_mode is not None:
+        agent_config.sandbox_mode = running_config.sandbox_mode
 
     running_config.approval_level = None
+    running_config.sandbox_mode = None
     agent_config.running = running_config
     save_agent_config(workspace.agent_id, agent_config)
 
     schedule_agent_reload(request, workspace.agent_id)
 
     running_config.approval_level = agent_config.approval_level
+    running_config.sandbox_mode = getattr(
+        agent_config,
+        "sandbox_mode",
+        "workspace-write",
+    )
     return running_config
 
 

@@ -25,4 +25,7 @@ def approval_display_fields(pending: Any) -> dict[str, Any]:
         "exact_target": str(display.get("exact_target") or ""),
         "similar_target": str(display.get("similar_target") or ""),
         "is_generalized": bool(display.get("is_generalized")),
+        "permission_increment": str(
+            display.get("permission_increment") or "",
+        ),
     }

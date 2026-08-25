@@ -900,7 +900,7 @@ class TestToolApproval:
 
         log_test_step("2. Select STRICT and confirm the Tag updates")
         chat.select_approval_level("STRICT")
-        expect(chat.get_approval_toggle()).to_contain_text("Strict Mode")
+        expect(chat.get_approval_toggle()).to_contain_text("Always")
 
         log_test_step("3. Assert the choice is written to localStorage")
         entries = chat.get_approval_storage_entries()
@@ -911,7 +911,7 @@ class TestToolApproval:
         chat.page.locator(chat.CHAT_INPUT).first.wait_for(
             state="visible", timeout=30000
         )
-        expect(chat.get_approval_toggle()).to_contain_text("Strict Mode")
+        expect(chat.get_approval_toggle()).to_contain_text("Always")
         entries_after = chat.get_approval_storage_entries()
         assert "STRICT" in entries_after.values(), (
             f"STRICT lost after reload: {entries_after}"

@@ -218,6 +218,23 @@ def save_envs(
     _chmod_best_effort(path, 0o600)
 
     _sync_environ(old, envs)
+    _mirror_dotenv(envs)
+
+
+def _mirror_dotenv(envs: dict[str, str]) -> None:
+    """Keep ~/.potato/.env in sync for desktop / human editing."""
+    try:
+        from .dotenv_file import (
+            potato_dotenv_path,
+            should_touch_user_dotenv,
+            upsert_dotenv,
+        )
+
+        if not should_touch_user_dotenv():
+            return
+        upsert_dotenv(potato_dotenv_path(), envs)
+    except Exception:
+        logger.debug("potato dotenv mirror skipped", exc_info=True)
 
 
 def set_env_var(
@@ -236,6 +253,17 @@ def delete_env_var(key: str) -> dict[str, str]:
     envs = load_envs()
     envs.pop(key, None)
     save_envs(envs)
+    try:
+        from .dotenv_file import (
+            potato_dotenv_path,
+            remove_dotenv_key,
+            should_touch_user_dotenv,
+        )
+
+        if should_touch_user_dotenv():
+            remove_dotenv_key(potato_dotenv_path(), key)
+    except Exception:
+        logger.debug("potato dotenv delete skipped", exc_info=True)
     return envs
 
 
@@ -266,4 +294,10 @@ def load_envs_into_environ() -> dict[str, str]:
     }
     # Do not override explicit runtime/system env vars.
     _apply_to_environ(bootstrap_envs, overwrite=False)
+    try:
+        from .dotenv_file import migrate_env_secrets_to_potato_dotenv
+
+        migrate_env_secrets_to_potato_dotenv(envs)
+    except Exception:
+        logger.debug("potato dotenv migration skipped", exc_info=True)
     return envs

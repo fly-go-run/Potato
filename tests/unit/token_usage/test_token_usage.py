@@ -678,6 +678,62 @@ class TestTokenRecordingModelWrapper:
         assert stored["cached_tokens"] == 12800
         assert stored["prompt_tokens"] == 14000
 
+    def test_cached_tokens_from_agentscope_chat_usage(self):
+        """ChatUsage is a dict mixin: missing aliases raise KeyError."""
+        from agentscope.model._model_usage import ChatUsage
+
+        from potato.token_usage.model_wrapper import (
+            _cached_tokens_from_usage,
+        )
+
+        usage = ChatUsage(input_tokens=10, output_tokens=2, time=0.1)
+        assert _cached_tokens_from_usage(usage) == 0
+        usage["cache_input_tokens"] = 4
+        assert _cached_tokens_from_usage(usage) == 4
+
+    def test_record_usage_does_not_raise_on_chat_usage(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from agentscope.model._model_usage import ChatUsage
+
+        monkeypatch.setattr(
+            "potato.token_usage.manager.WORKING_DIR",
+            tmp_path,
+        )
+        monkeypatch.setattr(
+            "potato.token_usage.manager.TOKEN_USAGE_FILE",
+            "test_token_usage.json",
+        )
+        monkeypatch.setattr(
+            "potato.app.agent_context.get_current_session_id",
+            lambda: "sess-chat-usage",
+        )
+        wrapper = TokenRecordingModelWrapper(
+            provider_id="openai",
+            model=MagicMock(model="gpt-5.6-terra"),
+        )
+        usage = ChatUsage(input_tokens=12, output_tokens=3, time=0.2)
+        wrapper._record_usage(usage)
+        stored = TokenRecordingModelWrapper.pop_usage_for_session(
+            "sess-chat-usage",
+        )
+        assert stored is not None
+        assert stored["cached_tokens"] == 0
+        assert stored["prompt_tokens"] == 12
+
+    def test_record_usage_swallows_bookkeeping_errors(self, monkeypatch):
+        monkeypatch.setattr(
+            "potato.token_usage.model_wrapper._cached_tokens_from_usage",
+            lambda _usage: (_ for _ in ()).throw(RuntimeError("boom")),
+        )
+        wrapper = TokenRecordingModelWrapper(
+            provider_id="openai",
+            model=MagicMock(model="gpt-4"),
+        )
+        wrapper._record_usage(MagicMock(input_tokens=1, output_tokens=1))
+
     def test_pop_usage_for_session(self, monkeypatch):
         """Should pop usage for session."""
         monkeypatch.setattr(
@@ -708,3 +764,54 @@ class TestTokenRecordingModelWrapper:
             TokenRecordingModelWrapper.pop_usage_for_session("test-session")
             is None
         )
+
+    @pytest.mark.asyncio
+    async def test_count_tokens_calibrates_from_provider_usage(self):
+        class _Inner:
+            model = "gpt-4"
+            context_size = 128000
+
+            def __init__(self) -> None:
+                self.heuristic = 1000
+
+            async def count_tokens(self, messages, tools=None):
+                return self.heuristic
+
+        inner = _Inner()
+        wrapper = TokenRecordingModelWrapper(
+            provider_id="openai",
+            model=inner,
+        )
+        first = await wrapper.count_tokens([])
+        assert first == 1000
+        wrapper._record_usage(
+            MagicMock(input_tokens=1400, output_tokens=10),
+        )
+        inner.heuristic = 1100
+        assert await wrapper.count_tokens([]) == 1500
+
+    @pytest.mark.asyncio
+    async def test_count_tokens_drops_anchor_after_shrink(self):
+        class _Inner:
+            model = "gpt-4"
+            context_size = 128000
+
+            def __init__(self) -> None:
+                self.heuristic = 10000
+
+            async def count_tokens(self, messages, tools=None):
+                return self.heuristic
+
+        inner = _Inner()
+        wrapper = TokenRecordingModelWrapper(
+            provider_id="openai",
+            model=inner,
+        )
+        await wrapper.count_tokens([])
+        wrapper._record_usage(
+            MagicMock(input_tokens=12000, output_tokens=10),
+        )
+        inner.heuristic = 2000
+        assert await wrapper.count_tokens([]) == 2000
+        inner.heuristic = 2100
+        assert await wrapper.count_tokens([]) == 2100

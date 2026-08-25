@@ -217,6 +217,18 @@ export async function installCachedDesktopUpdate(): Promise<void> {
   await invokeDesktop("install_downloaded_update");
 }
 
+/** Native window fullscreen (macOS green button / Windows F11), not the
+ * web Fullscreen API. Used to drop the traffic-light inset when the lights
+ * are hidden. */
+export async function getDesktopFullscreen(): Promise<boolean> {
+  try {
+    const value = await invokeDesktop<boolean>("plugin:window|is_fullscreen");
+    return value === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Start native window dragging from a custom overlay titlebar. The CSS
  * drag-region remains as a fast path, but invoking the window plugin here
  * also covers WebKit builds where pointer events land on nested text nodes. */

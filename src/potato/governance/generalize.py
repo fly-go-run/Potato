@@ -165,6 +165,9 @@ def _is_safe_generalization(
         parent = target.rsplit("/", 1)[0] if "/" in target else ""
         if parent and not (p.startswith(parent + "/") or p == parent):
             return False
+        lowered = p.replace("\\", "/").lower()
+        if "/.git/hooks" in lowered or lowered.endswith("/agent.json"):
+            return False
     return True
 
 

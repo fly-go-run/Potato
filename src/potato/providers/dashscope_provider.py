@@ -128,7 +128,7 @@ class DashScopeProvider(OpenAIProvider):
         from agentscope.credential import DashScopeCredential
         from agentscope.model import DashScopeChatModel
 
-        if not self.api_key:
+        if not self.effective_api_key(model_id):
             from potato.exceptions import ProviderError
 
             raise ProviderError(
@@ -139,7 +139,7 @@ class DashScopeProvider(OpenAIProvider):
             )
 
         credential = DashScopeCredential(
-            api_key=self.api_key,
+            api_key=self.effective_api_key(model_id),
             base_url=self.base_url,
         )
 

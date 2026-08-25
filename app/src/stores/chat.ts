@@ -53,6 +53,79 @@ import {
 } from "../lib/uploads";
 
 export type ApprovalLevel = "STRICT" | "SMART" | "AUTO" | "OFF";
+export type SandboxMode =
+  | "read-only"
+  | "workspace-write"
+  | "danger-full-access";
+
+const SANDBOX_MODE_KEY = "potato.sandbox_mode";
+const APPROVAL_LEVEL_KEY = "potato.approval_level";
+
+function loadSandboxMode(): SandboxMode {
+  try {
+    const raw = globalThis.localStorage?.getItem(SANDBOX_MODE_KEY);
+    if (
+      raw === "read-only" ||
+      raw === "workspace-write" ||
+      raw === "danger-full-access"
+    ) {
+      return raw;
+    }
+  } catch {
+    // localStorage may be blocked in some embeds
+  }
+  return "workspace-write";
+}
+
+function persistSandboxMode(mode: SandboxMode) {
+  try {
+    globalThis.localStorage?.setItem(SANDBOX_MODE_KEY, mode);
+  } catch {
+    // ignore quota / privacy mode
+  }
+}
+
+function loadStoredApprovalLevel(): ApprovalLevel {
+  try {
+    const raw = globalThis.localStorage?.getItem(APPROVAL_LEVEL_KEY);
+    if (
+      raw === "STRICT" ||
+      raw === "SMART" ||
+      raw === "AUTO" ||
+      raw === "OFF"
+    ) {
+      return raw;
+    }
+  } catch {
+    // localStorage may be blocked in some embeds
+  }
+  return "AUTO";
+}
+
+function persistApprovalLevel(level: ApprovalLevel) {
+  try {
+    globalThis.localStorage?.setItem(APPROVAL_LEVEL_KEY, level);
+  } catch {
+    // ignore quota / privacy mode
+  }
+}
+
+function persistRunningPermissions(patch: {
+  approval_level?: ApprovalLevel;
+  sandbox_mode?: SandboxMode;
+}) {
+  void workspaceApi
+    .runningConfig()
+    .then((current) =>
+      workspaceApi.putRunningConfig({
+        ...current,
+        ...patch,
+      }),
+    )
+    .catch(() => {
+      // session override still lives in memory / localStorage
+    });
+}
 
 export interface PendingImage {
   id: string;
@@ -75,6 +148,7 @@ interface ChatStore {
   modelLoading: boolean;
   error: string | null;
   approvalLevel: ApprovalLevel;
+  sandboxMode: SandboxMode;
   project: ProjectBinding | null;
   pendingImages: PendingImage[];
   pendingApprovals: PendingApproval[];
@@ -96,6 +170,7 @@ interface ChatStore {
   togglePinned: (chatId: string) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   setApprovalLevel: (level: ApprovalLevel) => void;
+  setSandboxMode: (mode: SandboxMode) => void;
   setComposerDraft: (text: string | null) => void;
   setProject: (project: ProjectBinding | null) => void;
   addImages: (files: File[]) => void;
@@ -142,7 +217,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   activeModel: null,
   modelLoading: false,
   error: null,
-  approvalLevel: "AUTO",
+  approvalLevel: loadStoredApprovalLevel(),
+  sandboxMode: loadSandboxMode(),
   project: initialProject(),
   pendingImages: [],
   pendingApprovals: [],
@@ -211,7 +287,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const config = await workspaceApi.runningConfig();
       const level = config.approval_level?.toUpperCase();
-      if (isApprovalLevel(level)) set({ approvalLevel: level });
+      if (isApprovalLevel(level)) {
+        persistApprovalLevel(level);
+        set({ approvalLevel: level });
+      }
+      const mode = config.sandbox_mode;
+      if (
+        mode === "read-only" ||
+        mode === "workspace-write" ||
+        mode === "danger-full-access"
+      ) {
+        persistSandboxMode(mode);
+        set({ sandboxMode: mode });
+      }
     } catch {
       // AUTO remains the contract-compatible fallback.
     }
@@ -421,6 +509,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           stream: true,
           request_context: {
             approval_level: get().approvalLevel,
+            sandbox_mode: get().sandboxMode,
             ...(get().project
               ? { "potato.coding_project_dir": get().project?.path }
               : {}),
@@ -671,7 +760,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  setApprovalLevel: (approvalLevel) => set({ approvalLevel }),
+  setApprovalLevel: (approvalLevel) => {
+    persistApprovalLevel(approvalLevel);
+    set({ approvalLevel });
+    persistRunningPermissions({ approval_level: approvalLevel });
+  },
+  setSandboxMode: (sandboxMode) => {
+    persistSandboxMode(sandboxMode);
+    set({ sandboxMode });
+    persistRunningPermissions({ sandbox_mode: sandboxMode });
+  },
   setComposerDraft: (composerDraft) => set({ composerDraft }),
 
   setProject: (project) => {
@@ -850,6 +948,7 @@ async function enqueueFollowup(
         stream: true,
         request_context: {
           approval_level: get().approvalLevel,
+          sandbox_mode: get().sandboxMode,
           ...(get().project
             ? { "potato.coding_project_dir": get().project?.path }
             : {}),

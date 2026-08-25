@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { isMacDesktopShell, startDesktopWindowDrag } from "../../lib/desktop";
+import { useDesktopFullscreen } from "../../lib/useDesktopFullscreen";
 import {
   LayoutGrid,
   ChevronDown,
@@ -112,6 +113,8 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
     navigate("/");
   };
   const mac = isMacDesktopShell();
+  const fullscreen = useDesktopFullscreen();
+  const reserveTrafficLights = mac && !fullscreen;
 
   const onTitlebarMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     if (!isMacDesktopShell() || event.button !== 0) return;
@@ -130,15 +133,15 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
     // 浅色 #f5f5f4 贴画布 #fbfbfb 仍糊，接缝用 line-strong。
     // 深色靠抬升分层，描边改 line-highlight，避免一条更亮的硬缝。
     <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line-strong bg-bg dark:border-line-highlight">
-      {/* mac：顶栏左边留给灯，只放收起。Windows/网页：品牌在左上，纯字标。 */}
+      {/* mac 窗口：顶栏左边留给灯，只放收起。全屏/Windows/网页：品牌在左上。 */}
       <div
         data-tauri-drag-region
         onMouseDown={onTitlebarMouseDown}
         className={`flex h-11 shrink-0 items-center px-2 ${
-          mac ? "justify-end" : "gap-1"
+          reserveTrafficLights ? "justify-end" : "gap-1"
         }`}
       >
-        {!mac && (
+        {!reserveTrafficLights && (
           <div className="min-w-0 flex-1 pl-1">
             <SidebarBrand />
           </div>

@@ -126,14 +126,14 @@ class AnthropicProvider(Provider):
         default_headers = self._build_default_headers()
         if self.auth_mode == "auth_token":
             return anthropic_sdk.AsyncAnthropic(
-                auth_token=self.api_key,
+                auth_token=self.effective_api_key(),
                 base_url=self.base_url,
                 default_headers=default_headers,
                 http_client=self._get_strip_http_client(),
                 timeout=timeout,
             )
         return anthropic_sdk.AsyncAnthropic(
-            api_key=self.api_key,
+            api_key=self.effective_api_key(),
             base_url=self.base_url,
             default_headers=default_headers,
             timeout=timeout,
@@ -286,7 +286,7 @@ class AnthropicProvider(Provider):
                 params_kwargs[key] = effective_generate_kwargs.pop(key)
 
         credential = AnthropicCredential(
-            api_key=self.api_key or "",
+            api_key=self.effective_api_key(model_id) or "",
             base_url=self.base_url,
         )
 

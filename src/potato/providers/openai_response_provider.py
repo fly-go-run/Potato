@@ -358,7 +358,7 @@ class OpenAIResponseProvider(OpenAIProvider):
 
         credential = OpenAICredential(
             id=f"potato-{self.id}",
-            api_key=self.api_key,
+            api_key=self.effective_api_key(model_id),
             base_url=self.base_url,
         )
 

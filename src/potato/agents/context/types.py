@@ -20,6 +20,32 @@ class ContextWindowUnfitError(RuntimeError):
         )
 
 
+_CONTEXT_WINDOW_MARKERS = (
+    "context length",
+    "context_length",
+    "maximum context",
+    "context window",
+    "prompt is too long",
+    "prompt too long",
+    "context_window_exceeded",
+    "too many tokens",
+    "token limit",
+    "exceeds the context",
+    "reduce the length of the messages",
+    "input is too long",
+    "context_unfit",
+    "could not fit the active request",
+)
+
+
+def is_context_window_error(exc: BaseException) -> bool:
+    """True when the provider or local compact path says the window is full."""
+    if isinstance(exc, ContextWindowUnfitError):
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in _CONTEXT_WINDOW_MARKERS)
+
+
 @dataclass(frozen=True)
 class LogEntry:
     """One durable row appended to ``conversation_history``.

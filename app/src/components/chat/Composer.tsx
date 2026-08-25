@@ -39,7 +39,11 @@ import {
   detectTrigger,
   type ComposerTrigger,
 } from "../../lib/composerTrigger";
-import { useChatStore, type ApprovalLevel } from "../../stores/chat";
+import {
+  useChatStore,
+  type ApprovalLevel,
+  type SandboxMode,
+} from "../../stores/chat";
 import { useUiPrefs } from "../../stores/uiPrefs";
 import {
   isFatalSpeechError,
@@ -65,13 +69,6 @@ const sendButtonClass =
   "shadow-[var(--shadow-control)] transition-[background-color,color,opacity] duration-[var(--dur-fast)] " +
   "hover:bg-btn-primary-hover active:opacity-90 " +
   "disabled:pointer-events-none disabled:opacity-45 " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-  "focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-
-const stopButtonClass =
-  "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-line bg-raised text-ink " +
-  "shadow-[var(--shadow-sm)] transition-[background-color,color,opacity] duration-[var(--dur-fast)] " +
-  "hover:bg-fill-hover active:opacity-90 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
   "focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
@@ -141,12 +138,14 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       .join("\u0001"),
   );
   const approvalLevel = useChatStore((state) => state.approvalLevel);
+  const sandboxMode = useChatStore((state) => state.sandboxMode);
   const composerDraft = useChatStore((state) => state.composerDraft);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const stop = useChatStore((state) => state.stop);
   const addImages = useChatStore((state) => state.addImages);
   const removeImage = useChatStore((state) => state.removeImage);
   const setApprovalLevel = useChatStore((state) => state.setApprovalLevel);
+  const setSandboxMode = useChatStore((state) => state.setSandboxMode);
   const setComposerDraft = useChatStore((state) => state.setComposerDraft);
 
   // 建议卡等外部入口写入的草稿:填入、聚焦、光标停在文末方便续写
@@ -307,6 +306,27 @@ export function Composer({ wide = false }: { wide?: boolean }) {
       label: t("composer.approval.off"),
     },
   ];
+  const sandboxModes: Array<{
+    value: SandboxMode;
+    label: string;
+    hint: string;
+  }> = [
+    {
+      value: "read-only",
+      label: t("composer.sandbox.readonly"),
+      hint: t("composer.sandbox.readonlyHint"),
+    },
+    {
+      value: "workspace-write",
+      label: t("composer.sandbox.workspace"),
+      hint: t("composer.sandbox.workspaceHint"),
+    },
+    {
+      value: "danger-full-access",
+      label: t("composer.sandbox.host"),
+      hint: t("composer.sandbox.hostHint"),
+    },
+  ];
   const model = activeModel?.active_llm;
   // Only uploads lock the composer. A live turn stays typeable so the
   // next message can sit in the backend inbox (DSH-style follow-up).
@@ -314,9 +334,16 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   const canSend = Boolean(
     model && (text.trim() || pendingImages.length > 0) && !isSubmitting,
   );
+  // One circle: stop while a turn is live and the box is empty; flip
+  // to send as soon as there is a follow-up to queue.
+  const showStop = isStreaming && !canSend && voiceState === "idle";
   const approvalLabel =
     approvalLevels.find((item) => item.value === approvalLevel)?.label ??
     t("composer.approval.auto");
+  const sandboxLabel =
+    sandboxModes.find((item) => item.value === sandboxMode)?.label ??
+    t("composer.sandbox.workspace");
+  const permissionLabel = `${sandboxLabel} · ${approvalLabel}`;
 
   // WorkBuddy keeps the permission selector inside the white composer card
   // on session pages, while the home page also exposes the wider environment
@@ -328,12 +355,12 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         <Button
           variant="ghost"
           size="sm"
-          aria-label={t("composer.approval.aria")}
+          aria-label={t("composer.permission.aria")}
+          data-testid="composer-permission"
           className={insideComposer ? "px-2" : "hidden px-2 sm:flex"}
         >
           <ShieldCheck size={16} strokeWidth={1.75} />
-          {/* 审批档位是安全边界,任何入口都必须显示当前档位 */}
-          {approvalLabel}
+          {permissionLabel}
           <ChevronDown size={14} strokeWidth={1.8} />
         </Button>
       </DropdownMenu.Trigger>
@@ -341,15 +368,40 @@ export function Composer({ wide = false }: { wide?: boolean }) {
         <DropdownMenu.Content
           sideOffset={6}
           align="start"
-          className="qp-pop z-50 min-w-64 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
+          className="qp-pop z-50 min-w-72 rounded-[var(--radius-md)] border border-line bg-raised p-1 shadow-[var(--shadow-md)]"
         >
-          {/* 缩短的 chip 文案(自动/关闭)靠这里的节头找回语境 */}
           <div className="px-2.5 pb-1 pt-1.5 text-[11px] text-ink-muted">
+            {t("composer.sandbox.aria")}
+          </div>
+          {sandboxModes.map((item) => (
+            <DropdownMenu.Item
+              key={item.value}
+              data-testid="sandbox-menu-item"
+              onSelect={() => setSandboxMode(item.value)}
+              className="flex cursor-default items-start justify-between gap-3 rounded-sm px-2.5 py-2 outline-none hover:bg-fill-hover focus:bg-fill-active"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs text-ink">{item.label}</span>
+                <span className="mt-0.5 block text-[11px] text-ink-muted">
+                  {item.hint}
+                </span>
+              </span>
+              {sandboxMode === item.value && (
+                <Check
+                  size={14}
+                  strokeWidth={1.8}
+                  className="mt-0.5 shrink-0 text-accent"
+                />
+              )}
+            </DropdownMenu.Item>
+          ))}
+          <div className="px-2.5 pb-1 pt-2 text-[11px] text-ink-muted">
             {t("composer.approval.aria")}
           </div>
           {approvalLevels.map((item) => (
             <DropdownMenu.Item
               key={item.value}
+              data-testid="approval-menu-item"
               onSelect={() => setApprovalLevel(item.value)}
               className="flex cursor-default items-start justify-between gap-3 rounded-sm px-2.5 py-2 outline-none hover:bg-fill-hover focus:bg-fill-active"
             >
@@ -940,14 +992,11 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                   }
                   aria-pressed={voiceState === "recording"}
                   onClick={toggleVoice}
-                  // mr-[17px]:麦克风左侧是弱底的模型选择器,右侧是 36px
-                  // 圆钮(停或发)。补边距让两侧墨迹空隙接近。放在麦克风上:
-                  // 语音不可用时整颗不渲染,不会改发送键布局。
-                  className={`mr-[17px] ${
+                  className={
                     voiceState === "recording"
                       ? "text-danger hover:text-danger"
-                      : ""
-                  }`}
+                      : undefined
+                  }
                 >
                   {voiceState === "transcribing" ||
                   voiceState === "starting" ? (
@@ -967,28 +1016,25 @@ export function Composer({ wide = false }: { wide?: boolean }) {
                 </IconButton>
               )}
 
-              {isStreaming && (
-                <button
-                  type="button"
-                  data-testid="composer-stop"
-                  title={t("composer.stop")}
-                  onClick={() => void stop()}
-                  className={stopButtonClass}
-                >
-                  <Square size={16} fill="currentColor" />
-                </button>
-              )}
               <button
                 type="button"
-                data-testid="composer-send"
+                data-testid={showStop ? "composer-stop" : "composer-send"}
                 title={
-                  isStreaming ? t("composer.sendQueued") : t("composer.send")
+                  showStop
+                    ? t("composer.stop")
+                    : isStreaming
+                      ? t("composer.sendQueued")
+                      : t("composer.send")
                 }
-                disabled={!canSend || voiceState !== "idle"}
-                onClick={submit}
+                disabled={showStop ? false : !canSend || voiceState !== "idle"}
+                onClick={showStop ? () => void stop() : submit}
                 className={sendButtonClass}
               >
-                <ArrowUp size={16} strokeWidth={2.4} />
+                {showStop ? (
+                  <Square size={16} fill="currentColor" />
+                ) : (
+                  <ArrowUp size={16} strokeWidth={2.4} />
+                )}
               </button>
             </div>
           </div>

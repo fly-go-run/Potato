@@ -118,7 +118,7 @@ class OpenAIProvider(Provider):
         AsyncOpenAI, _ = _openai_types()
         kwargs: dict = {
             "base_url": self.base_url,
-            "api_key": self.api_key,
+            "api_key": self.effective_api_key(),
             "timeout": timeout,
         }
         headers = self._build_default_headers()
@@ -233,7 +233,7 @@ class OpenAIProvider(Provider):
 
         credential = OpenAICredential(
             id=f"potato-{self.id}",
-            api_key=self.api_key,
+            api_key=self.effective_api_key(model_id),
             base_url=self.base_url,
         )
 

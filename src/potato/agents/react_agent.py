@@ -29,6 +29,10 @@ from agentscope.model import FinishedReason
 from agentscope.state import AgentState
 from agentscope.tool import Toolkit
 
+from .context.types import (
+    ContextWindowUnfitError,
+    is_context_window_error,
+)
 from .skill_system import get_workspace_skills_dir
 from ..modes.coding import CodingModeMixin
 from ..utils.io_utils import run_sync_io
@@ -221,6 +225,17 @@ class PotatoAgent(CodingModeMixin, Agent):
             context_config,
             instructions=instructions,
         )
+
+    async def _compact_after_context_overflow(self) -> None:
+        """Force one overflow compaction, ignoring the 80% auto gate."""
+        # Same negligible trigger as manual /compact: ContextConfig forbids 0.
+        forced = getattr(self, "context_config", None)
+        if forced is not None:
+            try:
+                forced = forced.model_copy(update={"trigger_ratio": 1e-6})
+            except Exception:
+                pass
+        await self.compress_context(forced)
 
     async def _split_tool_result_for_compression(
         self,
@@ -555,46 +570,74 @@ class PotatoAgent(CodingModeMixin, Agent):
                     pending_seen_ids,
                 )
 
-        try:
-            async for evt in super()._reasoning(tool_choice=tool_choice):
+        async def forward_reasoning():
+            async for evt in super(PotatoAgent, self)._reasoning(
+                tool_choice=tool_choice,
+            ):
                 acknowledge_seen_results(evt)
                 if isinstance(evt, Msg):
+                    nonlocal final_msg
                     final_msg = evt
                 else:
                     yield evt
+
+        try:
+            async for evt in forward_reasoning():
+                yield evt
         except Exception as e:
-            if not self._is_bad_request_or_media_error(e):
-                raise
-
-            model_key = self._get_model_key()
-            if model_key:
-                get_capability_cache().learn(
-                    model_key,
-                    "rejects_media",
-                    True,
+            if is_context_window_error(e):
+                logger.warning(
+                    "_reasoning hit a context-window error (%s); "
+                    "forcing compaction and retrying once.",
+                    e,
                 )
-            logger.warning(
-                "_reasoning failed with media error (%s); "
-                "stripping media and retrying.",
-                e,
-            )
-            if self._uses_request_time_media_normalization():
-                self._set_formatter_media_strip(True)
-            else:
-                self._strip_media_blocks_from_memory()
-
-            try:
-                async for evt in super()._reasoning(
-                    tool_choice=tool_choice,
-                ):
-                    acknowledge_seen_results(evt)
-                    if isinstance(evt, Msg):
-                        final_msg = evt
-                    else:
+                try:
+                    await self._compact_after_context_overflow()
+                except ContextWindowUnfitError:
+                    raise
+                except Exception:
+                    logger.exception(
+                        "overflow compaction failed; not retrying the model",
+                    )
+                    raise e from None
+                try:
+                    async for evt in forward_reasoning():
                         yield evt
-            finally:
+                except Exception as retry_exc:
+                    if is_context_window_error(retry_exc):
+                        raise ContextWindowUnfitError(
+                            tokens=0,
+                            hard_limit=int(
+                                getattr(self.model, "context_size", 0) or 0,
+                            ),
+                        ) from retry_exc
+                    raise
+            elif not self._is_bad_request_or_media_error(e):
+                raise
+            else:
+                model_key = self._get_model_key()
+                if model_key:
+                    get_capability_cache().learn(
+                        model_key,
+                        "rejects_media",
+                        True,
+                    )
+                logger.warning(
+                    "_reasoning failed with media error (%s); "
+                    "stripping media and retrying.",
+                    e,
+                )
                 if self._uses_request_time_media_normalization():
-                    self._set_formatter_media_strip(False)
+                    self._set_formatter_media_strip(True)
+                else:
+                    self._strip_media_blocks_from_memory()
+
+                try:
+                    async for evt in forward_reasoning():
+                        yield evt
+                finally:
+                    if self._uses_request_time_media_normalization():
+                        self._set_formatter_media_strip(False)
         else:
             if should_strip and self._uses_request_time_media_normalization():
                 self._set_formatter_media_strip(False)
@@ -679,14 +722,13 @@ class PotatoAgent(CodingModeMixin, Agent):
         # never about media support — stripping media may incidentally
         # make the next request fit, but it's a coincidence, not a
         # learned capability.
+        if is_context_window_error(exc):
+            return False
         size_signals = (
             "too large",
             "toolarge",
             "max bytes",
             "request body",
-            "context length",
-            "context_length",
-            "maximum context",
             "max_tokens",
         )
         if any(sig in error_str for sig in size_signals):
@@ -803,6 +845,17 @@ class PotatoAgent(CodingModeMixin, Agent):
             "desktop_screenshot",
             default_timeout_secs=30.0,
         )
+        for name in (
+            "computer_list_apps",
+            "computer_observe",
+            "computer_click",
+            "computer_set_value",
+            "computer_type_text",
+            "computer_press_key",
+            "computer_scroll",
+            "computer_drag",
+        ):
+            mgr.hooks.register(name, default_timeout_secs=45.0)
         for name in (
             "lsp_definition",
             "lsp_references",
