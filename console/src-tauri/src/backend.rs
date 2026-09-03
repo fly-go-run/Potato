@@ -414,7 +414,7 @@ fn start(app: &tauri::AppHandle) {
         Ok(command) => command,
         Err(message) => {
             state.set_error(message);
-            tray::show_main_window(app);
+            tray::show_main_window_for_startup_error(app);
             return;
         }
     }
@@ -438,7 +438,7 @@ fn start(app: &tauri::AppHandle) {
         Ok(child) => child,
         Err(err) => {
             state.set_error(format!("failed to spawn backend: {err}"));
-            tray::show_main_window(app);
+            tray::show_main_window_for_startup_error(app);
             return;
         }
     };

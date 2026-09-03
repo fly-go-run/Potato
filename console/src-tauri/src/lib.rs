@@ -42,18 +42,31 @@ fn ensure_autostart_default(app: &tauri::AppHandle) {
     use tauri_plugin_autostart::ManagerExt;
     let Ok(dir) = app.path().app_data_dir() else { return };
     let marker = dir.join(AUTOSTART_INIT_MARKER);
+    let autolaunch = app.autolaunch();
     if marker.exists() {
+        // Already decided once. If it is still on, re-register so the
+        // entry follows the current executable path (e.g. the app was moved
+        // to /Applications after first launch); if the user turned it off,
+        // leave it off.
+        if autolaunch.is_enabled().unwrap_or(false) {
+            if let Err(err) = autolaunch.enable() {
+                log::warn!("[autostart] failed to refresh login item: {err}");
+            }
+        }
         return;
     }
     if let Err(err) = std::fs::create_dir_all(&dir) {
         log::warn!("[autostart] cannot create app data dir: {err}");
         return;
     }
-    match app.autolaunch().enable() {
-        Ok(()) => log::info!("[autostart] login item registered (first launch)"),
+    match autolaunch.enable() {
+        Ok(()) => {
+            log::info!("[autostart] login item registered (first launch)");
+            // Only remember success; a failed first attempt is retried next launch.
+            let _ = std::fs::write(&marker, b"1");
+        }
         Err(err) => log::warn!("[autostart] failed to register login item: {err}"),
     }
-    let _ = std::fs::write(&marker, b"1");
 }
 
 /// Opens the WebView DevTools. Gated by the hidden 8-click logo gesture in the

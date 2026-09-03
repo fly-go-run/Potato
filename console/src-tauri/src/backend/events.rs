@@ -59,7 +59,7 @@ pub(super) fn watch(
                         .state::<BackendState>()
                         .claim_frontend_reveal_if_current(generation)
                     {
-                        tray::show_main_window(&app);
+                        tray::show_main_window_for_startup_error(&app);
                     }
                 }
                 CommandEvent::Terminated(payload) => {
@@ -75,7 +75,7 @@ pub(super) fn watch(
                         log::warn!("[backend:{generation}] {message}");
                         state.set_error_if_current(generation, message);
                         if state.claim_frontend_reveal_if_current(generation) {
-                            tray::show_main_window(&app);
+                            tray::show_main_window_for_startup_error(&app);
                         }
                     }
                 }

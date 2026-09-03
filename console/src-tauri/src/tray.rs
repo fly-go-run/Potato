@@ -202,6 +202,17 @@ pub(crate) fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
+/// Reveal for an automatic backend startup failure. Suppressed once the
+/// launch reveal has happened (the user may have hidden the window) and in
+/// `--background` login launches, where nothing may pop a window; the error
+/// still reaches the retry UI when the user opens Potato.
+pub(crate) fn show_main_window_for_startup_error(app: &tauri::AppHandle) {
+    if crate::INITIAL_REVEAL_DONE.load(std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    show_main_window(app);
+}
+
 pub(crate) fn hide_main_window(app: &tauri::AppHandle) {
     crate::window_state::flush_sync(app);
     if let Some(window) = app.get_webview_window("main") {
