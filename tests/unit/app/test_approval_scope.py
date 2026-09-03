@@ -138,6 +138,7 @@ class TestApprovalDisplayFields:
                 "exact_target": "git status",
                 "similar_target": "git *",
                 "is_generalized": True,
+                "justification": "Need to inspect repository state",
             },
         )
         fields = approval_display_fields(pending)
@@ -145,6 +146,7 @@ class TestApprovalDisplayFields:
         assert fields["similar_target"] == "git *"
         assert fields["is_generalized"] is True
         assert fields["tool_display_name"] == "Bash"
+        assert fields["justification"] == "Need to inspect repository state"
 
     def test_not_generalized(self):
         pending = _FakePending(

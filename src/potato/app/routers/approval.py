@@ -34,9 +34,9 @@ class ApprovalActionRequest(BaseModel):
     scope: Optional[str] = Field(
         None,
         description=(
-            "Approval scope for approve actions: 'exact' (record the "
-            "literal target) or 'similar' (record the generalized "
-            "pattern). Omitted/unknown defaults to 'exact'."
+            "Approval scope for approve actions: 'exact' (allow this call "
+            "once) or 'similar' (persist the generalized pattern). "
+            "Omitted/unknown defaults to 'exact'."
         ),
     )
 
@@ -103,6 +103,12 @@ async def post_approval_approve(
             detail="Root session mismatch: cannot approve other session trees",
         )
 
+    if body.user_id and pending.user_id and pending.user_id != body.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="User mismatch: cannot approve another user's request",
+        )
+
     # Parse the approval scope. Unknown / omitted values fall back to None,
     # which the governance consumer treats as EXACT (least-privilege).
     scope: ApprovalScope | None = None
@@ -122,6 +128,14 @@ async def post_approval_approve(
         ApprovalDecision.APPROVED,
         scope=scope,
     )
+    if resolved is None:
+        # Another console/channel may have acted between get_request() and
+        # resolve_request(). Treat this as a stale decision instead of raising
+        # AttributeError below and turning a harmless double click into a 500.
+        raise HTTPException(
+            status_code=409,
+            detail="Approval request was already resolved",
+        )
 
     logger.info(
         "Approval approved: request_id=%s session=%s tool=%s",
@@ -187,11 +201,22 @@ async def post_approval_deny(
             detail="Root session mismatch: cannot approve other session trees",
         )
 
+    if body.user_id and pending.user_id and pending.user_id != body.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="User mismatch: cannot deny another user's request",
+        )
+
     # Resolve the Future
     resolved = await svc.resolve_request(
         body.request_id,
         ApprovalDecision.DENIED,
     )
+    if resolved is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Approval request was already resolved",
+        )
 
     logger.info(
         "Approval denied: request_id=%s session=%s tool=%s",
@@ -245,6 +270,7 @@ async def get_approval_list(
                 "session_id": pending.session_id,
                 "root_session_id": pending.root_session_id,
                 "owner_agent_id": pending.owner_agent_id,
+                "user_id": pending.user_id,
                 "agent_id": pending.agent_id,
                 "tool_name": pending.tool_name,
                 **approval_display_fields(pending),

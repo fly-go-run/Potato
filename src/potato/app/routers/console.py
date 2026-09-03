@@ -459,6 +459,7 @@ async def get_push_messages(
             "session_id": p.session_id,
             "root_session_id": p.root_session_id,
             "owner_agent_id": p.owner_agent_id,
+            "user_id": p.user_id,
             "agent_id": p.agent_id,
             "tool_name": p.tool_name,
             **approval_display_fields(p),
