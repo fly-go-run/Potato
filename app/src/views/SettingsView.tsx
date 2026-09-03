@@ -59,9 +59,11 @@ import {
   type SkillInfo,
 } from "../lib/capabilities";
 import {
+  getDesktopAutostart,
   getDesktopWindowStatePreference,
   hasDesktopHostBridge,
   resetDesktopWindowState,
+  setDesktopAutostart,
   setDesktopWindowStatePreference,
 } from "../lib/desktop";
 import { skillDisplayName } from "../lib/skillPresentation";
@@ -235,6 +237,8 @@ export function SettingsView() {
   const [savingTranscription, setSavingTranscription] = useState(false);
   const [desktopWindowReady] = useState(() => hasDesktopHostBridge());
   const [rememberWindow, setRememberWindow] = useState(true);
+  const [autostart, setAutostart] = useState(false);
+  const [savingAutostart, setSavingAutostart] = useState(false);
   const [savingWindowPref, setSavingWindowPref] = useState(false);
   const [resettingWindow, setResettingWindow] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -332,6 +336,35 @@ export function SettingsView() {
       active = false;
     };
   }, [desktopWindowReady]);
+
+  useEffect(() => {
+    if (!desktopWindowReady) return;
+    let active = true;
+    void getDesktopAutostart().then((enabled) => {
+      if (!active || enabled === null) return;
+      setAutostart(enabled);
+    });
+    return () => {
+      active = false;
+    };
+  }, [desktopWindowReady]);
+
+  const toggleAutostart = async (next: boolean) => {
+    setSavingAutostart(true);
+    setError(null);
+    try {
+      const ok = await setDesktopAutostart(next);
+      if (!ok) {
+        setError(t("settings.autostart.failed"));
+        return;
+      }
+      setAutostart(next);
+    } catch (reason) {
+      setError(readableError(reason));
+    } finally {
+      setSavingAutostart(false);
+    }
+  };
 
   const toggleRememberWindow = async (next: boolean) => {
     setSavingWindowPref(true);
@@ -1364,6 +1397,19 @@ export function SettingsView() {
                     </SettingRow>
                     {desktopWindowReady && (
                       <>
+                        <SettingRow
+                          title={t("settings.autostart.title")}
+                          description={t("settings.autostart.hint")}
+                        >
+                          <Switch
+                            checked={autostart}
+                            disabled={savingAutostart}
+                            onChange={() => {
+                              void toggleAutostart(!autostart);
+                            }}
+                            aria-label={t("settings.autostart.title")}
+                          />
+                        </SettingRow>
                         <SettingRow
                           title={t("settings.window.remember")}
                         >

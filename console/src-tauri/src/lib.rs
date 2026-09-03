@@ -23,6 +23,39 @@ use tauri::{Manager, RunEvent, WebviewWindow, WindowEvent};
 /// the user has seen the app and may have deliberately hidden it.
 pub(crate) static INITIAL_REVEAL_DONE: AtomicBool = AtomicBool::new(false);
 
+/// Launched by the OS login item with `--background`: start the sidecar so
+/// it is warm, but never reveal the window on our own. The user brings it up
+/// from the tray, the Dock, or by launching Potato again (single-instance
+/// callback). This turns the Windows cold start into a login-time prewarm.
+const BACKGROUND_LAUNCH_ARG: &str = "--background";
+/// Written once the login item has been registered on first launch, so a
+/// user who later turns it off in Settings is not re-enabled.
+const AUTOSTART_INIT_MARKER: &str = "autostart-initialized";
+
+/// Register the login item on the very first launch. Errors are logged, not
+/// fatal: the app works without autostart, it just cold-starts on click.
+fn ensure_autostart_default(app: &tauri::AppHandle) {
+    // Never register a `tauri dev` binary as a login item.
+    if cfg!(debug_assertions) {
+        return;
+    }
+    use tauri_plugin_autostart::ManagerExt;
+    let Ok(dir) = app.path().app_data_dir() else { return };
+    let marker = dir.join(AUTOSTART_INIT_MARKER);
+    if marker.exists() {
+        return;
+    }
+    if let Err(err) = std::fs::create_dir_all(&dir) {
+        log::warn!("[autostart] cannot create app data dir: {err}");
+        return;
+    }
+    match app.autolaunch().enable() {
+        Ok(()) => log::info!("[autostart] login item registered (first launch)"),
+        Err(err) => log::warn!("[autostart] failed to register login item: {err}"),
+    }
+    let _ = std::fs::write(&marker, b"1");
+}
+
 /// Opens the WebView DevTools. Gated by the hidden 8-click logo gesture in the
 /// frontend so end users cannot open DevTools via the default context menu or
 /// keyboard shortcuts in production builds.
@@ -53,7 +86,15 @@ pub fn run() {
     // a second copy starts another backend on the stable desktop port; the old
     // WebView can remain visible after its backend is reclaimed, leaving a
     // misleading blank Potato window behind the real Potato window.
-    let mut builder = tauri::Builder::default();
+    let background = std::env::args().skip(1).any(|arg| arg == BACKGROUND_LAUNCH_ARG);
+    if background {
+        // No automatic reveal path may show the window in this mode.
+        INITIAL_REVEAL_DONE.store(true, Ordering::SeqCst);
+    }
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        Some(vec![BACKGROUND_LAUNCH_ARG]),
+    ));
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -98,13 +139,17 @@ pub fn run() {
         ])
         .manage(backend::BackendState::default())
         .manage(tray::TrayState::default())
-        .setup(|app| {
+        .setup(move |app| {
             // Restore geometry before backend::setup: a sidecar failure path
             // calls show_main_window synchronously and would otherwise flash
             // the conf defaults.
             window_state::init_and_restore(&app.handle());
             backend::setup(app)?;
             tray::setup(app)?;
+            ensure_autostart_default(&app.handle());
+            if background {
+                log::info!("[autostart] background launch: sidecar prewarm, window stays hidden");
+            }
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
                 macos_traffic_lights::align(&window);

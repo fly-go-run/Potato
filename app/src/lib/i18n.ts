@@ -26,9 +26,9 @@ export const dictionaries = {
     "memory.discardConfirm": "放弃修改",
     "sidebar.actionFailed": "操作失败：{message}",
     "composer.skillsLoadFailed": "技能加载失败",
-    "approval.similarConfirmTitle": "批准同类操作？",
+    "approval.similarConfirmTitle": "批准并永久允许同类操作？",
     "approval.similarConfirmBody":
-      "之后匹配以下范围的操作将自动获准，不再逐一询问：",
+      "这会写入长期授权规则。之后匹配以下范围的操作将自动获准，不再逐一询问：",
     "progress.working": "正在处理…",
     "progress.failedTitle": "这一步执行失败",
     "crons.form.targetPlaceholder": "选择投递目标…",
@@ -459,6 +459,7 @@ export const dictionaries = {
 
     "approval.title": "需要你的批准",
     "approval.severity.low": "低风险",
+    "approval.severity.info": "提示",
     "approval.severity.medium": "中风险",
     "approval.severity.high": "高风险",
     "approval.severity.critical": "严重风险",
@@ -468,8 +469,10 @@ export const dictionaries = {
     "approval.target": "执行目标",
     "approval.source": "规则来源",
     "approval.increment": "这次新增的权限",
+    "approval.justification": "模型申请理由",
     "approval.approve": "批准",
-    "approval.approveSimilar": "批准同类",
+    "approval.approveOnce": "仅本次允许",
+    "approval.approveSimilar": "始终允许同类",
     "approval.deny": "拒绝",
     "approval.processing": "处理中…",
 
@@ -665,6 +668,10 @@ export const dictionaries = {
     "settings.language.description": "选择界面显示语言。",
     "settings.language.zh": "中文",
     "settings.language.en": "English",
+    "settings.autostart.title": "开机自动启动",
+    "settings.autostart.hint":
+      "登录时在后台预热服务、不弹窗口，之后点开 Potato 秒开。可随时关闭。",
+    "settings.autostart.failed": "无法修改开机启动设置，请重试。",
     "settings.window.remember": "记住窗口大小与位置",
     "settings.window.rememberHint":
       "下次打开 Potato 时恢复你上次使用的窗口尺寸和位置。",
@@ -813,9 +820,9 @@ export const dictionaries = {
     "memory.discardConfirm": "Discard",
     "sidebar.actionFailed": "Action failed: {message}",
     "composer.skillsLoadFailed": "Couldn't load skills",
-    "approval.similarConfirmTitle": "Approve similar actions?",
+    "approval.similarConfirmTitle": "Approve and always allow similar actions?",
     "approval.similarConfirmBody":
-      "Future actions matching this scope will be approved automatically:",
+      "This writes a persistent permission rule. Future actions matching this scope will be approved automatically:",
     "progress.working": "Working…",
     "progress.failedTitle": "This step failed",
     "crons.form.targetPlaceholder": "Choose a delivery target…",
@@ -1264,6 +1271,7 @@ export const dictionaries = {
 
     "approval.title": "Your approval is required",
     "approval.severity.low": "Low risk",
+    "approval.severity.info": "Information",
     "approval.severity.medium": "Medium risk",
     "approval.severity.high": "High risk",
     "approval.severity.critical": "Critical risk",
@@ -1273,8 +1281,10 @@ export const dictionaries = {
     "approval.target": "Execution target",
     "approval.source": "Rule source",
     "approval.increment": "Permission added this time",
+    "approval.justification": "Model justification",
     "approval.approve": "Approve",
-    "approval.approveSimilar": "Approve similar",
+    "approval.approveOnce": "Allow once",
+    "approval.approveSimilar": "Always allow similar",
     "approval.deny": "Deny",
     "approval.processing": "Working…",
 
@@ -1490,6 +1500,10 @@ export const dictionaries = {
     "settings.language.description": "Choose the interface language.",
     "settings.language.zh": "中文",
     "settings.language.en": "English",
+    "settings.autostart.title": "Start at login",
+    "settings.autostart.hint":
+      "Warm up the backend in the background at login without opening a window, so Potato opens instantly. Can be turned off anytime.",
+    "settings.autostart.failed": "Could not change the login item; please retry.",
     "settings.window.remember": "Remember window size and position",
     "settings.window.rememberHint":
       "Restore the last size and position when Potato opens.",

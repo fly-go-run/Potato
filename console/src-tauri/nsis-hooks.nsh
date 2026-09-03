@@ -136,8 +136,17 @@ FunctionEnd
   !insertmacro POTATO_COPY_PROVISION_FILE
 !macroend
 
+!macro POTATO_REMOVE_AUTOSTART
+  ; tauri-plugin-autostart registers HKCU\...\Run\<app name>; the plugin has
+  ; no uninstall hook of its own, so drop the value here or the login item
+  ; points at a deleted exe after uninstall.
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Potato"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "potato-desktop"
+!macroend
+
 !macro NSIS_HOOK_PREUNINSTALL
   !insertmacro POTATO_STOP_BACKEND_SIDECAR
+  !insertmacro POTATO_REMOVE_AUTOSTART
   !insertmacro POTATO_REMOVE_DEBUG_LAUNCHER
   !insertmacro POTATO_REMOVE_CLI_PATH
 !macroend

@@ -164,6 +164,28 @@ export async function setDesktopTrayLabels(
   await invokeDesktop("set_tray_labels", { showWindow, quit });
 }
 
+/** 开机自启(登录时以 --background 预热后端,不弹窗)。非桌面壳返回 null。 */
+export async function getDesktopAutostart(): Promise<boolean | null> {
+  try {
+    const value = await invokeDesktop<boolean>("plugin:autostart|is_enabled");
+    return typeof value === "boolean" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setDesktopAutostart(enabled: boolean): Promise<boolean> {
+  if (!hasDesktopHostBridge()) return false;
+  try {
+    await invokeDesktop(
+      enabled ? "plugin:autostart|enable" : "plugin:autostart|disable",
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface DesktopWindowStatePreference {
   remember: boolean;
   width?: number | null;
