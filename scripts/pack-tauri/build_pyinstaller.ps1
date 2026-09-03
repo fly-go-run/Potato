@@ -119,10 +119,11 @@ if (Test-Path $STALE_FROZEN) {
     Remove-Item -Recurse -Force $STALE_FROZEN
 }
 
-# stage_*_runtime.py need `packaging` for release lookups.
-if (-not (Test-PythonImport "import packaging")) {
-    Install-PythonPackages -Packages @("packaging")
-}
+# The staging helpers run under the build venv: stage_cua_driver.py imports
+# potato.computer_use.bundle (and therefore Potato's runtime deps), and the
+# runtime lookups need `packaging`. Install the project without extras.
+Write-Host "== Installing build-venv dependencies ==" -ForegroundColor Yellow
+Install-PythonPackages -Packages @("packaging", "-e", ".")
 Write-Host ""
 
 # Stage a standalone CPython (same X.Y/arch as this build's interpreter):

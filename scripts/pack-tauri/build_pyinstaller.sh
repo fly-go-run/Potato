@@ -67,10 +67,12 @@ install_python_packages() {
     fi
 }
 
-# stage_*_runtime.py need `packaging` for release lookups.
-if ! "$PYTHON_BIN" -c "import packaging" 2> /dev/null; then
-    install_python_packages packaging
-fi
+# The staging helpers run under the build venv: stage_cua_driver.py imports
+# potato.computer_use.bundle (and therefore Potato's runtime deps), and the
+# runtime lookups need `packaging`. Install the project without extras.
+echo "== Installing build-venv dependencies =="
+install_python_packages packaging -e .
+echo ""
 
 # Stage a standalone CPython (same X.Y/arch as this build's interpreter):
 # it runs the backend and installs third-party plugin dependencies at runtime.
