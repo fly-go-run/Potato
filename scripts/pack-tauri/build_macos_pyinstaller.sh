@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# Build Potato with Tauri for macOS (PyInstaller backend)
+# Build Potato with Tauri for macOS (bundled CPython backend)
 # Creates a self-contained desktop app with bundled Python backend
 #
 # Usage:
 #   ./scripts/pack-tauri/build_macos_pyinstaller.sh
 #
 # Optional local-build controls:
-#   POTATO_FAST=1                 Keep PyInstaller's analysis cache.
 #   POTATO_FORCE_NPM_CI=1         Reinstall frontend dependencies explicitly.
-#   POTATO_FORCE_PYINSTALLER=1    Rebuild the backend even when inputs match.
 #   POTATO_STAGE_APP=1            Keep a copied app under dist/tauri-macos.
 
 set -euo pipefail
@@ -19,7 +17,7 @@ cd "$REPO_ROOT"
 VERSION=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/potato/__version__.py)
 
 echo "========================================="
-echo "Potato Tauri Build - macOS (PyInstaller)"
+echo "Potato Tauri Build - macOS"
 echo "========================================="
 echo "Version: ${VERSION}"
 echo ""
@@ -109,17 +107,12 @@ if [ ! -f "${SIGN_MACOS_BUNDLE}" ]; then
 fi
 
 if [ -z "${APPLE_SIGNING_IDENTITY:-}" ] && [ -z "${APPLE_CERTIFICATE:-}" ]; then
-    # The Tauri app and PyInstaller sidecar are native Mach-O executables.
+    # The Tauri app and bundled CPython are native Mach-O executables.
     # Keep their signature state consistent with ad-hoc signatures when no
     # Developer ID certificate is configured. This matches the legacy desktop
     # package behavior: signed enough for local loading, not notarized.
     export APPLE_SIGNING_IDENTITY="-"
     echo "Using ad-hoc macOS code signing"
-fi
-if [ -z "${PYINSTALLER_CODESIGN_IDENTITY:-}" ]; then
-    # PyInstaller uses the same identity as the final app for bundled Mach-O
-    # files; "-" means ad-hoc signing on macOS.
-    export PYINSTALLER_CODESIGN_IDENTITY="${APPLE_SIGNING_IDENTITY:-}"
 fi
 echo ""
 
@@ -147,27 +140,10 @@ echo "Syncing Tauri version..."
 echo "Bundled Potato app will be built once by Tauri's beforeBuildCommand"
 echo ""
 
-# Step 2: Build PyInstaller backend
-echo "== Step 2: Building PyInstaller Backend =="
+# Step 2: Stage backend runtime (bundled CPython + Potato)
+echo "== Step 2: Staging Backend Runtime =="
 bash scripts/pack-tauri/build_pyinstaller.sh
-echo "PyInstaller backend built"
-echo ""
-
-BACKEND_BINARIES_DIR="${REPO_ROOT}/console/src-tauri/binaries"
-BACKEND_REBUILT_MARKER="${BACKEND_BINARIES_DIR}/.potato-backend-rebuilt"
-BACKEND_PENDING_STAMP="${BACKEND_BINARIES_DIR}/.potato-backend-pending.stamp"
-BACKEND_SIGNED_STAMP="${BACKEND_BINARIES_DIR}/.potato-backend-signed.stamp"
-if [ -f "${BACKEND_REBUILT_MARKER}" ]; then
-    echo "== Step 2b: Signing PyInstaller Backend =="
-    bash "${SIGN_MACOS_BUNDLE}" \
-        "${BACKEND_BINARIES_DIR}/potato-backend" \
-        "${APPLE_SIGNING_IDENTITY}"
-    mv -f "${BACKEND_PENDING_STAMP}" "${BACKEND_SIGNED_STAMP}"
-    echo "PyInstaller backend signed"
-else
-    echo "== Step 2b: Reusing Signed PyInstaller Backend =="
-    echo "Backend inputs unchanged; skipping backend signing"
-fi
+echo "Backend runtime staged"
 echo ""
 
 # Step 3: Build Tauri app

@@ -56,7 +56,7 @@ if (Test-Path $VERSION_FILE) {
 }
 
 Write-Host "=========================================" -ForegroundColor Cyan
-Write-Host "Potato Tauri Build - Windows (PyInstaller)" -ForegroundColor Cyan
+Write-Host "Potato Tauri Build - Windows" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Version: $VERSION"
 Write-Host ""
@@ -165,15 +165,15 @@ Set-Location $REPO_ROOT
 Write-Host "Default web app static assets built" -ForegroundColor Green
 Write-Host ""
 
-# Step 2: Build PyInstaller backend
-Write-Host "== Step 2: Building PyInstaller Backend ==" -ForegroundColor Yellow
+# Step 2: Stage backend runtime (bundled CPython + Potato)
+Write-Host "== Step 2: Staging Backend Runtime ==" -ForegroundColor Yellow
 $PYINSTALLER_SCRIPT = Join-Path $REPO_ROOT "scripts\pack-tauri\build_pyinstaller.ps1"
 & $PYINSTALLER_SCRIPT
 
 if ($LASTEXITCODE -ne 0) {
-    throw "PyInstaller build failed"
+    throw "Backend runtime staging failed"
 }
-Write-Host "PyInstaller backend ready" -ForegroundColor Green
+Write-Host "Backend runtime ready" -ForegroundColor Green
 Write-Host ""
 
 # Step 2b: Fetch Tauri Rust dependencies

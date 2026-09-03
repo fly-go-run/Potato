@@ -22,9 +22,13 @@ param(
 $ErrorActionPreference = "SilentlyContinue"
 
 $root = $InstallDir.TrimEnd("\") + "\"
+# python.exe: since 2.0.6 the backend runs as the bundled CPython
+# (binaries\python-runtime\python\python.exe). Scoping to $InstallDir keeps
+# any other Python on the machine untouched.
 $imageNames = @(
     "potato-backend.exe",
     "potato.exe",
+    "python.exe",
     "qwenpaw-backend.exe",
     "qwenpaw.exe"
 )

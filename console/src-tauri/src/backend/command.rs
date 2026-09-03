@@ -42,64 +42,23 @@ pub(super) fn create(app: &tauri::AppHandle) -> Result<Command, String> {
     Ok(command)
 }
 
-/// Builds the command used to start the packaged Python backend sidecar.
+/// Builds the command used to start the packaged Python backend.
+///
+/// The backend runs from the bundled standalone CPython with Potato
+/// installed into its site-packages. The PyInstaller-frozen sidecar was
+/// dropped in 2.0.7 (it doubled the installer size), so a missing or broken
+/// runtime is a packaging error surfaced to the retry UI, not a fallback.
 #[cfg(not(debug_assertions))]
 pub(super) fn create(app: &tauri::AppHandle) -> Result<Command, String> {
-    if let Some(command) = packaged_cpython_command(app) {
-        return Ok(command);
-    }
-
-    let backend = packaged_backend_executable(app)?;
-    let backend_dir = backend
-        .parent()
-        .ok_or_else(|| format!("backend executable has no parent: {}", backend.display()))?
-        .to_path_buf();
-    log::info!(
-        "[backend] packaged command: {} cwd={}",
-        backend.display(),
-        backend_dir.display(),
-    );
-    let mut command = app
-        .shell()
-        .command(backend)
-        .current_dir(&backend_dir)
-        .env(path_env_key(), path_with_backend_dir(&backend_dir)?);
-    // Bundled standalone Python used by the backend to install third-party
-    // plugin dependencies (sys.executable is the frozen backend, not Python).
-    if let Some(python) = packaged_python_runtime(app) {
-        log::info!("[backend] bundled python runtime: {}", python.display());
-        command = command.env(
-            "POTATO_DESKTOP_PY_RUNTIME",
-            python.to_string_lossy().to_string(),
-        );
-    } else {
-        log::warn!(
-            "[backend] bundled python runtime not found; plugin dependency \
-             installation will be unavailable"
-        );
-    }
-    if let Some(node_runtime) = packaged_node_runtime(app) {
-        log::info!("[backend] bundled node runtime: {}", node_runtime.display());
-        command = command.env(
-            "POTATO_DESKTOP_NODE_RUNTIME",
-            node_runtime.to_string_lossy().to_string(),
-        );
-    } else {
-        log::warn!("[backend] bundled node runtime not found");
-    }
-    Ok(command)
-}
-
-/// Prefer the bundled CPython interpreter when Potato is installed into it.
-/// The frozen PyInstaller binary is an 18s-class cold start; CPython is ~1–4s.
-#[cfg(not(debug_assertions))]
-fn packaged_cpython_command(app: &tauri::AppHandle) -> Option<Command> {
-    let python = packaged_python_runtime(app)?;
+    let python = packaged_python_runtime(app).ok_or_else(|| {
+        "bundled Python runtime not found under resources/binaries/python-runtime"
+            .to_string()
+    })?;
     if !packaged_potato_importable(&python) {
-        log::info!(
-            "[backend] bundled CPython has no Potato install; using frozen sidecar"
-        );
-        return None;
+        return Err(format!(
+            "bundled Python runtime has no Potato install: {}",
+            python_site_packages(&python).display()
+        ));
     }
     let cwd = python
         .parent()
@@ -116,18 +75,21 @@ fn packaged_cpython_command(app: &tauri::AppHandle) -> Option<Command> {
         .shell()
         .command(&python)
         .args(["-m", "potato.tauri.entry"])
-        .current_dir(&cwd);
-    command = command.env(
-        "POTATO_DESKTOP_PY_RUNTIME",
-        python.to_string_lossy().to_string(),
-    );
+        .current_dir(&cwd)
+        .env(
+            "POTATO_DESKTOP_PY_RUNTIME",
+            python.to_string_lossy().to_string(),
+        );
     if let Some(node_runtime) = packaged_node_runtime(app) {
+        log::info!("[backend] bundled node runtime: {}", node_runtime.display());
         command = command.env(
             "POTATO_DESKTOP_NODE_RUNTIME",
             node_runtime.to_string_lossy().to_string(),
         );
+    } else {
+        log::warn!("[backend] bundled node runtime not found");
     }
-    Some(command)
+    Ok(command)
 }
 
 #[cfg_attr(debug_assertions, allow(dead_code))]
@@ -186,54 +148,6 @@ fn packaged_node_runtime(app: &tauri::AppHandle) -> Option<PathBuf> {
         root.join("bin").join("node")
     };
     node.is_file().then_some(root)
-}
-
-#[cfg(not(debug_assertions))]
-fn packaged_backend_executable(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let executable_name = if cfg!(windows) {
-        "potato-backend.exe"
-    } else {
-        "potato-backend"
-    };
-    let path = app
-        .path()
-        .resource_dir()
-        .map_err(|err| format!("failed to resolve resource directory: {err}"))?
-        .join("binaries")
-        .join("potato-backend")
-        .join(executable_name);
-
-    if path.is_file() {
-        Ok(path)
-    } else {
-        Err(format!(
-            "backend executable not found at {}",
-            path.display()
-        ))
-    }
-}
-
-#[cfg(not(debug_assertions))]
-fn path_with_backend_dir(backend_dir: &Path) -> Result<String, String> {
-    let mut paths = vec![backend_dir.to_path_buf()];
-    if let Some(existing) = std::env::var_os(path_env_key()) {
-        paths.extend(std::env::split_paths(&existing));
-    }
-
-    std::env::join_paths(paths)
-        .map_err(|err| format!("failed to join backend PATH entries: {err}"))?
-        .into_string()
-        .map_err(|_| "backend PATH contains non-Unicode data".to_string())
-}
-
-#[cfg(all(not(debug_assertions), windows))]
-fn path_env_key() -> &'static str {
-    "Path"
-}
-
-#[cfg(all(not(debug_assertions), not(windows)))]
-fn path_env_key() -> &'static str {
-    "PATH"
 }
 
 pub(super) fn cua_driver_binary(app: &tauri::AppHandle) -> Option<PathBuf> {

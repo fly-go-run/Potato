@@ -1,12 +1,11 @@
-# Build Potato backend with PyInstaller for Tauri sidecar (Windows)
-# Creates an onedir backend bundle with embedded Python runtime
+# Stage the Potato desktop backend runtime for Tauri (Windows)
+# Bundled standalone CPython + Potato site install + Node + cua-driver
 #
 # Usage:
 #   powershell ./scripts/pack-tauri/build_pyinstaller.ps1
 #
 # Prerequisites:
 #   - Python 3.10+ with virtual environment
-#   - PyInstaller 6.0+ (will be installed if not present)
 
 param()
 
@@ -33,7 +32,7 @@ if (Test-Path $VERSION_FILE) {
 }
 
 Write-Host "=========================================" -ForegroundColor Cyan
-Write-Host "Potato PyInstaller Build - Windows" -ForegroundColor Cyan
+Write-Host "Potato Backend Runtime Staging - Windows" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Version: $VERSION"
 Write-Host "Repository: $REPO_ROOT"
@@ -107,109 +106,27 @@ function Uninstall-PythonPackage {
     }
 }
 
-# Install PyInstaller if not present
-Write-Host "== Installing PyInstaller ==" -ForegroundColor Yellow
-if (Test-PythonImport "import PyInstaller") {
-    Write-Host "PyInstaller already installed" -ForegroundColor Green
-} else {
-    Write-Host "Installing PyInstaller..."
-    Install-PythonPackages -Packages @("pyinstaller>=6.0.0")
-    Write-Host "PyInstaller installed" -ForegroundColor Green
-}
-
-# Install python-dotenv if not present (required by PyInstaller collect_submodules)
-if (Test-PythonImport "import dotenv") {
-    Write-Host "python-dotenv already installed" -ForegroundColor Green
-} else {
-    Write-Host "Installing python-dotenv..."
-    Install-PythonPackages -Packages @("python-dotenv")
-    Write-Host "python-dotenv installed" -ForegroundColor Green
-}
-
-Write-Host ""
-
-# Install project dependencies (ensures ALL runtime deps are importable)
-Write-Host "== Installing project dependencies ==" -ForegroundColor Yellow
-Install-PythonPackages -Packages @("-e", ".[local]")
-Write-Host "Project dependencies installed with local extras" -ForegroundColor Green
-
-# Fix agent-client-protocol namespace collision
-# PyPI has an empty 'acp' stub that shadows the real package
-if (-not (Test-PythonImport "from acp import Agent")) {
-    Write-Host "Fixing agent-client-protocol namespace..."
-    Uninstall-PythonPackage "acp"
-    Install-PythonPackages -Packages @("agent-client-protocol>=0.9.0,<0.11.0")
-    Write-Host "agent-client-protocol installed" -ForegroundColor Green
-}
-
-# The repository .venv may have been used for a previous full desktop build.
-# Remove Whisper and its heavyweight dependency chain before PyInstaller
-# analyzes the environment.
-foreach ($package in @("openai-whisper", "torch", "numba", "llvmlite", "triton", "tiktoken")) {
-    Uninstall-PythonPackage $package
-}
-
-# Run PyInstaller
-Write-Host "== Running PyInstaller ==" -ForegroundColor Yellow
-Write-Host "Building onedir backend bundle..."
-
-$SPEC_FILE = Join-Path $REPO_ROOT "scripts\pack-tauri\potato.spec"
-if (-not (Test-Path $SPEC_FILE)) {
-    Write-Host "ERROR: Spec file not found at $SPEC_FILE" -ForegroundColor Red
-    exit 1
-}
-
-& $PYTHON_BIN -m PyInstaller $SPEC_FILE `
-    --distpath "${DIST}\pyinstaller" `
-    --workpath "${DIST}\pyinstaller-build" `
-    --clean `
-    --noconfirm
-
-if ($LASTEXITCODE -ne 0) {
-    throw "PyInstaller build failed"
-}
-
-Write-Host "PyInstaller build complete" -ForegroundColor Green
-Write-Host ""
-
-# Verify output
-$BACKEND_DIR = Join-Path $DIST "pyinstaller\potato-backend"
-$BACKEND_EXE = Join-Path $BACKEND_DIR "potato-backend.exe"
-$CLI_EXE = Join-Path $BACKEND_DIR "potato.exe"
-if (-not (Test-Path $BACKEND_DIR)) {
-    Write-Host "ERROR: Backend bundle directory not found at $BACKEND_DIR" -ForegroundColor Red
-    exit 1
-}
-if (-not (Test-Path $BACKEND_EXE)) {
-    Write-Host "ERROR: Backend executable not found at $BACKEND_EXE" -ForegroundColor Red
-    exit 1
-}
-if (-not (Test-Path $CLI_EXE)) {
-    Write-Host "ERROR: CLI executable not found at $CLI_EXE" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "Backend bundle created: $BACKEND_DIR" -ForegroundColor Green
-
-# Get size
-$bundleSize = (Get-ChildItem $BACKEND_DIR -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB
-Write-Host "Bundle size: $([math]::Round($bundleSize, 2)) MB"
-Write-Host ""
-
-# Copy to Tauri resources directory
-Write-Host "== Copying to Tauri binaries directory ==" -ForegroundColor Yellow
 $BINARIES_DIR = Join-Path $REPO_ROOT "console\src-tauri\binaries"
 New-Item -ItemType Directory -Force -Path $BINARIES_DIR | Out-Null
 
-$DEST = Join-Path $BINARIES_DIR "potato-backend"
-New-Item -ItemType Directory -Force -Path $DEST | Out-Null
-Get-ChildItem -LiteralPath $DEST -Force | Remove-Item -Recurse -Force
-Copy-Item -Recurse -Force (Join-Path $BACKEND_DIR "*") $DEST
-Write-Host "Copied to: $DEST" -ForegroundColor Green
+# The desktop backend runs from the bundled standalone CPython
+# (binaries\python-runtime). The PyInstaller-frozen sidecar was dropped in
+# 2.0.7: it doubled the installer size and is no longer a fallback. Remove a
+# stale copy so it cannot leak into the bundle.
+$STALE_FROZEN = Join-Path $BINARIES_DIR "potato-backend"
+if (Test-Path $STALE_FROZEN) {
+    Write-Host "Removing stale frozen backend: $STALE_FROZEN" -ForegroundColor Yellow
+    Remove-Item -Recurse -Force $STALE_FROZEN
+}
+
+# stage_*_runtime.py need `packaging` for release lookups.
+if (-not (Test-PythonImport "import packaging")) {
+    Install-PythonPackages -Packages @("packaging")
+}
 Write-Host ""
 
-# Stage a standalone CPython (same X.Y/arch as this build's interpreter) so the
-# frozen backend can install third-party plugin dependencies at runtime.
+# Stage a standalone CPython (same X.Y/arch as this build's interpreter):
+# it runs the backend and installs third-party plugin dependencies at runtime.
 Write-Host "== Staging bundled Python runtime ==" -ForegroundColor Yellow
 & $PYTHON_BIN (Join-Path $REPO_ROOT "scripts\pack-tauri\stage_python_runtime.py") `
     --dest (Join-Path $BINARIES_DIR "python-runtime")
@@ -227,6 +144,8 @@ if (Test-Path $bundledPy) {
     # msvcp140.dll and crashed on clean Windows machines).
     Assert-LastExit "Bundled CPython Potato install or native import check failed"
     Write-Host ""
+} else {
+    throw "bundled python.exe not found at $bundledPy"
 }
 
 Write-Host "== Staging bundled Node runtime ==" -ForegroundColor Yellow
@@ -242,9 +161,7 @@ Assert-LastExit "Failed to stage bundled cua-driver"
 Write-Host ""
 
 Write-Host "=========================================" -ForegroundColor Cyan
-Write-Host "PyInstaller Build Complete!" -ForegroundColor Green
+Write-Host "Backend Runtime Staging Complete!" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Cyan
-Write-Host "Output:"
-Write-Host "  Bundle: $BACKEND_DIR"
-Write-Host "  Tauri resource: $DEST"
+Write-Host "Output: $BINARIES_DIR"
 Write-Host ""

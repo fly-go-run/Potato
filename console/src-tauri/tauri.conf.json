@@ -45,7 +45,6 @@
       "../../scripts/pack/assets/icon.ico"
     ],
     "resources": [
-      "binaries/potato-backend",
       "binaries/python-runtime",
       "binaries/node-runtime",
       "binaries/cua-driver"
@@ -76,7 +75,7 @@
           "Russian": "nsis-languages/Russian.nsh",
           "PortugueseBR": "nsis-languages/PortugueseBR.nsh"
         },
-        "compression": "zlib",
+        "compression": "lzma",
         "displayLanguageSelector": false
       }
     }
