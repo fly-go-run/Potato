@@ -16,6 +16,22 @@ body,
   overflow: hidden;
 }
 
+/* Desktop chrome should behave like native app chrome, not like one large web
+ * document.  Keep drag-selection out of navigation, timestamps, execution
+ * summaries and action labels; readable message bodies opt back in below. */
+#root {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Explicit overrides are required because WebKit propagates an ancestor's
+ * user-select value.  Inputs remain editable and only actual message payloads
+ * participate in conversation text selection. */
+:where(input, textarea, [contenteditable="true"], [data-message-content]) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--bg);

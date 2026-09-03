@@ -23,7 +23,7 @@ export function MessageContent({
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-2">
+    <div data-message-content className="space-y-2">
       {content.map((part, index) => {
         if (part.type === "text" && part.text) {
           return markdown ? (
