@@ -222,9 +222,10 @@ if (Test-Path $bundledPy) {
     & $PYTHON_BIN (Join-Path $REPO_ROOT "scripts\pack-tauri\stage_potato_runtime.py") `
         --python $bundledPy `
         --repo $REPO_ROOT
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "WARNING: bundled CPython Potato install failed; desktop will use the frozen sidecar" -ForegroundColor Yellow
-    }
+    # Fatal: a silent fallback to the frozen sidecar hides both the 18s
+    # cold start and missing VC++ runtime DLLs (2.0.6 shipped without
+    # msvcp140.dll and crashed on clean Windows machines).
+    Assert-LastExit "Bundled CPython Potato install or native import check failed"
     Write-Host ""
 }
 

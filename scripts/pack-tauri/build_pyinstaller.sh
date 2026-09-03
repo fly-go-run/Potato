@@ -262,19 +262,17 @@ echo "== Staging bundled Python runtime =="
 echo ""
 
 # Install Potato into that CPython so the desktop shell can skip PyInstaller
-# on the hot path. Failure is non-fatal: command.rs falls back to the frozen
-# sidecar if import potato is missing.
+# on the hot path. Failure is fatal: a silent fallback to the frozen sidecar
+# would hide the 18s cold start and native-extension breakage.
 BUNDLED_PY="${BINARIES_DIR}/python-runtime/python/bin/python3"
 if [ ! -x "${BUNDLED_PY}" ]; then
     BUNDLED_PY="${BINARIES_DIR}/python-runtime/python/bin/python"
 fi
 if [ -x "${BUNDLED_PY}" ]; then
     echo "== Installing Potato into bundled CPython =="
-    if ! "$PYTHON_BIN" "${REPO_ROOT}/scripts/pack-tauri/stage_potato_runtime.py" \
+    "$PYTHON_BIN" "${REPO_ROOT}/scripts/pack-tauri/stage_potato_runtime.py" \
         --python "${BUNDLED_PY}" \
-        --repo "${REPO_ROOT}"; then
-        echo "WARNING: bundled CPython Potato install failed; desktop will use the frozen sidecar"
-    fi
+        --repo "${REPO_ROOT}"
     echo ""
 fi
 
