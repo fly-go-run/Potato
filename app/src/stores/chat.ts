@@ -15,7 +15,10 @@ import {
   filterApprovalsForSession,
   type PendingApproval,
 } from "../lib/approvals";
-import { waitForBackendOrigin } from "../lib/backendOrigin";
+import {
+  needsDesktopBackendOrigin,
+  waitForBackendOrigin,
+} from "../lib/backendOrigin";
 import { t } from "../lib/i18n";
 import { sortChats } from "../lib/chats";
 import { resetMessageTimings, trackMessageTimings } from "../lib/messageTiming";
@@ -146,6 +149,8 @@ interface ChatStore {
   historyLoading: boolean;
   activeModel: ActiveModelInfo | null;
   modelLoading: boolean;
+  /** 桌面壳内后端尚未就绪(冷启动中)。浏览器模式下立即为 false。 */
+  backendStarting: boolean;
   error: string | null;
   approvalLevel: ApprovalLevel;
   sandboxMode: SandboxMode;
@@ -216,6 +221,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   historyLoading: false,
   activeModel: null,
   modelLoading: false,
+  backendStarting: false,
   error: null,
   approvalLevel: loadStoredApprovalLevel(),
   sandboxMode: loadSandboxMode(),
@@ -228,12 +234,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   queuedMessageIds: [],
 
   initialize: async () => {
+    // 只有桌面壳需要等 sidecar;浏览器模式下 origin 立即可用,不闪提示。
+    if (needsDesktopBackendOrigin()) set({ backendStarting: true });
     try {
       await waitForBackendOrigin();
     } catch {
-      set({ error: t("desktop.backend.error") });
+      set({ backendStarting: false, error: t("desktop.backend.error") });
       return;
     }
+    set({ backendStarting: false });
     const [initialChats] = await Promise.all([
       get().refreshChats(),
       get().loadActiveModel(),
@@ -510,6 +519,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           request_context: {
             approval_level: get().approvalLevel,
             sandbox_mode: get().sandboxMode,
+            // Give the bounded AUTO reviewer the user's actual intent. The
+            // reviewer previously had to infer authorization from tool
+            // parameters alone, causing avoidable denials and prompts.
+            last_user_message: text,
             ...(get().project
               ? { "potato.coding_project_dir": get().project?.path }
               : {}),
@@ -820,7 +833,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           current.length === pendingApprovals.length &&
           current.every(
             (approval, index) =>
-              approval.request_id === pendingApprovals[index]?.request_id,
+              approval.request_id === pendingApprovals[index]?.request_id &&
+              approval.is_generalized ===
+                pendingApprovals[index]?.is_generalized &&
+              approval.similar_target ===
+                pendingApprovals[index]?.similar_target &&
+              approval.findings_summary ===
+                pendingApprovals[index]?.findings_summary,
           );
         if (!unchanged) set({ pendingApprovals });
       }
@@ -844,7 +863,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         ),
       }));
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
+      if (
+        error instanceof ApiError &&
+        (error.status === 404 || error.status === 409)
+      ) {
         set((state) => ({
           pendingApprovals: state.pendingApprovals.filter(
             (item) => item.request_id !== requestId,
@@ -949,6 +971,7 @@ async function enqueueFollowup(
         request_context: {
           approval_level: get().approvalLevel,
           sandbox_mode: get().sandboxMode,
+          last_user_message: text,
           ...(get().project
             ? { "potato.coding_project_dir": get().project?.path }
             : {}),

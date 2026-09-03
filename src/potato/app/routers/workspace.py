@@ -43,7 +43,6 @@ from ...utils.zip_security import (
 )
 from ..agent_context import get_agent_for_request, get_coding_dir
 
-
 router = APIRouter(prefix="/workspace", tags=["workspace"])
 
 
@@ -485,9 +484,11 @@ async def watch_workspace_files(request: Request) -> StreamingResponse:
                     change_name = (
                         "added"
                         if change_type is Change.added
-                        else "deleted"
-                        if change_type is Change.deleted
-                        else "modified"
+                        else (
+                            "deleted"
+                            if change_type is Change.deleted
+                            else "modified"
+                        )
                     )
                     events.append(
                         {"change": change_name, "path": rel.as_posix()},
@@ -1129,9 +1130,14 @@ async def post_transcribe_audio(
 async def get_agents_running_config(
     request: Request,
 ) -> AgentsRunningConfig:
-    """Get agent running configuration."""
-    workspace = await get_agent_for_request(request)
-    agent_config = load_agent_config(workspace.agent_id)
+    """Get agent running configuration.
+
+    Reads on-disk agent config only; does not wait for the agent to start.
+    """
+    from ..agent_context import resolve_agent_id_for_request
+
+    agent_id = resolve_agent_id_for_request(request)
+    agent_config = load_agent_config(agent_id)
     running = agent_config.running or AgentsRunningConfig()
     running.approval_level = getattr(agent_config, "approval_level", "AUTO")
     running.sandbox_mode = getattr(

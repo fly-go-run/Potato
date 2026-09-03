@@ -6,8 +6,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .model_wrapper import TokenRecordingModelWrapper
-
 logger = logging.getLogger(__name__)
 
 TURN_USAGE_META_KEY = "potato_turn_usage"
@@ -112,6 +110,10 @@ async def resolve_turn_usage(
     channel: str,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, Any | None]:
     """Resolve turn/ctx from provider usage + full agent-state estimate."""
+    # Lazy: model_wrapper imports agentscope.model, which is far too heavy
+    # for the backend startup path.
+    from .model_wrapper import TokenRecordingModelWrapper
+
     turn = TokenRecordingModelWrapper.pop_usage_for_session(session_id)
     if session is None:
         return turn, None, None

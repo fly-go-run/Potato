@@ -17,7 +17,6 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..__version__ import __version__
-from ..backup._utils.safe_swap import cleanup_startup_restore_artifacts
 from ..config import load_config  # pylint: disable=no-name-in-module
 from ..config.utils import get_config_path, read_last_api
 from ..constant import (
@@ -99,6 +98,12 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
     # ================================================================
 
     try:
+        # Imported here: the backup package is ~75ms of import that the
+        # startup path only needs for this one cleanup call.
+        from ..backup._utils.safe_swap import (
+            cleanup_startup_restore_artifacts,
+        )
+
         cleanup_startup_restore_artifacts()
     except Exception as exc:
         message = (
@@ -112,23 +117,6 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
 
     auto_register_from_env()
     check_proxy_config_sanity()
-
-    try:
-        from ..utils.telemetry import (
-            collect_and_upload_telemetry,
-            has_telemetry_been_collected,
-            is_telemetry_opted_out,
-        )
-
-        if not is_telemetry_opted_out(
-            WORKING_DIR,
-        ) and not has_telemetry_been_collected(WORKING_DIR):
-            collect_and_upload_telemetry(WORKING_DIR)
-    except Exception:
-        logger.debug(
-            "Telemetry collection skipped due to error",
-            exc_info=True,
-        )
 
     logger.debug("Checking for legacy config migration...")
     migrate_legacy_workspace_to_default_agent()
@@ -229,9 +217,11 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
 
         factory_kwargs = WorkspaceBootstrapFactory.build_bootstrap_kwargs(
             app_services,
-            extra_command_specs=_api_action_command_specs
-            if _api_action_command_specs
-            else None,
+            extra_command_specs=(
+                _api_action_command_specs
+                if _api_action_command_specs
+                else None
+            ),
         )
         # Merge factory output into workspace_registry._bootstrap_kwargs
         for key, value in factory_kwargs.items():

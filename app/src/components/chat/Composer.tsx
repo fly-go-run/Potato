@@ -122,6 +122,7 @@ export function Composer({ wide = false }: { wide?: boolean }) {
   }, [text, wide]);
   const activeModel = useChatStore((state) => state.activeModel);
   const modelLoading = useChatStore((state) => state.modelLoading);
+  const backendStarting = useChatStore((state) => state.backendStarting);
   const isStreaming = useChatStore((state) => state.isStreaming);
   const isSubmitting = useChatStore((state) => state.isSubmitting);
   const pendingImages = useChatStore((state) => state.pendingImages);
@@ -768,7 +769,15 @@ export function Composer({ wide = false }: { wide?: boolean }) {
 
   return (
     <div className="px-4 pb-6 pt-3 sm:px-6">
-      {!model && !modelLoading && (
+      {backendStarting && (
+        <div
+          role="status"
+          className={`mx-auto mb-2 text-center text-xs text-ink-tertiary ${widthClass}`}
+        >
+          {t("desktop.backend.starting")}
+        </div>
+      )}
+      {!model && !modelLoading && !backendStarting && activeModel !== null && (
         <div
           className={`mx-auto mb-2 text-center text-xs text-warn ${widthClass}`}
         >

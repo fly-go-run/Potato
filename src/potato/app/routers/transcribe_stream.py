@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """Composer live transcription: browser PCM → Doubao streaming ASR."""
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-import aiohttp
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ...agents.utils.doubao_asr import (
@@ -24,6 +24,24 @@ from ...agents.utils.doubao_stream_asr import (
     resolve_stream_resource_id,
 )
 from ...config import load_config
+
+if TYPE_CHECKING:
+    import aiohttp
+else:
+
+    class _LazyAiohttp:
+        """Import aiohttp on first attribute access.
+
+        aiohttp is ~140ms of import that only the Doubao streaming
+        transcription path needs; keep it off the backend startup path.
+        """
+
+        def __getattr__(self, name: str):
+            import aiohttp as _aiohttp
+
+            return getattr(_aiohttp, name)
+
+    aiohttp = _LazyAiohttp()
 
 logger = logging.getLogger(__name__)
 

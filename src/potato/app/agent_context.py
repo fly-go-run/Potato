@@ -3,6 +3,7 @@
 
 Provides utilities to get the correct agent instance for each request.
 """
+
 from contextvars import ContextVar
 from contextlib import contextmanager
 from pathlib import Path
@@ -47,6 +48,45 @@ _current_approval_route: ContextVar[Optional[dict]] = ContextVar(
     "current_approval_route",
     default=None,
 )
+
+
+def resolve_agent_id_for_request(
+    request: Request,
+    agent_id: Optional[str] = None,
+) -> str:
+    """Resolve and validate the target agent id without starting the agent.
+
+    Same priority as :func:`get_agent_for_request` (explicit override,
+    agent-scoped router state, ``X-Agent-Id`` header, active agent from
+    config) and the same 404/403 validation, but it never awaits
+    ``MultiAgentManager.get_agent``. Endpoints that only read on-disk agent
+    config (active model, running config) use this so the desktop first
+    screen is not blocked behind the full agent startup.
+    """
+    from fastapi import HTTPException
+
+    target_agent_id = agent_id
+    if not target_agent_id and hasattr(request.state, "agent_id"):
+        target_agent_id = request.state.agent_id
+    if not target_agent_id:
+        target_agent_id = request.headers.get("X-Agent-Id")
+
+    config = load_config()
+    if not target_agent_id:
+        target_agent_id = config.agents.active_agent or "default"
+
+    if target_agent_id not in config.agents.profiles:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Agent '{target_agent_id}' not found",
+        )
+    agent_ref = config.agents.profiles[target_agent_id]
+    if not getattr(agent_ref, "enabled", True):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Agent '{target_agent_id}' is disabled",
+        )
+    return target_agent_id
 
 
 async def get_agent_for_request(

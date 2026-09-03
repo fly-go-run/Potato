@@ -16,7 +16,6 @@ from typing import Any, Optional
 from enum import Enum
 
 import traceback
-import httpx
 from pydantic import Field
 
 from .download_manager import (
@@ -402,9 +401,12 @@ class ModelManager:
             buffering=1,
             errors="replace",
         ) as sink_stream:
-            with contextlib.redirect_stdout(
-                sink_stream,
-            ), contextlib.redirect_stderr(sink_stream):
+            with (
+                contextlib.redirect_stdout(
+                    sink_stream,
+                ),
+                contextlib.redirect_stderr(sink_stream),
+            ):
                 return ModelManager._get_modelscope_snapshot_download()(
                     model_id=repo_id,
                     local_dir=str(local_dir),
@@ -527,6 +529,8 @@ class ModelManager:
     def _probe_huggingface(self) -> bool:
         """Return whether Hugging Face is reachable from this machine."""
         try:
+            import httpx
+
             response = httpx.get(
                 "https://huggingface.co",
                 follow_redirects=True,

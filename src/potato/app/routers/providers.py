@@ -20,7 +20,10 @@ from potato.exceptions import (
     AppBaseException,
 )
 
-from ..agent_context import get_agent_for_request
+from ..agent_context import (
+    get_agent_for_request,
+    resolve_agent_id_for_request,
+)
 from ..utils import schedule_agent_reload
 from ._runtime_dependencies import get_runtime_manager
 from ...config.config import load_agent_config, save_agent_config
@@ -243,9 +246,12 @@ async def _load_agent_model(
     request: Request,
     agent_id: str,
 ) -> ModelSlotConfig | None:
-    """Load the model configured for a specific agent."""
-    workspace = await get_agent_for_request(request, agent_id=agent_id)
-    agent_config = load_agent_config(workspace.agent_id)
+    """Load the model configured for a specific agent.
+
+    Reads on-disk agent config only; does not wait for the agent to start.
+    """
+    resolved = resolve_agent_id_for_request(request, agent_id=agent_id)
+    agent_config = load_agent_config(resolved)
     return agent_config.active_model
 
 
@@ -705,8 +711,7 @@ async def get_active_models(
     try:
         target_agent_id = agent_id
         if target_agent_id is None:
-            workspace = await get_agent_for_request(request)
-            target_agent_id = workspace.agent_id
+            target_agent_id = resolve_agent_id_for_request(request)
 
         agent_model = await _load_agent_model(request, target_agent_id)
         if agent_model:
