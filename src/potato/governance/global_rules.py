@@ -60,7 +60,9 @@ def append_global_user_rule(rule: GovernanceRule) -> None:
         return
     existing = load_global_user_rules()
     if any(
-        item.match == rule.match and item.action == rule.action
+        item.match == rule.match
+        and item.action == rule.action
+        and item.grantee == rule.grantee
         for item in existing
     ):
         return
@@ -71,6 +73,12 @@ def append_global_user_rule(rule: GovernanceRule) -> None:
                 "match": item.match,
                 "action": item.action.value,
                 "reason": item.reason,
+                # Keep portable approvals scoped to the agent that received
+                # them.  Omitting this field makes the parser fall back to
+                # grantee="*", silently widening one agent's approval to
+                # every agent on the installation.
+                "grantee": item.grantee,
+                "duration": item.duration,
             }
             for item in existing
         ],

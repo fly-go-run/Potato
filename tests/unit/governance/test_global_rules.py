@@ -10,6 +10,7 @@ from potato.governance.global_rules import (
 from potato.governance.policy import (
     GovernanceAction,
     GovernanceRule,
+    ToolCallSpec,
     _create_default_policy,
     clear_global_rules_cache,
 )
@@ -70,6 +71,51 @@ def test_append_and_load_roundtrip(tmp_path, monkeypatch) -> None:
     assert any(item.match == "Bash(git *)" for item in loaded)
     append_global_user_rule(rule)
     assert len(load_global_user_rules()) == 1
+
+
+def test_roundtrip_preserves_grantee_and_dedupes_per_agent(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import potato.governance.global_rules as module
+
+    path = tmp_path / "default.rules.yaml"
+    monkeypatch.setattr(module, "global_rules_path", lambda: path)
+    clear_global_rules_cache()
+    first = GovernanceRule(
+        match="Bash(git *)",
+        action=GovernanceAction.ALLOW,
+        reason="agent one approved",
+        grantee="agent-1",
+        duration="permanent",
+    )
+    second = GovernanceRule(
+        match="Bash(git *)",
+        action=GovernanceAction.ALLOW,
+        reason="agent two approved",
+        grantee="agent-2",
+        duration="permanent",
+    )
+
+    append_global_user_rule(first)
+    append_global_user_rule(second)
+
+    loaded = load_global_user_rules()
+    assert {item.grantee for item in loaded} == {"agent-1", "agent-2"}
+    agent_one_call = ToolCallSpec(
+        tool_name="Bash",
+        target="git status",
+        agent_id="agent-1",
+        session_id="session-1",
+    )
+    agent_three_call = ToolCallSpec(
+        tool_name="Bash",
+        target="git status",
+        agent_id="agent-3",
+        session_id="session-3",
+    )
+    assert any(item.matches_tool_call(agent_one_call) for item in loaded)
+    assert not any(item.matches_tool_call(agent_three_call) for item in loaded)
 
 
 def test_evaluate_uses_global_rules(tmp_path, monkeypatch) -> None:

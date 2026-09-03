@@ -211,18 +211,29 @@ def has_session_grant(
     """True when this session already granted *permission* for *command*."""
     if not session_id or not command:
         return False
-    accepted = {permission}
-    if permission == NETWORK:
-        accepted.add(DANGER_FULL_ACCESS)
     with _LOCK:
         grants = list(_GRANTS)
-    return any(
-        grant.session_id == session_id
-        and grant.tool_name == tool_name
-        and grant.permission in accepted
-        and _command_matches(command, grant.pattern, glob=grant.glob)
-        for grant in grants
-    )
+    for grant in grants:
+        if grant.session_id != session_id:
+            continue
+        # Network and extra-directory approvals are capabilities of the
+        # sandbox for this task, not properties of one shell spelling. Once a
+        # user opens that capability, a later command in the same session may
+        # reuse it. Host execution remains command/pattern scoped.
+        if permission == NETWORK and grant.permission == NETWORK:
+            return True
+        if permission.startswith(f"{PATH}:") and grant.permission == permission:
+            return True
+        if grant.tool_name != tool_name:
+            continue
+        if grant.permission not in {
+            permission,
+            *({DANGER_FULL_ACCESS} if permission == NETWORK else set()),
+        }:
+            continue
+        if _command_matches(command, grant.pattern, glob=grant.glob):
+            return True
+    return False
 
 
 def clear_session_grants(session_id: str | None = None) -> None:

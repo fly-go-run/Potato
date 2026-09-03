@@ -144,6 +144,51 @@ def test_host_grant_implies_network_grant():
     )
 
 
+def test_network_grant_is_reusable_session_capability():
+    remember_session_grant(
+        session_id="s1",
+        tool_name="Bash",
+        pattern="git fetch",
+        permission=NETWORK,
+        glob=False,
+    )
+    assert has_session_grant(
+        session_id="s1",
+        tool_name="HttpRequest",
+        command="https://example.com/status",
+        permission=NETWORK,
+    )
+    assert not has_session_grant(
+        session_id="s2",
+        tool_name="HttpRequest",
+        command="https://example.com/status",
+        permission=NETWORK,
+    )
+
+
+def test_path_grant_is_reusable_session_capability():
+    permission = path_permission_key("/tmp/extra-out")
+    remember_session_grant(
+        session_id="s1",
+        tool_name="Bash",
+        pattern="mkdir /tmp/extra-out",
+        permission=permission,
+        glob=False,
+    )
+    assert has_session_grant(
+        session_id="s1",
+        tool_name="Write",
+        command="/tmp/extra-out/report.txt",
+        permission=permission,
+    )
+    assert not has_session_grant(
+        session_id="s1",
+        tool_name="Write",
+        command="/tmp/other/report.txt",
+        permission=path_permission_key("/tmp/other"),
+    )
+
+
 def test_parse_full_access_ok():
     level, err = parse_escalation_request(
         {
