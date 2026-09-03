@@ -375,7 +375,10 @@ export const modelApi = {
 export const approvalApi = {
   act: (
     action: "approve" | "deny",
-    approval: Pick<PendingApproval, "request_id" | "root_session_id">,
+    approval: Pick<
+      PendingApproval,
+      "request_id" | "root_session_id" | "user_id"
+    >,
     scope: "exact" | "similar" = "exact",
   ) =>
     apiJson<{
@@ -388,6 +391,7 @@ export const approvalApi = {
       body: JSON.stringify({
         request_id: approval.request_id,
         session_id: approval.root_session_id,
+        user_id: approval.user_id,
         scope,
       }),
     }),

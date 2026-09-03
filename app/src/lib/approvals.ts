@@ -4,6 +4,7 @@ export interface PendingApproval {
   request_id: string;
   session_id: string;
   root_session_id: string;
+  user_id: string;
   tool_name: string;
   tool_params: Record<string, unknown>;
   severity: ApprovalSeverity;
@@ -11,7 +12,7 @@ export interface PendingApproval {
   findings_summary: string | null;
   source_type: string;
   driver: string | null;
-  created_at: string;
+  created_at: number;
   timeout_seconds: number;
   tool_display_name: string;
   tool_source: string;
@@ -19,6 +20,7 @@ export interface PendingApproval {
   similar_target: string;
   is_generalized: boolean;
   permission_increment?: string;
+  justification?: string;
 }
 
 export interface PushMessagesResponse {

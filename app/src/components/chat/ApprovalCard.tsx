@@ -92,6 +92,17 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
           </div>
         )}
 
+        {approval.justification && (
+          <div className="rounded-md bg-bubble-tool px-3 py-2 text-xs">
+            <div className="font-medium text-ink">
+              {t("approval.justification")}
+            </div>
+            <div className="mt-0.5 text-ink-secondary">
+              {approval.justification}
+            </div>
+          </div>
+        )}
+
         <details className="group rounded-md bg-bubble-tool">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-ink-secondary">
             <ChevronRight
@@ -116,7 +127,7 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             <Check size={14} strokeWidth={1.8} />
             {processing === "approve:exact"
               ? t("approval.processing")
-              : t("approval.approve")}
+              : t("approval.approveOnce")}
           </Button>
           {approval.is_generalized && (
             <Button
@@ -194,9 +205,11 @@ function SeverityBadge({ severity }: { severity: string }) {
     normalized === "high" ||
     normalized === "critical"
       ? (`approval.severity.${normalized}` as const)
+      : normalized === "info"
+      ? "approval.severity.info"
       : "approval.severity.unknown";
   const tone =
-    normalized === "low"
+    normalized === "low" || normalized === "info"
       ? "neutral"
       : normalized === "medium"
       ? "warn"
