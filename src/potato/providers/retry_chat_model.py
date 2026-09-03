@@ -580,6 +580,7 @@ class RetryChatModel(ChatModelBase):
         pending_stream: AsyncGenerator[ChatResponse, None] | None = stream
         pending_acquired_at = acquired_at
         reasoning_injected = False
+        emitted_any_chunk = False
 
         while True:
             try:
@@ -589,6 +590,7 @@ class RetryChatModel(ChatModelBase):
                         limiter,
                         pending_acquired_at,
                     ):
+                        emitted_any_chunk = True
                         yield chunk
                     return  # stream completed without error
 
@@ -631,6 +633,14 @@ class RetryChatModel(ChatModelBase):
 
             except Exception as retry_exc:
                 pending_stream = None
+                # Once a chunk has escaped this wrapper, callers have already
+                # rendered or accumulated it.  Replaying the request from the
+                # beginning would append a second answer to that irreversible
+                # prefix and make the visible transcript differ from the
+                # final response saved in agent context.  Transparent retries
+                # are therefore safe only before the first emitted chunk.
+                if emitted_any_chunk:
+                    raise
                 if (
                     not reasoning_injected
                     and _is_missing_reasoning_content_error(retry_exc)

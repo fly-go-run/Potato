@@ -201,8 +201,8 @@ class _TransientStreamRetryModel:
 
 
 @pytest.mark.asyncio
-async def test_stream_retries_transient_openai_api_error() -> None:
-    pytest.importorskip("openai")
+async def test_stream_does_not_retry_after_emitting_a_chunk() -> None:
+    openai = pytest.importorskip("openai")
     _limiters.clear()
     try:
         inner = _TransientStreamRetryModel()
@@ -225,9 +225,69 @@ async def test_stream_retries_transient_openai_api_error() -> None:
 
         result = await model(messages=[{"role": "user", "content": "hi"}])
         stream = cast(AsyncGenerator[Any, None], result)
+        first = await anext(stream)
+        assert first.content == "partial"
+
+        with pytest.raises(
+            openai.APIError,
+            match="Internal error: ReadError",
+        ):
+            await anext(stream)
+
+        # The first chunk has already reached the caller and cannot be
+        # retracted. Retrying here would append a fresh answer to "partial".
+        assert inner.calls == 1
+    finally:
+        _limiters.clear()
+
+
+async def _failing_before_first_chunk() -> AsyncGenerator[Any, None]:
+    for chunk in ():
+        yield chunk
+    exc = Exception("upstream failed before streaming")
+    exc.status_code = 500  # type: ignore[attr-defined]
+    raise exc
+
+
+class _PreChunkTransientStreamRetryModel(_TransientStreamRetryModel):
+    async def __call__(
+        self,
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> AsyncGenerator[Any, None]:
+        self.calls += 1
+        if self.calls == 1:
+            return _failing_before_first_chunk()
+        return _successful_stream()
+
+
+@pytest.mark.asyncio
+async def test_stream_retries_when_failure_precedes_first_chunk() -> None:
+    _limiters.clear()
+    try:
+        inner = _PreChunkTransientStreamRetryModel()
+        model = RetryChatModel(
+            inner,  # type: ignore[arg-type]
+            retry_config=RetryConfig(
+                enabled=True,
+                max_retries=2,
+                backoff_base=0.01,
+                backoff_cap=0.01,
+            ),
+            rate_limit_config=RateLimitConfig(
+                max_concurrent=1,
+                max_qpm=0,
+                pause_seconds=1.0,
+                jitter_range=0.0,
+                acquire_timeout=10.0,
+            ),
+        )
+
+        result = await model(messages=[{"role": "user", "content": "hi"}])
+        stream = cast(AsyncGenerator[Any, None], result)
         chunks = [chunk async for chunk in stream]
 
-        assert [chunk.content for chunk in chunks] == ["partial", "ok"]
+        assert [chunk.content for chunk in chunks] == ["ok"]
         assert inner.calls == 2
     finally:
         _limiters.clear()
