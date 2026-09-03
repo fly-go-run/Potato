@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """UT for the tool_adapter approval-scope consumer (the lever).
 
-``_ask_user_approval`` must pick the recorded rule target from the user's
-chosen scope: SIMILAR → the generalized pattern, EXACT/None → the literal
-target. This exercises that decision with a fake ApprovalService + governor
-so no real model / HTTP / agentscope runtime is needed.
+``_ask_user_approval`` must only persist a rule when the user explicitly
+chooses SIMILAR. EXACT/None is a one-shot approval and must not silently
+change future chats. This exercises that decision with a fake
+ApprovalService + governor so no real model / HTTP / agentscope runtime is
+needed.
 """
 from __future__ import annotations
 
@@ -154,7 +155,7 @@ async def _run_approval(scope: ApprovalScope | None, monkeypatch):
 
 
 class TestApprovalScopeConsumer:
-    """The consumer picks the recorded target from the chosen scope."""
+    """Only the explicitly persistent scope records an allow rule."""
 
     async def test_similar_records_pattern(self, monkeypatch):
         governor, _pending = await _run_approval(
@@ -169,23 +170,19 @@ class TestApprovalScopeConsumer:
         _spec, decision = governor.audits[-1]
         assert "similar" in decision.reason
 
-    async def test_exact_records_literal(self, monkeypatch):
+    async def test_exact_is_one_shot(self, monkeypatch):
         governor, _pending = await _run_approval(
             ApprovalScope.EXACT,
             monkeypatch,
         )
-        _tc_spec, target, duration = governor.added[0]
-        assert target == "git status"
-        assert duration == "permanent"
+        assert governor.added == []
         _spec, decision = governor.audits[-1]
         assert "exact" in decision.reason
 
     async def test_none_scope_defaults_to_exact(self, monkeypatch):
-        """No scope (IM channel / CLI) → records the literal target."""
+        """No scope (IM channel / CLI) is also a one-shot approval."""
         governor, _pending = await _run_approval(None, monkeypatch)
-        _tc_spec, target, duration = governor.added[0]
-        assert target == "git status"
-        assert duration == "permanent"
+        assert governor.added == []
         _spec, decision = governor.audits[-1]
         assert "exact" in decision.reason
 
@@ -230,7 +227,7 @@ class TestApprovalScopeConsumer:
             source="write_boundary",
         )
         assert called["n"] == 0
-        assert governor.added
+        assert governor.added == []
 
     async def test_auto_review_skips_explicit_escalation(self, monkeypatch):
         """danger-full-access must not be granted by the AUTO reviewer."""
@@ -368,7 +365,100 @@ class TestApprovalScopeConsumer:
             },
             source="No rule hit",
         )
-        assert governor.added, "human should still be asked"
+        assert fake_svc._pending.scope is ApprovalScope.EXACT
+        assert governor.added == []
+        assert governor.audits[-1][1].reason == "User Approve (exact)"
+
+    async def test_auto_reviewer_deny_falls_back_to_interactive_user(
+        self,
+        monkeypatch,
+    ):
+        """A conservative AUTO decision must not hard-deny an active chat."""
+        from potato.governance import tool_adapter
+        from potato.governance.auto_review import AutoReviewResult
+        import potato.governance.auto_review as auto_review_mod
+        import potato.governance.generalize as generalize_mod
+        import potato.app.approvals as approvals_mod
+
+        async def _fake_review(**_kwargs):
+            return AutoReviewResult(
+                approved=False,
+                require_human=False,
+                model_id="test-reviewer",
+                used_dedicated_model=False,
+                reason="too uncertain to auto-allow",
+                risk_level="medium",
+                user_authorization="unknown",
+            )
+
+        async def _fake_generalize(*_a, **_k):
+            return "git *"
+
+        monkeypatch.setattr(auto_review_mod, "review_tool_call", _fake_review)
+        monkeypatch.setattr(
+            generalize_mod,
+            "generalize_target_for_approval",
+            _fake_generalize,
+        )
+        fake_svc = _FakeApprovalService(ApprovalScope.EXACT)
+        monkeypatch.setattr(
+            approvals_mod,
+            "get_approval_service",
+            lambda: fake_svc,
+        )
+        governor = _FakeGovernor()
+
+        await tool_adapter._ask_user_approval(
+            governor=governor,
+            tc_spec=_tc(),
+            request_context={
+                "user_id": "u",
+                "channel": "console",
+                "approval_level": "auto",
+            },
+            source="No rule hit",
+        )
+
+        assert fake_svc._pending.scope is ApprovalScope.EXACT
+        assert governor.added == []
+        assert governor.audits[-1][1].reason == "User Approve (exact)"
+
+    async def test_auto_require_human_stays_fail_closed_for_cron(
+        self,
+        monkeypatch,
+    ):
+        from potato.governance import tool_adapter
+        from potato.governance.auto_review import AutoReviewResult
+        import potato.governance.auto_review as auto_review_mod
+
+        async def _fake_review(**_kwargs):
+            return AutoReviewResult(
+                approved=False,
+                require_human=True,
+                model_id="test-reviewer",
+                used_dedicated_model=False,
+                reason="needs a person",
+                risk_level="medium",
+                user_authorization="unknown",
+            )
+
+        monkeypatch.setattr(auto_review_mod, "review_tool_call", _fake_review)
+        governor = _FakeGovernor()
+        decision = await tool_adapter._ask_user_approval(
+            governor=governor,
+            tc_spec=_tc(),
+            request_context={
+                "user_id": "cron",
+                "channel": "console",
+                "source": "cron",
+                "approval_level": "auto",
+            },
+            source="No rule hit",
+        )
+
+        assert decision.behavior.value == "deny"
+        assert governor.added == []
+        assert governor.audits[-1][1].reason.startswith("Auto Review Deny")
 
 
 class _SandboxDecisionGovernor:

@@ -24,6 +24,7 @@ from potato.drivers.credentials.store import AsyncCredentialStore
 from potato.drivers.handlers.mcp import MCPDriverHandler
 from potato.drivers.manager import DriverManager
 from potato.drivers.storage import card_path, dump_card, load_card
+from potato.governance.auto_review import AutoReviewResult
 from potato.security.tool_guard.approval import ApprovalDecision
 from tests.integration.driver_mcp_fakes import (
     FakeStdIOClient,
@@ -375,7 +376,12 @@ async def test_driver_mcp_policy_ask_approve_resumes_client_call(
             DriverInvocation(
                 capability.capability_id,
                 {"text": "ok"},
-                {"session_id": "s1", "agent_id": "agent", "user_id": "alice"},
+                {
+                    "session_id": "s1",
+                    "agent_id": "agent",
+                    "user_id": "alice",
+                    "approval_level": "SMART",
+                },
             ),
         ),
     )
@@ -387,6 +393,7 @@ async def test_driver_mcp_policy_ask_approve_resumes_client_call(
     assert pending.extra["display"] == {
         "tool_name": "echo",
         "tool_source": "mcp:policy_echo",
+        "justification": "",
     }
     await service.resolve_request(
         pending.request_id,
@@ -527,6 +534,20 @@ async def test_driver_mcp_policy_ask_agent_auto_requires_approval(
         "potato.config.config.load_agent_config",
         lambda _agent_id: SimpleNamespace(approval_level="AUTO"),
     )
+
+    async def require_human_review(**_kwargs):
+        return AutoReviewResult(
+            approved=False,
+            require_human=True,
+            model_id="test-reviewer",
+            used_dedicated_model=False,
+            reason="needs a person",
+        )
+
+    monkeypatch.setattr(
+        "potato.governance.auto_review.review_tool_call",
+        require_human_review,
+    )
     manager = await _registry_with_policy(
         tmp_path,
         [PolicyRule(subject="*", effect="ask")],
@@ -558,6 +579,110 @@ async def test_driver_mcp_policy_ask_agent_auto_requires_approval(
 
     assert result.ok is True
     assert result.value == {"echo": {"text": "auto-agent"}}
+
+
+@pytest.mark.asyncio
+async def test_driver_mcp_policy_ask_auto_review_can_allow_without_prompt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_mcp_runtime_clients(monkeypatch)
+    service = ApprovalService()
+    monkeypatch.setattr(
+        "potato.app.approvals.get_approval_service",
+        lambda: service,
+    )
+
+    async def allow_review(**kwargs):
+        assert kwargs["tool_name"] == "echo"
+        assert kwargs["review_context"] == "Use echo for this message"
+        return AutoReviewResult(
+            approved=True,
+            model_id="test-reviewer",
+            used_dedicated_model=False,
+            reason="routine and authorized",
+            risk_level="low",
+            user_authorization="explicit",
+        )
+
+    monkeypatch.setattr(
+        "potato.governance.auto_review.review_tool_call",
+        allow_review,
+    )
+    manager = await _registry_with_policy(
+        tmp_path,
+        [PolicyRule(subject="*", effect="ask")],
+    )
+    capability = next(
+        item
+        for item in await manager.list_capabilities(kind="tool")
+        if item.name == "echo"
+    )
+
+    result = await manager.invoke_capability(
+        DriverInvocation(
+            capability.capability_id,
+            {"text": "auto-allowed"},
+            {
+                "session_id": "s1",
+                "agent_id": "agent",
+                "approval_level": "AUTO",
+                "last_user_message": "Use echo for this message",
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.value == {"echo": {"text": "auto-allowed"}}
+    # pylint: disable=protected-access
+    assert not service._pending
+
+
+@pytest.mark.asyncio
+async def test_driver_mcp_policy_ask_auto_review_cron_stays_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_mcp_runtime_clients(monkeypatch)
+
+    async def require_human_review(**_kwargs):
+        return AutoReviewResult(
+            approved=False,
+            require_human=True,
+            model_id="test-reviewer",
+            used_dedicated_model=False,
+            reason="needs a person",
+        )
+
+    monkeypatch.setattr(
+        "potato.governance.auto_review.review_tool_call",
+        require_human_review,
+    )
+    manager = await _registry_with_policy(
+        tmp_path,
+        [PolicyRule(subject="*", effect="ask")],
+    )
+    capability = next(
+        item
+        for item in await manager.list_capabilities(kind="tool")
+        if item.name == "echo"
+    )
+
+    result = await manager.invoke_capability(
+        DriverInvocation(
+            capability.capability_id,
+            {"text": "cron"},
+            {
+                "session_id": "s1",
+                "agent_id": "agent",
+                "approval_level": "AUTO",
+                "source": "cron",
+            },
+        ),
+    )
+
+    assert result.error_type == "driver_policy_denied"
+    assert FakeStdIOClient.instances[0].calls == []
 
 
 @pytest.mark.asyncio

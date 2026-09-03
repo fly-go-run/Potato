@@ -186,8 +186,83 @@ class DriverHandler(ABC):
             and execution_level.requires_approval_for_all_tools()
         )
         if needs_approval:
+            if (
+                effect == POLICY_EFFECT_ASK
+                and execution_level.value == "auto"
+                and await self._auto_review_invocation(context)
+            ):
+                return context
             await self._request_approval(context)
         return context
+
+    async def _auto_review_invocation(
+        self,
+        context: DriverInvocationContext,
+    ) -> bool:
+        """Let AUTO mode remove routine Driver/MCP approval prompts.
+
+        Deterministic Driver ``deny`` policy has already been enforced before
+        this method. A non-allow result falls back to the human approval gate
+        for interactive work and remains fail-closed for cron.
+        """
+        from ..governance.auto_review import review_tool_call
+
+        ctx = context.request_context
+        target_name = str(context.target.name or context.subject or "")
+        tool_name = target_name or (
+            f"driver:{context.protocol}:{context.driver_name}"
+        )
+        review = await review_tool_call(
+            tool_name=tool_name,
+            target=target_name or context.driver_name,
+            params=dict(context.extras or {}),
+            agent_id=str(
+                ctx.get("agent_id") or ctx.get("root_agent_id") or ""
+            )
+            or None,
+            governance_reason=(
+                f"Driver policy requires approval for {context.operation}."
+            ),
+            policy_findings=None,
+            violation_msg=None,
+            review_context=(
+                ctx.get("review_context")
+                or ctx.get("user_intent")
+                or ctx.get("last_user_message")
+                or ""
+            ),
+            request_metadata={
+                "source": ctx.get("source", ""),
+                "channel": ctx.get("channel", ""),
+                "approval_level": "auto",
+                "driver": context.driver_name,
+                "protocol": context.protocol,
+                "operation": context.operation,
+            },
+        )
+        logger.info(
+            "Driver AUTO review driver=%s tool=%s model=%s approved=%s "
+            "human=%s risk=%s authorization=%s",
+            context.driver_name,
+            tool_name,
+            review.model_id or "unavailable",
+            review.approved,
+            review.require_human,
+            review.risk_level,
+            review.user_authorization,
+        )
+        if review.approved:
+            return True
+
+        ctx["_auto_review_reason"] = review.reason
+        if str(ctx.get("source") or "").strip().lower() == "cron":
+            raise DriverPermissionDeniedError(
+                context.driver_name,
+                context.subject,
+                context.operation,
+                reason=f"Automatic review did not allow: {review.reason}",
+            )
+        return False
 
     async def _resolve_credentials(self) -> dict[str, ResolvedCredential]:
         """Resolve all credential aliases for protocol handlers."""

@@ -9,6 +9,7 @@ Replaces the GuardedFunctionTool. Each tool call goes through two layers:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from contextvars import ContextVar
@@ -631,11 +632,11 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
     root_session_id = str(ctx.get("root_session_id") or session_id)
     root_agent_id = str(ctx.get("root_agent_id") or agent_id or "unknown")
 
-    # AUTO is an unattended, model-reviewed approval mode. Prefer a
-    # provider-advertised command-review companion model, but fall back to the
-    # active chat model when no such model is listed. Review failures are
-    # fail-closed and return immediately instead of leaving the task parked on
-    # a human approval waiter. SMART / STRICT retain the existing human flow.
+    # AUTO is a model-reviewed approval mode. Prefer a provider-advertised
+    # command-review companion model, but fall back to the active chat model
+    # when no such model is listed. Non-allow results fall back to a human in
+    # interactive chats; unattended cron runs remain fail-closed. SMART /
+    # STRICT retain the existing human flow.
     # HIGH findings are not eligible for automatic review — only a human
     # one-shot grant can open that gate.
     effective_level = _resolve_effective_approval_level(ctx)
@@ -686,14 +687,7 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
             review.risk_level,
             review.user_authorization,
         )
-        if review.require_human:
-            logger.info(
-                "PolicyGuardedTool: AUTO review deferred to human "
-                "tool=%s reason=%s",
-                tool_name,
-                review.reason,
-            )
-        elif review.approved:
+        if review.approved:
             governor.audit(
                 tc_spec,
                 GovernanceDecision(
@@ -708,7 +702,7 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                     + (f" ({review.model_id})." if review.model_id else ".")
                 ),
             )
-        else:
+        if str(ctx.get("source") or "").lower() == "cron":
             governor.audit(
                 tc_spec,
                 GovernanceDecision(
@@ -723,16 +717,34 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                     f"{review.reason}." + _NO_RETRY_INSTRUCTION
                 ),
             )
+        if review.require_human:
+            logger.info(
+                "PolicyGuardedTool: AUTO review deferred to human "
+                "tool=%s reason=%s",
+                tool_name,
+                review.reason,
+            )
+        else:
+            # Interactive AUTO should remove low-value prompts, not turn a
+            # reviewer outage or conservative classification into a hard
+            # dead-end.  Deterministic DENY/HIGH gates have already run; for
+            # the remaining ASK cases, let the user decide when review cannot
+            # safely auto-allow.  Cron stays fail-closed above because nobody
+            # may be present to answer the card.
+            logger.info(
+                "PolicyGuardedTool: AUTO review did not allow; falling back "
+                "to human approval tool=%s reason=%s",
+                tool_name,
+                review.reason,
+            )
 
     from .generalize import generalize_target_for_approval
 
-    generalized_target = await generalize_target_for_approval(
-        tool_name,
-        target,
-        source,
-        agent_id=agent_id,
-    )
-    display_target = generalized_target or target
+    # Surface the one-shot approval immediately.  The optional persistent
+    # pattern is hydrated in the background and appears on the next approval
+    # poll, avoiding up to six seconds of blank waiting before the card exists.
+    generalized_target = target
+    display_target = target
 
     # Construct a ToolGuardResult for ApprovalService.
     # If deep-scan findings were attached by policy.evaluate(),
@@ -859,6 +871,11 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                     source=source,
                     raw_params=params,
                 ),
+                "justification": str(
+                    (params or {}).get("justification")
+                    or governance_reason
+                    or ""
+                ).strip(),
             },
             "channel_meta": ctx.get("channel_meta"),
             "_channel_instance": ctx.get("_channel_instance"),
@@ -867,6 +884,30 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
             ),
         },
     )
+
+    generalization_task: asyncio.Task[None] | None = None
+    if source != "builtin_rules":
+
+        async def _hydrate_generalized_target() -> None:
+            nonlocal generalized_target, display_target
+            candidate = await generalize_target_for_approval(
+                tool_name,
+                target,
+                source,
+                agent_id=agent_id,
+            )
+            candidate = candidate or target
+            generalized_target = candidate
+            display_target = candidate
+            display = pending.extra.get("display", {})
+            if isinstance(display, dict):
+                display["similar_target"] = candidate
+                display["is_generalized"] = candidate != target
+
+        generalization_task = asyncio.create_task(
+            _hydrate_generalized_target(),
+            name=f"approval-generalize-{pending.request_id[:8]}",
+        )
 
     logger.info(
         "PolicyGuardedTool: awaiting approval for tool=%s session=%s "
@@ -890,11 +931,23 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
         )
         decision = ApprovalDecision.DENIED
 
+    # A real user can select SIMILAR only after hydration made that button
+    # visible.  Await defensively for API/CLI callers; otherwise cancel unused
+    # work as soon as a one-shot approval or denial resolves.
+    scope = getattr(pending, "scope", None)
+    if generalization_task is not None:
+        if scope == ApprovalScope.SIMILAR:
+            try:
+                await generalization_task
+            except asyncio.CancelledError:
+                pass
+        elif not generalization_task.done():
+            generalization_task.cancel()
+
     # Record user approve/deny result to audit log
     approved = decision == ApprovalDecision.APPROVED
     # The scope the user chose (set by resolve_request on the same pending
     # object). None = no choice offered → EXACT.
-    scope = getattr(pending, "scope", None)
     scope_label = scope.value if scope else "exact"
     approval_decision = GovernanceDecision(
         action=GovernanceAction.ALLOW if approved else GovernanceAction.DENY,
@@ -904,20 +957,20 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
 
     summary = format_findings_summary(guard_result)
     if decision == ApprovalDecision.APPROVED:
-        # ── Record approved rule (skip for builtin ask) ──
-        # SIMILAR → the generalized pattern; EXACT (default) → the literal
-        # target the user actually approved. Widening is opt-in.
+        # ── Record an explicitly persistent approved rule ──
+        # The primary approval action is one-shot.  Only the separately
+        # confirmed SIMILAR action persists an allow rule.  This keeps the UI
+        # promise honest and prevents a plain "Approve" click from silently
+        # changing every future chat.
         rule_target = (
             generalized_target if scope == ApprovalScope.SIMILAR else target
         )
-        # Human grants persist across chats (Codex default.rules analog).
-        # AUTO review never reaches this branch. Host execution is a
-        # session-scoped increment, not a permanent unsandbox rule.
-        await governor.add_approved_rule(
-            tc_spec,
-            generalized_target=rule_target,
-            duration="permanent",
-        )
+        if scope == ApprovalScope.SIMILAR:
+            await governor.add_approved_rule(
+                tc_spec,
+                generalized_target=rule_target,
+                duration="permanent",
+            )
         if source == "escalation":
             from .escalation import (
                 DANGER_FULL_ACCESS,

@@ -11,9 +11,9 @@ when configured.  For backwards compatibility, provider-advertised
 ``*-command-review``/``*-review`` companions are discovered next, and the
 active chat model is the final fallback.
 
-Review is deliberately fail-closed and time-bounded: malformed output,
-missing models, and API errors resolve to DENY rather than opening a human
-approval wait that can stall an otherwise unattended AUTO task.
+Review is deliberately time-bounded: malformed output, missing models, and
+API errors resolve to a non-allow result. Interactive callers may then ask the
+user; unattended callers such as cron remain fail-closed.
 """
 
 from __future__ import annotations

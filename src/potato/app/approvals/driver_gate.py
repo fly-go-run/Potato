@@ -81,6 +81,11 @@ class PotatoDriverApprovalGate:
                 "display": {
                     "tool_name": display_tool_name,
                     "tool_source": display_tool_source,
+                    "justification": str(
+                        ctx.get("_auto_review_reason")
+                        or context.extras.get("justification")
+                        or ""
+                    ),
                 },
                 "driver": {
                     "name": context.driver_name,
