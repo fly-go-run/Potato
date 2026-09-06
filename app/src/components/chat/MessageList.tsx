@@ -44,13 +44,11 @@ import {
 } from "../../lib/executionTrack";
 import {
   shouldShowLiveSignal,
-  shouldShowProcessHeader,
 } from "../../lib/processHeader";
 import {
   formatStepGroupObject,
 } from "../../lib/stepGroupCopy";
 import {
-  FOLD_WINDOW,
   focusFoldRowKey,
   materializeRun,
   windowFoldRows,
@@ -62,8 +60,7 @@ import { buildTimeline, copyAnswerText } from "../../lib/turnTimeline";
 import { splitInlineThinking } from "../../lib/inlineThinking";
 import { historyTurnElapsedMs } from "../../lib/historyTurnDuration";
 import { formatDuration, getMessageTiming } from "../../lib/messageTiming";
-import { extractFirstBold } from "../../lib/reasoningTitle";
-import { textFromContent } from "../../lib/content";
+import { shellPresentation } from "../../lib/toolPresentation";
 import { useNow } from "../../lib/useNow";
 import type { ContentBlock, TextContent } from "../../lib/protocol/types";
 import type { StreamMessage } from "../../lib/stream";
@@ -172,7 +169,7 @@ const UserTurn = memo(function UserTurn({
   return (
     <div data-testid="turn-user" className="mb-8 flex justify-end">
       {/* 70% 上限 + 中档圆角:对表 WB(682px 宽的 18px 圆角灰板太"网页") */}
-      <div className="max-w-[70%] select-text rounded-[var(--radius-md)] bg-bubble-user px-4 py-2.5 text-[15px] leading-[1.7]">
+      <div className="max-w-[70%] select-text rounded-[var(--radius-md)] bg-bubble-user px-4 py-2.5 text-[16px] leading-[1.7]">
         {messages.map((message) => (
           <div
             id={`message-${message.id}`}
@@ -183,6 +180,9 @@ const UserTurn = memo(function UserTurn({
                 : undefined
             }
           >
+            {typeof message.metadata?.question_title === "string" && (
+              <p className="mb-1 line-clamp-2 text-[13px] leading-5 text-ink-secondary">{message.metadata.question_title}</p>
+            )}
             <MessageContent content={message.content} markdown={false} />
           </div>
         ))}
@@ -301,12 +301,8 @@ const AssistantTurn = memo(function AssistantTurn({
       }
       continue;
     }
-    // 流式中过程旁白先当正文落地,避免中途换容器。收口后折进
-    // 「4.8s · 1 步」下面,复制仍只取 answer。
-    if (slot.role === "fold" && !streaming) {
-      fold({ kind: "narration", key: slot.key, message });
-      continue;
-    }
+    // User-facing progress remains in chronological order after completion.
+    // Only tool records collapse; copying still selects the final answer.
     visible(
       slot.key,
       <div
@@ -523,7 +519,7 @@ function isActiveEntry(entry: ProcessEntry): boolean {
  * 静息头仅 ≥60s / 失败 / fold-row>8 才出现。
  */
 function TurnFlow({
-  pieces,
+  pieces: inputPieces,
   foldEntries,
   waiting,
   live,
@@ -544,6 +540,14 @@ function TurnFlow({
   assistantTimestamp?: unknown;
 }) {
   const { t, language } = useTranslation();
+  const pieces: FlowPiece[] = inputPieces.flatMap((piece): FlowPiece[] => {
+    if (piece.type !== "fold" || piece.row.type !== "group" || piece.row.family !== "shell" || piece.row.pairs.length < 2) return [piece];
+    const row = piece.row;
+    return row.pairs.map((pair, index) => {
+      const key = `${row.key}:${pair.callId ?? pair.call?.id ?? index}`;
+      return { type: "fold", key, row: { ...row, key, direct: true, pairs: [pair] } };
+    });
+  });
   const [manualHeader, setManualHeader] = useState<boolean | null>(null);
   const [rowByKey, setRowByKey] = useState<Record<string, "summary" | "raw">>(
     {},
@@ -562,7 +566,7 @@ function TurnFlow({
   }, [live, settling]);
   const headerOpen = manualHeader ?? live;
   const foldRows = pieces.flatMap((piece) =>
-    piece.type === "fold" ? [piece.row] : [],
+    piece.type === "fold" && piece.row.type !== "thinking" && piece.row.type !== "aside" ? [piece.row] : [],
   );
   const failedTools = foldEntries.filter(
     (entry) => entry.kind === "pair" && toolPairStatus(entry.pair).failed,
@@ -592,7 +596,6 @@ function TurnFlow({
     summary = t("progress.working");
   } else if (state.kind === "thinking") {
     summary =
-      extractFirstBold(inFlightReasoningText(foldEntries)) ??
       t("reasoning.thinking");
   } else if (compactionEntry) {
     summary =
@@ -628,25 +631,22 @@ function TurnFlow({
     foldRows.length > 0 ||
     failedTools > 0;
   const liveWindow = live || settling;
-  const settledFailed = state.kind === "done" ? state.failed : 0;
-  const toolFoldCount = foldRows.filter((row) => row.type !== "thinking").length;
-  const showHeader =
-    hasProcess &&
-    shouldShowProcessHeader({
-      elapsedMs,
-      failed: Math.max(settledFailed, failedTools),
-      toolFoldCount,
-      foldWindow: FOLD_WINDOW,
-      settled: !live,
-      hasProcessWork: foldEntries.length > 0,
-    });
+  const toolFoldCount = foldRows.reduce((count, row) => count + (row.type === "group" ? row.pairs.length : 0), 0);
+  // A turn-wide fold must not detach tools from the narration around them.
+  const lastToolIndex = pieces.map((piece) => piece.type === "fold" && piece.row.type === "group").lastIndexOf(true);
+  const hasInterleavedNarration = pieces.some((piece, index) => piece.type === "visible" && index < lastToolIndex);
+  const showHeader = hasProcess && toolFoldCount > 1 && !hasInterleavedNarration;
+  const attentionKeys = new Set(foldRows.flatMap((row) =>
+    row.type === "group" && row.family === "shell" && row.pairs.some((pair) => shellPresentation(pair.arguments, pair.result).hiddenErrors)
+      ? [row.key] : [],
+  ));
   const showLiveSignal = shouldShowLiveSignal({
     live,
     showHeader,
     hasVisiblePiece: pieces.some(
       (piece) => piece.type === "visible" || piece.type === "failed",
     ),
-    hasVisibleToolFold: foldRows.some((row) => row.type !== "thinking"),
+    hasVisibleToolFold: foldRows.some((row) => row.type === "group"),
   });
   const toggleable = foldRows.length > 0 || failedTools > 0;
   const showDurationSuffix =
@@ -743,10 +743,10 @@ function TurnFlow({
       );
       continue;
     }
-    if (piece.type === "fold" && piece.row.type === "thinking" && !showHeader) {
+    if (piece.type === "fold" && (piece.row.type === "thinking" || piece.row.type === "aside")) {
       continue;
     }
-    if (!headerOpen || !shownKeys.has(piece.key)) continue;
+    if (!attentionKeys.has(piece.key) && ((showHeader && !headerOpen) || !shownKeys.has(piece.key))) continue;
     if (windowed.overflowAt === "start" && !overflowPlaced) {
       pushTrack(
         "overflow",
@@ -806,7 +806,7 @@ function TurnFlow({
       {showHeader && (
         <div
           className={`flex items-center gap-2 ${
-            live ? "" : "mb-2 border-b border-line pb-2"
+            live ? "" : "mb-1"
           }`}
         >
           {toggleable ? (
@@ -865,16 +865,6 @@ function activeShellGroupKey(rows: FoldRow[]): string | null {
     }
   }
   return null;
-}
-
-function inFlightReasoningText(entries: ProcessEntry[]): string {
-  const parts: string[] = [];
-  for (const entry of entries) {
-    if (entry.kind !== "reasoning" || !isActiveEntry(entry)) continue;
-    const text = textFromContent(entry.message.content);
-    if (text) parts.push(text);
-  }
-  return parts.join("\n\n");
 }
 
 function isRowActive(row: FoldRow): boolean {
@@ -941,7 +931,7 @@ function FoldRowView({
         onOpenChange={onOpenChange}
         shimmer={shimmer}
         tail={mode === "tail"}
-        open={mode === "raw"}
+        open={mode === "raw" || mode === "tail"}
         onToggle={onToggle}
       />
     );

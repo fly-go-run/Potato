@@ -1,8 +1,10 @@
-import { Terminal } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, LoaderCircle, Terminal, TriangleAlert } from "lucide-react";
 import { ToolDisclosure } from "./ToolDisclosure";
 import type { ToolPair } from "./ToolCard";
 import { richOutputText, toolPairStatus } from "./ToolCard";
 import { useTranslation } from "../../lib/i18n";
+import { shellPresentation } from "../../lib/toolPresentation";
 import { qpBool, qpInt } from "../../lib/toolMeta";
 
 /**
@@ -15,7 +17,7 @@ export function ShellToolCard({
   pair,
   embedded = false,
   shimmer = false,
-  tail = false,
+  tail: _tail = false,
   open,
   onToggle,
 }: {
@@ -23,17 +25,29 @@ export function ShellToolCard({
   /** 组内原始层:只出命令+输出纯文本块,不再套一层摘要行。 */
   embedded?: boolean;
   shimmer?: boolean;
-  /** Live auto-expand: last 5 lines, no frame. Manual expand is full. */
+  /** Legacy live mode; the collapsed preview now displays the latest output. */
   tail?: boolean;
   open?: boolean;
   onToggle?: () => void;
 }) {
   const { t } = useTranslation();
-  const command = shellCommand(pair.arguments);
-  const footnote =
-    command.length > 44 ? `${command.slice(0, 43)}…` : command;
-  const { running, failed } = toolPairStatus(pair);
+  const { running, failed, completed } = toolPairStatus(pair);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  useEffect(() => {
+    if (copyState === "idle") return;
+    const timer = window.setTimeout(() => setCopyState("idle"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [copyState]);
   const output = richOutputText(pair.result);
+  const outputRef = useRef<HTMLPreElement>(null);
+  const followOutput = useRef(true);
+  useEffect(() => {
+    const node = outputRef.current;
+    if (running && node && followOutput.current) node.scrollTop = node.scrollHeight;
+  }, [output, running, open]);
+  const presentation = shellPresentation(pair.arguments, output, running);
+  const { command } = presentation;
+  const footnote = t(presentation.label);
   // qp meta(有则展示,历史会话无 meta 时整段静默)。异常才落墨:
   // 干净退出(exit 0)不渲染任何东西——零是预期,只有非零/信号值得占
   // 一块注意力。有符号读取:-1=超时、负数=信号终止,恰是最需要展示的。
@@ -42,72 +56,51 @@ export function ShellToolCard({
   const abnormalExit = exitCode !== null && exitCode !== 0;
   const unsandboxed = qpBool(pair.meta, "sandboxed") === false;
 
+  const outputText = typeof output === "string" ? output : output ? JSON.stringify(output, null, 2) : "";
+  const copyOutput = async () => {
+    try {
+      await navigator.clipboard.writeText(`$ ${command}\n\n${outputText}`);
+      setCopyState("copied");
+    } catch { setCopyState("failed"); }
+  };
+  const uncertain = presentation.hiddenErrors && !running && !failed;
+  const statusLabel = t(running ? "tool.result.running" : failed || abnormalExit ? "tool.result.failed" : uncertain ? "tool.result.uncertain" : completed ? "tool.result.completed" : "tool.result.waiting");
+  const panelClass = "my-2 overflow-hidden rounded-[10px] border border-line-strong bg-bubble-tool";
   const detail = (
-    <div className="font-mono text-xs leading-6">
-      <div className="mb-2 flex gap-2 text-ink-secondary">
-        <span className="select-none text-ink-muted">$</span>
-        <span className="whitespace-pre-wrap break-all">{command}</span>
-        {(abnormalExit || unsandboxed) && (
-          <span className="ml-auto flex shrink-0 select-none items-center gap-2 pl-3 text-[11px]">
-            {unsandboxed && (
-              <span className="text-warn">{t("tool.shell.noSandbox")}</span>
-            )}
-            {abnormalExit && (
-              <span className="tabular-nums text-danger">exit {exitCode}</span>
-            )}
-          </span>
-        )}
+    <>
+      <div className="flex min-h-9 items-center justify-between gap-3 px-3 text-[13px] text-ink-secondary">
+        <span className="font-medium">Shell</span>
+        <button type="button" onClick={() => void copyOutput()}
+          aria-label={t("tool.result.copy")} title={t("tool.result.copy")}
+          className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-fill-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+          {copyState === "copied" ? <Check size={14} /> : <Copy size={14} />}
+        </button>
       </div>
-      {output ? (
-        <pre className="max-h-[min(18rem,34vh)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words text-ink">
-          {typeof output === "string"
-            ? output
-            : JSON.stringify(output, null, 2)}
+      <div className="max-h-24 overflow-auto px-3 pb-3 font-mono text-[13px] leading-6 text-ink-secondary">
+        <span className="select-none">$ </span><span className="whitespace-pre-wrap break-words">{command}</span>
+      </div>
+      {outputText ? (
+        <pre ref={outputRef} tabIndex={0} aria-label={t("tool.result.output")}
+          onScroll={(event) => {
+            const node = event.currentTarget;
+            followOutput.current = node.scrollHeight - node.scrollTop - node.clientHeight < 24;
+          }}
+          className="max-h-[min(20rem,36vh)] min-h-10 overflow-auto overscroll-contain border-t border-line px-3 py-3 font-mono text-[13px] leading-6 text-ink focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink">
+          {outputText}
         </pre>
-      ) : (
-        <span className="text-ink-tertiary">
-          {running ? t("tool.waitingOutput") : t("tool.noOutput")}
+      ) : <div className="px-3 pb-3 text-[13px] text-ink-secondary">{t(running ? "tool.waitingOutput" : "tool.output.empty")}</div>}
+      <div className="flex min-h-9 items-center gap-3 border-t border-line px-3 text-[12px] text-ink-secondary">
+        <span role="status">{copyState !== "idle" && t(copyState === "copied" ? "tool.result.copied" : "tool.result.copyFailed")}</span>
+        {unsandboxed && <span>{t("tool.shell.noSandbox")}</span>}
+        <span role="status" className={`ml-auto flex items-center gap-1.5 ${failed || abnormalExit ? "text-danger" : uncertain ? "text-warn" : ""}`}>
+          {running ? <LoaderCircle size={13} className="animate-spin motion-reduce:animate-none" /> : failed || abnormalExit || uncertain ? <TriangleAlert size={13} /> : completed ? <Check size={13} /> : null}
+          {statusLabel}{abnormalExit ? ` · exit ${exitCode}` : ""}
         </span>
-      )}
-    </div>
+      </div>
+    </>
   );
 
-  if (tail) {
-    const preview = lastOutputLines(output, 5);
-    return (
-      <div>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="group flex w-full items-center gap-1.5 py-0.5 text-left text-[12px] text-ink-tertiary transition-colors duration-[var(--dur-fast)] hover:text-ink-secondary"
-        >
-          <Terminal
-            size={13}
-            strokeWidth={1.8}
-            className="shrink-0 text-ink-tertiary"
-          />
-          <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
-            <code className="font-mono text-[12px]">
-              {footnote || t("tool.shell")}
-            </code>
-          </span>
-        </button>
-        {preview ? (
-          <pre className="font-mono text-xs leading-6 whitespace-pre-wrap break-words text-ink-secondary">
-            {preview}
-          </pre>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (embedded) {
-    return (
-      <div className="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2">
-        {detail}
-      </div>
-    );
-  }
+  if (embedded) return <div className={panelClass}>{detail}</div>;
 
   const toggle = (
     <>
@@ -118,15 +111,16 @@ export function ShellToolCard({
       />
       <span className={`min-w-0 truncate ${shimmer ? "qp-shimmer" : ""}`}>
         <code
-          className={`font-mono text-[12px] ${
+          className={`font-sans text-[14px] font-medium ${
             failed && !shimmer
               ? "text-danger"
               : shimmer
                 ? ""
-                : "text-ink-tertiary group-hover:text-ink-secondary"
+                : "text-ink-secondary group-hover:text-ink"
           }`}
         >
           {footnote || t("tool.shell")}
+          {presentation.label === "tool.action.command" && <span className="ml-2 font-mono font-normal">{command.split("\n")[0]?.slice(0, 70)}</span>}
         </code>
       </span>
     </>
@@ -138,30 +132,15 @@ export function ShellToolCard({
       failed={failed}
       open={open}
       onToggle={onToggle}
-      detailClassName="mb-1 mt-0.5 rounded-[var(--radius-md)] bg-surface px-3 py-2"
+      preview={!open && (running || failed || presentation.hiddenErrors) && (
+        <div className="ml-5 pb-2 text-[13px] leading-6 text-ink-secondary">
+          {presentation.preview ? <pre className="line-clamp-3 max-h-[4.5rem] overflow-hidden whitespace-pre-wrap break-words font-mono text-[13px]">{presentation.preview}</pre> : <span>{t(running ? "tool.waitingOutput" : "tool.output.empty")}</span>}
+          {presentation.hiddenErrors && !running && <div className="text-warn">{t("tool.output.hiddenErrors")}</div>}
+        </div>
+      )}
+      detailClassName={panelClass}
     >
       {detail}
     </ToolDisclosure>
   );
-}
-
-function lastOutputLines(output: unknown, count: number): string {
-  const text =
-    typeof output === "string"
-      ? output
-      : output == null
-        ? ""
-        : JSON.stringify(output, null, 2);
-  if (!text) return "";
-  const lines = text.replace(/\s+$/u, "").split("\n");
-  return lines.slice(-count).join("\n");
-}
-
-function shellCommand(argumentsJson: string) {
-  try {
-    const parsed = JSON.parse(argumentsJson) as { command?: unknown };
-    return typeof parsed.command === "string" ? parsed.command : argumentsJson;
-  } catch {
-    return argumentsJson;
-  }
 }

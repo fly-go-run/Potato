@@ -105,7 +105,7 @@ describe("summarizeTrack", () => {
   });
 
   it("returns the final step and failure counts only after streaming ends", () => {
-    // 步数口径:叙述(message)是内容不是步骤,不计;思考、工具、进度都算。
+    // Only actual tool calls count, not reasoning, narration or progress.
     const entries = [
       entry("reasoning", "reasoning"),
       entry("done", "tool", { completed: true }),
@@ -115,15 +115,15 @@ describe("summarizeTrack", () => {
     ];
     expect(
       summarizeTrack(entries, { streaming: false, waiting: false }),
-    ).toEqual({ kind: "done", steps: 4, failed: 1 });
+    ).toEqual({ kind: "done", steps: 2, failed: 1 });
   });
 
-  it("keeps the existing minimum one-step final summary", () => {
+  it("does not invent a tool call for plain text", () => {
     // 收口时轨道可能一条不剩(纯文字回答里的空 reasoning 已被时间线跳过)。
     // 「已完成 0 个步骤」读起来像出错了,下限保底为 1。
     expect(summarizeTrack([], { streaming: false, waiting: false })).toEqual({
       kind: "done",
-      steps: 1,
+      steps: 0,
       failed: 0,
     });
     expect(
@@ -131,6 +131,6 @@ describe("summarizeTrack", () => {
         streaming: false,
         waiting: false,
       }),
-    ).toEqual({ kind: "done", steps: 1, failed: 0 });
+    ).toEqual({ kind: "done", steps: 0, failed: 0 });
   });
 });

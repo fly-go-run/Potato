@@ -27,7 +27,7 @@ export function TrackRow({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className={`group flex w-full items-center gap-1.5 py-0.5 text-left text-[12px] transition-colors duration-[var(--dur-fast)] ${
+      className={`group flex w-full items-center gap-1.5 py-1.5 text-left text-[14px] transition-colors duration-[var(--dur-fast)] ${
         failed ? "text-danger" : "text-ink-tertiary hover:text-ink-secondary"
       }`}
     >
@@ -54,7 +54,7 @@ export function TrackRowChevron({
     <ChevronRight
       size={12}
       strokeWidth={1.8}
-      className={`shrink-0 opacity-0 transition-[opacity,transform] duration-[var(--dur-fast)] group-hover:opacity-100 ${
+      className={`shrink-0 opacity-60 transition-[opacity,transform] duration-[var(--dur-fast)] group-hover:opacity-100 ${
         failed ? "text-danger" : "text-ink-muted"
       } ${open ? "rotate-90" : ""}`}
     />

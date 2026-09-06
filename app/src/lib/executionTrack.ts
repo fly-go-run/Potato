@@ -65,9 +65,9 @@ export function summarizeTrack(
     );
     return reasoningInFlight ? { kind: "thinking" } : { kind: "waiting" };
   }
-  const steps = entries.filter((entry) => entry.kind !== "message").length;
+  const steps = entries.filter((entry) => entry.kind === "tool").length;
   const failed = entries.filter(
     (entry) => entry.kind === "tool" && entry.failed,
   ).length;
-  return { kind: "done", steps: Math.max(1, steps), failed };
+  return { kind: "done", steps, failed };
 }

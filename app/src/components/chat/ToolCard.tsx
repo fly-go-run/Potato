@@ -30,6 +30,7 @@ import { parseQpMeta, qpString, type QpMeta } from "../../lib/toolMeta";
 import { JsonView } from "./JsonView";
 import { ShellToolCard } from "./ShellToolCard";
 import { FileToolCard, isFileTool } from "./FileToolCard";
+import { outputPreview } from "../../lib/toolPresentation";
 import { TrackSummary } from "./TrackRow";
 
 export interface ToolPair {
@@ -245,6 +246,7 @@ function GenericToolCard({
       failed={failed}
       open={open}
       onToggle={onToggle}
+      preview={(running || failed) && pair.result && <pre className="ml-5 line-clamp-3 max-h-[4.5rem] overflow-hidden pb-2 whitespace-pre-wrap break-words font-mono text-xs leading-6 text-ink-secondary">{outputPreview(richOutputText(pair.result))}</pre>}
       detailClassName="mb-1 mt-0.5 max-h-[min(20rem,42vh)] overflow-y-auto overscroll-contain rounded-[var(--radius-md)] bg-surface px-3 py-2"
     >
       {detail}

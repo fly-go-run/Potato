@@ -9,11 +9,12 @@ import { TrackRowChevron } from "./TrackRow";
  * 节点放在 after 里,不嵌套在按钮内。容器整行可点只是指针便利,不带
  * 按钮语义。
  *
- * 行是安静文本行:无静息 chevron、无 hover 灰底。卡片感只留在
+ * 行是安静文本行:保留展开箭头、无 hover 灰底。卡片感只留在
  * 展开后的详情(由 detailClassName 给),行本身永远是扁平行。
  */
 export function ToolDisclosure({
   toggle,
+  preview,
   after,
   trailing,
   toggleGrow = true,
@@ -25,6 +26,7 @@ export function ToolDisclosure({
 }: {
   /** 展开按钮内的主内容(工具名、命令等,不含交互控件)。 */
   toggle: ReactNode;
+  preview?: ReactNode;
   /** 行内按钮之后的兄弟内容(路径按钮、时长、Spinner / 状态图标)。 */
   after?: ReactNode;
   /** 依赖开合态的行尾控件(如「在侧栏打开」);放在 chevron 前。 */
@@ -57,7 +59,7 @@ export function ToolDisclosure({
     <div>
       <div
         onClick={toggleOpen}
-        className={`group flex cursor-pointer items-center gap-1.5 py-1 text-[13px] transition-colors duration-[var(--dur-fast)] ${
+        className={`group flex cursor-pointer items-center gap-1.5 py-1.5 text-[14px] transition-colors duration-[var(--dur-fast)] ${
           failed ? "text-danger" : "text-ink-secondary hover:text-ink"
         }`}
       >
@@ -75,6 +77,7 @@ export function ToolDisclosure({
         {trailing?.(open)}
         <TrackRowChevron open={open} failed={failed} />
       </div>
+      {!open && preview}
       <Collapse open={open}>
         <div className={detailClassName}>{children}</div>
       </Collapse>
