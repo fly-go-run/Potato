@@ -20,6 +20,7 @@ import {
   type DesktopUpdateProgress,
 } from "../../lib/desktop";
 import { useTranslation } from "../../lib/i18n";
+import { useChatStore } from "../../stores/chat";
 
 const CLOSE_REQUESTED_EVENT = "potato-close-requested";
 
@@ -56,6 +57,14 @@ const INITIAL_UPDATE_STATE: UpdateState = {
  * this component renders nothing.
  */
 export function DesktopHostBridge() {
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void listenDesktopEvent<{ session_id: string }>("native-background-updated", (event) => {
+      if (!disposed) void useChatStore.getState().refreshBackgroundChat(event.session_id).catch(() => {});
+    }).then((cleanup) => { if (disposed) cleanup?.(); else unlisten = cleanup; });
+    return () => { disposed = true; unlisten?.(); };
+  }, []);
   const { language, t } = useTranslation();
   const [closeOpen, setCloseOpen] = useState(false);
   const [rememberCloseAction, setRememberCloseAction] = useState(false);
