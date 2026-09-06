@@ -30,7 +30,7 @@ export function MessageContent({
             <Suspense
               key={index}
               fallback={
-                <div className="whitespace-pre-wrap break-words text-sm leading-6 text-ink">
+                <div className="whitespace-pre-wrap break-words text-[16px] leading-7 text-ink">
                   {part.text}
                 </div>
               }
@@ -45,7 +45,7 @@ export function MessageContent({
           ) : (
             <div
               key={index}
-              className="whitespace-pre-wrap break-words text-sm leading-6 text-ink"
+              className="whitespace-pre-wrap break-words text-[16px] leading-7 text-ink"
             >
               {part.text}
             </div>

@@ -44,6 +44,8 @@ export function AppShell() {
         return;
       }
       const key = event.key.toLocaleLowerCase();
+      const settingsOpen = window.location.hash.replace(/^#/, "").split("?")[0] === "/settings";
+      if (settingsOpen && key !== ",") return;
       if (key === "n" && !event.shiftKey) {
         event.preventDefault();
         setSearchOpen(false);
@@ -72,10 +74,7 @@ export function AppShell() {
         const onSettings =
           window.location.hash.replace(/^#/, "").split("?")[0] === "/settings";
         if (onSettings) {
-          // 与设置面板 closePanel 同一逻辑:优先退回来路。
-          const state = window.history.state as { idx?: number } | null;
-          if (typeof state?.idx === "number" && state.idx > 0) navigate(-1);
-          else navigate("/");
+          window.dispatchEvent(new Event("potato:close-settings"));
         } else {
           navigate("/settings", { state: { background: location } });
         }

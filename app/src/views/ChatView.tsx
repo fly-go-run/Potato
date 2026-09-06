@@ -1,10 +1,4 @@
-import {
-  ArrowDown,
-  CloudUpload,
-  PanelRight,
-  Search,
-  X,
-} from "lucide-react";
+import { ArrowDown, CloudUpload, PanelRight, Search, X } from "lucide-react";
 import {
   lazy,
   Suspense,
@@ -18,8 +12,10 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { chromeIconClass } from "../components/layout/CollapsedRail";
+import { QuestionDock } from "../components/chat/QuestionCard";
 import { Composer } from "../components/chat/Composer";
 import { cn } from "../lib/cn";
+import { startDesktopWindowDrag } from "../lib/desktop";
 import { collectConversationArtifacts } from "../lib/conversationArtifacts";
 import { collectFileChanges } from "../lib/fileChanges";
 import { textFromContent } from "../lib/content";
@@ -33,13 +29,13 @@ import { BOTTOM_THRESHOLD_PX } from "../lib/scroll";
 import type { StreamMessage } from "../lib/stream";
 import { shortcutLabel } from "../lib/shortcuts";
 import { useChatStore } from "../stores/chat";
+import { useUiStore } from "../stores/ui";
 
 const ConversationSidePanel = lazy(() =>
   import("../components/chat/ConversationSidePanel").then((module) => ({
     default: module.ConversationSidePanel,
   })),
 );
-
 
 /** 时段问候:口号退役,首页对人不对市场说话。 */
 function timeGreeting(t: (key: TranslationKey) => string): string {
@@ -49,9 +45,9 @@ function timeGreeting(t: (key: TranslationKey) => string): string {
   return t("chat.greeting.evening");
 }
 
-
 export function ChatView() {
   const { t } = useTranslation();
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const { chatId } = useParams();
   const routerNavigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -465,25 +461,55 @@ export function ChatView() {
       )}
 
       {!historyLoading && isEmpty ? (
-        // 目标是输入框光学中心落在 45-48%(对标 ChatGPT),不是锁问候位:
-        // justify-center 自适应视口,pb 上偏让中心从 50%+ 回到目标带
-        <div className="qp-fade-in flex min-h-0 flex-1 flex-col justify-center pb-[16vh]">
+        // Keep the prompt and input together as one starting point.
+        <div className="qp-fade-in flex min-h-0 flex-1 flex-col justify-center pb-[10vh]">
           <div className="px-4 sm:px-6">
-            <h1 className="font-display text-center text-[32px] font-semibold leading-[42px] tracking-[-0.025em] text-ink sm:text-[34px]">
+            <h1 className="font-display text-center text-[28px] font-semibold leading-[1.35] tracking-[-0.025em] text-ink sm:text-[32px]">
               {timeGreeting(t)}
             </h1>
             <p className="sr-only">
               {t("chat.emptyHint", { shortcut: shortcutLabel("K") })}
             </p>
           </div>
-          <div className="mt-16">
+          <div className="mt-7">
             <Composer wide />
           </div>
         </div>
       ) : (
         <div className="qp-fade-in flex min-h-0 flex-1">
           <section className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex h-11 items-center justify-end px-2">
+            <header
+              data-tauri-drag-region
+              onMouseDown={(event) => {
+                if (
+                  event.button !== 0 ||
+                  (event.target as HTMLElement).closest("button, input, a")
+                )
+                  return;
+                startDesktopWindowDrag();
+              }}
+              className="relative z-30 flex h-11 shrink-0 items-center gap-4 border-b border-line bg-canvas px-5"
+            >
+              <div
+                className={cn(
+                  "pointer-events-none min-w-0 flex-1",
+                  sidebarCollapsed && "invisible",
+                )}
+              >
+                <h1 className="truncate text-[14px] font-medium text-ink">
+                  {chats.find((chat) => chat.id === chatId)?.name ||
+                    t("sidebar.untitled")}
+                </h1>
+              </div>
+              {isStreaming && (
+                <span
+                  role="status"
+                  className="flex shrink-0 items-center gap-1.5 text-xs text-accent"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-tint" />
+                  {t("chat.header.working")}
+                </span>
+              )}
               <div className="pointer-events-auto flex items-center gap-0.5">
                 <button
                   type="button"
@@ -514,7 +540,7 @@ export function ChatView() {
                   <PanelRight size={16} strokeWidth={1.75} />
                 </button>
               </div>
-            </div>
+            </header>
             {searchOpen && (
               <div className="absolute right-2 top-11 z-30 w-[min(24rem,calc(100%-1.5rem))] overflow-hidden rounded-[var(--radius-md)] border border-line bg-raised shadow-[var(--shadow-lg)]">
                 <div className="flex h-11 items-center gap-2 border-b border-line px-3">
@@ -584,53 +610,54 @@ export function ChatView() {
               ref={scrollRef}
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
-                {historyLoading ? (
-                  <div className="mx-auto w-full max-w-[48rem] px-8 py-10">
-                    <Card className="p-4">
-                      <SkeletonRows rows={6} />
-                    </Card>
-                  </div>
-                ) : (
-                  <MessageList
-                    messages={messages}
-                    activeMessageId={activeSearchMessageId}
-                    onOpenFile={openFilePreview}
-                    onOpenChange={openChangeDiff}
-                  />
-                )}
-              </div>
-              <div className="relative">
-                {showBackToBottom && (
-                  <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full pb-2">
-                    <button
-                      type="button"
-                      onClick={scrollToBottom}
-                      className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-raised px-3 py-1.5 text-xs text-ink-secondary shadow-[var(--shadow-md)] transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
-                    >
-                      <ArrowDown size={14} strokeWidth={1.8} />
-                      {t("chat.backToBottom")}
-                    </button>
-                  </div>
-                )}
-                <Composer />
-              </div>
-            </section>
-            {sidePanelOpen && (
-              <Suspense fallback={null}>
-                <ConversationSidePanel
-                  artifacts={artifacts}
-                  changes={fileChanges}
-                  selectedFilePath={selectedFilePath}
-                  selectedChangePath={selectedChangePath}
-                  onClose={closeSidePanel}
-                  onFileClose={backToPanelHome}
+              {historyLoading ? (
+                <div className="mx-auto w-full max-w-[48rem] px-8 py-10">
+                  <Card className="p-4">
+                    <SkeletonRows rows={6} />
+                  </Card>
+                </div>
+              ) : (
+                <MessageList
+                  messages={messages}
+                  activeMessageId={activeSearchMessageId}
                   onOpenFile={openFilePreview}
                   onOpenChange={openChangeDiff}
-                  onLocate={locateMessage}
                 />
-              </Suspense>
-            )}
-          </div>
+              )}
+            </div>
+            <div className="relative">
+              {showBackToBottom && (
+                <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full pb-2">
+                  <button
+                    type="button"
+                    onClick={scrollToBottom}
+                    className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-raised px-3 py-1.5 text-xs text-ink-secondary shadow-[var(--shadow-md)] transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover"
+                  >
+                    <ArrowDown size={14} strokeWidth={1.8} />
+                    {t("chat.backToBottom")}
+                  </button>
+                </div>
+              )}
+              {sessionId && <QuestionDock key={sessionId} sessionId={sessionId} active={isStreaming} />}
+              <Composer />
+            </div>
+          </section>
+          {sidePanelOpen && (
+            <Suspense fallback={null}>
+              <ConversationSidePanel
+                artifacts={artifacts}
+                changes={fileChanges}
+                selectedFilePath={selectedFilePath}
+                selectedChangePath={selectedChangePath}
+                onClose={closeSidePanel}
+                onFileClose={backToPanelHome}
+                onOpenFile={openFilePreview}
+                onOpenChange={openChangeDiff}
+                onLocate={locateMessage}
+              />
+            </Suspense>
+          )}
+        </div>
       )}
     </div>
   );

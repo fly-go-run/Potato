@@ -42,11 +42,11 @@ const NAV_TRANSITION =
 
 function navItemClass(active: boolean, extra?: string) {
   return cn(
-    "flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm leading-5",
+    "flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-[15px] leading-5",
     NAV_TRANSITION,
     active
-      ? "bg-[rgba(0,0,0,0.08)] text-ink hover:bg-[rgba(0,0,0,0.12)] active:bg-[rgba(0,0,0,0.12)] dark:bg-[rgba(255,255,255,0.10)] dark:hover:bg-[rgba(255,255,255,0.14)] dark:active:bg-[rgba(255,255,255,0.14)]"
-      : "text-ink hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+      ? "bg-accent-soft text-accent"
+      : "text-ink hover:bg-fill-hover active:bg-fill-active",
     extra,
   );
 }
@@ -57,7 +57,7 @@ function navIconClass(active: boolean) {
 
 /** 分组标签:比对话名矮一档,只作折叠说明,不跟条目抢墨色。 */
 const groupLabelClass =
-  "flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-1 text-left text-[11px] font-normal text-ink-tertiary transition-colors duration-[var(--dur-fast)]";
+  "flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-3 py-1 text-left text-[12px] font-normal text-ink-tertiary transition-colors duration-[var(--dur-fast)]";
 
 function SidebarBrand() {
   return (
@@ -132,7 +132,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   return (
     // 浅色 #f5f5f4 贴画布 #fbfbfb 仍糊，接缝用 line-strong。
     // 深色靠抬升分层，描边改 line-highlight，避免一条更亮的硬缝。
-    <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line-strong bg-bg dark:border-line-highlight">
+    <aside className="flex h-full min-h-0 w-[16.5rem] shrink-0 flex-col border-r border-line bg-bg">
       {/* mac 窗口：顶栏左边留给灯，只放收起。全屏/Windows/网页：品牌在左上。 */}
       <div
         data-tauri-drag-region
@@ -161,7 +161,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
         <button
           type="button"
           onClick={startNewChat}
-          className={navItemClass(location.pathname === "/", "w-full text-left")}
+          className={navItemClass(
+            location.pathname === "/",
+            "w-full text-left",
+          )}
         >
           <SquarePen
             size={16}
@@ -175,7 +178,11 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           onClick={onSearch}
           className={navItemClass(false, "mt-0.5 w-full text-left")}
         >
-          <Search size={16} strokeWidth={1.75} className={navIconClass(false)} />
+          <Search
+            size={16}
+            strokeWidth={1.75}
+            className={navIconClass(false)}
+          />
           <span className="flex-1">{t("sidebar.searchChats")}</span>
         </button>
         <NavLink
@@ -377,7 +384,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
                 NAV_TRANSITION,
                 isActive
                   ? "bg-[rgba(0,0,0,0.08)] dark:bg-[rgba(255,255,255,0.10)]"
-                  : "hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+                  : "hover:bg-fill-hover active:bg-fill-active",
               )
             }
           >
@@ -566,17 +573,21 @@ function ChatRow({
             "group relative flex items-center rounded-[var(--radius-sm)]",
             NAV_TRANSITION,
             active
-              ? "bg-[rgba(0,0,0,0.08)] hover:bg-[rgba(0,0,0,0.12)] active:bg-[rgba(0,0,0,0.12)] dark:bg-[rgba(255,255,255,0.10)] dark:hover:bg-[rgba(255,255,255,0.14)] dark:active:bg-[rgba(255,255,255,0.14)]"
-              : "hover:bg-[rgba(0,0,0,0.04)] active:bg-[rgba(0,0,0,0.12)] dark:hover:bg-[rgba(255,255,255,0.06)] dark:active:bg-[rgba(255,255,255,0.14)]",
+              ? "bg-accent-soft text-accent"
+              : "hover:bg-fill-hover active:bg-fill-active",
           )}
         >
           <button
             type="button"
             onClick={() => navigate(`/chat/${chat.id}`)}
+            title={`${chat.name || t("sidebar.untitled")}${
+              updatedAt ? ` · ${t(updatedAt.key, updatedAt.params)}` : ""
+            }`}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2 pr-1 text-left text-[13px] font-medium leading-5",
+              "flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-2.5 pr-8 text-left text-[14px] leading-5",
               nested ? "pl-2" : "pl-3",
-              "text-ink",
+              active ? "font-medium text-accent" : "text-ink",
             )}
           >
             {chat.pinned && (
@@ -590,19 +601,6 @@ function ChatRow({
               {chat.name || t("sidebar.untitled")}
             </span>
           </button>
-          {/*
-          行尾(2026-08-14 终版):静息态只有标题;整行 hover 同时浮现
-          时间与「…」——时间槽 pr-9 给按钮让出右端,两者并存不重叠,
-          菜单可发现性与基线一致(整行 hover,不缩热区)。
-        */}
-          <span
-            aria-hidden={menuOpen ? true : undefined}
-            className={`pointer-events-none shrink-0 pr-9 text-right text-[11px] font-normal tabular-nums text-ink-tertiary transition-opacity duration-[var(--dur-fast)] ${
-              menuOpen ? "opacity-0" : "opacity-0 group-hover:opacity-100"
-            }`}
-          >
-            {updatedAt ? t(updatedAt.key, updatedAt.params) : ""}
-          </span>
           <DropdownMenu.Trigger asChild>
             <IconButton
               size="sm"
@@ -629,7 +627,13 @@ function ChatRow({
               }}
             />
             <MenuItem
-              icon={chat.pinned ? <PinOff size={14} strokeWidth={1.8} /> : <Pin size={14} strokeWidth={1.8} />}
+              icon={
+                chat.pinned ? (
+                  <PinOff size={14} strokeWidth={1.8} />
+                ) : (
+                  <Pin size={14} strokeWidth={1.8} />
+                )
+              }
               label={chat.pinned ? t("sidebar.unpin") : t("sidebar.pin")}
               onSelect={() => void togglePin()}
             />

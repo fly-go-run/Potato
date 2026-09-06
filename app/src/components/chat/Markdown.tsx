@@ -28,7 +28,7 @@ export function Markdown({
 }: MarkdownProps) {
   const source = repairMarkdown(children);
   return (
-    <div className="min-w-0 text-[15px] leading-[1.75] text-ink">
+    <div className="min-w-0 text-[16px] leading-[1.75] text-ink">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         urlTransform={

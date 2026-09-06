@@ -40,7 +40,7 @@ export function Switch({
     >
       <span
         className={cn(
-          "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-btn-primary-ink shadow-[var(--shadow-sm)]",
+          "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-[var(--control-thumb)] shadow-[var(--shadow-sm)]",
           "transition-transform duration-[var(--dur-fast)]",
           checked ? "translate-x-[1.125rem]" : "translate-x-0.5",
         )}

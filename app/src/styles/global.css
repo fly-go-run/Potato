@@ -36,13 +36,16 @@ body {
   font-family: var(--font-sans);
   background: var(--bg);
   color: var(--ink);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Let each platform use its native font rasterization. */
+  -webkit-font-smoothing: auto;
   -webkit-text-size-adjust: 100%;
   font-kerning: normal;
   font-optical-sizing: auto;
   font-synthesis: none;
-  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  font-feature-settings:
+    "kern" 1,
+    "liga" 1,
+    "calt" 1;
   text-rendering: optimizeLegibility;
   font-size: 14px;
   font-weight: 400;
@@ -97,14 +100,14 @@ select,
 /* 鼠标点击不得残留 focus 环：:focus 与 :focus-visible 选择器对齐，
  * 点击只走 :focus，outline 必须清掉。 */
 :where(
-  button,
-  a,
-  select,
-  [role="switch"],
-  [role="tab"],
-  [role="menuitem"],
-  [tabindex]:not([tabindex="-1"])
-):focus:not(:focus-visible) {
+    button,
+    a,
+    select,
+    [role="switch"],
+    [role="tab"],
+    [role="menuitem"],
+    [tabindex]:not([tabindex="-1"])
+  ):focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -282,5 +285,71 @@ select,
   .qp-spinner {
     animation: none;
     border-top-color: color-mix(in srgb, currentColor 22%, transparent);
+  }
+}
+
+/* Settings use their own container width, so controls reflow with the panel,
+   not with the viewport behind it. Long explanations never displace a switch. */
+.qp-settings-body {
+  container-type: inline-size;
+  scrollbar-gutter: stable;
+}
+.qp-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px 24px;
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+}
+.qp-setting-row:first-child {
+  border-top: 0;
+}
+.qp-setting-control {
+  min-width: 0;
+  max-width: 100%;
+}
+.qp-setting-control > button[role="switch"] {
+  margin-top: 2px;
+}
+.qp-setting-control select {
+  width: 180px;
+  max-width: 100%;
+}
+.qp-setting-control:has(input) {
+  width: 320px;
+}
+.qp-setting-control input {
+  width: 100%;
+  min-width: 0;
+}
+.qp-setting-row-stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+.qp-setting-row-stacked .qp-setting-control {
+  width: 100%;
+}
+.qp-setting-row-stacked input {
+  min-width: 0;
+}
+@container (max-width: 430px) {
+  .qp-setting-row {
+    gap: 12px;
+    padding: 16px;
+  }
+  .qp-setting-control select {
+    max-width: 160px;
+  }
+  .qp-setting-row:has(.qp-setting-control input),
+  .qp-setting-row:has(.qp-setting-control [role="radiogroup"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 639px) {
+  .qp-settings-nav {
+    padding-right: 12px;
+  }
+  .qp-settings-body {
+    padding-inline: 16px;
   }
 }

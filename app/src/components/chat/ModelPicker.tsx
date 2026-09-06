@@ -1,13 +1,13 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   Check,
   ChevronDown,
-  ChevronRight,
+  Search,
+  X,
   LoaderCircle,
-  RotateCcw,
   Settings,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   modelApi,
@@ -37,15 +37,6 @@ const EFFORT_LABELS: Record<string, string> = {
   max: "composer.effort.max",
   xhigh: "composer.effort.xhigh",
 };
-
-const MENU_PANEL_CLASS =
-  "qp-pop z-50 rounded-[var(--radius-lg)] border border-line bg-raised p-1.5 shadow-[var(--shadow-lg)]";
-
-const TOP_ROW_CLASS =
-  "flex w-full cursor-default select-none items-center justify-between gap-10 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-ink outline-none hover:bg-fill-hover focus:bg-fill-hover data-[state=open]:bg-fill-hover data-[disabled]:opacity-50";
-
-const SUB_ITEM_CLASS =
-  "flex cursor-default items-center justify-between gap-4 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-ink outline-none hover:bg-fill-hover focus:bg-fill-active data-[disabled]:opacity-60";
 
 function findActiveModelInfo(
   providers: ProviderInfo[] | null,
@@ -97,12 +88,15 @@ function getReasoningEffortOptions(
 }
 
 /**
- * composer 内联模型选择(对标 Codex 的 composer 模型菜单):
- * 顶层是「模型 / 思考深度 / 恢复默认」的紧凑行,子菜单里做具体选择。
+ * Composer model and reasoning preferences:
+ * 搜索面板按服务商平铺模型,底部编辑当前模型的思考深度。
  * 列表挂载即拉取(pill 需要显示当前思考深度),打开菜单时再刷新一次。
  */
 export function ModelPicker() {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const activeModel = useChatStore((state) => state.activeModel);
@@ -110,6 +104,7 @@ export function ModelPicker() {
   const loadActiveModel = useChatStore((state) => state.loadActiveModel);
   const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
   const [listLoading, setListLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
   const [effortSaving, setEffortSaving] = useState<string | null>(null);
   const model = activeModel?.active_llm;
@@ -132,6 +127,7 @@ export function ModelPicker() {
     if (listLoading) return;
     // 每次打开都刷新:设置页新添加/发现的模型立即可见,列表很小不心疼
     setListLoading(true);
+    setError(null);
     const activeProviderId = model?.provider_id;
     modelApi
       .list()
@@ -150,7 +146,7 @@ export function ModelPicker() {
           ),
         ),
       )
-      .catch(() => setProviders([]))
+      .catch(() => setError(t("composer.modelListFailed")))
       .finally(() => setListLoading(false));
   };
 
@@ -163,11 +159,14 @@ export function ModelPicker() {
   const choose = async (providerId: string, modelId: string) => {
     const key = `${providerId}/${modelId}`;
     setSwitching(key);
+    setError(null);
     try {
       await modelApi.setActive(providerId, modelId);
       await loadActiveModel();
+      setOpen(false);
     } catch {
-      await loadActiveModel();
+      setError(t("composer.modelSwitchFailed"));
+      await loadActiveModel().catch(() => undefined);
     } finally {
       setSwitching(null);
     }
@@ -176,6 +175,7 @@ export function ModelPicker() {
   const chooseEffort = async (effort: string | null) => {
     if (!model) return;
     setEffortSaving(effort ?? "__default__");
+    setError(null);
     try {
       const updated = await modelApi.configureModel(
         model.provider_id,
@@ -188,223 +188,80 @@ export function ModelPicker() {
         ),
       );
     } catch {
-      /* 失败保持原样,下次打开菜单会重新拉取真实状态 */
+      setError(t("composer.effortSaveFailed"));
     } finally {
       setEffortSaving(null);
     }
   };
 
+  const groups = (providers ?? []).map((provider) => ({
+    provider,
+    models: [...new Map([...provider.models, ...provider.extra_models].map((item) => [item.id, item])).values()]
+      .filter((item) => `${provider.name} ${item.name} ${item.id}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+      .sort((a, b) => Number(b.id === model?.model && provider.id === model.provider_id) - Number(a.id === model?.model && provider.id === model.provider_id)),
+  })).filter((group) => group.models.length > 0)
+    .sort((a, b) => Number(b.provider.id === model?.provider_id) - Number(a.provider.id === model?.provider_id));
   return (
-    <DropdownMenu.Root onOpenChange={(open) => open && ensureList()}>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          title={
-            model
-              ? `${model.provider_id} / ${model.model}${
-                  activeEffortLabel ? ` · ${activeEffortLabel}` : ""
-                }`
-              : t("composer.selectModel")
-          }
-          // 静止态不铺底色:输入框那一行里它是「当前状态」而不是主操作,
-          // 常驻的灰色药丸会和右边的发送键抢视觉重量。悬停和展开时才上底,
-          // 此时底色是在回应用户的动作,而不是一直在喊自己。
-          className="flex h-8 max-w-56 items-center gap-1.5 truncate rounded-full px-2 text-[13px] text-ink transition-colors duration-[var(--dur-fast)] hover:bg-fill-hover data-[state=open]:bg-fill-hover"
-        >
-          <span className="truncate">
-            {modelLoading
-              ? t("composer.loadingModel")
-              : model?.model
-              ? prettyModelName(model.model)
-              : t("composer.noModel")}
-          </span>
-          {activeEffortLabel ? (
-            <span className="shrink-0 text-[13px] text-ink-tertiary">
-              {activeEffortLabel}
-            </span>
-          ) : null}
-          <ChevronDown size={14} strokeWidth={1.8} className="shrink-0 text-ink-tertiary" />
+    <Dialog.Root open={open} onOpenChange={(next) => {
+      if (switching || effortSaving) return;
+      setOpen(next);
+      if (next) { setQuery(""); ensureList(); }
+    }}>
+      <Dialog.Trigger asChild>
+        <button type="button" title={model ? `${model.provider_id} / ${model.model}` : t("composer.selectModel")} className="flex h-8 max-w-56 items-center gap-1.5 rounded-full px-2 text-[13px] text-ink hover:bg-fill-hover">
+          <span className="truncate">{modelLoading ? t("composer.loadingModel") : model?.model ? prettyModelName(model.model) : t("composer.noModel")}</span>
+          {activeEffortLabel && <span className="text-ink-tertiary">{activeEffortLabel}</span>}
+          <ChevronDown size={14} className="shrink-0 text-ink-tertiary" />
         </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          sideOffset={6}
-          align="start"
-          className={`${MENU_PANEL_CLASS} min-w-64`}
-        >
-          {/* 模型 → 子菜单:按 provider 分组的模型列表 */}
-          <DropdownMenu.Sub>
-            <DropdownMenu.SubTrigger className={TOP_ROW_CLASS}>
-              <span>{t("composer.menu.model")}</span>
-              <span className="flex min-w-0 items-center gap-1 text-ink-tertiary">
-                <span className="max-w-36 truncate">
-                  {modelLoading
-                    ? t("composer.loadingModel")
-                    : model?.model
-              ? prettyModelName(model.model)
-              : t("composer.noModel")}
-                </span>
-                <ChevronRight size={14} strokeWidth={1.8} className="shrink-0" />
-              </span>
-            </DropdownMenu.SubTrigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.SubContent
-                sideOffset={4}
-                alignOffset={-4}
-                className={`${MENU_PANEL_CLASS} max-h-96 min-w-56 overflow-y-auto`}
-              >
-                {listLoading && providers === null ? (
-                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-ink-tertiary">
-                    <LoaderCircle size={14} strokeWidth={1.8} className="animate-spin" />
-                    {t("composer.modelListLoading")}
-                  </div>
-                ) : !providers || providers.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-ink-tertiary">
-                    {t("composer.modelListEmpty")}
-                  </div>
-                ) : (
-                  providers.map((provider) => {
-                    const models = [
-                      ...provider.models,
-                      ...provider.extra_models,
-                    ];
-                    if (models.length === 0) return null;
-                    return (
-                      <DropdownMenu.Group key={provider.id}>
-                        <DropdownMenu.Label className="px-3 pb-1 pt-2 text-xs text-ink-tertiary">
-                          {provider.name || provider.id}
-                        </DropdownMenu.Label>
-                        {models.map((item) => {
-                          const key = `${provider.id}/${item.id}`;
-                          const active =
-                            model?.provider_id === provider.id &&
-                            model?.model === item.id;
-                          return (
-                            <DropdownMenu.Item
-                              key={key}
-                              disabled={switching !== null}
-                              onSelect={(event) => {
-                                event.preventDefault();
-                                if (!active) void choose(provider.id, item.id);
-                              }}
-                              className={SUB_ITEM_CLASS}
-                            >
-                              <span className="truncate">
-                                {item.name && item.name !== item.id
-                                  ? item.name
-                                  : prettyModelName(item.id)}
-                              </span>
-                              {switching === key ? (
-                                <LoaderCircle
-                                  size={14}
-                                  strokeWidth={1.8}
-                                  className="shrink-0 animate-spin text-ink-tertiary"
-                                />
-                              ) : active ? (
-                                <Check
-                                  size={14}
-                                  strokeWidth={1.8}
-                                  className="shrink-0 text-accent"
-                                />
-                              ) : null}
-                            </DropdownMenu.Item>
-                          );
-                        })}
-                      </DropdownMenu.Group>
-                    );
-                  })
-                )}
-              </DropdownMenu.SubContent>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Sub>
-
-          {/* 思考深度 → 子菜单:档位单选,仅当前模型支持时显示 */}
-          {activeEffortOptions.length > 0 ? (
-            <DropdownMenu.Sub>
-              <DropdownMenu.SubTrigger className={TOP_ROW_CLASS}>
-                <span>{t("composer.effort.title")}</span>
-                <span className="flex items-center gap-1 text-ink-tertiary">
-                  <span>{effortText(activeEffort)}</span>
-                  <ChevronRight size={14} strokeWidth={1.8} className="shrink-0" />
-                </span>
-              </DropdownMenu.SubTrigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.SubContent
-                  sideOffset={4}
-                  alignOffset={-4}
-                  className={`${MENU_PANEL_CLASS} min-w-44`}
-                >
-                  <DropdownMenu.Label className="px-3 pb-1 pt-1.5 text-xs text-ink-tertiary">
-                    {t("composer.effort.title")}
-                  </DropdownMenu.Label>
-                  {activeEffortOptions.map((option) => {
-                    const selected = activeEffort === option;
-                    return (
-                      <DropdownMenu.Item
-                        key={option}
-                        disabled={effortSaving !== null}
-                        onSelect={(event) => {
-                          event.preventDefault();
-                          if (!selected) void chooseEffort(option);
-                        }}
-                        className={SUB_ITEM_CLASS}
-                      >
-                        <span>{effortText(option)}</span>
-                        {effortSaving === option ? (
-                          <LoaderCircle
-                            size={14}
-                            strokeWidth={1.8}
-                            className="shrink-0 animate-spin text-ink-tertiary"
-                          />
-                        ) : selected ? (
-                          <Check size={14} strokeWidth={1.8} className="shrink-0 text-ink" />
-                        ) : null}
-                      </DropdownMenu.Item>
-                    );
-                  })}
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Sub>
-          ) : null}
-
-          {activeEffortOptions.length > 0 ? (
-            <>
-              <DropdownMenu.Separator className="mx-3 my-1.5 h-px bg-line" />
-              {/* 恢复默认:清掉本模型的思考深度覆盖,回到后端默认档 */}
-              <DropdownMenu.Item
-                disabled={effortSaving !== null || activeEffort === null}
-                onSelect={(event) => {
-                  event.preventDefault();
-                  if (activeEffort !== null) void chooseEffort(null);
-                }}
-                className={`${TOP_ROW_CLASS} text-ink-secondary`}
-              >
-                <span>{t("composer.effort.reset")}</span>
-                {effortSaving === "__default__" ? (
-                  <LoaderCircle
-                    size={14}
-                    strokeWidth={1.8}
-                    className="shrink-0 animate-spin text-ink-tertiary"
-                  />
-                ) : (
-                  <RotateCcw size={14} strokeWidth={1.8} className="shrink-0 text-icon" />
-                )}
-              </DropdownMenu.Item>
-            </>
-          ) : null}
-
-          <DropdownMenu.Separator className="mx-3 my-1.5 h-px bg-line" />
-          <DropdownMenu.Item
-            onSelect={() =>
-              navigate("/settings", { state: { background: location } })
-            }
-            className="flex cursor-default items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-ink-secondary outline-none hover:bg-fill-hover focus:bg-fill-active"
-          >
-            <Settings size={14} strokeWidth={1.8} />
-            {t("composer.manageModels")}
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="qp-overlay fixed inset-0 z-40 bg-overlay" />
+        <Dialog.Content onOpenAutoFocus={(event) => { event.preventDefault(); searchRef.current?.focus(); }} className="qp-pop fixed left-1/2 top-1/2 z-50 flex max-h-[min(38rem,85vh)] w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-raised shadow-lg outline-none">
+          <div className="flex items-center justify-between px-5 pt-4 pb-3">
+            <Dialog.Title className="text-base font-semibold">{t("composer.selectModel")}</Dialog.Title>
+            <Dialog.Description className="sr-only">{t("models.search")}</Dialog.Description>
+            <Dialog.Close disabled={Boolean(switching || effortSaving)} aria-label={t("common.cancel")} className="rounded-md p-1 text-ink-secondary hover:bg-fill-hover"><X size={16} /></Dialog.Close>
+          </div>
+          <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg border border-line px-3 focus-within:border-tint">
+            <Search size={15} className="text-ink-tertiary" />
+            <input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} aria-label={t("models.search")} placeholder={t("models.search")} className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none" onKeyDown={(event) => {
+              if (event.key === "ArrowDown") { event.preventDefault(); event.currentTarget.closest('[role="dialog"]')?.querySelector<HTMLButtonElement>('[data-model-option]')?.focus(); }
+            }} />
+          </div>
+          {error && <div role="alert" className="mx-4 mb-2 rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">{error}<button onClick={ensureList} className="ml-2 underline">{t("common.retry")}</button></div>}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2" onKeyDown={(event) => {
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+            const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[data-model-option]:not(:disabled)'));
+            const index = buttons.indexOf(event.target as HTMLButtonElement);
+            if (index < 0) return;
+            event.preventDefault();
+            if (event.key === "ArrowUp" && index === 0) searchRef.current?.focus();
+            else buttons[(index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length]?.focus();
+          }}>
+            {listLoading && providers === null ? <p className="p-4 text-sm text-ink-secondary">{t("composer.modelListLoading")}</p> : groups.length === 0 && !error ? <p className="p-4 text-sm text-ink-secondary">{t(query ? "models.noMatch" : "composer.modelListEmpty")}</p> : null}
+            {groups.map(({provider, models}) => <section key={provider.id}>
+              <h3 className="px-3 pt-3 pb-1 text-xs text-ink-tertiary">{provider.name}</h3>
+              {models.map((item) => {
+                const active = model?.provider_id === provider.id && model.model === item.id;
+                const label = item.name && item.name !== item.id ? item.name : prettyModelName(item.id);
+                const duplicate = models.some((other) => other.id !== item.id && (other.name && other.name !== other.id ? other.name : prettyModelName(other.id)) === label);
+                return <button data-model-option key={item.id} type="button" title={item.id} aria-pressed={active} disabled={Boolean(switching || effortSaving)} onClick={() => active ? setOpen(false) : void choose(provider.id, item.id)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm disabled:opacity-50 ${active ? "bg-accent-soft text-accent" : "hover:bg-fill-hover"}`}>
+                  <span className="min-w-0 flex-1 truncate">{duplicate ? item.id : label}</span>
+                  {switching === `${provider.id}/${item.id}` ? <LoaderCircle size={14} className="animate-spin" /> : active ? <Check size={14} /> : null}
+                </button>;
+              })}
+            </section>)}
+          </div>
+          {activeEffortOptions.length > 0 && <label className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm">
+            {t("composer.effort.title")}
+            <select value={activeEffort ?? "__default__"} disabled={Boolean(effortSaving || switching)} onChange={(event) => void chooseEffort(event.target.value === "__default__" ? null : event.target.value)} className="rounded-md border border-line bg-surface px-2 py-1">
+              <option value="__default__">{t("composer.effort.defaultValue")}</option>
+              {activeEffortOptions.map((option) => <option key={option} value={option}>{effortText(option)}</option>)}
+            </select>
+          </label>}
+          <button disabled={Boolean(switching || effortSaving)} onClick={() => { setOpen(false); navigate("/settings", {state:{background:location}}); }} className="flex items-center gap-2 border-t border-line px-5 py-3 text-sm text-ink-secondary hover:bg-fill-hover"><Settings size={14} />{t("composer.manageModels")}</button>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
