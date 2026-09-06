@@ -1,3 +1,8 @@
+> 桌面迁移（2026-09-06）：macOS/Windows 构建已默认使用内嵌 Rust 后端，保留现有
+> Tauri + React 界面。执行 `node scripts/native/build-desktop.mjs` 构建，桌面包不携带
+> Python 运行时。当前功能范围、数据迁移和验证情况见[迁移说明](docs/rfc/rust-desktop-runtime.md)。
+> 下文的 Python CLI/服务器说明属于保留的旧实现，不代表 Rust 已具备全部历史功能。
+
 <div align="center">
 
 # Potato

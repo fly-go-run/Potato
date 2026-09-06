@@ -14,6 +14,11 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# Retained filename for existing callers. Desktop builds now use Rust by default.
+if [[ "${POTATO_LEGACY_BACKEND:-0}" != "1" ]]; then
+    exec node scripts/native/build-desktop.mjs "$@"
+fi
+
 VERSION=$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/potato/__version__.py)
 
 echo "========================================="
@@ -153,6 +158,7 @@ rm -rf "${BUNDLE_DIR}/dmg" "${BUNDLE_DIR}/macos"
 cd console
 echo "Building for macOS..."
 ./node_modules/.bin/tauri build \
+    --no-default-features --config src-tauri/tauri.python.conf.json \
     --config src-tauri/tauri.version.conf.json \
     --bundles app
 cd ..

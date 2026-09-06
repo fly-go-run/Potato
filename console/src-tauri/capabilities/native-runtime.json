@@ -1,0 +1,7 @@
+{
+  "identifier": "native-runtime-local",
+  "description": "Rust runtime access for bundled local UI only; no remote URLs.",
+  "windows": ["main"],
+  "local": true,
+  "permissions": ["native-runtime"]
+}

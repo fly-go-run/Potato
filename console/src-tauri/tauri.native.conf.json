@@ -1,0 +1,9 @@
+{
+  "productName": "Potato Rust Preview",
+  "identifier": "io.agentscope.potato.nativepreview",
+  "bundle": {
+    "resources": ["binaries/native-cua-driver"],
+    "windows": { "nsis": { "installerHooks": null } }
+  },
+  "plugins": { "updater": { "endpoints": [] } }
+}

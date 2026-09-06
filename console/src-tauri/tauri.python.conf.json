@@ -1,0 +1,6 @@
+{
+  "bundle": {
+    "resources": ["binaries/python-runtime", "binaries/node-runtime", "binaries/cua-driver"],
+    "windows": { "nsis": { "installerHooks": "nsis-hooks.nsh" } }
+  }
+}

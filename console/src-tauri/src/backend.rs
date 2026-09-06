@@ -341,6 +341,9 @@ pub(crate) fn backend_startup_error(state: tauri::State<'_, BackendState>) -> Op
 /// Stops the current sidecar, starts a fresh one, and returns its API port.
 #[tauri::command]
 pub(crate) async fn restart_backend(app: tauri::AppHandle) -> Result<(), String> {
+    if cfg!(feature = "native-runtime") {
+        return Err("Rust runtime is embedded; reopen the application to restart it".into());
+    }
     stop_and_wait(&app).await?;
     start(&app);
 
@@ -366,7 +369,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             .build(),
     )?;
 
-    start(app.handle());
+    if !cfg!(feature = "native-runtime") {
+        start(app.handle());
+    }
     Ok(())
 }
 

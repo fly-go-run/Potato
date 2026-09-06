@@ -1,3 +1,10 @@
+> Desktop migration (2026-09-06): macOS/Windows builds now default to the embedded
+> Rust backend with the existing Tauri + React UI. Build with
+> `node scripts/native/build-desktop.mjs`; Python is not shipped as a desktop
+> runtime. See [runtime coverage, migration and validation](docs/rfc/rust-desktop-runtime.md)
+> for current compatibility gaps. The Python CLI/server documentation below
+> describes the retained legacy implementation, not full Rust feature parity.
+
 <div align="center">
 
 # Potato

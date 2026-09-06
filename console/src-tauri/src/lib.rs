@@ -1,6 +1,8 @@
 //! Tauri desktop entry point and plugin/command registration.
 
 mod backend;
+#[cfg(feature = "native-runtime")]
+mod native;
 mod backend_download;
 mod external_link;
 mod local_file;
@@ -36,7 +38,7 @@ const AUTOSTART_INIT_MARKER: &str = "autostart-initialized";
 /// fatal: the app works without autostart, it just cold-starts on click.
 fn ensure_autostart_default(app: &tauri::AppHandle) {
     // Never register a `tauri dev` binary as a login item.
-    if cfg!(debug_assertions) {
+    if cfg!(debug_assertions) || cfg!(feature = "native-runtime") {
         return;
     }
     use tauri_plugin_autostart::ManagerExt;
@@ -75,6 +77,11 @@ fn ensure_autostart_default(app: &tauri::AppHandle) {
 #[tauri::command]
 fn open_devtools(window: WebviewWindow) {
     window.open_devtools();
+}
+
+#[tauri::command]
+fn native_runtime_enabled() -> bool {
+    cfg!(feature = "native-runtime")
 }
 
 /// Reveal the native window only after the real React app has completed auth
@@ -118,6 +125,35 @@ pub fn run() {
         }));
     }
 
+    // Separate handlers keep the compatibility build free of core dependencies.
+    #[cfg(feature = "native-runtime")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        open_devtools, frontend_ready, native_runtime_enabled,
+        native::native_request, native::native_chat_start, native::native_chat_cancel,
+        native::native_transcribe,
+        native::native_voice_start, native::native_voice_audio, native::native_voice_end,
+        backend_download::download_backend_file, backend_download::read_workspace_binary_file,
+        backend::backend_port, backend::backend_startup_error, backend::restart_backend,
+        external_link::open_external_link, local_file::open_local_path, local_file::reveal_local_path,
+        updates::check_desktop_update, updates::install_desktop_update, updates::download_desktop_update,
+        updates::install_downloaded_update, updates::check_cached_update,
+        tray::minimize_to_tray, tray::quit_app, tray::set_tray_labels, tray::ack_close,
+        window_state::get_window_state_preference, window_state::set_window_state_preference,
+        window_state::reset_window_state,
+    ]);
+    #[cfg(not(feature = "native-runtime"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        open_devtools, frontend_ready, native_runtime_enabled,
+        backend_download::download_backend_file, backend_download::read_workspace_binary_file,
+        backend::backend_port, backend::backend_startup_error, backend::restart_backend,
+        external_link::open_external_link, local_file::open_local_path, local_file::reveal_local_path,
+        updates::check_desktop_update, updates::install_desktop_update, updates::download_desktop_update,
+        updates::install_downloaded_update, updates::check_cached_update,
+        tray::minimize_to_tray, tray::quit_app, tray::set_tray_labels, tray::ack_close,
+        window_state::get_window_state_preference, window_state::set_window_state_preference,
+        window_state::reset_window_state,
+    ]);
+
     let build_result = builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -126,30 +162,6 @@ pub fn run() {
                 .default_version_comparator(updates::is_remote_update_newer)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![
-            open_devtools,
-            frontend_ready,
-            backend_download::download_backend_file,
-            backend_download::read_workspace_binary_file,
-            backend::backend_port,
-            backend::backend_startup_error,
-            backend::restart_backend,
-            external_link::open_external_link,
-            local_file::open_local_path,
-            local_file::reveal_local_path,
-            updates::check_desktop_update,
-            updates::install_desktop_update,
-            updates::download_desktop_update,
-            updates::install_downloaded_update,
-            updates::check_cached_update,
-            tray::minimize_to_tray,
-            tray::quit_app,
-            tray::set_tray_labels,
-            tray::ack_close,
-            window_state::get_window_state_preference,
-            window_state::set_window_state_preference,
-            window_state::reset_window_state,
-        ])
         .manage(backend::BackendState::default())
         .manage(tray::TrayState::default())
         .setup(move |app| {
@@ -157,6 +169,8 @@ pub fn run() {
             // calls show_main_window synchronously and would otherwise flash
             // the conf defaults.
             window_state::init_and_restore(&app.handle());
+            #[cfg(feature = "native-runtime")]
+            native::setup(app)?;
             backend::setup(app)?;
             tray::setup(app)?;
             ensure_autostart_default(&app.handle());

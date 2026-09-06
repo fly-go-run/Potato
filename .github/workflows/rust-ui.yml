@@ -1,0 +1,36 @@
+name: Rust UI preview
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'native/potato-ui/**'
+      - 'native/potato-core/**'
+      - 'src/potato/agents/md_files/**'
+      - '.github/workflows/rust-ui.yml'
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: native/potato-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --locked --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: potato-ui-${{ matrix.os }}
+          path: |
+            native/potato-ui/target/release/potato-ui
+            native/potato-ui/target/release/potato-ui.exe

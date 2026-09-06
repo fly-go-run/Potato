@@ -1,4 +1,5 @@
 import { resolveBackendUrl } from "./backendOrigin";
+import { detectNativeRuntime, nativeFetch } from "./nativeTransport";
 import type { PendingApproval, PushMessagesResponse } from "./approvals";
 import type {
   CronDispatchTarget,
@@ -50,7 +51,9 @@ export async function apiFetch(
   input: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const response = await fetch(resolveBackendUrl(input), {
+  const response = await detectNativeRuntime() && input.startsWith("/api/")
+    ? await nativeFetch(input, init)
+    : await fetch(resolveBackendUrl(input), {
     ...init,
     headers: authHeaders(init.headers),
   });
@@ -636,6 +639,8 @@ export async function fetchFileText(
 
 export function filePreviewUrl(value: string): string {
   if (!value) return "";
+  if (/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(value)) return value;
+  if (/^data:text\/plain;base64,/i.test(value)) return value;
   if (/^https?:\/\//i.test(value)) return value;
   const cleaned = value.replace(/^file:\/\//, "").replace(/^\/+/, "");
   const path = cleaned

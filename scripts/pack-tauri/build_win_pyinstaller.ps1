@@ -10,6 +10,13 @@ $ErrorActionPreference = "Stop"
 $REPO_ROOT = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $REPO_ROOT
 
+# Existing CI entry point now builds the embedded Rust backend.
+if ($env:POTATO_LEGACY_BACKEND -ne "1") {
+    node scripts/native/build-desktop.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Native desktop build failed" }
+    exit 0
+}
+
 $DIST = if ($env:DIST) { $env:DIST } else { "dist" }
 if (-not [System.IO.Path]::IsPathRooted($DIST)) {
     $DIST = Join-Path $REPO_ROOT $DIST
@@ -204,7 +211,7 @@ if (Test-Path $NSIS_DIR) {
 Set-Location console
 
 Write-Host "Building for Windows..."
-npm exec -- tauri build --config src-tauri/tauri.version.conf.json
+npm exec -- tauri build --no-default-features --config src-tauri/tauri.python.conf.json --config src-tauri/tauri.version.conf.json
 $tauriExit = $LASTEXITCODE
 
 if ($tauriExit -ne 0) {

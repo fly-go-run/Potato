@@ -1,5 +1,6 @@
-import { getAuthToken } from "./api";
+import { getAuthToken, sttApi } from "./api";
 import { getBackendOrigin } from "./backendOrigin";
+import { detectNativeRuntime } from "./nativeTransport";
 
 export type VoiceStreamError = {
   code: string;
@@ -40,9 +41,16 @@ export function transcribeStreamUrl(): string {
  * connected to Doubao and sent ``ready`` — so a dead key fails before
  * the user starts talking.
  */
-export function openVoiceStream(
+export async function openVoiceStream(
   handlers: VoiceStreamHandlers,
 ): Promise<VoiceStreamSession> {
+  if (await detectNativeRuntime()) {
+    if ((await sttApi.speechStatus()).transcription_provider_type === "doubao_asr") {
+      return (await import("./nativeVoice")).openNativeVoice(handlers);
+    }
+    // Other configured ASR services use the recorded-WAV fallback.
+    return { sendPcm: () => undefined, stop: async () => "", cancel: () => undefined };
+  }
   return new Promise((resolve, reject) => {
     let socket: WebSocket;
     try {

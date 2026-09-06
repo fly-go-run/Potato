@@ -1,3 +1,5 @@
+> 历史记录（2026-09-06 核对）：此任务已完成，不是当前开发指令。文中的 `src/qwenpaw/` 已更名为 `src/potato/`，旧命令、行号和测试结果仅记录当时状态。当前迁移见 [Rust 桌面运行时](../../docs/rfc/rust-desktop-runtime.md)。
+
 # 工作包：彻底删除内置 QA Agent
 
 ## 背景与决策

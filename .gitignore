@@ -166,3 +166,6 @@ PROJECT_OVERVIEW_TODO.md
 .pnpm-store/
 provision.json
 provision.applied.json
+
+# Rust core build output
+/native/potato-core/target/

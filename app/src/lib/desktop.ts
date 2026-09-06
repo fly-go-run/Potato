@@ -22,6 +22,7 @@ export function isMacDesktopShell(): boolean {
  * 官方 plugin JS 包也是包着它调 invoke;这里直接用避免给 web 构建带上依赖。 */
 interface TauriInternals {
   invoke: (cmd: string, args?: unknown) => Promise<unknown>;
+  unregisterCallback?: (id: number) => void;
   transformCallback?: (
     callback: (event: unknown) => void,
     once?: boolean,
@@ -61,7 +62,7 @@ export function hasDesktopHostBridge(): boolean {
   return isDesktopShell() && tauriInternals() !== null;
 }
 
-async function invokeDesktop<T>(
+export async function invokeDesktop<T>(
   command: string,
   args?: unknown,
 ): Promise<T | null> {
@@ -96,10 +97,12 @@ export async function listenDesktopEvent<T>(
       return value;
     });
   } catch {
+    internals.unregisterCallback?.(callbackId);
     return null;
   }
 
   return () => {
+    internals.unregisterCallback?.(callbackId);
     const holder = window as unknown as {
       __TAURI_EVENT_PLUGIN_INTERNALS__?: TauriEventPluginInternals;
     };
@@ -107,7 +110,7 @@ export async function listenDesktopEvent<T>(
       event,
       eventId,
     );
-    void invokeDesktop("plugin:event|unlisten", { event, eventId });
+    void invokeDesktop("plugin:event|unlisten", { event, eventId }).catch(() => undefined);
   };
 }
 

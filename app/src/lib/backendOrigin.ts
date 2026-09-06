@@ -4,6 +4,7 @@ import {
   isDesktopShell,
   restartDesktopBackend,
 } from "./desktop";
+import { detectNativeRuntime, nativeRuntimeKnown } from "./nativeTransport";
 
 export const BACKEND_POLL_INTERVAL_MS = 250;
 export const BACKEND_POLL_TIMEOUT_SECONDS = 180;
@@ -58,7 +59,7 @@ export function isBackendHostedConsole(): boolean {
 
 /** Bundled / Vite-hosted desktop UI must prefix API calls with the sidecar origin. */
 export function needsDesktopBackendOrigin(): boolean {
-  return isDesktopShell() && !isBackendHostedConsole();
+  return isDesktopShell() && !isBackendHostedConsole() && !nativeRuntimeKnown();
 }
 
 export async function probeBackendVersion(
@@ -154,6 +155,10 @@ function rejectWaiters(error: Error): void {
 }
 
 async function pollBackendOrigin(generation: number): Promise<void> {
+  if (await detectNativeRuntime()) {
+    if (generation === pollGeneration) settleReady("");
+    return;
+  }
   const startedAt = Date.now();
   while (generation === pollGeneration) {
     const nativeError = await getDesktopBackendStartupError().catch(() => "");

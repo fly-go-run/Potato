@@ -45,9 +45,7 @@
       "../../scripts/pack/assets/icon.ico"
     ],
     "resources": [
-      "binaries/python-runtime",
-      "binaries/node-runtime",
-      "binaries/cua-driver"
+      "binaries/native-cua-driver"
     ],
     "windows": {
       "webviewInstallMode": {
@@ -57,7 +55,7 @@
       "nsis": {
         "installerIcon": "../../scripts/pack/assets/icon.ico",
         "uninstallerIcon": "../../scripts/pack/assets/icon.ico",
-        "installerHooks": "nsis-hooks.nsh",
+        "installerHooks": null,
         "languages": [
           "English",
           "SimpChinese",

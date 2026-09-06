@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "native-runtime"
+description = "Access the in-process Rust runtime from the local main window."
+commands.allow = ["native_request", "native_chat_start", "native_chat_cancel", "native_transcribe", "native_voice_start", "native_voice_audio", "native_voice_end"]

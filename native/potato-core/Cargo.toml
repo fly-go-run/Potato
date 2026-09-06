@@ -1,0 +1,37 @@
+[package]
+name = "potato-core"
+version = "0.1.0"
+edition = "2021"
+description = "In-process desktop runtime for Potato; no Python or HTTP listener"
+license = "Apache-2.0"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+cron = "0.15"
+uuid = { version = "1", features = ["v4"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "multipart", "rustls-tls"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "net", "process"] }
+tokio-util = "0.7"
+futures-util = "0.3"
+chacha20poly1305 = "0.10"
+base64 = "0.22"
+percent-encoding = "2"
+tokio-tungstenite = { version = "0.27", features = ["rustls-tls-webpki-roots"] }
+flate2 = "1"
+cap-std = "4.0.2"
+rmcp = { version = "3.1.4", default-features = false, features = ["client", "transport-streamable-http-client-reqwest", "transport-child-process"] }
+reqwest-mcp = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls"] }
+zip = { version = "2.4.2", default-features = false, features = ["deflate"] }
+process-wrap = { version = "10.0.0", features = ["tokio1"] }
+process-wrap-mcp = { package = "process-wrap", version = "9", features = ["tokio1"] }
+pdf-extract = "0.12"
+quick-xml = "0.42"
+calamine = "0.36"
+fernet = { version = "0.2.2", default-features = false, features = ["rustcrypto"] }
+
+[dev-dependencies]
+tempfile = "3"

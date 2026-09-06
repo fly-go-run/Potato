@@ -1,0 +1,39 @@
+name: Rust desktop runtime
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'native/**'
+      - 'app/**'
+      - 'console/src-tauri/**'
+      - 'src/potato/agents/md_files/**'
+      - 'scripts/native/**'
+      - '.github/workflows/native-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: app
+      - run: npm ci
+        working-directory: console
+      - run: npm run build
+        working-directory: app
+      - run: npm test -- src/lib/nativeTransport.test.ts src/lib/api.test.ts src/lib/backendOrigin.test.ts src/lib/stream.test.ts
+        working-directory: app
+      - run: cargo test --locked --manifest-path native/potato-core/Cargo.toml
+      - run: node scripts/native/stage-driver.mjs
+      - run: cargo check --locked --manifest-path console/src-tauri/Cargo.toml --features native-runtime
+      - run: node node_modules/@tauri-apps/cli/tauri.js build --debug --no-bundle --config src-tauri/tauri.native.conf.json
+        working-directory: console
