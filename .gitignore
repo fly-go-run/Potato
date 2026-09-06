@@ -111,6 +111,11 @@ logs/
 
 # vibe coding
 AGENTS.md
+# Application prompt assets must ship in clean checkouts and Rust builds.
+!src/potato/agents/md_files/en/AGENTS.md
+!src/potato/agents/md_files/zh/AGENTS.md
+!src/potato/agents/md_files/id/AGENTS.md
+!src/potato/agents/md_files/ru/AGENTS.md
 .claude
 openspec
 CLAUDE.md
