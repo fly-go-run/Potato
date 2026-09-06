@@ -486,6 +486,15 @@ async def _execute_in_sandbox(
     return result
 
 
+def _with_pipefail(command: str, executable: str | None) -> str:
+    """Do not let a successful pipeline tail hide an earlier command failure."""
+    if os.name != "nt" and _shell_basename(executable or "/bin/sh") in {
+        "bash", "zsh", "ksh",
+    }:
+        return "set -o pipefail\n" + command
+    return command
+
+
 def _format_shell_output(
     returncode: int,
     stdout_str: str,
@@ -495,7 +504,12 @@ def _format_shell_output(
         if stdout_str:
             response_text = stdout_str
         else:
-            response_text = "Command executed successfully (no output)."
+            response_text = (
+                "Command exited with code 0 and produced no stdout. "
+                "This does not verify that the requested data is empty. "
+                "Check command compatibility and any suppressed stderr before "
+                "drawing a conclusion."
+            )
         if stderr_str:
             response_text += f"\n[stderr]\n{stderr_str}"
         return response_text
@@ -755,6 +769,10 @@ async def execute_shell_command(
 ) -> ToolChunk | AsyncGenerator[ToolChunk, None]:
     """Execute a shell command and return its output.
 
+    On POSIX, use portable commands for the host OS. macOS find does not
+    support -printf. Do not suppress stderr while investigating missing data.
+    An empty stdout does not prove that a directory or query result is empty.
+
     Each call runs in a fresh subprocess — `cd`, `export`, `source`,
     etc. do NOT persist. Pass `cwd=` or chain in one call
     (`cd /repo && pytest`).
@@ -889,6 +907,8 @@ async def execute_shell_command(
             content=[TextBlock(type="text", text=f"Error: {exc}")],
             metadata=_shell_metadata(sandboxed=False, ok=False),
         )
+
+    cmd = _with_pipefail(cmd, shell_executable)
 
     if background:
         return await _start_background_job(

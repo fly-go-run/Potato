@@ -669,7 +669,7 @@ class TestExecuteShellCommand:
         ):
             result = await _run_shell("")
             text = result.content[0].text
-            assert "successfully" in text.lower()
+            assert "does not verify" in text.lower()
 
     @pytest.mark.asyncio
     @patch("potato.agents.tools.shell.get_current_shell_command_timeout")
@@ -858,3 +858,24 @@ class TestExecuteShellCommand:
         joined = "".join(chunk.content[0].text for chunk in chunks)
         assert "line0" in joined
         assert "line4" in joined
+
+
+@pytest.mark.parametrize("executable", ["/bin/bash", "/bin/zsh"])
+def test_pipeline_failure_is_not_masked_by_successful_tail(executable):
+    import os
+    import subprocess
+    from potato.agents.tools.shell import _with_pipefail
+    if os.name == "nt" or not os.path.exists(executable):
+        pytest.skip("POSIX shell unavailable")
+    failed = subprocess.run([executable, "-c", _with_pipefail("false 2>/dev/null | sort", executable)], capture_output=True)
+    assert failed.returncode != 0
+    success = subprocess.run([executable, "-c", _with_pipefail("printf 'ok' | sort", executable)], capture_output=True)
+    assert success.returncode == 0
+    assert success.stdout.strip() == b"ok"
+
+
+def test_empty_output_does_not_claim_task_success():
+    from potato.agents.tools.shell import _format_shell_output
+    result = _format_shell_output(0, "", "")
+    assert "does not verify" in result
+    assert "successfully" not in result
