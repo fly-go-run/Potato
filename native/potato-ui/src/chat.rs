@@ -8,7 +8,7 @@ use iced::{
 #[derive(Clone, Default)]
 pub(super) struct Draft {
     text: String,
-    attachments: Vec<serde_json::Value>,
+    pub(super) attachments: Vec<serde_json::Value>,
     backup: Option<(String, Vec<serde_json::Value>)>,
 }
 impl App {
@@ -108,6 +108,42 @@ impl App {
         }
     }
 
+    pub(super) fn can_steer(&self) -> bool {
+        self.streaming
+            && self.accepted
+            && !self.stop_pending
+            && !self.busy
+            && !self.uncertain
+            && !self.voice.active
+            && self.backend.is_some()
+            && !self.composer_text().trim().is_empty()
+            && self.attachments.is_empty()
+    }
+
+    pub(super) fn send_steering(&mut self) -> Task<Message> {
+        let Some(backend) = self.backend.clone() else {
+            return Task::none();
+        };
+        let text = self.composer_text().trim().to_owned();
+        let generation = self.generation;
+        let session = self.session.id.clone();
+        self.busy = true;
+        Task::perform(
+            async move {
+                let result = backend
+                    .request(
+                        "POST",
+                        "/api/agent/steer",
+                        serde_json::json!({"session_id":session,"text":text}),
+                    )
+                    .await
+                    .map(|_| ());
+                (text, result)
+            },
+            move |(text, result)| Message::Steered(generation, text, result),
+        )
+    }
+
     pub(super) fn can_send(&self) -> bool {
         !self
             .selected
@@ -185,9 +221,16 @@ impl App {
         };
         let submitted_attachments = self.attachments.clone();
         if !reconnect {
-            self.pending_submission = Some((self.composer_text(), submitted_attachments.clone()));
-            self.draft = text_editor::Content::new();
-            self.attachments.clear();
+            if let Some((text, attachments)) = self.editing_backup.take() {
+                self.pending_submission = None;
+                self.draft = text_editor::Content::with_text(&text);
+                self.attachments = attachments;
+            } else {
+                self.pending_submission =
+                    Some((self.composer_text(), submitted_attachments.clone()));
+                self.draft = text_editor::Content::new();
+                self.attachments.clear();
+            }
         }
         Task::run(
             backend.stream(
@@ -270,7 +313,11 @@ impl App {
                         self.cancel_message_edit();
                     } else if let Some((text, attachments)) = self.pending_submission.take() {
                         let current = self.composer_text();
-                        self.draft = text_editor::Content::with_text(&if current.is_empty() { text } else { format!("{text}\n{current}") });
+                        self.draft = text_editor::Content::with_text(&if current.is_empty() {
+                            text
+                        } else {
+                            format!("{text}\n{current}")
+                        });
                         self.attachments.splice(0..0, attachments);
                     }
                     self.pending_submission = None;
@@ -313,10 +360,104 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn steering_is_available_during_streaming_and_keeps_edits_on_ack() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = App {
+            backend: Some(backend::Backend::open(dir.path()).unwrap()),
+            streaming: true,
+            accepted: true,
+            ..App::default()
+        };
+        app.draft = text_editor::Content::with_text("改用第二个方案");
+        assert!(app.can_steer());
+        assert!(!app.can_send());
+        app.stop_pending = true;
+        assert!(!app.can_steer());
+        app.stop_pending = false;
+        app.attachments.push(serde_json::json!({"type":"file"}));
+        assert!(!app.can_steer());
+        app.attachments.clear();
+        app.draft = text_editor::Content::with_text("正在继续编辑的新指令");
+        let _ = app.update(Message::Steered(app.generation, "旧指令".into(), Ok(())));
+        assert_eq!(app.composer_text(), "正在继续编辑的新指令");
+        let _ = app.update(Message::Steered(
+            app.generation,
+            "正在继续编辑的新指令".into(),
+            Ok(()),
+        ));
+        assert!(app.composer_text().is_empty());
+    }
     fn user_message() -> crate::rich::ChatMessage {
         crate::rich::ChatMessage::from_value(
             &serde_json::json!({"role":"user","content":[{"type":"text","text":"原始问题"},{"type":"file","file_url":"upload://a","file_name":"a.txt"}]}),
         )
+    }
+    #[test]
+    fn select_during_stream_loads_target_and_isolates_old_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = App {
+            backend: Some(backend::Backend::open(dir.path()).unwrap()),
+            streaming: true,
+            accepted: true,
+            selected: Some("old".into()),
+            draft: text_editor::Content::with_text("草稿"),
+            ..App::default()
+        };
+        let _ = app.update(Message::Select("next".into()));
+        assert_eq!(app.selected.as_deref(), Some("next"));
+        assert!(!app.streaming);
+        assert!(app.busy);
+        let _ = app.network_event(0, NetworkEvent::End(Err("旧连接错误".into())));
+        assert!(app.status.is_empty());
+        app.selected = Some("old".into());
+        app.restore_draft();
+        assert_eq!(app.composer_text(), "草稿");
+    }
+    #[test]
+    fn rejected_regeneration_restores_draft_and_removes_edit_banner() {
+        let mut app = App {
+            streaming: true,
+            editing_backup: Some(("草稿".into(), vec![])),
+            base_messages: vec![user_message()],
+            ..App::default()
+        };
+        let _ = app.network_event(0, NetworkEvent::End(Err("发送失败".into())));
+        assert_eq!(app.composer_text(), "草稿");
+        assert!(app.editing_backup.is_none());
+        assert!(app.can_send());
+    }
+    #[test]
+    fn accepted_send_keeps_newly_typed_followup() {
+        let mut app = App {
+            streaming: true,
+            draft: text_editor::Content::with_text("追问"),
+            ..App::default()
+        };
+        let _ = app.network_event(0, NetworkEvent::Accepted);
+        assert_eq!(app.composer_text(), "追问");
+        let _ = app.update(Message::Edit(text_editor::Action::Edit(
+            text_editor::Edit::Insert('好'),
+        )));
+        assert!(app.composer_text().contains('好'));
+    }
+    #[test]
+    fn new_chat_during_stream_restores_independent_draft_and_ignores_old_events() {
+        let mut app = App {
+            selected: Some("old".into()),
+            streaming: true,
+            accepted: true,
+            draft: text_editor::Content::with_text("旧会话追问"),
+            ..App::default()
+        };
+        let _ = app.update(Message::NewChat);
+        assert!(!app.streaming);
+        assert!(app.selected.is_none());
+        let _ = app.network_event(0, NetworkEvent::Accepted);
+        assert!(!app.accepted);
+        app.selected = Some("old".into());
+        app.restore_draft();
+        assert_eq!(app.composer_text(), "旧会话追问");
     }
     #[test]
     fn edit_cancel_restores_unsent_text_and_attachments() {

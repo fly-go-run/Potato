@@ -1,16 +1,24 @@
 //! Visual baseline: the installed Potato app used in the homepage comparison.
 //! Its packaged CSS differs from the concurrently edited app/ sources; see VISUAL_PARITY.md.
+use crate::accessibility::{button, text_input};
 use crate::{App, Message};
 use chrono::Timelike;
 use iced::widget::{
-    button, column, container, mouse_area, row, scrollable, stack, svg, text, text_editor,
-    text_input, tooltip, Column, Space,
+    column, container, mouse_area, row, scrollable, stack, svg, text, text_editor, tooltip, Column,
+    Space,
 };
 use iced::{alignment, border, Color, Element, Fill, Shadow, Theme, Vector};
 
+pub fn outlined(theme: &Theme, status: button::Status) -> button::Style {
+    let mut style = nav(theme, status);
+    let mut color = theme.palette().text;
+    color.a = 0.15;
+    style.border = border::rounded(8).width(1).color(color);
+    style
+}
 pub fn theme(dark: bool) -> Theme {
     Theme::custom(
-        "Potato".into(),
+        "Potato",
         iced::theme::Palette {
             background: hex(if dark { 0x141414 } else { 0xfbfbfb }),
             text: hex(if dark { 0xececec } else { 0x202020 }),
@@ -254,18 +262,28 @@ impl App {
         )
         .width(Fill)
         .padding([8, 12])
-        .on_press_maybe((!self.streaming && !self.busy).then_some(message))
+        .on_press_maybe((!self.busy).then_some(message))
         .into()
     }
 
     fn composer(&self, wide: bool) -> Element<'_, Message> {
         let editor = text_editor(&self.draft)
+            .id(iced::widget::Id::new("composer"))
             .placeholder("描述任务…")
             .on_action(Message::Edit)
             .key_binding(|event| {
+                if crate::app_shortcut(&event.key, event.modifiers).is_some() {
+                    return None;
+                }
+                // IME acceptance gate: Iced 0.14 supports preedit/commit, but KeyPress
+                // exposes no composition state. Verify real candidate-confirming Enter
+                // on macOS/Windows; it must never submit (including Commit then Enter).
+                // Do not treat synthetic key tests or pasted Chinese as IME validation.
+                // If the platform forwards that Enter, track composition/commit events
+                // before this binding and suppress submission for the commit key.
                 if matches!(event.status, text_editor::Status::Focused { .. })
                     && event.key == iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter)
-                    && event.modifiers.command()
+                    && !event.modifiers.shift()
                 {
                     Some(text_editor::Binding::Custom(Message::Submit))
                 } else {
@@ -287,6 +305,14 @@ impl App {
                 style.placeholder = muted(theme);
                 style
             });
+        let editor = crate::accessibility::input(
+            editor.into(),
+            "描述任务",
+            &self.composer_text(),
+            false,
+            iced::widget::Id::new("composer"),
+            Some(Message::SetDraft),
+        );
         let arrow = icon_image(
             if self.streaming { Icon::Stop } else { Icon::Up },
             self.theme().palette().background,
@@ -299,14 +325,22 @@ impl App {
                 .on_press(Message::Media(crate::media::Event::Pick)),
             if wide {
                 button(
-                    row![self.icon(Icon::Folder), text("角色").size(12)]
-                        .spacing(4)
-                        .align_y(alignment::Vertical::Center),
+                    row![
+                        self.icon(Icon::Folder),
+                        text(if self.menus.project_name.is_empty() {
+                            "默认"
+                        } else {
+                            &self.menus.project_name
+                        })
+                        .size(12)
+                    ]
+                    .spacing(4)
+                    .align_y(alignment::Vertical::Center),
                 )
                 .padding([8, 4])
                 .style(nav)
-                .on_press(Message::Page(crate::pages::Event::Open(
-                    crate::pages::Kind::Workspace,
+                .on_press(Message::Menu(crate::menus::Event::Open(
+                    crate::menus::Kind::Project,
                 )))
                 .into()
             } else {
@@ -330,7 +364,9 @@ impl App {
             )
             .padding([8, 4])
             .style(nav)
-            .on_press(Message::Unavailable("权限设置")),
+            .on_press(Message::Menu(crate::menus::Event::Open(
+                crate::menus::Kind::Permissions
+            ))),
             Space::new().width(Fill),
             button(
                 row![
@@ -347,11 +383,23 @@ impl App {
             )
             .padding([8, 4])
             .style(nav)
-            .on_press(Message::Settings),
+            .on_press(Message::Menu(crate::menus::Event::Open(
+                crate::menus::Kind::Models
+            ))),
             button(self.icon(Icon::Mic))
                 .padding(8)
                 .style(nav)
                 .on_press(Message::Voice(crate::voice::Event::Toggle)),
+            if self.streaming {
+                Element::from(
+                    button("补充指令")
+                        .padding([6, 8])
+                        .style(nav)
+                        .on_press_maybe(self.can_steer().then_some(Message::Submit)),
+                )
+            } else {
+                Element::from(Space::new().width(0))
+            },
             button(arrow)
                 .padding(8)
                 .style(send)
@@ -436,6 +484,12 @@ impl App {
     }
 
     pub(super) fn view(&self) -> Element<'_, Message> {
+        crate::accessibility::root(crate::accessibility::options_overlay(
+            self.view_content(),
+            self.accessibility_options.as_deref(),
+        ))
+    }
+    fn view_content(&self) -> Element<'_, Message> {
         let mut sessions = Column::new().spacing(4);
         for chat in self.chats.iter() {
             sessions = sessions.push(row![
@@ -454,9 +508,7 @@ impl App {
                 } else {
                     nav
                 })
-                .on_press_maybe(
-                    (!self.streaming && !self.busy).then_some(Message::Select(chat.id.clone())),
-                ),
+                .on_press_maybe((!self.busy).then_some(Message::Select(chat.id.clone())),),
                 button("⋯").style(nav).on_press(Message::Conversation(
                     crate::conversations::Event::Menu(chat.id.clone())
                 ))
@@ -505,6 +557,7 @@ impl App {
             if self.search {
                 navigation = navigation.push(
                     text_input("搜索会话", &self.filter)
+                        .id(iced::widget::Id::new("chat-search"))
                         .on_input(Message::Filter)
                         .padding(10),
                 );
@@ -686,10 +739,10 @@ impl App {
                     messages = messages.push(crate::hover::answer(
                         column![
                             message.view(&self.theme(), index, &self.expanded_tools),
-                            if !message.reasoning
-                                && message.role == "assistant"
-                                && !message.body.is_empty()
-                                && !(self.streaming && index + 1 == self.messages.len())
+                            if !(message.reasoning
+                                || message.role != "assistant"
+                                || message.body.is_empty()
+                                || self.streaming && index + 1 == self.messages.len())
                             {
                                 if self.hovered_message == Some(index) {
                                     container(
@@ -751,10 +804,11 @@ impl App {
                 )
                 .id(iced::widget::Id::new("messages"))
                 .on_scroll(|viewport| {
-                    Message::Scrolled(
-                        !viewport.relative_offset().y.is_finite()
-                            || viewport.relative_offset().y >= 0.98,
-                    )
+                    Message::Scrolled(at_bottom(
+                        viewport.absolute_offset().y,
+                        viewport.content_bounds().height,
+                        viewport.bounds().height,
+                    ))
                 })
                 .height(Fill),
             );
@@ -812,7 +866,7 @@ impl App {
         }
         // Demo remains explicit in the model selector. Show only actionable status here;
         // a permanent footer would shift the homepage compared with the original.
-        if (!self.status.is_empty() && self.status != "本地应用尚未就绪") {
+        if !self.status.is_empty() && self.status != "本地应用尚未就绪" {
             main = main.push(
                 container(text(&self.status).size(11).color(muted(&self.theme())))
                     .center_x(Fill)
@@ -850,7 +904,7 @@ impl App {
             self.preferences
                 .overlay(base, &self.theme(), self.window_size)
         } else {
-            base
+            self.menus.overlay(base)
         }
     }
 }
@@ -864,5 +918,157 @@ mod tests {
         assert!(show_top_brand(true, true));
         assert!(show_top_brand(false, false));
         assert!(show_top_brand(false, true));
+    }
+}
+
+// Use physical scroll range: short content can yield NaN or negative zero as a ratio.
+fn at_bottom(offset: f32, content: f32, viewport: f32) -> bool {
+    let range = (content - viewport).max(0.0);
+    range == 0.0 || (offset.is_finite() && range - offset <= 24.0)
+}
+#[cfg(test)]
+mod scroll_tests {
+    #[test]
+    fn underfilled_viewport_keeps_following() {
+        assert!(super::at_bottom(0.0, 100.0, 500.0));
+        assert!(super::at_bottom(0.0, 500.0, 500.0));
+        assert!(super::at_bottom(500.0, 1000.0, 500.0));
+        assert!(!super::at_bottom(100.0, 1000.0, 500.0));
+    }
+}
+
+#[cfg(test)]
+mod view_regressions {
+    use crate::{App, Message};
+    use iced::{
+        advanced::{layout, widget::Tree, Layout, Shell},
+        mouse, Event, Point, Rectangle, Size,
+    };
+
+    #[test]
+    fn composer_enter_submits_and_shift_enter_inserts_newline() {
+        let app = App::default();
+        let software = iced_tiny_skia::Renderer::new(iced::Font::DEFAULT, 16.into());
+        #[cfg(feature = "gpu")]
+        let renderer = iced::Renderer::Secondary(software);
+        #[cfg(not(feature = "gpu"))]
+        let renderer = software;
+        let mut view = app.composer(true);
+        let mut tree = Tree::new(view.as_widget());
+        let size = Size::new(700., 250.);
+        let node = view.as_widget_mut().layout(
+            &mut tree,
+            &renderer,
+            &layout::Limits::new(Size::ZERO, size),
+        );
+        let mut clipboard = iced::advanced::clipboard::Null;
+        let mut dispatch = |event: Event| {
+            let mut messages = vec![];
+            view.as_widget_mut().update(
+                &mut tree,
+                &event,
+                Layout::new(&node),
+                mouse::Cursor::Available(Point::new(50., 30.)),
+                &renderer,
+                &mut clipboard,
+                &mut Shell::new(&mut messages),
+                &Rectangle::with_size(size),
+            );
+            messages
+        };
+        dispatch(Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )));
+        dispatch(Event::Mouse(mouse::Event::ButtonReleased(
+            mouse::Button::Left,
+        )));
+        for (modifiers, submit) in [
+            (iced::keyboard::Modifiers::empty(), true),
+            (iced::keyboard::Modifiers::SHIFT, false),
+        ] {
+            let messages = dispatch(Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter),
+                modified_key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter),
+                physical_key: iced::keyboard::key::Physical::Code(iced::keyboard::key::Code::Enter),
+                location: iced::keyboard::Location::Standard,
+                modifiers,
+                text: None,
+                repeat: false,
+            }));
+            if submit {
+                assert!(messages.iter().any(|m| matches!(m, Message::Submit)));
+            } else {
+                assert!(!messages.iter().any(|m| matches!(m, Message::Submit)));
+                let mut content = iced::widget::text_editor::Content::<iced::Renderer>::new();
+                for message in messages {
+                    if let Message::Edit(action) = message {
+                        content.perform(action);
+                    }
+                }
+                assert_eq!(content.text(), "\n");
+            }
+        }
+    }
+
+    #[test]
+    fn streaming_sidebar_emits_new_chat_and_select_from_mouse_clicks() {
+        let app = App {
+            streaming: true,
+            chats: vec![serde_json::from_value(
+                serde_json::json!({"id":"other","name":"Other chat"}),
+            )
+            .unwrap()],
+            ..App::default()
+        };
+        let software = iced_tiny_skia::Renderer::new(iced::Font::DEFAULT, 16.into());
+        #[cfg(feature = "gpu")]
+        let renderer = iced::Renderer::Secondary(software);
+        #[cfg(not(feature = "gpu"))]
+        let renderer = software;
+        let mut view = app.view();
+        let mut tree = Tree::new(view.as_widget());
+        let size = Size::new(1100., 760.);
+        let node = view.as_widget_mut().layout(
+            &mut tree,
+            &renderer,
+            &layout::Limits::new(Size::ZERO, size),
+        );
+        fn centers(layout: Layout<'_>, points: &mut Vec<Point>) {
+            points.push(layout.bounds().center());
+            for child in layout.children() {
+                centers(child, points);
+            }
+        }
+        let mut points = vec![];
+        centers(Layout::new(&node), &mut points);
+        let mut messages = vec![];
+        let mut clipboard = iced::advanced::clipboard::Null;
+        for point in points {
+            for event in [
+                mouse::Event::ButtonPressed(mouse::Button::Left),
+                mouse::Event::ButtonReleased(mouse::Button::Left),
+            ] {
+                view.as_widget_mut().update(
+                    &mut tree,
+                    &Event::Mouse(event),
+                    Layout::new(&node),
+                    mouse::Cursor::Available(point),
+                    &renderer,
+                    &mut clipboard,
+                    &mut Shell::new(&mut messages),
+                    &Rectangle::with_size(size),
+                );
+            }
+        }
+        assert!(
+            messages.iter().any(|m| matches!(m, Message::NewChat)),
+            "expanded sidebar new chat must be clickable while streaming"
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| matches!(m, Message::Select(id) if id == "other")),
+            "session rows must be clickable while streaming"
+        );
     }
 }

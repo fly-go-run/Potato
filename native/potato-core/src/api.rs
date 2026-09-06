@@ -8,7 +8,7 @@ pub(crate) fn default_providers() -> Value {
             "DeepSeek",
             "https://api.deepseek.com",
             "OpenAIChatModel",
-            json!([{"id":"deepseek-chat","name":"DeepSeek Chat"},{"id":"deepseek-reasoner","name":"DeepSeek Reasoner"}])
+            json!([{"id":"deepseek-chat","name":"DeepSeek Chat","max_input_length":128_000},{"id":"deepseek-reasoner","name":"DeepSeek Reasoner","max_input_length":128_000}])
         ),
         provider("sub2api", "sub2api", "", "OpenAIResponseModel", json!([]))
     ])
@@ -51,11 +51,13 @@ impl Runtime {
             return Ok(result);
         }
         match (method, path.as_ref()) {
+            ("POST", "/api/agent/steer") => return self.steer(&body),
             ("GET", "/api/native/preferences")=>return self.db()?.get("native_preferences",json!({"dark":false,"collapsed":false,"width":1080,"height":760,"selected":""})),
             ("PUT", "/api/native/preferences")=>{
                 let mut saved=self.db()?.get("native_preferences",json!({} ))?;
-                for key in ["dark","collapsed"]{if let Some(value)=body.get(key){if !value.is_boolean(){return Err(Error::new(400,"Invalid preference"));}saved[key]=value.clone();}}
+                for key in ["dark","collapsed","follow_system","remember_window"]{if let Some(value)=body.get(key){if !value.is_boolean(){return Err(Error::new(400,"Invalid preference"));}saved[key]=value.clone();}}
                 for (key,min,max) in [("width",760.,4000.),("height",540.,2400.)]{if let Some(value)=body.get(key){let n=value.as_f64().ok_or_else(||Error::new(400,"Invalid window size"))?;if !n.is_finite()||n<min||n>max{return Err(Error::new(400,"Invalid window size"));}saved[key]=value.clone();}}
+                for key in ["x","y"] {if let Some(value)=body.get(key) {let n=value.as_f64().ok_or_else(||Error::new(400,"Invalid window position"))?;if !n.is_finite() || n.abs()>100_000. {return Err(Error::new(400,"Invalid window position"));}saved[key]=value.clone();}}
                 if let Some(value)=body.get("selected"){let id=value.as_str().ok_or_else(||Error::new(400,"Invalid selected conversation"))?;if id.len()>200{return Err(Error::new(400,"Invalid selected conversation"));}saved["selected"]=value.clone();}
                 self.db()?.put("native_preferences",&saved)?;return Ok(saved);
             },
@@ -115,12 +117,26 @@ impl Runtime {
                 self.db()?.put("language",&json!(language))?;
                 return Ok(json!({"agent_id":"default","language":language}));
             }
-            ("GET", "/api/workspace/running-config") => return self.db()?.get("running",json!({"approval_level":"STRICT","sandbox_mode":"read-only"})),
+            ("GET", "/api/workspace/running-config") => return self.db()?.get("running",crate::approval::defaults()),
             ("PUT", "/api/workspace/running-config") => {
-                // Native preview exposes only explicit, per-call approvals.
-                let mut value = self.db()?.get("running",json!({"approval_level":"STRICT","sandbox_mode":"read-only"}))?;
-                if let Some(level)=body["approval_level"].as_str() {if level!="STRICT" {return Err(Error::new(400,"Native tools currently require exact approvals"));}}
-                if let Some(mode)=body["sandbox_mode"].as_str() {
+                // File capability and prompting policy are independent.
+                let mut value = self.db()?.get("running",crate::approval::defaults())?;
+                if let Some(limit)=body.get("max_iters") {
+                    let limit=limit.as_u64().filter(|n|(1..=1000).contains(n)).ok_or_else(||Error::new(400,"max_iters must be between 1 and 1000"))?;
+                    value["max_iters"]=json!(limit);
+                }
+                if let Some(limit)=body.get("max_parallel_reads") {
+                    let limit=limit.as_u64().filter(|n|(1..=16).contains(n)).ok_or_else(||Error::new(400,"max_parallel_reads must be between 1 and 16"))?;
+                    value["max_parallel_reads"]=json!(limit);
+                }
+                if let Some(config) = body.get("context_policy") {
+                    let policy: crate::context_policy::Policy = serde_json::from_value(config.clone())?;
+                    policy.validate()?;
+                    value["context_policy"] = serde_json::to_value(policy)?;
+                }
+                if let Some(level)=body.get("approval_level") {let level=level.as_str().ok_or_else(||Error::new(400,"approval_level must be a string"))?;crate::approval::validate(level)?;value["approval_level"]=json!(level);}
+                if let Some(mode)=body.get("sandbox_mode") {
+                    let mode=mode.as_str().ok_or_else(||Error::new(400,"sandbox_mode must be a string"))?;
                     if !matches!(mode,"read-only"|"workspace-write"|"danger-full-access"){return Err(Error::new(400,"Unsupported native file access mode"));}
                     value["sandbox_mode"]=json!(mode);
                 }
@@ -133,7 +149,7 @@ impl Runtime {
                 if let Some(enabled)=body["enabled"].as_bool(){self.db()?.put("computer_enabled",&json!(enabled))?;}
                 return self.computer_status().await;
             }
-            ("GET", "/api/settings/upload-limit") => return Ok(json!({"upload_max_size_mb":20})),
+            ("GET", "/api/settings/upload-limit") => return Ok(json!({"upload_max_size_mb":crate::attachments::MAX_BYTES / 1_000_000})),
             ("GET", "/api/chats") => {
                 let mut chats = self.db()?.chats()?;
                 let runs = lock(&self.runs)?;
@@ -143,7 +159,7 @@ impl Runtime {
                 chats.sort_by_key(|c|std::cmp::Reverse(c["pinned"]==true));
                 let search=query("q").trim().to_lowercase();
                 if !search.is_empty(){let db=self.db()?;let mut matches=Vec::new();for chat in chats {
-                    if string(&chat,"name").to_lowercase().contains(&search) || db.history(string(&chat,"id"),false)?.iter().any(|m|m["content"].to_string().to_lowercase().contains(&search)){matches.push(chat);}
+                    if string(&chat,"name").to_lowercase().contains(&search) || db.history(string(&chat,"id"),false).is_ok_and(|messages|messages.iter().any(|m|m["content"].to_string().to_lowercase().contains(&search))){matches.push(chat);}
                 }chats=matches;}
                 return Ok(json!(chats));
             }
@@ -157,7 +173,7 @@ impl Runtime {
             ("GET", "/api/approval/list" | "/api/console/push-messages") => {
                 let approvals = lock(&self.approvals)?;
                 let pending: Vec<_> = approvals.values().filter(|a| a.view["root_session_id"] == query("session_id")).map(|a|a.view.clone()).collect();
-                return Ok(json!({"messages":[],"pending_approvals":pending}));
+                return Ok(json!({"messages":[],"pending_approvals":pending,"session_grants":self.approval_grant_count(&query("session_id"))?}));
             }
             ("POST", "/api/approval/approve" | "/api/approval/deny") => {
                 let mut approvals = lock(&self.approvals)?;
@@ -166,10 +182,25 @@ impl Runtime {
                 if approval.view["root_session_id"] != body["session_id"] || approval.view["user_id"] != body["user_id"] {
                     return Err(Error::new(403,"Approval belongs to another session"));
                 }
+                if approval.reply.is_closed() || approval.view["created_at"].as_i64().unwrap_or(0) + 300 <= chrono::Utc::now().timestamp() {
+                    approvals.remove(id);
+                    return Err(Error::new(409,"Approval expired or turn cancelled"));
+                }
+                let scope = body["scope"].as_str().unwrap_or("exact");
+                if !matches!(scope,"exact"|"session") || (scope=="session" && approval.view["allow_session"]!=true) {
+                    return Err(Error::new(400,"Approval scope is not available for this action"));
+                }
+                let reply = if path.ends_with("/deny") {crate::approval::Reply::Deny} else if scope=="session" {crate::approval::Reply::Session} else {crate::approval::Reply::Once};
                 let approval = approvals.remove(id).unwrap();
-                approval.reply.send(path.ends_with("/approve")).map_err(|_| Error::new(409,"Turn no longer waiting for approval"))?;
+                approval.reply.send(reply).map_err(|_| Error::new(409,"Turn no longer waiting for approval"))?;
                 return Ok(json!({"success":true,"request_id":id,"message":"Decision recorded","tool_name":approval.view["tool_name"]}));
             }
+            ("POST", "/api/approval/revoke-session") => {
+                if required(&body,"user_id")? != "default" {return Err(Error::new(403,"Unknown user"));}
+                self.revoke_approval_grants(required(&body,"session_id")?)?;
+                return Ok(json!({"success":true}));
+            }
+            ("GET", "/api/approval/audit") => return self.db()?.get(&format!("approval_audit:{}",query("session_id")),json!([])),
             ("GET", "/api/models/active") => return self.active_model(),
             ("PUT", "/api/models/active") => {
                 let provider_id = required(&body,"provider_id")?;
@@ -233,7 +264,26 @@ impl Runtime {
             }
             return self.answer_question(id, &body);
         }
+        if path == "/api/native/history-health" && method == "GET" {
+            return self.db()?.history_health();
+        }
         if let Some(id) = path.strip_prefix("/api/chats/") {
+            if let Some(id) = id.strip_suffix("/archive") {
+                if method != "GET" {
+                    return Err(Error::new(405, "Method not allowed"));
+                }
+                return self.db()?.archive_location(id);
+            }
+            if let Some(id) = id.strip_suffix("/context-stats") {
+                if method != "GET" {
+                    return Err(Error::new(405, "Method not allowed"));
+                }
+                let db = self.db()?;
+                db.chat(id)?;
+                return Ok(
+                    json!({"context":db.get(&format!("context_stats:{id}"),Value::Null)?,"usage":db.get(&format!("usage:{id}"),Value::Null)?,"totals":db.get(&format!("usage_totals:{id}"),Value::Null)?}),
+                );
+            }
             let mut spec = self.db()?.chat(id)?;
             let running = lock(&self.runs)?.contains_key(string(&spec, "session_id"));
             return match method {
@@ -268,7 +318,11 @@ impl Runtime {
                     self.db()?.save_chat(&spec)?;
                     Ok(spec)
                 }
-                "DELETE" if !running => Ok(json!({"deleted":self.db()?.delete_chat(id)?})),
+                "DELETE" if !running => {
+                    let deleted = self.db()?.delete_chat(id)?;
+                    self.revoke_approval_grants(string(&spec, "session_id"))?;
+                    Ok(json!({"deleted":deleted}))
+                }
                 "DELETE" => Err(Error::new(
                     409,
                     "Stop the running turn before deleting this chat",
@@ -282,6 +336,13 @@ impl Runtime {
                 .strip_prefix("custom-providers/")
                 .filter(|_| method == "DELETE")
             {
+                let target = providers
+                    .iter()
+                    .find(|p| p["id"] == id)
+                    .ok_or_else(|| Error::new(404, "Provider not found"))?;
+                if target["is_custom"] != true || matches!(id, "deepseek" | "sub2api") {
+                    return Err(Error::new(400, "Built-in providers cannot be deleted"));
+                }
                 providers.retain(|p| p["id"] != id);
                 self.save_providers(providers)?;
                 let active = self.db()?.get("active", Value::Null)?;
@@ -303,6 +364,9 @@ impl Runtime {
                         p["api_key"] = json!(self.db()?.seal(key)?);
                     }
                     if let Some(url) = body["base_url"].as_str() {
+                        if p["freeze_url"] == true && p["base_url"] != url {
+                            return Err(Error::new(400, "Provider URL is managed by the system"));
+                        }
                         validate_url(url)?;
                         p["base_url"] = json!(url);
                     }
@@ -365,9 +429,29 @@ impl Runtime {
                             model[field] = value.clone();
                         }
                     }
+                    if let (Some(input), Some(output)) = (
+                        model["max_input_length"].as_u64(),
+                        model["max_tokens"].as_u64(),
+                    ) {
+                        if output >= input {
+                            return Err(Error::new(
+                                400,
+                                "Output token limit must be smaller than context capacity",
+                            ));
+                        }
+                    }
                 }
                 ("DELETE", action) if action.starts_with("models/") => {
                     let id = &action[7..];
+                    if !["models", "extra_models"].iter().any(|key| {
+                        p[*key]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .any(|m| m["id"] == id)
+                    }) {
+                        return Err(Error::new(404, "Model not found"));
+                    }
                     for key in ["models", "extra_models"] {
                         p[key].as_array_mut().unwrap().retain(|m| m["id"] != id);
                     }
@@ -433,6 +517,12 @@ impl Runtime {
                 "********"
             });
             self.save_providers(providers)?;
+            if method == "DELETE" && action.starts_with("models/") {
+                let active = self.db()?.get("active", Value::Null)?;
+                if active["provider_id"] == id && active["model"] == action[7..] {
+                    self.db()?.put("active", &Value::Null)?;
+                }
+            }
             return Ok(result);
         }
         Err(Error::new(
@@ -442,12 +532,30 @@ impl Runtime {
     }
 
     pub(crate) fn providers(&self) -> Result<Vec<Value>> {
-        Ok(self
+        let mut providers = self
             .db()?
             .get("providers", default_providers())?
             .as_array()
             .ok_or_else(|| Error::new(500, "Invalid provider store"))?
-            .clone())
+            .clone();
+        // Older stores predate model capacities. Fill only absent built-in
+        // limits, including an extra_models override, without replacing user settings.
+        for provider in &mut providers {
+            if provider["id"] == "deepseek" {
+                for key in ["models", "extra_models"] {
+                    if let Some(models) = provider[key].as_array_mut() {
+                        for model in models {
+                            if matches!(string(model, "id"), "deepseek-chat" | "deepseek-reasoner")
+                                && model["max_input_length"].is_null()
+                            {
+                                model["max_input_length"] = json!(128_000);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(providers)
     }
     pub(crate) fn speech_type(&self) -> Result<String> {
         let db = self.db()?;
@@ -472,6 +580,9 @@ impl Runtime {
     fn public_providers(&self) -> Result<Vec<Value>> {
         let mut providers = self.providers()?;
         for p in &mut providers {
+            if matches!(string(p, "id"), "deepseek" | "sub2api") {
+                p["is_custom"] = json!(false);
+            }
             p["api_key"] = json!(if string(p, "api_key").is_empty() {
                 ""
             } else {
@@ -510,4 +621,46 @@ pub(crate) fn validate_url(url: &str) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod capacity_tests {
+    use super::*;
+
+    #[test]
+    fn builtin_capacity_reaches_connections_and_preserves_saved_overrides() {
+        let root = tempfile::tempdir().unwrap();
+        let runtime = Runtime::open(root.path()).unwrap();
+        let mut providers = default_providers();
+        for model in providers[0]["models"].as_array().unwrap() {
+            assert_eq!(model["max_input_length"], 128_000);
+            assert!(crate::context::Budget::new(model).trigger > 90_000);
+        }
+        // Simulate a pre-upgrade store and an explicitly customized capacity.
+        providers[0]["models"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("max_input_length");
+        providers[0]["models"][1]["max_input_length"] = json!(64_000);
+        providers[0]["extra_models"] = json!([
+            {"id":"deepseek-chat","max_tokens":2048},
+            {"id":"custom-model","name":"Custom"}
+        ]);
+        providers[0]["api_key"] = json!(runtime.db().unwrap().seal("fixture-key").unwrap());
+        runtime.db().unwrap().put("providers", &providers).unwrap();
+        let migrated = runtime.providers().unwrap();
+        assert_eq!(migrated[0]["models"][0]["max_input_length"], 128_000);
+        assert_eq!(migrated[0]["models"][1]["max_input_length"], 64_000);
+        assert_eq!(migrated[0]["extra_models"][0]["max_input_length"], 128_000);
+        assert!(migrated[0]["extra_models"][1]["max_input_length"].is_null());
+        let connection = runtime
+            .provider_connection("deepseek", "deepseek-chat")
+            .unwrap();
+        assert_eq!(connection.options["max_input_length"], 128_000);
+        assert_eq!(connection.options["max_tokens"], 2048);
+        assert_eq!(
+            runtime.db().unwrap().get("providers", Value::Null).unwrap(),
+            providers
+        );
+    }
 }

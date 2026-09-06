@@ -1,5 +1,5 @@
 //! Potato SSE framing and reducer, independent of rendering and network transport.
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[cfg(test)]
 #[derive(Default)]
@@ -235,10 +235,12 @@ mod tests {
     #[test]
     fn crlf_and_multiline_data_and_partial_eof() {
         let mut parser = Parser::default();
-        assert!(parser
-            .push(b": ping\r\n\r\ndata: {\r\ndata: \"x\":1}\r")
-            .unwrap()
-            .is_empty());
+        assert!(
+            parser
+                .push(b": ping\r\n\r\ndata: {\r\ndata: \"x\":1}\r")
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(parser.push(b"\n\r\n").unwrap(), vec![json!({"x":1})]);
         parser.push(b"data: {").unwrap();
         assert!(parser.finish().is_err());

@@ -6,6 +6,8 @@ Iced 原生界面直接链接 `../potato-core`。窗口、SQLite 会话、模型
 
 ## 构建和运行
 
+当前使用 Iced 0.14.0，需要 Rust 1.88 或以上。
+
 ```sh
 cargo run --locked --release
 ```
@@ -15,7 +17,7 @@ cargo run --locked --release
 它使用独立的应用标识 `dev.potato.native-preview` 和名称 **Potato Native**，具有本地 ad-hoc 签名；
 未使用发布证书、未公证，不覆盖已安装的 Potato。
 
-默认数据目录是系统本地应用数据目录下的 `dev.potato.rust-ui/native-v1`。可用
+默认数据目录为 `~/.potato/native-v1`，与 GPUI 客户端一致。可用
 `POTATO_NATIVE_DATA_DIR` 指向临时目录进行测试。不会自动读取或修改旧版账号数据。
 设置页可显式导入旧数据目录和密钥目录中的供应商、豆包及图片连接。
 
@@ -36,7 +38,7 @@ POTATO_NATIVE_DATA_DIR=/absolute/disposable/path target/release/potato-ui --star
 
 - 本地会话/历史、中文流式聊天、停止和重新附着运行任务。
 - DeepSeek/sub2api 及已导入供应商配置、模型选择、Chat/Responses 协议。
-- 核心独立审批列表、逐次允许/拒绝、用户问题与答案。
+- 核心独立审批列表、AUTO/STRICT/NEVER、一次授权、会话精确参数授权与撤销、用户问题与答案。新配置默认 AUTO + workspace-write，已保存设置保留；裸 shell 没有 OS 沙箱，需授权。见[薄审批研究](../../docs/rfc/rust-thin-approval-2026-09-06.md)。
 - 豆包语音设置；点击麦克风后才连接服务并打开系统默认输入设备，PCM 转为 16 kHz 单声道，
   再次点击结束录音。识别文字填回草稿，不自动发送；最长录音 180 秒。
 - 图片和文档附件选择；PDF/Office 文本提取使用 Rust 核心。生成/编辑后的图片显示和保存。
@@ -47,12 +49,13 @@ POTATO_NATIVE_DATA_DIR=/absolute/disposable/path target/release/potato-ui --star
 
 ## 验证与限制
 
-34 项 UI/适配器测试通过，包括无后端服务时的初始化、配置重开、模拟模型端点的完整流式
-会话和落盘、立体声 48 kHz 转单声道 16 kHz。核心另有 46 项测试通过。Clippy 严格检查通过。
-真实豆包麦克风与 sub2api 服务未验收，Windows 实机/安装包未验收。
+当前 57 项 UI/适配器测试、49 项核心测试及两 crate 严格 Clippy 通过。
+真实 sub2api 流式回复与历史落盘、豆包对合成 PCM 的实时识别已通过；真实麦克风、
+IME 完整上屏与防误发送、Windows 实机/安装包仍待验收。
+详细范围与复跑入口见 [2026-09-06 验收记录](ACCEPTANCE_2026-09-06.md)。
 
 已补齐编辑重发、末轮重新生成、运行期会话草稿与附件隔离、表格/引用和代码高亮。
-尚未补齐工具轨迹/回合归组、IME 与原版输入快捷键、远程图片/文件预览、数学、完整设置、项目与改动侧栏、
+尚未补齐工具轨迹/回合归组、真实输入法完整验收、远程图片/文件预览、数学、完整设置、项目与改动侧栏、
 托盘/自动更新、长列表虚拟化及完整无障碍。电脑操作驱动尚未在此客户端打包。
 细项见 [功能对齐清单](MIGRATION_STATUS.md)。
 这些缺口意味着它仍是开发预览，不是原 Tauri 界面的完全等价替代。

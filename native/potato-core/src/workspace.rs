@@ -1,5 +1,5 @@
 //! Editable workspace documents use the same API as the existing desktop UI.
-//! Store logical document paths in SQLite; never interpret them as host paths.
+//! Prompt documents remain in SQLite; memory notes use ordinary Markdown files.
 use crate::{Error, Result, Runtime};
 use serde_json::{json, Value};
 
@@ -85,7 +85,7 @@ impl Runtime {
             "scheduled-tasks.json",
             serde_json::to_string_pretty(&db.get("cron_jobs", json!({}))?)?.as_bytes(),
         )?;
-        write("README.txt",b"Potato workspace export v1\nIncludes saved workspace and memory documents, conversation history, skills and scheduled task definitions.\nDoes not contain service credentials, files in external projects, or the native encryption key.\nImport history.json using the existing history import control; other entries are portable records, not an automatic full restore.\n")?;
+        write("README.txt",b"Potato workspace export v1\nIncludes saved workspace documents and user-wide memory notes, conversation history, skills and scheduled task definitions. Project-local memory travels with its project and is not included.\nDoes not contain service credentials, files in external projects, or the native encryption key.\nImport history.json using the existing history import control; other entries are portable records, not an automatic full restore.\n")?;
         let bytes = archive
             .finish()
             .map_err(|_| Error::new(500, "Cannot finish workspace export"))?
@@ -94,43 +94,24 @@ impl Runtime {
             json!({"native_binary":STANDARD.encode(bytes),"mime":"application/zip","filename":"potato-workspace.zip"}),
         )
     }
-    pub(crate) fn search_memory(&self, query: &str) -> Result<Value> {
-        let terms: Vec<_> = query.split_whitespace().map(str::to_lowercase).collect();
-        if terms.is_empty() {
-            return Err(Error::new(400, "Memory query is empty"));
-        }
-        let documents = self.documents(true)?;
-        let mut matches = Vec::new();
-        for (name, doc) in documents.as_object().unwrap() {
-            let content = doc["content"].as_str().unwrap_or("");
-            let haystack = format!("{name}\n{content}").to_lowercase();
-            if terms.iter().all(|term| haystack.contains(term)) {
-                let lines: Vec<_> = content
-                    .lines()
-                    .filter(|line| terms.iter().any(|term| line.to_lowercase().contains(term)))
-                    .take(8)
-                    .collect();
-                let excerpt = if lines.is_empty() {
-                    content.chars().take(2000).collect::<String>()
-                } else {
-                    lines.join("\n").chars().take(2000).collect()
-                };
-                matches.push(json!({"path":name,"excerpt":excerpt}));
-                if matches.len() == 20 {
-                    break;
-                }
-            }
-        }
-        Ok(json!({"matches":matches,"limit":20}))
-    }
-
     fn documents(&self, memory: bool) -> Result<Value> {
+        if memory {
+            let root = self.memory_root()?;
+            let mut documents = json!({});
+            let mut bytes = 0;
+            for note in crate::memory::list_notes(&root)? {
+                let name = crate::required(&note, "path")?;
+                let content = crate::memory::read_note(&root, name)?;
+                bytes += content.len();
+                if bytes > 100_000_000 {
+                    return Err(Error::new(413, "Memory export exceeds 100 MB"));
+                }
+                documents[name] = json!({"content":content,"created_time":note["created_time"],"modified_time":note["modified_time"]});
+            }
+            return Ok(documents);
+        }
         let db = self.db()?;
-        let key = if memory {
-            "memory_documents"
-        } else {
-            "workspace_documents"
-        };
+        let key = "workspace_documents";
         let mut documents = db.get(key, Value::Null)?;
         if documents.is_null() {
             documents = json!({});
@@ -152,6 +133,11 @@ impl Runtime {
         path: &str,
         body: &Value,
     ) -> Result<Option<Value>> {
+        if path == "/api/workspace/memory-location" && method == "GET" {
+            return Ok(Some(
+                json!({"path":self.memory_root()?,"format":"Markdown files","source_of_truth":"filesystem","project_relative_path":".potato/memory"}),
+            ));
+        }
         if path == "/api/workspace/system-prompt-files" {
             return Ok(Some(match method {
                 "GET" => self
@@ -195,6 +181,9 @@ impl Runtime {
         } else {
             return Ok(None);
         };
+        if memory {
+            return self.memory_document_request(method, name, body).map(Some);
+        }
         if !name.is_empty() {
             valid_name(name, memory)?;
         }

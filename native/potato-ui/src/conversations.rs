@@ -1,5 +1,6 @@
+use crate::accessibility::{button, text_input};
 use crate::{backend::Chat, App, Message};
-use iced::widget::{button, column, row, text, text_input};
+use iced::widget::{column, row, text};
 use iced::{Element, Task};
 use serde_json::{json, Value};
 #[derive(Default)]

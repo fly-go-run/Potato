@@ -1,0 +1,201 @@
+name: Native GPUI Build and Release
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'native/potato-gpui/**'
+      - 'native/potato-core/**'
+      - 'native/potato-ui/src/stream.rs'
+      - 'src/potato/agents/md_files/**'
+      - 'console/src-tauri/icons/**'
+      - '.github/workflows/gpui-release.yml'
+  push:
+    branches:
+      - 'codex/native-ci/**'
+    tags:
+      - 'native-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpui-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: '0'
+  MACOSX_DEPLOYMENT_TARGET: '15.0'
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            platform: Windows-x86_64
+          - os: macos-15
+            target: aarch64-apple-darwin
+            platform: macOS-arm64
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            platform: macOS-x86_64
+    env:
+      # Explicit --target keeps host proc-macros separate from the static CRT.
+      # End users should not need a Visual C++ runtime installer.
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.96.1'
+          targets: ${{ matrix.target }}
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            native/potato-gpui
+            native/potato-core
+          key: gpui-${{ matrix.target }}
+          cache-on-failure: true
+      - name: Check release version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="$(python native/potato-gpui/package.py --print-version)"
+          if [[ "$REF_TYPE" == tag && "$REF_NAME" != "native-v$version" ]]; then
+            echo "::error::Tag must match native/potato-gpui/Cargo.toml: native-v$version"
+            exit 1
+          fi
+      - name: Set up MSVC and Windows SDK
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Locate Windows shader compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $fxc = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\fxc.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $fxc) { throw 'Windows SDK fxc.exe is required by GPUI release builds' }
+          "GPUI_FXC_PATH=$($fxc.FullName)" >> $env:GITHUB_ENV
+          Get-Command cl.exe
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        uses: negrutiu/nsis-install@v2
+      - name: Check macOS Metal tools
+        if: runner.os == 'macOS'
+        run: |
+          xcodebuild -version
+          if ! xcrun --sdk macosx metal --version; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun --sdk macosx metal --version
+      - name: Check formatting
+        run: cargo fmt --manifest-path native/potato-gpui/Cargo.toml --check
+      - name: Check native code
+        run: cargo clippy --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
+      - name: Test core
+        run: cargo test --locked --release --manifest-path native/potato-core/Cargo.toml --target ${{ matrix.target }}
+      - name: Test GPUI
+        run: cargo test --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }}
+      - name: Build release executable
+        run: cargo build --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }}
+      - name: Verify Windows runtime imports
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $imports = & dumpbin /dependents native/potato-gpui/target/${{ matrix.target }}/release/potato-gpui.exe
+          if ($LASTEXITCODE -ne 0) { throw 'dumpbin failed' }
+          $imports
+          if ($imports -match '(?i)(VCRUNTIME|MSVCP|MSVCR)\d+.*\.dll') {
+            throw 'The executable unexpectedly requires a Visual C++ redistributable'
+          }
+      - name: Package installers and portable archives
+        run: python native/potato-gpui/package.py --target ${{ matrix.target }}
+      - name: Verify packaged applications and Windows installation
+        timeout-minutes: 10
+        run: python native/potato-gpui/verify_package.py --target ${{ matrix.target }}
+      - name: Upload verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GPUI-verification-${{ matrix.platform }}
+          path: native/potato-gpui/dist/verification/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload downloadable packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Potato-GPUI-${{ matrix.platform }}
+          path: |
+            native/potato-gpui/dist/Potato-GPUI-*.zip
+            native/potato-gpui/dist/Potato-GPUI-*.dmg
+            native/potato-gpui/dist/Potato-GPUI-*-setup.exe
+            native/potato-gpui/dist/Potato-GPUI-*.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish native preview
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/native-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Potato-GPUI-*
+          merge-multiple: true
+          path: packages
+      - name: Verify complete release assets
+        working-directory: packages
+        run: |
+          set -euo pipefail
+          test "$(find . -maxdepth 1 -name '*-setup.exe' | wc -l)" -eq 1
+          test "$(find . -maxdepth 1 -name '*.dmg' | wc -l)" -eq 2
+          test "$(find . -maxdepth 1 -name '*.zip' | wc -l)" -eq 3
+          test "$(find . -maxdepth 1 -name '*.sha256' | wc -l)" -eq 6
+          sha256sum --check ./*.sha256
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cat > notes.md <<'NOTES'
+          Native Rust desktop preview: GPUI + in-process potato-core.
+
+          - Windows x86_64: run the setup EXE, or extract the portable ZIP.
+          - macOS 15+: choose arm64 (Apple Silicon) or x86_64 (Intel), open the DMG and drag Potato GPUI to Applications.
+          - No Python or WebView runtime installation is required.
+          - Packages are not developer-signed/notarized (macOS uses ad-hoc signing); OS trust prompts may appear.
+          - CI verifies packaged core startup, and Windows installation/uninstallation. GPU rendering, IME, and microphone interaction still need real-device testing.
+          - This preview has its own app identity, shares the Rust preview data directory, and does not use the Tauri updater feed.
+          NOTES
+          # A rerun may finish a draft, but must never replace a published release.
+          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > draft.txt 2>/dev/null; then
+            test "$(cat draft.txt)" = true
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease \
+              --title "Potato GPUI $RELEASE_TAG" --notes-file notes.md
+          fi
+          gh release upload "$RELEASE_TAG" packages/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false --notes-file notes.md

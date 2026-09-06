@@ -45,9 +45,13 @@ fn decode(bytes: &[u8]) -> Result<Option<Value>> {
         offset += 4;
     }
     if kind == 15 {
+        let code = bytes
+            .get(offset..offset + 4)
+            .ok_or_else(|| Error::new(502, "Truncated speech error frame"))?;
+        let code = u32::from_be_bytes(code.try_into().unwrap());
         return Err(Error::new(
             502,
-            "Doubao speech service rejected the request; check credentials and resource ID",
+            format!("豆包语音服务返回错误（代码 {code}），请检查录音设备、网络和语音配置"),
         ));
     }
     if kind != 9 {
@@ -240,6 +244,16 @@ impl Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn service_error_preserves_code_without_exposing_payload() {
+        let mut frame = vec![0x11, 0xf0, 0x10, 0];
+        frame.extend_from_slice(&45000081u32.to_be_bytes());
+        frame.extend_from_slice(&6u32.to_be_bytes());
+        frame.extend_from_slice(b"secret");
+        let error = decode(&frame).unwrap_err();
+        assert!(error.message.contains("45000081"));
+        assert!(!error.message.contains("secret"));
+    }
     #[test]
     fn decodes_definite_utterance_without_prematurely_ending_stream() {
         let value = json!({"result":{"text":"你好","utterances":[{"definite":true}]}});

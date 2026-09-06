@@ -118,20 +118,61 @@ fn office(bytes: &[u8], extension: &str) -> Result<String> {
     Ok(result)
 }
 
+pub const MAX_BYTES: u64 = 200_000_000;
+/// File picker and drop targets pass paths directly, avoiding a second 267 MB
+/// JSON/base64 copy for a large document. Read size is bounded even if it grows.
+pub fn upload_path(path: &std::path::Path) -> Result<Value> {
+    let file = std::fs::File::open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(Error::new(400, "Attachment must be a regular file"));
+    }
+    if file.metadata()?.len() > MAX_BYTES {
+        return Err(Error::new(413, "Attachment exceeds 200 MB"));
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_BYTES {
+        return Err(Error::new(413, "Attachment exceeds 200 MB"));
+    }
+    let filename = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| Error::new(400, "Invalid attachment filename"))?;
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if let Some(mime) = match ext.as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    } {
+        return Ok(
+            json!({"type":"image","image_url":format!("data:{mime};base64,{}",STANDARD.encode(bytes)),"file_name":filename}),
+        );
+    }
+    let v = extract(filename, bytes)?;
+    Ok(json!({"type":"file","file_url":v["url"],"file_name":v["file_name"]}))
+}
 pub(crate) fn upload(body: Value) -> Result<Value> {
     let filename = required(&body, "filename")?;
-    if filename.len() > 255 || filename.contains(['\0', '/', '\\']) {
-        return Err(Error::new(400, "Invalid attachment filename"));
-    }
     let encoded = required(&body, "base64")?;
-    if encoded.len() > 28_000_000 {
-        return Err(Error::new(413, "Attachment exceeds 20 MB"));
+    if encoded.len() as u64 > MAX_BYTES.div_ceil(3) * 4 {
+        return Err(Error::new(413, "Attachment exceeds 200 MB"));
     }
     let bytes = STANDARD
         .decode(encoded)
         .map_err(|_| Error::new(400, "Invalid attachment encoding"))?;
-    if bytes.len() > 20_000_000 {
-        return Err(Error::new(413, "Attachment exceeds 20 MB"));
+    extract(filename, bytes)
+}
+fn extract(filename: &str, bytes: Vec<u8>) -> Result<Value> {
+    if filename.len() > 255 || filename.contains(['\0', '/', '\\']) {
+        return Err(Error::new(400, "Invalid attachment filename"));
+    }
+    if bytes.len() as u64 > MAX_BYTES {
+        return Err(Error::new(413, "Attachment exceeds 200 MB"));
     }
     let extension = filename.rsplit('.').next().unwrap_or("").to_lowercase();
     let (text, extracted) = if bytes.starts_with(b"%PDF-") {

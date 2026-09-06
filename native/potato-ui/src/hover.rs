@@ -159,8 +159,12 @@ impl Widget<Message, Theme, Renderer> for Hover<'_> {
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        self.content
-            .as_widget_mut()
-            .overlay(&mut tree.children[0], layout, renderer, viewport, translation)
+        self.content.as_widget_mut().overlay(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            viewport,
+            translation,
+        )
     }
 }

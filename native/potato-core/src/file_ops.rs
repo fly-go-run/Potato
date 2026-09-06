@@ -35,6 +35,63 @@ fn read_existing(dir: &Dir, name: &Path) -> Result<Option<Vec<u8>>> {
 }
 
 impl PreparedWrite {
+    pub(crate) fn expect_content(self, expected: Option<&serde_json::Value>) -> Result<Self> {
+        if let Some(expected) = expected {
+            let before = match &self.before {
+                Some(bytes) => serde_json::json!(std::str::from_utf8(bytes)
+                    .map_err(|_| Error::new(400, "File is not UTF-8 text"))?),
+                None => serde_json::Value::Null,
+            };
+            if before != *expected {
+                return Err(Error::new(409, "File changed; read it again before saving"));
+            }
+        }
+        Ok(self)
+    }
+    pub(crate) fn prepare_change(
+        project: &Path,
+        target: &Path,
+        operation: &str,
+        args: &serde_json::Value,
+    ) -> Result<Self> {
+        let mut prepared = Self::prepare(project, target, "")?;
+        let before = std::str::from_utf8(prepared.before.as_deref().unwrap_or_default())
+            .map_err(|_| Error::new(400, "File is not UTF-8 text"))?;
+        let after = match operation {
+            "append_file" => format!(
+                "{before}{}",
+                args["content"]
+                    .as_str()
+                    .ok_or_else(|| Error::new(400, "content is required"))?
+            ),
+            "edit_file" => {
+                if prepared.before.is_none() {
+                    return Err(Error::new(404, "Edit target does not exist"));
+                }
+                let old = crate::required(args, "old_text")?;
+                let new = args["new_text"]
+                    .as_str()
+                    .ok_or_else(|| Error::new(400, "new_text is required"))?;
+                let count = before.matches(old).count();
+                if count == 0 {
+                    return Err(Error::new(
+                        409,
+                        "old_text was not found; read the current file before editing",
+                    ));
+                }
+                if count > 1 && args["replace_all"] != true {
+                    return Err(Error::new(409,"old_text matches multiple locations; include more context or set replace_all"));
+                }
+                before.replace(old, new)
+            }
+            _ => return Err(Error::new(400, "Unknown file change operation")),
+        };
+        if after.len() > 1_000_000 {
+            return Err(Error::new(413, "File exceeds 1 MB edit limit"));
+        }
+        prepared.content = after.into_bytes();
+        Ok(prepared)
+    }
     pub(crate) fn prepare(project: &Path, target: &Path, content: &str) -> Result<Self> {
         if content.len() > 1_000_000 {
             return Err(Error::new(413, "File exceeds 1 MB edit limit"));
@@ -73,6 +130,19 @@ impl PreparedWrite {
             .is_ok_and(|m| m.file_type().is_symlink())
         {
             return Err(Error::new(403, "Cannot replace a symbolic link"));
+        }
+        // Reject redirected parent directories as well as leaf symlinks. This
+        // prevents an ordinary-looking project path from targeting .git or a
+        // policy directory through an in-project symlink.
+        let mut parent = project.to_path_buf();
+        for component in relative.components() {
+            parent.push(component.as_os_str());
+            if std::fs::symlink_metadata(&parent).is_ok_and(|m| m.file_type().is_symlink()) {
+                return Err(Error::new(
+                    403,
+                    "File writes cannot traverse symbolic links",
+                ));
+            }
         }
         let before = read_existing(&directory, Path::new(&name))?;
         Ok(Self {
@@ -116,6 +186,54 @@ impl PreparedWrite {
     }
 }
 
+pub(crate) fn read_range(path: &Path, args: &serde_json::Value) -> Result<String> {
+    use serde_json::json;
+    let start = args["start_line"].as_u64().unwrap_or(1) as usize;
+    let end = args["end_line"]
+        .as_u64()
+        .map(|n| n as usize)
+        .unwrap_or(start.saturating_add(399));
+    if start == 0 || end < start || end - start >= 10_000 {
+        return Err(Error::new(
+            400,
+            "Use a 1-based line range containing at most 10000 lines",
+        ));
+    }
+    let file = std::fs::File::open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(Error::new(400, "Target must be a regular file"));
+    }
+    let mut bytes = Vec::new();
+    file.take(16_000_001).read_to_end(&mut bytes)?;
+    if bytes.len() > 16_000_000 {
+        return Err(Error::new(
+            413,
+            "Text file exceeds the 16 MB read limit; narrow it with a search or shell command",
+        ));
+    }
+    let text = String::from_utf8(bytes).map_err(|_| Error::new(400, "File is not UTF-8 text"))?;
+    if text.contains('\0') {
+        return Err(Error::new(400, "File contains binary data"));
+    }
+    let lines: Vec<_> = text.lines().collect();
+    if start > lines.len() + 1 {
+        return Err(Error::new(
+            400,
+            format!("start_line is beyond the {} lines in the file", lines.len()),
+        ));
+    }
+    let actual_end = end.min(lines.len());
+    let content = lines
+        .iter()
+        .enumerate()
+        .skip(start - 1)
+        .take(end - start + 1)
+        .map(|(i, line)| format!("{}: {line}", i + 1))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Ok(json!({"path":path,"start_line":start,"end_line":actual_end,"total_lines":lines.len(),"content":content,"next_start_line":if actual_end<lines.len(){Some(actual_end+1)}else{None}}).to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +273,63 @@ mod tests {
         std::os::unix::fs::symlink(outside.path(), root.path().join("escape")).unwrap();
         assert!(PreparedWrite::prepare(root.path(), Path::new("escape/file"), "bad").is_err());
         assert!(!outside.path().join("file").exists());
+    }
+}
+
+#[cfg(test)]
+mod change_tests {
+    use super::*;
+    use serde_json::{json, Value};
+    #[test]
+    fn edits_are_unambiguous_and_preserve_concurrent_changes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = Path::new("a.txt");
+        std::fs::write(root.path().join(path), "same\nsame\n中文").unwrap();
+        assert!(PreparedWrite::prepare_change(
+            root.path(),
+            path,
+            "edit_file",
+            &json!({"old_text":"same","new_text":"new"})
+        )
+        .is_err());
+        PreparedWrite::prepare_change(
+            root.path(),
+            path,
+            "edit_file",
+            &json!({"old_text":"same","new_text":"new","replace_all":true}),
+        )
+        .unwrap()
+        .apply()
+        .unwrap();
+        let pending = PreparedWrite::prepare_change(
+            root.path(),
+            path,
+            "append_file",
+            &json!({"content":" tail"}),
+        )
+        .unwrap();
+        std::fs::write(root.path().join(path), "concurrent edit").unwrap();
+        assert_eq!(pending.apply().unwrap_err().status, 409);
+        assert_eq!(
+            std::fs::read_to_string(root.path().join(path)).unwrap(),
+            "concurrent edit"
+        );
+    }
+    #[test]
+    fn line_ranges_are_numbered_and_page_without_gaps() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("a.txt");
+        std::fs::write(&path, "一\n二\n三\n").unwrap();
+        let first: Value = serde_json::from_str(
+            &read_range(&path, &json!({"start_line":1,"end_line":2})).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(first["content"], "1: 一\n2: 二");
+        assert_eq!(first["next_start_line"], 3);
+        let last: Value =
+            serde_json::from_str(&read_range(&path, &json!({"start_line":3})).unwrap()).unwrap();
+        assert_eq!(last["content"], "3: 三");
+        assert!(last["next_start_line"].is_null());
+        assert!(read_range(&path, &json!({"start_line":0})).is_err());
     }
 }

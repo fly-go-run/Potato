@@ -1,5 +1,7 @@
 # Potato 审批机制调研与改进方案
 
+> 历史快照：部分 Python 缺陷已修复。当前源码对照和 Rust 落地方案见 [2026-09-06 薄审批研究](rust-thin-approval-2026-09-06.md)。
+
 日期：2026-08-16
 来源：Potato 源码审计（`src/potato/governance/*`、`security/tool_guard/*`、`app/approvals/*`）、
 Codex 本地源码（`~/testProjects/codex` @ `2f5b01ab`，2026-03）、DeepSeek Harness 官方文档、

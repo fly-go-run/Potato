@@ -34,9 +34,13 @@ impl Runtime {
             self.db()?.save_question(&question)?;
             pending.insert(id.clone(), tx);
         }
-        let answer = tokio::select! {
-            _=cancel.cancelled()=>None,
-            result=rx=>result.ok(),
+        let answer = if self.has_steering(session)? {
+            None
+        } else {
+            tokio::select! {
+                _=cancel.cancelled()=>None,
+                result=rx=>result.ok(),
+            }
         };
         let mut pending = lock(&self.questions)?;
         pending.remove(&id);

@@ -346,6 +346,11 @@ impl Runtime {
             return Ok(());
         }
         let mut body = spec["request"].clone();
+        // Background runs must not hang behind a permission card or question.
+        if !body["request_context"].is_object() {
+            body["request_context"] = json!({});
+        }
+        body["request_context"]["approval_level"] = json!("NEVER");
         body["session_id"] = json!(if spec["runtime"]["share_session"] == false {
             format!("cron-{}-{}", string(spec, "id"), uuid::Uuid::new_v4())
         } else {

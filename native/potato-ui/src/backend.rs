@@ -57,9 +57,9 @@ impl Backend {
         if let Some(path) = std::env::var_os("POTATO_NATIVE_DATA_DIR") {
             return Ok(path.into());
         }
-        Ok(dirs::data_local_dir()
-            .ok_or("无法找到应用数据目录")?
-            .join("dev.potato.rust-ui")
+        Ok(dirs::home_dir()
+            .ok_or("无法找到用户主目录")?
+            .join(".potato")
             .join("native-v1"))
     }
     pub fn open(path: &Path) -> Result<Self, String> {
@@ -115,7 +115,7 @@ impl Backend {
     pub async fn pending_approvals(
         &self,
         session: &str,
-    ) -> Result<Vec<crate::interactions::Approval>, String> {
+    ) -> Result<(Vec<crate::interactions::Approval>, usize), String> {
         let v = self
             .request(
                 "GET",
@@ -123,7 +123,11 @@ impl Backend {
                 Value::Null,
             )
             .await?;
-        serde_json::from_value(v["pending_approvals"].clone()).map_err(|_| "审批格式错误".into())
+        Ok((
+            serde_json::from_value(v["pending_approvals"].clone())
+                .map_err(|_| "审批格式错误".to_owned())?,
+            v["session_grants"].as_u64().unwrap_or(0) as usize,
+        ))
     }
     pub async fn questions(
         &self,
@@ -142,8 +146,9 @@ impl Backend {
         self,
         a: crate::interactions::Approval,
         approve: bool,
+        remember: bool,
     ) -> Result<(), String> {
-        self.request("POST",if approve{"/api/approval/approve"}else{"/api/approval/deny"},json!({"request_id":a.request_id,"session_id":a.root_session_id,"user_id":a.user_id,"scope":"exact"})).await?;
+        self.request("POST",if approve{"/api/approval/approve"}else{"/api/approval/deny"},json!({"request_id":a.request_id,"session_id":a.root_session_id,"user_id":a.user_id,"scope":if remember{"session"}else{"exact"}})).await?;
         Ok(())
     }
     pub async fn answer_question(&self, id: &str, body: Value) -> Result<(), String> {
@@ -181,7 +186,16 @@ impl Backend {
         let preferences = self
             .request("GET", "/api/native/preferences", Value::Null)
             .await?;
+        let project = self
+            .request("GET", "/api/workspace/coding-project", Value::Null)
+            .await
+            .unwrap_or(Value::Null);
         Ok(Connection {
+            project_name: if project["is_workspace_default"] == true {
+                "默认".into()
+            } else {
+                project["name"].as_str().unwrap_or("默认").into()
+            },
             preferences,
             chats,
             model: model["active_llm"]["model"].as_str().map(str::to_owned),
@@ -284,6 +298,7 @@ fn default_channel() -> String {
 
 #[derive(Clone, Debug)]
 pub struct Connection {
+    pub project_name: String,
     pub preferences: Value,
     pub chats: Vec<Chat>,
     pub model: Option<String>,
@@ -409,6 +424,7 @@ mod tests {
                     .pending_approvals("unrelated")
                     .await
                     .unwrap()
+                    .0
                     .is_empty());
             });
         }

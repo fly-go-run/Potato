@@ -81,35 +81,6 @@ fn start(runtime: &Arc<Runtime>, session: &str, id: &str) -> mpsc::UnboundedRece
     rx
 }
 
-async fn approve_next(runtime: &Runtime, session: &str) {
-    let approval = tokio::time::timeout(Duration::from_secs(5), async {
-        loop {
-            let pending = runtime
-                .request(
-                    "GET",
-                    &format!("/api/console/push-messages?session_id={session}"),
-                    Value::Null,
-                )
-                .await
-                .unwrap();
-            if !pending["pending_approvals"][0].is_null() {
-                break pending["pending_approvals"][0].clone();
-            }
-            tokio::time::sleep(Duration::from_millis(5)).await;
-        }
-    })
-    .await
-    .unwrap();
-    runtime
-        .request(
-            "POST",
-            "/api/approval/approve",
-            json!({"request_id":approval["request_id"],"session_id":session,"user_id":"default"}),
-        )
-        .await
-        .unwrap();
-}
-
 #[tokio::test]
 async fn attachment_only_text_is_decoded_for_the_model_and_saved_for_preview() {
     use base64::Engine;
@@ -284,7 +255,14 @@ async fn hosted_search_preserves_citations_and_uses_separate_responses_request()
     configure(&runtime, &url, "OpenAIChatModel").await;
     runtime.request("PUT","/api/workspace/web-search-backend",json!({"web_search_backend":"hosted","web_search_provider_id":"deepseek","web_search_model":"search-model"})).await.unwrap();
     let mut stream = start(&runtime, "search", "run");
-    approve_next(&runtime, "search").await;
+    // AUTO uses the already configured search service without a second prompt.
+    assert!(runtime
+        .request("GET", "/api/approval/list?session_id=search", Value::Null)
+        .await
+        .unwrap()["pending_approvals"]
+        .as_array()
+        .unwrap()
+        .is_empty());
     assert_eq!(
         finish(&mut stream).await.last().unwrap()["status"],
         "completed"
@@ -901,9 +879,17 @@ async fn credentials_encrypted_at_rest_and_masked_in_ui() {
         .unwrap();
     assert_eq!(providers[0]["api_key"], "********");
     drop(runtime);
-    for entry in std::fs::read_dir(tmp.path()).unwrap() {
-        let bytes = std::fs::read(entry.unwrap().path()).unwrap();
-        assert!(!String::from_utf8_lossy(&bytes).contains("secret-test-key"));
+    let mut directories = vec![tmp.path().to_path_buf()];
+    while let Some(directory) = directories.pop() {
+        for entry in std::fs::read_dir(directory).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                directories.push(path);
+            } else {
+                let bytes = std::fs::read(path).unwrap();
+                assert!(!String::from_utf8_lossy(&bytes).contains("secret-test-key"));
+            }
+        }
     }
     std::fs::remove_file(tmp.path().join("master.key")).unwrap();
     assert!(Runtime::open(tmp.path()).is_err());
@@ -1361,4 +1347,207 @@ async fn native_conversation_management_search_and_preferences_persist() {
             .unwrap()[0]["id"],
         "family"
     );
+}
+
+#[tokio::test]
+async fn custom_provider_creation_saves_encrypted_key_and_rejects_invalid_url_atomically() {
+    let dir = tempfile::tempdir().unwrap();
+    let runtime = Runtime::open(dir.path()).unwrap();
+    let (url, mut requests) = fixture(vec![(
+        "application/json".into(),
+        json!({"data":[]}).to_string(),
+    )])
+    .await;
+    let created=runtime.request("POST","/api/models/custom-providers",json!({"id":"atomic","name":"Atomic","default_base_url":url,"api_key":"fixture-only-secret"})).await.unwrap();
+    assert_eq!(created["api_key"], "********");
+    assert!(!created.to_string().contains("fixture-only-secret"));
+    runtime
+        .request("POST", "/api/models/atomic/test", json!({}))
+        .await
+        .unwrap();
+    assert!(requests
+        .recv()
+        .await
+        .unwrap()
+        .to_lowercase()
+        .contains("authorization: bearer fixture-only-secret"));
+    assert!(runtime.request("POST","/api/models/custom-providers",json!({"id":"invalid","name":"Invalid","default_base_url":"file:///tmp/not-a-model","api_key":"secret"})).await.is_err());
+    let providers = runtime
+        .request("GET", "/api/models", Value::Null)
+        .await
+        .unwrap();
+    assert!(!providers
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|p| p["id"] == "invalid"));
+}
+
+#[tokio::test]
+async fn discovering_models_preserves_existing_names_and_parameters() {
+    let dir = tempfile::tempdir().unwrap();
+    let runtime = Runtime::open(dir.path()).unwrap();
+    let (url, _) = fixture(vec![(
+        "application/json".into(),
+        json!({"data":[{"id":"mine"},{"id":"new"}]}).to_string(),
+    )])
+    .await;
+    runtime
+        .request(
+            "PUT",
+            "/api/models/deepseek/config",
+            json!({"base_url":url,"api_key":"fixture"}),
+        )
+        .await
+        .unwrap();
+    runtime
+        .request(
+            "POST",
+            "/api/models/deepseek/models",
+            json!({"id":"mine","name":"My model"}),
+        )
+        .await
+        .unwrap();
+    runtime
+        .request(
+            "PUT",
+            "/api/models/deepseek/models/mine/config",
+            json!({"max_tokens":1234}),
+        )
+        .await
+        .unwrap();
+    runtime
+        .request("POST", "/api/models/deepseek/discover", json!({}))
+        .await
+        .unwrap();
+    let providers = runtime
+        .request("GET", "/api/models", Value::Null)
+        .await
+        .unwrap();
+    let provider = providers
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "deepseek")
+        .unwrap();
+    let models = provider["extra_models"].as_array().unwrap();
+    let mine = models.iter().find(|m| m["id"] == "mine").unwrap();
+    assert_eq!(mine["name"], "My model");
+    assert_eq!(mine["max_tokens"], 1234);
+    assert_eq!(models.iter().filter(|m| m["id"] == "new").count(), 1);
+}
+
+#[test]
+fn native_runtime_initializes_tls_for_direct_websocket_clients() {
+    let root = tempfile::tempdir().unwrap();
+    let _runtime = Runtime::open(root.path()).unwrap();
+    // Exercise the same default builder used by tokio-tungstenite. Feature
+    // unification enables both ring and aws-lc-rs; without initialization this panics.
+    let _config = rustls::ClientConfig::builder()
+        .with_root_certificates(rustls::RootCertStore::empty())
+        .with_no_client_auth();
+}
+
+#[tokio::test]
+async fn provider_removal_key_clearing_and_model_removal_keep_config_consistent() {
+    let dir = tempfile::tempdir().unwrap();
+    let runtime = Runtime::open(dir.path()).unwrap();
+    assert!(runtime
+        .request(
+            "DELETE",
+            "/api/models/custom-providers/deepseek",
+            Value::Null
+        )
+        .await
+        .is_err());
+    runtime.request("POST","/api/models/custom-providers",json!({"id":"qa","name":"QA","default_base_url":"https://example.com/v1","api_key":"dummy-test-key"})).await.unwrap();
+    runtime
+        .request(
+            "POST",
+            "/api/models/qa/models",
+            json!({"id":"vendor/model","name":"Model"}),
+        )
+        .await
+        .unwrap();
+    runtime.request("PUT","/api/models/qa/models/vendor%2Fmodel",json!({"name":"Renamed","max_tokens":2048,"max_input_length":32000,"reasoning_effort":"high"})).await.unwrap();
+    assert!(runtime
+        .request(
+            "PUT",
+            "/api/models/qa/models/vendor%2Fmodel",
+            json!({"max_tokens":0})
+        )
+        .await
+        .is_err());
+    runtime
+        .request(
+            "PUT",
+            "/api/models/active",
+            json!({"provider_id":"qa","model":"vendor/model"}),
+        )
+        .await
+        .unwrap();
+    runtime
+        .request(
+            "DELETE",
+            "/api/models/qa/models/vendor%2Fmodel",
+            Value::Null,
+        )
+        .await
+        .unwrap();
+    assert!(runtime
+        .request("GET", "/api/models/active", Value::Null)
+        .await
+        .unwrap()["active_llm"]
+        .is_null());
+    runtime
+        .request("PUT", "/api/models/qa/config", json!({"api_key":""}))
+        .await
+        .unwrap();
+    let providers = runtime
+        .request("GET", "/api/models", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(
+        providers
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == "qa")
+            .unwrap()["api_key"],
+        ""
+    );
+    runtime
+        .request("DELETE", "/api/models/custom-providers/qa", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(
+        runtime
+            .request("GET", "/api/models", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[test]
+fn attachment_file_reader_checks_size_before_reading_and_preserves_original() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("note.txt");
+    std::fs::write(&path, "你好，附件").unwrap();
+    let value = potato_core::attachments::upload_path(&path).unwrap();
+    assert_eq!(value["file_name"], "note.txt");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "你好，附件");
+    let large = dir.path().join("large.pdf");
+    std::fs::File::create(&large)
+        .unwrap()
+        .set_len(potato_core::attachments::MAX_BYTES + 1)
+        .unwrap();
+    assert!(potato_core::attachments::upload_path(&large)
+        .unwrap_err()
+        .message
+        .contains("200 MB"));
+    assert!(potato_core::attachments::upload_path(dir.path()).is_err());
 }

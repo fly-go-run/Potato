@@ -1,6 +1,7 @@
 //! Parsed presentation data is cached when messages change, never during view().
+use crate::accessibility::button;
 use crate::Message;
-use iced::widget::{button, column, container, markdown, rich_text, row, scrollable, text, Column};
+use iced::widget::{column, container, markdown, rich_text, row, scrollable, text, Column};
 use iced::{Element, Fill, Theme};
 use serde_json::Value;
 
@@ -169,6 +170,7 @@ fn render_blocks<'a>(blocks: &'a [Block], style: markdown::Style) -> Element<'a,
                             {
                                 let element: Element<'a, markdown::Uri> =
                                     rich_text(value.spans(style))
+                                        .on_link_click(|uri| uri)
                                         .size(14)
                                         .width(Fill)
                                         .align_x(align)
@@ -381,7 +383,8 @@ impl ChatMessage {
 }
 /// Core emits calls and results as separate messages. Join by call_id, never name.
 pub fn merge_tools(messages: &mut Vec<ChatMessage>) {
-    let mut calls = std::collections::HashMap::new();
+    let mut calls: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
     let mut result: Vec<ChatMessage> = Vec::new();
     for mut message in messages.drain(..) {
         let mut remaining = Vec::new();
@@ -412,14 +415,20 @@ fn render_items<'a>(items: &'a [markdown::Item], style: markdown::Style) -> Elem
     let mut content = Column::new().spacing(8).width(Fill);
     for item in items {
         match item {
-            markdown::Item::List { start, items } => {
-                for (i, item) in items.iter().enumerate() {
+            markdown::Item::List { start, bullets } => {
+                for (i, bullet) in bullets.iter().enumerate() {
+                    let (item, marker) = match bullet {
+                        markdown::Bullet::Point { items } => (items, "•"),
+                        markdown::Bullet::Task { items, done } => {
+                            (items, if *done { "☑" } else { "☐" })
+                        }
+                    };
                     content = content.push(
                         row![
                             text(
                                 start
                                     .map(|s| format!("{}.", s + i as u64))
-                                    .unwrap_or("•".into())
+                                    .unwrap_or(marker.into())
                             )
                             .size(16),
                             render_items(item, style)
@@ -428,8 +437,14 @@ fn render_items<'a>(items: &'a [markdown::Item], style: markdown::Style) -> Elem
                     );
                 }
             }
-            markdown::Item::CodeBlock(code) => {
-                let mut spans = code.spans(style).to_vec();
+            markdown::Item::CodeBlock { lines, .. } => {
+                let mut spans = Vec::new();
+                for (i, line) in lines.iter().enumerate() {
+                    if i > 0 {
+                        spans.push(iced::widget::span("\n"));
+                    }
+                    spans.extend(line.spans(style).iter().cloned());
+                }
                 // Iced's bundled Markdown highlighter uses a dark syntax palette.
                 // Adapt those colors to the original client's light code surface.
                 if style.inline_code_color.r + style.inline_code_color.g + style.inline_code_color.b
@@ -444,6 +459,7 @@ fn render_items<'a>(items: &'a [markdown::Item], style: markdown::Style) -> Elem
                     }
                 }
                 let code_view: Element<'a, markdown::Uri> = rich_text(spans)
+                    .on_link_click(|uri| uri)
                     .width(iced::Length::Shrink)
                     .font(iced::Font::MONOSPACE)
                     .size(12)
@@ -460,6 +476,16 @@ fn render_items<'a>(items: &'a [markdown::Item], style: markdown::Style) -> Elem
                     .style(crate::ui::code_surface),
                 );
             }
+            markdown::Item::Quote(items) => {
+                content = content.push(crate::hover::quote(render_items(items, style)));
+            }
+            markdown::Item::Rule => {
+                content = content.push(iced::widget::rule::horizontal(1));
+            }
+            markdown::Item::Image { url, .. } => {
+                content = content.push(text(url));
+            }
+            markdown::Item::Table { .. } => {} // Tables are isolated by parse_blocks.
             markdown::Item::Heading(_, value) | markdown::Item::Paragraph(value) => {
                 let mut spans = value.spans(style).to_vec();
                 for span in &mut spans {
@@ -501,6 +527,7 @@ fn render_items<'a>(items: &'a [markdown::Item], style: markdown::Style) -> Elem
                     ..Default::default()
                 };
                 let element: Element<'a, markdown::Uri> = rich_text(spans)
+                    .on_link_click(|uri| uri)
                     .font(font)
                     .size(size)
                     .line_height(text::LineHeight::Absolute(28.0.into()))
@@ -514,6 +541,60 @@ fn render_items<'a>(items: &'a [markdown::Item], style: markdown::Style) -> Elem
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn core_call_and_output_frames_pair_by_id_in_history_and_stream() {
+        use potato_core::protocol::{data, message};
+        use serde_json::json;
+        let call = |id: &str| {
+            message(
+                id,
+                "function_call",
+                "assistant",
+                json!([data(
+                    id,
+                    json!({"call_id":id,"name":"shell","arguments":"pwd"})
+                )]),
+                "completed",
+            )
+        };
+        let output = message(
+            "out",
+            "function_call_output",
+            "tool",
+            json!([data(
+                "out",
+                json!({"call_id":"a","name":"shell","output":"denied","state":"error"})
+            )]),
+            "failed",
+        );
+        let mut messages = vec![
+            ChatMessage::from_value(&call("a")),
+            ChatMessage::from_value(&call("b")),
+        ];
+        merge_tools(&mut messages);
+        assert_eq!(messages[0].tools[0].status, "in_progress");
+        messages.push(ChatMessage::from_value(&output));
+        merge_tools(&mut messages);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].tools[0].arguments, "pwd");
+        assert_eq!(messages[0].tools[0].output, "denied");
+        assert_eq!(messages[0].tools[0].status, "failed");
+        assert_eq!(messages[1].tools[0].status, "in_progress");
+        merge_tools(&mut messages);
+        assert_eq!(messages.len(), 2);
+    }
+    #[test]
+    fn reasoning_is_separate_and_files_have_copyable_names() {
+        let reasoning = ChatMessage::from_value(
+            &serde_json::json!({"role":"assistant","type":"reasoning","content":[{"type":"text","text":"思考"}]}),
+        );
+        assert!(reasoning.reasoning);
+        let file = ChatMessage::from_value(
+            &serde_json::json!({"role":"user","content":[{"type":"file","file_name":"报告.pdf","file_url":"upload://a"}]}),
+        );
+        assert_eq!(file.body, "附件：报告.pdf");
+        assert!(file.raw.is_some());
+    }
     #[test]
     fn full_chat_view_accepts_nested_rich_content_in_vertical_scroller() {
         let app = crate::App {

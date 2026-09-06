@@ -1,11 +1,13 @@
 use crate::{App, Message};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use iced::Task;
-use serde_json::{json, Value};
+use serde_json::Value;
 #[derive(Clone)]
 pub enum Event {
     Pick,
-    Picked(Result<Option<Value>, String>),
+    Picked(String, Result<Vec<Value>, String>),
+    DropFile(std::path::PathBuf),
+    FlushDrops,
     Clear,
     Remove(usize),
     SaveImage(String),
@@ -14,60 +16,59 @@ pub enum Event {
 impl App {
     pub fn media_event(&mut self, event: Event) -> Task<Message> {
         match event {
-            Event::Pick if !self.streaming && !self.busy => {
-                let Some(backend) = self.backend.clone() else {
-                    return Task::none();
-                };
+            Event::DropFile(path) if !self.streaming => {
+                self.pending_drops.push(path);
+            }
+            Event::Pick | Event::FlushDrops if !self.streaming && !self.busy => {
                 self.busy = true;
+                let destination = self.selected.clone().unwrap_or_default();
+                let dropped = if matches!(event, Event::FlushDrops) {
+                    Some(std::mem::take(&mut self.pending_drops))
+                } else {
+                    None
+                };
                 return Task::perform(
                     async move {
-                        let Some(file) = rfd::AsyncFileDialog::new().pick_file().await else {
-                            return Ok(None);
-                        };
-                        let name = file.file_name();
-                        if std::fs::metadata(file.path())
-                            .map_err(|_| "无法读取附件")?
-                            .len()
-                            > 20_000_000
-                        {
-                            return Err("附件超过 20 MB".into());
-                        }
-                        let bytes = file.read().await;
-                        if bytes.len() > 20_000_000 {
-                            return Err("附件超过 20 MB".into());
-                        }
-                        let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
-                        let encoded = STANDARD.encode(bytes);
-                        let value = if let Some(mime) = match ext.as_str() {
-                            "png" => Some("image/png"),
-                            "jpg" | "jpeg" => Some("image/jpeg"),
-                            "webp" => Some("image/webp"),
-                            _ => None,
-                        } {
-                            json!({"type":"image","image_url":format!("data:{mime};base64,{encoded}"),"file_name":name})
+                        let paths = if let Some(paths) = dropped {
+                            paths
                         } else {
-                            let v = backend
-                                .request(
-                                    "POST",
-                                    "/api/console/upload",
-                                    json!({"filename":name,"base64":encoded}),
-                                )
-                                .await?;
-                            json!({"type":"file","file_url":v["url"],"file_name":v["file_name"]})
+                            rfd::AsyncFileDialog::new()
+                                .pick_files()
+                                .await
+                                .unwrap_or_default()
+                                .into_iter()
+                                .map(|f| f.path().to_owned())
+                                .collect()
                         };
-                        Ok(Some(value))
+                        tokio::task::spawn_blocking(move || {
+                            paths
+                                .iter()
+                                .map(|path| {
+                                    potato_core::attachments::upload_path(path)
+                                        .map_err(|e| e.message)
+                                })
+                                .collect()
+                        })
+                        .await
+                        .map_err(|_| "无法读取附件".to_owned())?
                     },
-                    |v| Message::Media(Event::Picked(v)),
+                    move |v| Message::Media(Event::Picked(destination.clone(), v)),
                 );
             }
-            Event::Picked(result) => {
+            Event::Picked(destination, result) => {
                 self.busy = false;
                 match result {
-                    Ok(Some(v)) => {
-                        self.attachments.push(v);
+                    Ok(values) if destination == self.selected.clone().unwrap_or_default() => {
+                        self.attachments.extend(values);
                         self.status = format!("已添加 {} 个附件", self.attachments.len());
                     }
-                    Ok(None) => {}
+                    Ok(values) => {
+                        self.drafts
+                            .entry(destination)
+                            .or_default()
+                            .attachments
+                            .extend(values);
+                    }
                     Err(e) => self.status = e,
                 }
             }
@@ -121,5 +122,29 @@ impl App {
             _ => {}
         }
         Task::none()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn asynchronous_attachments_stay_with_their_original_conversation() {
+        let mut app = App {
+            selected: Some("new".into()),
+            ..App::default()
+        };
+        let value = serde_json::json!({"type":"file","file_name":"old.txt","file_url":"data:text/plain;base64,b2xk"});
+        let _ = app.media_event(Event::Picked("old".into(), Ok(vec![value])));
+        assert!(app.attachments.is_empty());
+        assert_eq!(app.drafts["old"].attachments.len(), 1);
+    }
+    #[test]
+    fn multiple_drop_events_are_collected_before_loading() {
+        let mut app = App::default();
+        let _ = app.media_event(Event::DropFile("a.txt".into()));
+        let _ = app.media_event(Event::DropFile("b.txt".into()));
+        assert_eq!(app.pending_drops.len(), 2);
+        assert!(!app.busy);
     }
 }

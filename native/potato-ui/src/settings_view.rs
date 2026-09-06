@@ -1,10 +1,22 @@
-use super::{Destination, Event, Operation, Section, Settings};
+use super::{Destination, Event, NoticeTone, Operation, Section, Settings};
+use crate::accessibility::{button, pick_list, text_input};
 use crate::{ui, Message};
 use iced::widget::{
-    button, column, container, rule::horizontal as horizontal_rule, mouse_area, opaque, pick_list, row, scrollable,
-    stack, svg, text, text_input, tooltip, Column, Space,
+    column, container, mouse_area, opaque, row, scrollable, stack, svg, text, tooltip, Column,
+    Space,
 };
 use iced::{alignment, border, Color, Element, Fill, Shadow, Size, Theme, Vector};
+
+#[derive(Clone, PartialEq, Eq)]
+struct ProviderChoice {
+    id: String,
+    name: String,
+}
+impl std::fmt::Display for ProviderChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)
+    }
+}
 
 fn dark(theme: &Theme) -> bool {
     theme.palette().background.r < 0.5
@@ -25,13 +37,13 @@ fn group(theme: &Theme) -> container::Style {
 }
 fn secondary(theme: &Theme, status: button::Status) -> button::Style {
     button::Style {
-        border: border::rounded(6).width(1).color(line(theme)),
+        border: border::rounded(8).width(1).color(line(theme)),
         ..ui::nav(theme, status)
     }
 }
 fn primary(theme: &Theme, status: button::Status) -> button::Style {
     let mut style = button::primary(theme, status);
-    style.border = border::rounded(6);
+    style.border = border::rounded(8);
     style
 }
 fn input(theme: &Theme, status: text_input::Status) -> text_input::Style {
@@ -42,14 +54,24 @@ fn input(theme: &Theme, status: text_input::Status) -> text_input::Style {
         Color::WHITE
     }
     .into();
-    style.border =
-        border::rounded(6)
-            .width(1)
-            .color(if matches!(status, text_input::Status::Focused) {
-                theme.palette().text
-            } else {
-                line(theme)
-            });
+    style.border = border::rounded(8).width(1).color(
+        if matches!(status, text_input::Status::Focused { .. }) {
+            theme.palette().text
+        } else {
+            line(theme)
+        },
+    );
+    style
+}
+fn picker(theme: &Theme, status: pick_list::Status) -> pick_list::Style {
+    let mut style = pick_list::default(theme, status);
+    style.border = border::rounded(8).width(1).color(line(theme));
+    style.background = theme.palette().background.into();
+    style
+}
+fn picker_menu(theme: &Theme) -> iced::widget::overlay::menu::Style {
+    let mut style = iced::widget::overlay::menu::default(theme);
+    style.border = border::rounded(8).width(1).color(line(theme));
     style
 }
 fn icon(path: &str, theme: &Theme) -> Element<'static, Message> {
@@ -92,7 +114,7 @@ fn section_icon(section: Section, theme: &Theme) -> Element<'static, Message> {
 fn label(value: &str) -> iced::widget::Text<'_> {
     text(value).size(13)
 }
-fn heading(value: &str, size: u16) -> iced::widget::Text<'_> {
+fn heading(value: &str, size: u32) -> iced::widget::Text<'_> {
     text(value).size(size).font(iced::Font {
         weight: iced::font::Weight::Semibold,
         ..iced::Font::DEFAULT
@@ -138,7 +160,22 @@ impl Settings {
         key: &'static str,
         secret: bool,
     ) -> Element<'_, Message> {
+        let id = iced::widget::Id::from(format!("settings-{key}"));
         text_input(placeholder, self.value(key))
+            .accessibility_label(match key {
+                "max_tokens" => "最大输出 Token",
+                "max_input_length" => "上下文长度",
+                "reasoning_effort" => "推理强度",
+                "edit_name" => "模型显示名称",
+                "key" => "API key",
+                "url" => "Base URL",
+                "app" => "App ID",
+                "resource" => "资源 ID",
+                "search_provider" => "托管搜索服务商",
+                "search_model" => "托管搜索模型",
+                _ => placeholder,
+            })
+            .id(id.clone())
             .secure(secret)
             .size(13)
             .padding([8, 10])
@@ -186,15 +223,64 @@ impl Settings {
         .text_size(13)
         .padding([8, 10])
         .width(256)
-        .style(|theme, status| {
-            let mut s = pick_list::default(theme, status);
-            s.border = border::rounded(6).width(1).color(line(theme));
-            s.background = theme.palette().background.into();
-            s
-        })
+        .style(picker)
+        .menu_style(picker_menu)
         .into()
     }
     fn models(&self, theme: &Theme) -> Element<'_, Message> {
+        if self.editing_model {
+            return column![
+                button(label("‹  返回服务商"))
+                    .style(ui::nav)
+                    .on_press(Message::Preferences(Event::Navigate(
+                        Destination::Provider(self.value("id").into())
+                    ))),
+                heading(self.value("edit_model"), 16),
+                container(column![
+                    self.form_row("显示名称", "", "模型名称", "edit_name", false, theme),
+                    self.form_row(
+                        "最大输出 Token",
+                        "留空使用服务商默认值。",
+                        "自动",
+                        "max_tokens",
+                        false,
+                        theme
+                    ),
+                    self.form_row(
+                        "上下文长度",
+                        "用于估算历史压缩阈值；留空使用默认值。",
+                        "自动",
+                        "max_input_length",
+                        false,
+                        theme
+                    ),
+                    self.form_row(
+                        "推理强度",
+                        "由模型支持，例如 low、medium、high。",
+                        "默认",
+                        "reasoning_effort",
+                        false,
+                        theme
+                    ),
+                    container(
+                        row![
+                            button(label("删除模型")).style(secondary).on_press_maybe(
+                                (!self.busy).then_some(Message::Preferences(Event::Confirm(
+                                    Operation::DeleteModel
+                                )))
+                            ),
+                            Space::new().width(Fill),
+                            self.action("保存参数", Operation::SaveModel, true)
+                        ]
+                        .spacing(8)
+                    )
+                    .padding(16)
+                ])
+                .style(group)
+            ]
+            .spacing(14)
+            .into();
+        }
         if self.creating {
             return column![
                 button(label("‹  服务商列表"))
@@ -206,7 +292,7 @@ impl Settings {
                     ),
                 container(column![
                     self.form_row("名称", "", "服务商名称", "name", false, theme),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     self.form_row(
                         "Base URL",
                         "",
@@ -215,9 +301,9 @@ impl Settings {
                         false,
                         theme
                     ),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     self.form_row("API key", "", "输入 API key", "key", true, theme),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     setting_row("接口协议", "", self.protocol(), theme)
                 ])
                 .style(group),
@@ -235,9 +321,7 @@ impl Settings {
             let name = provider
                 .and_then(|p| p["name"].as_str())
                 .unwrap_or(self.value("id"));
-            let configured = provider
-                .and_then(|p| p["api_key"].as_str())
-                .is_some_and(|k| !k.is_empty());
+            let configured = self.configured(self.value("id"));
             let mut models = Column::new();
             let mut seen = std::collections::HashSet::new();
             for model in provider.into_iter().flat_map(|p| {
@@ -253,15 +337,32 @@ impl Settings {
                     .push(setting_row(
                         model["name"].as_str().unwrap_or(id),
                         id,
-                        button(label("使用"))
+                        row![
+                            button(label("参数"))
+                                .style(ui::nav)
+                                .padding([6, 10])
+                                .on_press_maybe((!self.busy).then_some(Message::Preferences(
+                                    Event::Navigate(Destination::Model(id.into()))
+                                ))),
+                            button(label(if self.is_active(self.value("id"), id) {
+                                "✓ 当前使用"
+                            } else {
+                                "使用"
+                            }))
                             .style(ui::nav)
                             .padding([6, 10])
-                            .on_press_maybe((!self.busy).then_some(Message::Preferences(
-                                Event::Activate(self.value("id").into(), id.into()),
-                            ))),
+                            .on_press_maybe(
+                                (!self.busy && configured && !self.is_active(self.value("id"), id))
+                                    .then_some(Message::Preferences(Event::Activate(
+                                        self.value("id").into(),
+                                        id.into(),
+                                    ))),
+                            )
+                        ]
+                        .spacing(4),
                         theme,
                     ))
-                    .push(horizontal_rule(1));
+                    .push(iced::widget::rule::horizontal(1));
             }
             let count = seen.len();
             let connection_dirty = ["url", "key", "protocol"]
@@ -284,6 +385,27 @@ impl Settings {
                     theme
                 ))
                 .style(group),
+                row![
+                    button(label("清除已保存的 API key"))
+                        .style(secondary)
+                        .padding([7, 12])
+                        .on_press_maybe(
+                            (!self.busy && configured).then_some(Message::Preferences(
+                                Event::Confirm(Operation::ClearKey)
+                            ))
+                        ),
+                    Space::new().width(Fill),
+                    button(label("删除服务商"))
+                        .style(secondary)
+                        .padding([7, 12])
+                        .on_press_maybe(
+                            (!self.busy && provider.is_some_and(|p| p["is_custom"] == true))
+                                .then_some(Message::Preferences(Event::Confirm(
+                                    Operation::DeleteProvider
+                                )))
+                        )
+                ]
+                .spacing(8),
                 container(column![
                     self.form_row(
                         "API key",
@@ -301,18 +423,22 @@ impl Settings {
                         true,
                         theme
                     ),
-                    horizontal_rule(1),
-                    self.form_row(
-                        "Base URL",
-                        "",
-                        "https://api.example.com/v1",
-                        "url",
-                        false,
-                        theme
-                    ),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
+                    if provider.is_some_and(|p| p["freeze_url"] == true) {
+                        setting_row("Base URL", "由系统管理", label(self.value("url")), theme)
+                    } else {
+                        self.form_row(
+                            "Base URL",
+                            "",
+                            "https://api.example.com/v1",
+                            "url",
+                            false,
+                            theme,
+                        )
+                    },
+                    iced::widget::rule::horizontal(1),
                     setting_row("接口协议", "", self.protocol(), theme),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     setting_row(
                         "测试连接",
                         "",
@@ -341,7 +467,7 @@ impl Settings {
                         .align_y(alignment::Vertical::Center),
                         theme
                     ),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     models,
                     container(
                         column![
@@ -386,7 +512,7 @@ impl Settings {
                     .padding(12),
                 );
             }
-            list = list.push(horizontal_rule(1)).push(
+            list = list.push(iced::widget::rule::horizontal(1)).push(
                 button(
                     row![
                         text("＋").size(16),
@@ -458,36 +584,118 @@ impl Settings {
                     "主题",
                     "",
                     row![
+                        button(label("跟随系统"))
+                            .padding([7, 10])
+                            .style(if self.value("follow_system") == "true" {
+                                ui::selected
+                            } else {
+                                ui::nav
+                            })
+                            .on_press(Message::Preferences(Event::FollowSystem)),
                         button(label("浅色"))
                             .padding([7, 14])
-                            .style(if dark(theme) { ui::nav } else { ui::selected })
+                            .style(if self.value("follow_system") == "true" || dark(theme) {
+                                ui::nav
+                            } else {
+                                ui::selected
+                            })
                             .on_press(Message::Preferences(Event::Appearance(false))),
                         button(label("深色"))
                             .padding([7, 14])
-                            .style(if dark(theme) { ui::selected } else { ui::nav })
+                            .style(if self.value("follow_system") != "true" && dark(theme) {
+                                ui::selected
+                            } else {
+                                ui::nav
+                            })
                             .on_press(Message::Preferences(Event::Appearance(true)))
                     ]
                     .spacing(2),
                     theme
                 ))
                 .style(group),
-                heading("窗口", 13),
-                container(setting_row(
-                    "记住窗口状态",
-                    "下次打开时恢复窗口尺寸、侧栏和主题。",
-                    label("已开启"),
-                    theme
-                ))
+                heading("联网搜索", 13),
+                container(column![
+                    setting_row(
+                        "搜索方式",
+                        "自动选择可用的搜索服务。",
+                        pick_list(
+                            vec!["auto", "hosted", "exa", "tavily"],
+                            Some(if self.value("search_backend").is_empty() {
+                                "auto"
+                            } else {
+                                self.value("search_backend")
+                            }),
+                            |v| Message::Preferences(Event::Field("search_backend", v.into()))
+                        )
+                        .text_size(13)
+                        .width(256)
+                        .style(picker)
+                        .menu_style(picker_menu),
+                        theme
+                    ),
+                    self.form_row(
+                        "托管搜索服务商",
+                        "留空使用当前模型的服务商。",
+                        "服务商 ID",
+                        "search_provider",
+                        false,
+                        theme
+                    ),
+                    self.form_row(
+                        "托管搜索模型",
+                        "需支持 Responses web_search。",
+                        "留空使用当前模型",
+                        "search_model",
+                        false,
+                        theme
+                    ),
+                    container(row![
+                        Space::new().width(Fill),
+                        self.action("保存搜索设置", Operation::Search, true)
+                    ])
+                    .padding(12)
+                ])
+                .style(group),
+                container(column![
+                    setting_row(
+                        "记住窗口大小与位置",
+                        "下次启动恢复上次窗口。",
+                        button(label(if self.value("remember_window") != "false" {
+                            "已开启"
+                        } else {
+                            "已关闭"
+                        }))
+                        .on_press(Message::Preferences(
+                            Event::RememberWindow(self.value("remember_window") == "false")
+                        )),
+                        theme
+                    ),
+                    setting_row(
+                        "恢复默认窗口",
+                        "1080 × 760",
+                        button(label("恢复")).on_press(Message::Preferences(Event::ResetWindow)),
+                        theme
+                    )
+                ])
                 .style(group)
             ]
             .spacing(12)
             .into(),
             Section::Capabilities => {
-                let ids: Vec<String> = self
+                let choices: Vec<ProviderChoice> = self
                     .providers
                     .iter()
-                    .filter_map(|p| p["id"].as_str().map(str::to_owned))
+                    .filter_map(|p| {
+                        p["id"].as_str().map(|id| ProviderChoice {
+                            id: id.into(),
+                            name: p["name"].as_str().unwrap_or(id).into(),
+                        })
+                    })
                     .collect();
+                let selected = choices
+                    .iter()
+                    .find(|p| p.id == self.value("image_provider"))
+                    .cloned();
                 column![
                     heading("语音输入", 13),
                     container(column![
@@ -503,7 +711,7 @@ impl Settings {
                             .color(ui::muted(theme)),
                             theme
                         ),
-                        horizontal_rule(1),
+                        iced::widget::rule::horizontal(1),
                         self.form_row(
                             "API key",
                             if self.speech_configured {
@@ -516,7 +724,7 @@ impl Settings {
                             true,
                             theme
                         ),
-                        horizontal_rule(1),
+                        iced::widget::rule::horizontal(1),
                         self.form_row(
                             "App ID",
                             "新版 API key 可留空。",
@@ -525,7 +733,7 @@ impl Settings {
                             false,
                             theme
                         ),
-                        horizontal_rule(1),
+                        iced::widget::rule::horizontal(1),
                         self.form_row(
                             "资源 ID",
                             "",
@@ -534,7 +742,7 @@ impl Settings {
                             false,
                             theme
                         ),
-                        horizontal_rule(1),
+                        iced::widget::rule::horizontal(1),
                         container(
                             row![
                                 Space::new().width(Fill),
@@ -555,21 +763,20 @@ impl Settings {
                         setting_row(
                             "服务商",
                             "",
-                            pick_list(
-                                ids,
-                                (!self.value("image_provider").is_empty())
-                                    .then(|| self.value("image_provider").to_owned()),
-                                |v| Message::Preferences(Event::Field("image_provider", v))
-                            )
+                            pick_list(choices, selected, |v: ProviderChoice| Message::Preferences(
+                                Event::Field("image_provider", v.id)
+                            ))
                             .placeholder("选择服务商")
                             .text_size(13)
                             .padding([8, 10])
-                            .width(256),
+                            .width(256)
+                            .style(picker)
+                            .menu_style(picker_menu),
                             theme
                         ),
-                        horizontal_rule(1),
+                        iced::widget::rule::horizontal(1),
                         self.form_row("模型", "", "gpt-image-2", "image_model", false, theme),
-                        horizontal_rule(1),
+                        iced::widget::rule::horizontal(1),
                         container(row![
                             Space::new().width(Fill),
                             self.action(
@@ -590,35 +797,56 @@ impl Settings {
                 container(column![
                     setting_row(
                         "操作审批",
-                        "工具执行前逐次确认具体操作。",
-                        label("逐次确认"),
+                        "自动：项目内日常操作直接执行，越界时确认。无人值守：需要确认的操作直接拒绝。",
+                        pick_list(
+                            vec!["自动（推荐）".to_owned(), "逐次确认".to_owned(), "无人值守".to_owned()],
+                            Some(match self.value("approval") { "STRICT" => "逐次确认", "NEVER" => "无人值守", _ => "自动（推荐）" }.to_owned()),
+                            |v: String| Message::Preferences(Event::Field("approval", match v.as_str() { "逐次确认" => "STRICT", "无人值守" => "NEVER", _ => "AUTO" }.into()))
+                        ).text_size(13).padding([8,10]).width(256).style(picker).menu_style(picker_menu),
                         theme
                     ),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     setting_row(
                         "文件访问",
-                        "",
+                        "命令执行没有系统沙箱，需单独授权；此设置控制内置文件工具。",
                         pick_list(
                             vec![
-                                "read-only".to_owned(),
-                                "workspace-write".to_owned(),
-                                "danger-full-access".to_owned()
+                                "只读".to_owned(),
+                                "允许修改工作区".to_owned(),
+                                "完整文件访问".to_owned()
                             ],
-                            Some(self.value("sandbox").to_owned()),
-                            |v| Message::Preferences(Event::Field("sandbox", v))
+                            Some(
+                                match self.value("sandbox") {
+                                    "workspace-write" => "允许修改工作区",
+                                    "danger-full-access" => "完整文件访问",
+                                    _ => "只读",
+                                }
+                                .to_owned()
+                            ),
+                            |v: String| Message::Preferences(Event::Field(
+                                "sandbox",
+                                match v.as_str() {
+                                    "允许修改工作区" => "workspace-write",
+                                    "完整文件访问" => "danger-full-access",
+                                    _ => "read-only",
+                                }
+                                .into()
+                            ))
                         )
                         .text_size(13)
                         .padding([8, 10])
-                        .width(256),
+                        .width(256)
+                        .style(picker)
+                        .menu_style(picker_menu),
                         theme
                     ),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     container(row![
                         Space::new().width(Fill),
                         self.action(
                             "保存",
                             Operation::Security,
-                            self.fields.get("sandbox") != self.saved.get("sandbox")
+                            self.fields.get("sandbox") != self.saved.get("sandbox") || self.fields.get("approval") != self.saved.get("approval")
                         )
                     ])
                     .padding(12)
@@ -630,8 +858,8 @@ impl Settings {
             Section::Data => column![
                 heading("工作区", 13),
                 container(column![
-                    setting_row("附件大小上限", "", label("20 MB"), theme),
-                    horizontal_rule(1),
+                    setting_row("附件大小上限", "", label("200 MB"), theme),
+                    iced::widget::rule::horizontal(1),
                     setting_row(
                         "导出工作区",
                         "会话、文档、技能和定时任务；不含连接密钥。",
@@ -639,6 +867,13 @@ impl Settings {
                         theme
                     )
                 ])
+                .style(group),
+                container(setting_row(
+                    "导入会话历史",
+                    "选择 potato-native-history-v1 格式 JSON；已有会话保持不变。",
+                    self.action("选择历史文件…", Operation::ImportHistory, true),
+                    theme
+                ))
                 .style(group),
                 heading("导入旧版连接", 13),
                 container(column![
@@ -650,9 +885,9 @@ impl Settings {
                         false,
                         theme
                     ),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     self.form_row("密钥目录", "", "旧版密钥目录", "secret", false, theme),
-                    horizontal_rule(1),
+                    iced::widget::rule::horizontal(1),
                     container(row![
                         Space::new().width(Fill),
                         self.action(
@@ -669,18 +904,64 @@ impl Settings {
             .into(),
             Section::Shortcuts => container(column![
                 setting_row(
-                    "发送消息",
+                    "新建会话",
                     "",
                     label(if cfg!(target_os = "macos") {
-                        "⌘ Enter"
+                        "⌘ N"
                     } else {
-                        "Ctrl Enter"
+                        "Ctrl N"
                     }),
                     theme
                 ),
-                horizontal_rule(1),
-                setting_row("输入换行", "", label("Enter"), theme),
-                horizontal_rule(1),
+                iced::widget::rule::horizontal(1),
+                setting_row(
+                    "搜索会话",
+                    "",
+                    label(if cfg!(target_os = "macos") {
+                        "⌘ K"
+                    } else {
+                        "Ctrl K"
+                    }),
+                    theme
+                ),
+                iced::widget::rule::horizontal(1),
+                setting_row(
+                    "收起 / 展开侧栏",
+                    "",
+                    label(if cfg!(target_os = "macos") {
+                        "⌘ B"
+                    } else {
+                        "Ctrl B"
+                    }),
+                    theme
+                ),
+                iced::widget::rule::horizontal(1),
+                setting_row(
+                    "打开设置",
+                    "",
+                    label(if cfg!(target_os = "macos") {
+                        "⌘ ,"
+                    } else {
+                        "Ctrl ,"
+                    }),
+                    theme
+                ),
+                iced::widget::rule::horizontal(1),
+                setting_row("发送消息", "", label("Enter"), theme),
+                iced::widget::rule::horizontal(1),
+                setting_row(
+                    "查看键盘快捷键",
+                    "",
+                    label(if cfg!(target_os = "macos") {
+                        "⌘ /"
+                    } else {
+                        "Ctrl /"
+                    }),
+                    theme
+                ),
+                iced::widget::rule::horizontal(1),
+                setting_row("输入换行", "", label("Shift+Enter"), theme),
+                iced::widget::rule::horizontal(1),
                 setting_row(
                     "全屏",
                     "",
@@ -691,14 +972,21 @@ impl Settings {
                     }),
                     theme
                 ),
-                horizontal_rule(1),
+                iced::widget::rule::horizontal(1),
                 setting_row("关闭设置", "未保存时先确认。", label("Esc"), theme)
             ])
             .style(group)
             .into(),
             Section::About => container(column![
                 setting_row("Potato", "", heading(self.value("version"), 16), theme),
-                horizontal_rule(1),
+                setting_row("本地核心", "", label(self.value("health")), theme),
+                setting_row(
+                    "运行时间",
+                    "截至打开设置时",
+                    label(self.value("uptime")),
+                    theme
+                ),
+                iced::widget::rule::horizontal(1),
                 setting_row(
                     "版本",
                     "Rust 原生客户端预览版",
@@ -771,15 +1059,23 @@ impl Settings {
                     }
                     .into(),
                 ),
+                // Container clipping is rectangular: round the sidebar itself so
+                // its background cannot cover the modal's left corners.
+                border: border::rounded(border::Radius {
+                    top_left: 15.,
+                    bottom_left: 15.,
+                    ..Default::default()
+                }),
                 ..Default::default()
             });
         let mut body = Column::new().spacing(16).width(Fill);
+        let mut feedback = Column::new();
         if !self.notice.is_empty() {
-            body = body.push(
-                container(text(&self.notice).size(12).color(if self.error {
-                    theme.palette().danger
-                } else {
-                    theme.palette().success
+            feedback = feedback.push(
+                container(text(&self.notice).size(12).color(match self.notice_tone {
+                    NoticeTone::Info => ui::muted(theme),
+                    NoticeTone::Success => theme.palette().success,
+                    NoticeTone::Error => theme.palette().danger,
                 }))
                 .padding([8, 12])
                 .width(Fill)
@@ -813,6 +1109,34 @@ impl Settings {
             .padding(20)
             .style(group)];
         }
+        if let Some(operation) = self.confirmation {
+            let description = match operation {
+                Operation::ClearKey => "清除后需要重新输入 API key 才能连接。聊天记录会保留。",
+                Operation::DeleteProvider => {
+                    "删除此服务商及其保存的连接和模型配置？聊天记录会保留。"
+                }
+                Operation::DeleteModel => "从此服务商中删除所选模型？当前使用此模型时会取消选择。",
+                _ => "确认执行此操作？",
+            };
+            body = column![container(
+                column![
+                    heading("确认操作", 16),
+                    text(description).size(13),
+                    row![
+                        button(label("取消"))
+                            .style(primary)
+                            .on_press(Message::Preferences(Event::CancelConfirmation)),
+                        button(label("确认"))
+                            .style(secondary)
+                            .on_press(Message::Preferences(Event::Run(operation)))
+                    ]
+                    .spacing(10)
+                ]
+                .spacing(16)
+            )
+            .padding(20)
+            .style(group)];
+        }
         let header =
             container(
                 row![
@@ -840,6 +1164,7 @@ impl Settings {
             nav,
             container(column![
                 header,
+                container(feedback).padding([0, 28]),
                 scrollable(container(body).padding(iced::Padding {
                     top: 0.,
                     right: 28.,
@@ -854,6 +1179,7 @@ impl Settings {
         ])
         .width(width)
         .height(height)
+        .padding(1)
         .clip(true)
         .style(|theme: &Theme| container::Style {
             background: Some(theme.palette().background.into()),
@@ -877,7 +1203,9 @@ impl Settings {
                     })
             )
             .on_press(Message::Preferences(Event::Navigate(Destination::Close))),
-            container(opaque(panel)).center_x(Fill).center_y(Fill)
+            container(opaque(crate::accessibility::modal(panel.into())))
+                .center_x(Fill)
+                .center_y(Fill)
         ]
         .into()
     }

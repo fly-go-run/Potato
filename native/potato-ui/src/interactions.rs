@@ -1,6 +1,7 @@
 //! Session-scoped pending approvals and questions. Polling never grants permission.
+use crate::accessibility::{button, text_input};
 use crate::{App, Message};
-use iced::widget::{button, column, container, row, scrollable, text, text_input, Column};
+use iced::widget::{column, container, row, scrollable, text, Column};
 use iced::{Element, Fill, Task};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -17,9 +18,11 @@ pub struct Approval {
     #[serde(default)]
     pub exact_target: String,
     #[serde(default)]
+    pub allow_session: bool,
+    #[serde(default)]
     pub action_detail: String,
     #[serde(default)]
-    pub justification: String,
+    pub justification: Option<String>,
     #[serde(default)]
     pub permission_increment: String,
     #[serde(default)]
@@ -66,6 +69,7 @@ pub struct State {
     pending: HashSet<String>,
     errors: HashMap<String, String>,
     polling: bool,
+    grant_count: usize,
     poll_error: String,
 }
 impl State {
@@ -80,10 +84,12 @@ pub enum Event {
     Poll,
     Polled(
         u64,
-        Result<Vec<Approval>, String>,
+        Result<(Vec<Approval>, usize), String>,
         Result<Vec<Question>, String>,
     ),
-    Approval(String, bool),
+    Approval(String, bool, bool),
+    RevokeGrants,
+    GrantsRevoked(u64, Result<(), String>),
     Select(String, String),
     Text(String, String),
     Answer(String, bool),
@@ -134,7 +140,8 @@ impl App {
                 self.interactions.polling = false;
                 self.interactions.poll_error.clear();
                 match approvals {
-                    Ok(items) => {
+                    Ok((items, count)) => {
+                        self.interactions.grant_count = count;
                         self.interactions.approvals = items
                             .into_iter()
                             .filter(|a| {
@@ -162,7 +169,29 @@ impl App {
                         .push_str(&format!(" 问题刷新失败：{e}")),
                 }
             }
-            Event::Approval(id, approve) if !self.interactions.pending.contains(&id) => {
+            Event::RevokeGrants => {
+                if let Some(backend) = self.backend.clone() {
+                    let session = self.session.clone();
+                    return Task::perform(
+                        async move {
+                            backend
+                                .request(
+                                    "POST",
+                                    "/api/approval/revoke-session",
+                                    json!({"session_id":session.id,"user_id":session.user}),
+                                )
+                                .await
+                                .map(|_| ())
+                        },
+                        move |r| Message::Interaction(Event::GrantsRevoked(generation, r)),
+                    );
+                }
+            }
+            Event::GrantsRevoked(g, result) if g == generation => match result {
+                Ok(()) => self.interactions.grant_count = 0,
+                Err(e) => self.interactions.poll_error = e,
+            },
+            Event::Approval(id, approve, remember) if !self.interactions.pending.contains(&id) => {
                 if let (Some(backend), Some(approval)) = (
                     self.backend.clone(),
                     self.interactions
@@ -173,9 +202,10 @@ impl App {
                 ) {
                     self.interactions.pending.insert(id.clone());
                     self.interactions.errors.remove(&id);
-                    return Task::perform(backend.act_approval(approval, approve), move |r| {
-                        Message::Interaction(Event::Done(generation, id.clone(), r))
-                    });
+                    return Task::perform(
+                        backend.act_approval(approval, approve, remember),
+                        move |r| Message::Interaction(Event::Done(generation, id.clone(), r)),
+                    );
                 }
             }
             Event::Select(id, option) if !self.interactions.pending.contains(&id) => {
@@ -251,6 +281,13 @@ impl App {
     pub(super) fn interaction_view(&self) -> Element<'_, Message> {
         let state = &self.interactions;
         let mut cards = Column::new().spacing(8);
+        if state.grant_count > 0 {
+            cards = cards.push(
+                button(text(format!("已记住 {} 项临时授权 · 清除", state.grant_count)).size(12))
+                    .style(crate::ui::nav)
+                    .on_press(Message::Interaction(Event::RevokeGrants)),
+            );
+        }
         if !state.poll_error.is_empty() {
             cards = cards.push(text(&state.poll_error).size(12));
         }
@@ -261,41 +298,48 @@ impl App {
             } else {
                 &a.tool_display_name
             };
-            let mut card = column![
-                text(format!("需要你的确认 · {title} · {}", a.severity)).size(14),
-                text(format!(
-                    "{}\n{}\n{}\n{}\n{}",
-                    a.exact_target,
-                    a.action_detail,
-                    a.justification,
-                    a.permission_increment,
-                    if a.result_summary.is_null() {
-                        String::new()
-                    } else {
-                        a.result_summary.to_string()
-                    }
-                ))
-                .size(13),
-                row![
-                    button("拒绝")
-                        .style(crate::ui::nav)
-                        .padding([8, 12])
-                        .on_press_maybe(available.then(|| Message::Interaction(Event::Approval(
-                            a.request_id.clone(),
-                            false
-                        )))),
-                    button(if available {
-                        "允许本次"
-                    } else {
-                        "提交中…"
-                    })
-                    .on_press_maybe(available.then(|| {
-                        Message::Interaction(Event::Approval(a.request_id.clone(), true))
-                    }))
+            let mut card =
+                column![
+                    text(format!("需要你的确认 · {title} · {}", a.severity)).size(14),
+                    text(format!(
+                        "{}\n{}\n{}\n{}\n{}",
+                        a.exact_target,
+                        a.action_detail,
+                        a.justification.as_deref().unwrap_or_default(),
+                        a.permission_increment,
+                        if a.result_summary.is_null() {
+                            String::new()
+                        } else {
+                            a.result_summary.to_string()
+                        }
+                    ))
+                    .size(13),
+                    row![
+                        button("拒绝")
+                            .style(crate::ui::nav)
+                            .padding([8, 12])
+                            .on_press_maybe(available.then(|| Message::Interaction(
+                                Event::Approval(a.request_id.clone(), false, false)
+                            ))),
+                        button(if available {
+                            "允许本次"
+                        } else {
+                            "提交中…"
+                        })
+                        .on_press_maybe(available.then(|| {
+                            Message::Interaction(Event::Approval(a.request_id.clone(), true, false))
+                        }))
+                    ]
+                    .spacing(8)
                 ]
-                .spacing(8)
-            ]
-            .spacing(8);
+                .spacing(8);
+            if a.allow_session {
+                card = card.push(button("当前会话记住相同参数（1 小时）").on_press_maybe(
+                    available.then(|| {
+                        Message::Interaction(Event::Approval(a.request_id.clone(), true, true))
+                    }),
+                ));
+            }
             if let Some(e) = state.errors.get(&a.request_id) {
                 card = card.push(text(e).size(12));
             }
@@ -340,6 +384,7 @@ impl App {
                     "填写回答或补充说明…",
                     draft.map(|d| d.text.as_str()).unwrap_or(""),
                 )
+                .id(iced::widget::Id::from(format!("question-{id}")))
                 .on_input_maybe(
                     available.then_some(move |s| Message::Interaction(Event::Text(id.clone(), s))),
                 )
@@ -386,6 +431,15 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn approval_cards_accept_absent_null_and_text_justification() {
+        let mut card = json!({"request_id":"a","root_session_id":"s","user_id":"default","tool_name":"read_file","driver":null,"created_at":chrono::Utc::now().timestamp(),"timeout_seconds":300});
+        assert!(serde_json::from_value::<Approval>(card.clone()).is_ok());
+        for justification in [Value::Null, json!(""), json!("Run project tests")] {
+            card["justification"] = justification;
+            assert!(serde_json::from_value::<Approval>(card.clone()).is_ok());
+        }
+    }
     fn question() -> Question {
         serde_json::from_value(json!({"request_id":"q","session_id":"s","title":"choose","status":"pending","options":[{"id":"a","label":"A"},{"id":"b","label":"B"}]})).unwrap()
     }
@@ -412,7 +466,7 @@ mod tests {
         let mut app = App::default();
         app.session.id = "s".into();
         let _ = app.interaction(Event::Done(0, "q".into(), Ok(())));
-        let _ = app.interaction(Event::Polled(0, Ok(vec![]), Ok(vec![question()])));
+        let _ = app.interaction(Event::Polled(0, Ok((vec![], 0)), Ok(vec![question()])));
         assert!(app.interactions.questions.is_empty());
     }
     #[test]
@@ -459,7 +513,7 @@ mod tests {
             generation: 2,
             ..App::default()
         };
-        let _ = app.interaction(Event::Polled(1, Ok(vec![]), Ok(vec![question()])));
+        let _ = app.interaction(Event::Polled(1, Ok((vec![], 0)), Ok(vec![question()])));
         assert!(app.interactions.questions.is_empty());
         app.interactions.drafts.insert(
             "q".into(),

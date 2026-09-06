@@ -3,6 +3,39 @@
 version = 4
 
 [[package]]
+name = "accesskit"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3b7f7f85a7e5f68090000ed7622545829afd484d210358702ae4cb97dd0c320"
+dependencies = [
+ "uuid",
+]
+
+[[package]]
+name = "accesskit_consumer"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f950720ce064757a1b629caad3a408e8d2c63bb01f29b8a3ff8daa331053ffeb"
+dependencies = [
+ "accesskit",
+ "hashbrown 0.16.1",
+]
+
+[[package]]
+name = "accesskit_macos"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17cb8b66cef272d48161b02a6317cc2bdd5f98bb0a5e79c68f704a5862aa396b"
+dependencies = [
+ "accesskit",
+ "accesskit_consumer",
+ "hashbrown 0.16.1",
+ "objc2 0.5.2",
+ "objc2-app-kit 0.2.2",
+ "objc2-foundation 0.2.2",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -592,6 +625,16 @@ dependencies = [
  "futures-io",
  "futures-lite",
  "piper",
+]
+
+[[package]]
+name = "bstr"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bb31b46c14244e20ee9984b11bf5c992b91fb6939fea616e3512c8baecdbe5f"
+dependencies = [
+ "memchr",
+ "serde_core",
 ]
 
 [[package]]
@@ -1854,6 +1897,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "globset"
+version = "0.4.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07c34a9410465b45bd9787443bc7370f37735bad04b0f0cd57ff1a3186c98988"
+dependencies = [
+ "aho-corasick",
+ "bstr",
+ "log",
+ "regex-automata",
+ "regex-syntax",
+]
+
+[[package]]
 name = "glow"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1902,7 +1958,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 1.0.69",
- "windows 0.54.0",
+ "windows 0.58.0",
 ]
 
 [[package]]
@@ -3921,15 +3977,18 @@ dependencies = [
  "fernet",
  "flate2",
  "futures-util",
+ "globset",
  "pdf-extract",
  "percent-encoding",
  "process-wrap 10.0.0",
  "process-wrap 9.1.0",
  "quick-xml 0.42.0",
+ "regex",
  "reqwest 0.12.28",
  "reqwest 0.13.4",
  "rmcp",
  "rusqlite",
+ "rustls",
  "serde",
  "serde_json",
  "tokio",
@@ -3943,6 +4002,8 @@ dependencies = [
 name = "potato-ui"
 version = "0.1.0"
 dependencies = [
+ "accesskit",
+ "accesskit_macos",
  "base64 0.22.1",
  "chrono",
  "chrono-tz",
@@ -3950,9 +4011,11 @@ dependencies = [
  "dirs",
  "futures-util",
  "iced",
+ "iced_tiny_skia",
  "open",
  "potato-core",
  "pulldown-cmark 0.11.3",
+ "raw-window-handle",
  "reqwest 0.12.28",
  "rfd",
  "serde",
@@ -4996,6 +5059,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1_smol"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5892,6 +5961,7 @@ dependencies = [
  "getrandom 0.4.3",
  "js-sys",
  "serde_core",
+ "sha1_smol",
  "wasm-bindgen",
 ]
 

@@ -1,0 +1,198 @@
+{
+  "history": [
+    {
+      "object": "message",
+      "id": "user",
+      "type": "message",
+      "role": "user",
+      "status": "completed",
+      "content": [
+        {
+          "type": "text",
+          "text": "检查聊天界面的交互问题"
+        }
+      ]
+    }
+  ],
+  "streaming": true,
+  "initial": [
+    {
+      "object": "message",
+      "id": "intro",
+      "type": "message",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "text",
+          "text": "正在核对会话切换和草稿保留。"
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "read",
+      "type": "function_call",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "read",
+            "name": "read_file",
+            "arguments": "{\"file_path\": \"/review/chat.rs\"}"
+          }
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "read-result",
+      "type": "function_call_output",
+      "role": "tool",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "read",
+            "state": "success",
+            "output": "消息按轮次分组；工具结果按调用标识关联。"
+          }
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "edit",
+      "type": "function_call",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "edit",
+            "name": "write_file",
+            "arguments": "{\"file_path\": \"/review/view.rs\", \"content\": \"// review fixture\"}"
+          }
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "edit-result",
+      "type": "function_call_output",
+      "role": "tool",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "edit",
+            "state": "success",
+            "output": "已写入"
+          }
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "test-failed",
+      "type": "function_call",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "test-failed",
+            "name": "execute_shell_command",
+            "arguments": "{\"command\": \"cargo test --test missing\", \"description\": \"运行界面测试\"}"
+          }
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "test-failed-result",
+      "type": "function_call_output",
+      "role": "tool",
+      "status": "failed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "test-failed",
+            "state": "error",
+            "output": "error: test target unavailable"
+          }
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "test",
+      "type": "function_call",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "test",
+            "name": "execute_shell_command",
+            "arguments": "{\"command\": \"cargo test -p potato-gpui\", \"description\": \"重新运行界面测试\"}"
+          }
+        }
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "delay_ms": 90000,
+      "frame": {
+        "object": "message",
+        "id": "test-result",
+        "type": "function_call_output",
+        "role": "tool",
+        "status": "completed",
+        "content": [
+          {
+            "type": "data",
+            "data": {
+              "call_id": "test",
+              "state": "success",
+              "output": "23 passed · 0 failed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "delay_ms": 4000,
+      "frame": {
+        "object": "message",
+        "id": "answer",
+        "type": "message",
+        "role": "assistant",
+        "status": "completed",
+        "content": [
+          {
+            "type": "text",
+            "text": "已完成这一轮检查。\n\n草稿保留和会话切换问题已修复，验证通过。"
+          }
+        ]
+      }
+    },
+    {
+      "delay_ms": 1000,
+      "frame": {
+        "object": "response",
+        "id": "review-response",
+        "status": "completed"
+      }
+    }
+  ]
+}

@@ -1,9 +1,18 @@
 mod api;
-mod attachments;
+mod approval;
+#[cfg(test)]
+mod approval_tests;
+pub mod attachments;
+mod compaction;
 mod computer;
+mod context;
+mod context_policy;
 mod file_ops;
+mod file_search;
+mod jobs;
 mod legacy_settings;
 mod mcp;
+mod memory;
 mod migration;
 mod model;
 mod processes;
@@ -14,8 +23,12 @@ mod replay;
 mod scheduler;
 mod search;
 mod skills;
+mod steering;
 mod store;
+mod tool_execution;
+mod tool_registry;
 mod tools;
+mod transcript;
 mod voice;
 mod workspace;
 
@@ -81,27 +94,32 @@ impl From<reqwest::Error> for Error {
 }
 
 struct Run {
+    accepting_steering: bool,
     request_id: String,
     cancel: CancellationToken,
     replay: Arc<Mutex<replay::Replay>>,
 }
 struct Approval {
     view: Value,
-    reply: oneshot::Sender<bool>,
+    reply: oneshot::Sender<approval::Reply>,
 }
 
 pub struct Runtime {
     computer: tokio::sync::Mutex<Option<computer::Computer>>,
     observations: Mutex<HashMap<String, computer::Observation>>,
     started_at: std::time::Instant,
-    background_emit: Mutex<Option<Emit>>,
+    background_emit: Arc<Mutex<Option<Emit>>>,
+    jobs: jobs::Jobs,
     store: Mutex<store::Store>,
     runs: Mutex<HashMap<String, Run>>,
     approvals: Mutex<HashMap<String, Approval>>,
+    approval_grants: Mutex<Vec<approval::Grant>>,
+    approval_epochs: Mutex<HashMap<String, u64>>,
     voices: Mutex<HashMap<String, tokio::sync::mpsc::Sender<voice::Input>>>,
     questions: Mutex<HashMap<String, oneshot::Sender<Value>>>,
     client: reqwest::Client,
     root: PathBuf,
+    memory_lock: Mutex<()>,
 }
 
 pub(crate) fn lock<T>(value: &Mutex<T>) -> Result<MutexGuard<'_, T>> {
@@ -123,8 +141,13 @@ pub(crate) fn required<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
 
 impl Runtime {
     pub fn open(root: &Path) -> Result<Arc<Self>> {
+        // reqwest 0.12 and the MCP transport enable different Rustls providers.
+        // Direct WSS connections otherwise panic when both features are unified.
+        // Respect an embedding host's provider if it already installed one.
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let started = std::time::Instant::now();
         let store = store::Store::open(root)?;
+        let jobs_root = store.jobs_root(root)?;
         let client = reqwest::Client::builder()
             .connect_timeout(std::time::Duration::from_secs(15))
             .timeout(std::time::Duration::from_secs(300))
@@ -134,15 +157,20 @@ impl Runtime {
             computer: tokio::sync::Mutex::new(None),
             observations: Mutex::new(HashMap::new()),
             started_at: started,
-            background_emit: Mutex::new(None),
+            background_emit: Arc::new(Mutex::new(None)),
+            jobs: jobs::Jobs::open(jobs_root)?,
             store: Mutex::new(store),
             runs: Mutex::new(HashMap::new()),
             approvals: Mutex::new(HashMap::new()),
+            approval_grants: Mutex::new(Vec::new()),
+            approval_epochs: Mutex::new(HashMap::new()),
             voices: Mutex::new(HashMap::new()),
             questions: Mutex::new(HashMap::new()),
             client,
             root: root.to_path_buf(),
+            memory_lock: Mutex::new(()),
         });
+        runtime.migrate_memory()?;
         runtime.db()?.put(
             "last_startup_ms",
             &json!(started.elapsed().as_millis() as u64),
@@ -265,6 +293,9 @@ impl Runtime {
             let mut db = self.db()?;
             let chat = db.ensure_chat(&session, if title.is_empty() { "Image" } else { &title })?;
             let id = required(&chat, "id")?.to_owned();
+            // Corrections queued before a failed/cancelled/restarted run stay
+            // durable and precede the user's next ordinary message.
+            db.deliver_steering(&id)?;
             let user_id = uuid::Uuid::new_v4().to_string();
             let mut blocks = content.clone();
             for (index, block) in blocks.iter_mut().enumerate() {
@@ -292,6 +323,7 @@ impl Runtime {
         runs.insert(
             session.clone(),
             Run {
+                accepting_steering: true,
                 request_id: request_id.clone(),
                 cancel: cancel.clone(),
                 replay,

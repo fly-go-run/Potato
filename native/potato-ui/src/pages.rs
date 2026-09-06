@@ -1,9 +1,8 @@
 //! Native workspace screens. Requests carry an epoch so old results cannot replace an editor.
+use crate::accessibility::{button, pick_list, text_input};
 use crate::{App, Message};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use iced::widget::{
-    button, column, container, pick_list, row, scrollable, text, text_editor, text_input, Column,
-};
+use iced::widget::{column, container, row, scrollable, text, text_editor, Column};
 use iced::{Element, Fill, Task};
 use serde_json::{json, Value};
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -36,6 +35,9 @@ pub struct Pages {
     pub kind: Option<Kind>,
     epoch: u64,
     list: Vec<Value>,
+    filter: String,
+    category: String,
+    task_dialog: bool,
     selected: Option<String>,
     name: String,
     editor: text_editor::Content,
@@ -62,6 +64,11 @@ pub enum Event {
     New,
     Name(String),
     Edit(text_editor::Action),
+    SetText(String),
+    Filter(String),
+    Category(String),
+    TaskTemplate(usize),
+    CloseTask,
     Save,
     Delete,
     ConfirmDelete,
@@ -72,6 +79,68 @@ pub enum Event {
     Done(u64, Result<(), String>),
     Field(&'static str, String),
     Discard,
+}
+const TASK_TEMPLATES: &[(&str, &str, &str)] = &[
+    (
+        "每周工作周报",
+        "0 17 * * 5",
+        "汇总我本周的工作内容，按项目分组整理成周报草稿，列出进展、风险与下周计划。",
+    ),
+    (
+        "会议前准备",
+        "30 9 * * 1-5",
+        "检查我今天的会议安排，为每个会议整理议题、相关背景材料和需要确认的问题。",
+    ),
+    (
+        "每日资讯摘要",
+        "0 9 * * 1-5",
+        "收集当天与我工作领域相关的重要资讯，精选 5 条，每条一句话摘要加链接。",
+    ),
+    (
+        "周五待办清点",
+        "0 16 * * 5",
+        "盘点我本周未完成的待办事项，标出已过期的，给出下周优先级建议。",
+    ),
+    (
+        "邮件整理提醒",
+        "0 18 * * 1-5",
+        "提醒我处理今天未回复的重要邮件，并整理一份待回复清单。",
+    ),
+    (
+        "月度数据报告",
+        "0 10 1 * *",
+        "生成上个月的工作数据汇总报告，包含关键指标变化和趋势分析。",
+    ),
+    (
+        "每日学习卡片",
+        "0 8 * * *",
+        "挑一个与我工作相关的知识点，用 200 字讲清楚，附一个实际应用例子。",
+    ),
+    (
+        "文件归档整理",
+        "0 17 * * 5",
+        "检查我本周产生的文档和文件，按项目归类，列出建议归档或清理的清单。",
+    ),
+];
+fn memory_category(name: &str) -> &'static str {
+    let b = name.as_bytes();
+    if b.len() > 10
+        && b.get(4) == Some(&b'-')
+        && b.get(7) == Some(&b'-')
+        && (b.get(10) == Some(&b'/') || name.ends_with(".md") && b.len() == 13)
+        && b[..10]
+            .iter()
+            .enumerate()
+            .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
+    {
+        "日记"
+    } else if name.starts_with("digest/procedure/") {
+        "流程"
+    } else if name.starts_with("digest/wiki/") {
+        "知识"
+    } else {
+        "其它"
+    }
 }
 fn segment(value: &str) -> String {
     let mut url = reqwest::Url::parse("http://local/").unwrap();
@@ -93,6 +162,45 @@ impl App {
         };
         let state = &mut self.pages;
         match event {
+            Event::CloseTask if !state.busy => {
+                if state.dirty {
+                    state.notice = "请先保存或放弃当前编辑".into();
+                } else {
+                    state.task_dialog = false;
+                }
+                return Task::none();
+            }
+            Event::TaskTemplate(index) if !state.busy && !state.dirty => {
+                if let Some((name, cron, prompt)) = TASK_TEMPLATES.get(index) {
+                    state.selected = None;
+                    state.task = Value::Null;
+                    state.history.clear();
+                    state.delete_confirm = false;
+                    state.name = (*name).into();
+                    state.time = (*cron).into();
+                    state.schedule = "Cron".into();
+                    state.zone = "Asia/Shanghai".into();
+                    state.task_type = "模型任务".into();
+                    state.editor = text_editor::Content::with_text(prompt);
+                    state.dirty = true;
+                    state.task_dialog = true;
+                    state.notice.clear();
+                }
+                return Task::none();
+            }
+            Event::Filter(value) => {
+                state.filter = value;
+                return Task::none();
+            }
+            Event::Category(value) => {
+                state.category = value;
+                return Task::none();
+            }
+            Event::SetText(value) if !state.busy => {
+                state.editor = text_editor::Content::with_text(&value);
+                state.dirty = true;
+                return Task::none();
+            }
             Event::Open(kind) => {
                 if state.dirty || state.busy {
                     state.notice = "请先保存或放弃当前编辑".into();
@@ -167,6 +275,7 @@ impl App {
                 };
                 state.epoch += 1;
                 let epoch = state.epoch;
+                state.task_dialog = kind == Kind::Tasks;
                 state.selected = Some(id.clone());
                 state.busy = true;
                 state.delete_confirm = false;
@@ -274,6 +383,7 @@ impl App {
                     return Task::none();
                 };
                 state.selected = None;
+                state.task_dialog = state.kind == Some(Kind::Tasks);
                 state.name.clear();
                 state.editor = text_editor::Content::new();
                 state.expected = Value::Null;
@@ -477,6 +587,7 @@ impl App {
                 match result {
                     Ok(()) => {
                         state.dirty = false;
+                        state.task_dialog = false;
                         state.selected = None;
                         state.editor = text_editor::Content::new();
                         state.name.clear();
@@ -559,11 +670,31 @@ impl Pages {
         let event = |v| Message::Page(v);
         let action = |label: &'static str, e: Event| {
             button(label)
+                .style(crate::ui::outlined)
                 .padding(8)
                 .on_press_maybe((!self.busy).then_some(event(e)))
         };
         let mut list = Column::new().spacing(8);
-        for item in &self.list {
+        let mut sorted: Vec<_> = self.list.iter().collect();
+        if kind == Kind::Memory {
+            sorted.sort_by_key(|v| std::cmp::Reverse(v["modified_time"].as_i64().unwrap_or(0)));
+        }
+        let query = self.filter.trim().to_lowercase();
+        for item in sorted {
+            if !query.is_empty()
+                && !["name", "filename", "description", "tags"]
+                    .iter()
+                    .any(|k| item[*k].to_string().to_lowercase().contains(&query))
+            {
+                continue;
+            }
+            if kind == Kind::Memory
+                && !self.category.is_empty()
+                && memory_category(item["filename"].as_str().unwrap_or("")) != self.category
+            {
+                continue;
+            }
+
             let id = item[match kind {
                 Kind::Skills => "name",
                 Kind::Tasks => "id",
@@ -578,11 +709,31 @@ impl Pages {
             };
             list = list.push(
                 button(text(label))
+                    .style(crate::ui::nav)
                     .width(Fill)
                     .padding(9)
                     .on_press_maybe((!self.busy).then_some(event(Event::Select(id.into())))),
             );
+            if kind == Kind::Memory {
+                let modified = item["modified_time"].as_i64().unwrap_or(0);
+                let days = (chrono::Utc::now().timestamp() - modified).max(0) / 86400;
+                list = list.push(
+                    text(format!(
+                        "{} · {}",
+                        memory_category(id),
+                        if modified == 0 {
+                            "".into()
+                        } else if days == 0 {
+                            "今天".into()
+                        } else {
+                            format!("{days} 天前")
+                        }
+                    ))
+                    .size(11),
+                );
+            }
             if kind == Kind::Skills {
+                list = list.push(text(item["description"].as_str().unwrap_or("")).size(12));
                 list = list.push(action(
                     if item["enabled"] == true {
                         "停用"
@@ -617,7 +768,22 @@ impl Pages {
             }
         }
         let mut editor = column![
-            row![text(kind.title()).size(24), action("返回聊天", Event::Back)].spacing(20),
+            row![
+                text(kind.title()).size(24),
+                action(
+                    if kind == Kind::Tasks {
+                        "关闭"
+                    } else {
+                        "返回聊天"
+                    },
+                    if kind == Kind::Tasks {
+                        Event::CloseTask
+                    } else {
+                        Event::Back
+                    }
+                )
+            ]
+            .spacing(20),
             row![
                 action("新建", Event::New),
                 action("刷新列表", Event::Load),
@@ -690,11 +856,18 @@ impl Pages {
                 );
             }
         }
-        editor = editor.push(
+        editor = editor.push(crate::accessibility::input(
             text_editor(&self.editor)
+                .id(iced::widget::Id::new("page-editor"))
                 .height(260)
-                .on_action(move |a| event(Event::Edit(a))),
-        );
+                .on_action(move |a| event(Event::Edit(a)))
+                .into(),
+            "文档内容",
+            &self.editor.text(),
+            false,
+            iced::widget::Id::new("page-editor"),
+            (!self.busy).then_some(|v| Message::Page(Event::SetText(v))),
+        ));
         if self.selected.is_some() {
             editor = editor.push(if self.delete_confirm {
                 row![
@@ -726,8 +899,80 @@ impl Pages {
             })
             .size(13),
         );
+        let mut navigation = column![text_input("搜索名称、描述或标签", &self.filter)
+            .on_input(|v| Message::Page(Event::Filter(v)))]
+        .spacing(10);
+        if kind == Kind::Memory {
+            for category in ["全部", "日记", "流程", "知识", "其它"] {
+                navigation = navigation.push(button(category).on_press(Message::Page(
+                    Event::Category(if category == "全部" {
+                        String::new()
+                    } else {
+                        category.into()
+                    }),
+                )));
+            }
+        }
+        navigation = navigation.push(scrollable(list).height(Fill));
+        if kind == Kind::Tasks {
+            let mut templates = column![text("任务模板").size(16)].spacing(8);
+            for (index, (name, _, _)) in TASK_TEMPLATES.iter().enumerate() {
+                templates = templates.push(
+                    button(*name)
+                        .style(crate::ui::outlined)
+                        .padding(12)
+                        .width(Fill)
+                        .on_press_maybe((!self.busy).then_some(event(Event::TaskTemplate(index)))),
+                );
+            }
+            let base = container(
+                column![
+                    row![
+                        text("定时任务").size(26),
+                        iced::widget::Space::new().width(Fill),
+                        action("新建任务", Event::New),
+                        action("返回聊天", Event::Back)
+                    ]
+                    .spacing(12),
+                    row![
+                        container(navigation).width(Fill).height(Fill),
+                        container(scrollable(templates)).width(250).height(Fill)
+                    ]
+                    .spacing(24),
+                    text(&self.notice).size(12)
+                ]
+                .spacing(24),
+            )
+            .padding(32)
+            .width(Fill)
+            .height(Fill);
+            if !self.task_dialog {
+                return base.into();
+            }
+            let panel = container(scrollable(editor))
+                .width(640)
+                .height(Fill)
+                .max_height(620)
+                .padding(24)
+                .style(container::bordered_box);
+            return iced::widget::stack![
+                base,
+                iced::widget::mouse_area(
+                    container(iced::widget::Space::new())
+                        .width(Fill)
+                        .height(Fill)
+                )
+                .on_press(event(Event::CloseTask)),
+                container(iced::widget::opaque(crate::accessibility::modal(
+                    panel.into()
+                )))
+                .center_x(Fill)
+                .center_y(Fill)
+            ]
+            .into();
+        }
         row![
-            container(scrollable(list)).width(190).height(Fill),
+            container(navigation).width(230).height(Fill),
             container(scrollable(editor)).width(Fill).height(Fill)
         ]
         .spacing(20)
