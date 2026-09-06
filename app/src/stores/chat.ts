@@ -1,4 +1,5 @@
 import { create, type StoreApi } from "zustand";
+import { nativeRuntimeKnown } from "../lib/nativeTransport";
 import type { NavigateFunction } from "react-router-dom";
 import {
   ApiError,
@@ -164,6 +165,7 @@ interface ChatStore {
 
   initialize: () => Promise<void>;
   refreshChats: () => Promise<ChatSpec[]>;
+  refreshBackgroundChat: (sessionId: string) => Promise<void>;
   loadActiveModel: () => Promise<void>;
   loadApprovalLevel: () => Promise<void>;
   newChat: () => void;
@@ -269,6 +271,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         window.location.hash = `#/chat/${pendingChat.id}`;
       }
     }
+  },
+
+  refreshBackgroundChat: async (sessionId) => {
+    await get().refreshChats();
+    const { activeChatId, isStreaming, historyLoading } = get();
+    if (!activeChatId || isStreaming || historyLoading || get().sessionId !== sessionId) return;
+    const history = await chatApi.get(activeChatId);
+    if (get().activeChatId !== activeChatId || get().isStreaming || get().historyLoading) return;
+    if (history.status === "running") {
+      const chat = get().chats.find((item) => item.id === activeChatId);
+      if (chat) await get().reconnect(chat);
+      return;
+    }
+    set({ stream: { ...initialConversationStreamState, messages: historyMessages(history),
+      turnUsage: historyTurnUsage(history, sessionId), responseStatus: "idle" } });
   },
 
   refreshChats: async () => {
@@ -774,11 +791,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setApprovalLevel: (approvalLevel) => {
+    if (nativeRuntimeKnown() && approvalLevel !== "STRICT") {
+      set({ approvalLevel: "STRICT", error: "当前版本的工具操作需要逐次确认。" });
+      return;
+    }
     persistApprovalLevel(approvalLevel);
     set({ approvalLevel });
     persistRunningPermissions({ approval_level: approvalLevel });
   },
   setSandboxMode: (sandboxMode) => {
+    if (nativeRuntimeKnown() && !["read-only", "workspace-write", "danger-full-access"].includes(sandboxMode)) {
+      set({ error: "Rust 支持只读、项目内写入和完全访问模式。" });
+      return;
+    }
     persistSandboxMode(sandboxMode);
     set({ sandboxMode });
     persistRunningPermissions({ sandbox_mode: sandboxMode });
