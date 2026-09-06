@@ -62,6 +62,15 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
           </div>
         )}
 
+        {approval.action_detail && (
+          <div className="rounded-md bg-bubble-tool px-3 py-2 text-xs">
+            <div className="font-medium text-ink">{t("approval.action")}</div>
+            <div className="mt-0.5 break-all text-ink-secondary">
+              {approval.action_detail}
+            </div>
+          </div>
+        )}
+
         {(approval.exact_target || approval.tool_source) && (
           <div className="grid gap-2 text-xs sm:grid-cols-2">
             {approval.exact_target && (

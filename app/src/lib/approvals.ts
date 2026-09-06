@@ -21,6 +21,7 @@ export interface PendingApproval {
   is_generalized: boolean;
   permission_increment?: string;
   justification?: string;
+  action_detail?: string;
 }
 
 export interface PushMessagesResponse {
