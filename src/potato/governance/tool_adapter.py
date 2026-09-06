@@ -523,10 +523,7 @@ async def _policy_tool_call(
     result = await FunctionTool.__call__(self, *args, **kwargs)
 
     # Check if sandbox violation was returned (state=DENIED)
-    if not (
-        isinstance(result, ToolChunk)
-        and result.state == ToolResultState.DENIED
-    ):
+    if not (isinstance(result, ToolChunk) and result.state == ToolResultState.DENIED):
         return result
 
     # Extract violation message from metadata or content
@@ -538,9 +535,7 @@ async def _policy_tool_call(
         for block in result.content or []:
             if hasattr(block, "text") and "Sandbox violation:" in block.text:
                 violation_msg = (
-                    block.text.split("Sandbox violation:", 1)[1]
-                    .split("\n")[0]
-                    .strip()
+                    block.text.split("Sandbox violation:", 1)[1].split("\n")[0].strip()
                 )
                 break
 
@@ -592,6 +587,40 @@ async def _policy_tool_call(
 # ---------------------------------------------------------------------------
 
 
+def _computer_action_detail(tool_name: str, params: dict[str, Any] | None) -> str:
+    """Approval-card line saying what a Computer Use call will do."""
+    if DEFAULT_REGISTRY.get_type(tool_name) != "computer":
+        return ""
+    try:
+        from ..computer_use.protect import describe_computer_action
+
+        return describe_computer_action(tool_name, dict(params or {}))
+    except Exception:  # pragma: no cover - display only
+        logger.debug("computer action detail failed", exc_info=True)
+        return ""
+
+
+def _computer_hold(
+    tool_name: str,
+    params: dict[str, Any] | None,
+    seconds: float,
+) -> None:
+    """Keep a Computer Use observation alive for a pending human decision."""
+    if DEFAULT_REGISTRY.get_type(tool_name) != "computer":
+        return
+    from ..computer_use.protect import hold_observation_for_approval
+
+    hold_observation_for_approval(dict(params or {}), seconds)
+
+
+def _computer_release(tool_name: str, params: dict[str, Any] | None) -> None:
+    if DEFAULT_REGISTRY.get_type(tool_name) != "computer":
+        return
+    from ..computer_use.protect import release_observation_hold
+
+    release_observation_hold(dict(params or {}))
+
+
 async def _ask_user_approval(  # pylint: disable=too-many-statements
     governor: ResourceGovernor,
     tc_spec: ToolCallSpec,
@@ -632,6 +661,11 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
     root_session_id = str(ctx.get("root_session_id") or session_id)
     root_agent_id = str(ctx.get("root_agent_id") or agent_id or "unknown")
 
+    # From here on the call may wait on a model review and then a human.
+    # A Computer Use observation must outlive that wait; it is refreshed
+    # again once the human timer actually starts and released on deny.
+    _computer_hold(tool_name, params, TOOL_GUARD_APPROVAL_TIMEOUT_SECONDS)
+
     # AUTO is a model-reviewed approval mode. Prefer a provider-advertised
     # command-review companion model, but fall back to the active chat model
     # when no such model is listed. Non-allow results fall back to a human in
@@ -648,7 +682,8 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
         effective_level is not None
         and effective_level.value == "auto"
         and not findings_are_high
-        and source not in {
+        and source
+        not in {
             "escalation",
             "write_boundary",
             "read_only",
@@ -710,6 +745,7 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                     reason=f"Auto Review Deny: {review.reason}",
                 ),
             )
+            _computer_release(tool_name, params)
             return PermissionDecision(
                 behavior=PermissionBehavior.DENY,
                 message=(
@@ -719,8 +755,7 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
             )
         if review.require_human:
             logger.info(
-                "PolicyGuardedTool: AUTO review deferred to human "
-                "tool=%s reason=%s",
+                "PolicyGuardedTool: AUTO review deferred to human " "tool=%s reason=%s",
                 tool_name,
                 review.reason,
             )
@@ -791,9 +826,7 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                     rule_id="policy_ask",
                     category=GuardThreatCategory.RESOURCE_ABUSE,
                     severity=(
-                        GuardSeverity.HIGH
-                        if violation_msg
-                        else GuardSeverity.INFO
+                        GuardSeverity.HIGH if violation_msg else GuardSeverity.INFO
                     ),
                     title=(
                         "Sandbox Violation — Approve Unsandboxed Execution?"
@@ -872,17 +905,26 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
                     raw_params=params,
                 ),
                 "justification": str(
-                    (params or {}).get("justification")
-                    or governance_reason
-                    or ""
+                    (params or {}).get("justification") or governance_reason or "",
                 ).strip(),
+                "action_detail": _computer_action_detail(tool_name, params),
             },
             "channel_meta": ctx.get("channel_meta"),
             "_channel_instance": ctx.get("_channel_instance"),
-            **(
-                {"_spawn_subagent": True} if ctx.get("_spawn_subagent") else {}
-            ),
+            **({"_spawn_subagent": True} if ctx.get("_spawn_subagent") else {}),
         },
+    )
+
+    _computer_hold(
+        tool_name,
+        params,
+        float(
+            getattr(
+                pending,
+                "timeout_seconds",
+                TOOL_GUARD_APPROVAL_TIMEOUT_SECONDS,
+            ),
+        ),
     )
 
     generalization_task: asyncio.Task[None] | None = None
@@ -954,6 +996,8 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
         reason=(f"User Approve ({scope_label})" if approved else "User Deny"),
     )
     governor.audit(tc_spec, approval_decision)
+    if not approved:
+        _computer_release(tool_name, params)
 
     summary = format_findings_summary(guard_result)
     if decision == ApprovalDecision.APPROVED:
@@ -962,9 +1006,7 @@ async def _ask_user_approval(  # pylint: disable=too-many-statements
         # confirmed SIMILAR action persists an allow rule.  This keeps the UI
         # promise honest and prevents a plain "Approve" click from silently
         # changing every future chat.
-        rule_target = (
-            generalized_target if scope == ApprovalScope.SIMILAR else target
-        )
+        rule_target = generalized_target if scope == ApprovalScope.SIMILAR else target
         if scope == ApprovalScope.SIMILAR:
             await governor.add_approved_rule(
                 tc_spec,

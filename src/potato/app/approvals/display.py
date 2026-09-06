@@ -29,4 +29,5 @@ def approval_display_fields(pending: Any) -> dict[str, Any]:
             display.get("permission_increment") or "",
         ),
         "justification": str(display.get("justification") or ""),
+        "action_detail": str(display.get("action_detail") or ""),
     }

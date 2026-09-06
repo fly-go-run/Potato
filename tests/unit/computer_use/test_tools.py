@@ -99,7 +99,10 @@ class _FakeClient:
         return CuaCallResult(
             ok=True,
             text="",
-            data={"effect": "unverifiable", "delivery_mode": payload.get("delivery_mode")},
+            data={
+                "effect": "unverifiable",
+                "delivery_mode": payload.get("delivery_mode"),
+            },
         )
 
     async def end_session(self, session_id: str) -> None:
@@ -199,14 +202,14 @@ async def test_set_value_omits_delivery_mode(fake_driver: _FakeClient) -> None:
         ),
     )
     assert result["ok"] is True
-    set_value = next(
-        call for call in fake_driver.calls if call[0] == "set_value"
-    )
+    set_value = next(call for call in fake_driver.calls if call[0] == "set_value")
     assert "delivery_mode" not in set_value[1]
 
 
 @pytest.mark.asyncio
-async def test_observe_rejects_protected_apps(fake_driver: _FakeClient) -> None:
+async def test_observe_rejects_protected_apps(
+    fake_driver: _FakeClient,
+) -> None:
     _ = fake_driver
     potato = _payload(await cu.computer_observe(app="Potato"))
     assert potato["ok"] is False
@@ -217,7 +220,9 @@ async def test_observe_rejects_protected_apps(fake_driver: _FakeClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_observe_does_not_launch_stopped_app(fake_driver: _FakeClient) -> None:
+async def test_observe_does_not_launch_stopped_app(
+    fake_driver: _FakeClient,
+) -> None:
     result = _payload(await cu.computer_observe(app="Notes"))
     assert result["ok"] is False
     assert result["code"] == "APP_NOT_RUNNING"
@@ -261,9 +266,7 @@ async def test_expired_observation_session_is_reaped(
             {"observation_id": "obs_expired", "app": "Calculator"},
         )
         await __import__("asyncio").sleep(0)
-        ended = [
-            call for call in fake_driver.calls if call[0] == "revoke"
-        ]
+        ended = [call for call in fake_driver.calls if call[0] == "revoke"]
         assert ended[-1][1] == {"session": "potato-obs_expired"}
     finally:
         cu._CLIENT = None
@@ -277,3 +280,78 @@ async def test_disabled_feature_fails_closed() -> None:
         result = _payload(await cu.computer_list_apps())
     assert result["ok"] is False
     assert result["code"] == "DISABLED"
+
+
+def test_prune_screenshots_keeps_newest_and_drops_old(tmp_path) -> None:
+    import os
+
+    from potato.agents.tools.computer_use import prune_screenshots
+
+    now = 1_000_000.0
+    for index in range(6):
+        path = tmp_path / f"observe_{index:02d}.png"
+        path.write_bytes(b"x")
+        os.utime(path, (now - index, now - index))
+    stale = tmp_path / "observe_stale.png"
+    stale.write_bytes(b"x")
+    os.utime(stale, (now - 90_000, now - 90_000))
+    keep = tmp_path / "unrelated.png"
+    keep.write_bytes(b"x")
+
+    removed = prune_screenshots(
+        tmp_path,
+        max_files=4,
+        max_age_seconds=86_400,
+        now=now,
+    )
+    assert removed == 3
+    remaining = sorted(p.name for p in tmp_path.iterdir())
+    assert remaining == [
+        "observe_00.png",
+        "observe_01.png",
+        "observe_02.png",
+        "observe_03.png",
+        "unrelated.png",
+    ]
+
+
+async def test_observe_surfaces_driver_degraded_reason(monkeypatch) -> None:
+    from potato.agents.tools import computer_use as tools
+
+    class _Result:
+        def __init__(self, data):
+            self.data = data
+            self.text = ""
+            self.screenshot_path = None
+
+    class _Client:
+        async def call(self, tool, args=None, **_kw):
+            if tool == "list_apps":
+                return _Result(
+                    [{"name": "计算器", "bundle_id": "com.apple.calculator", "pid": 7}]
+                )
+            if tool == "list_windows":
+                return _Result([{"window_id": 1, "is_on_screen": False}])
+            return _Result(
+                {
+                    "elements": [],
+                    "degraded": True,
+                    "degraded_reason": "ax_window_unresolved: window is on another Space",
+                },
+            )
+
+        async def end_session(self, _sid):
+            return None
+
+    async def _client():
+        return _Client()
+
+    monkeypatch.setattr(tools, "_client", _client)
+    monkeypatch.setattr(tools, "computer_use_enabled", lambda: True)
+    chunk = await tools.computer_observe("Calculator", include_screenshot=False)
+    block = chunk.content[-1]
+    payload = json.loads(block["text"] if isinstance(block, dict) else block.text)
+    assert payload["ok"] and payload["element_count"] == 0
+    assert payload["degraded"] is True
+    assert "another Space" in payload["degraded_reason"]
+    tools.observation_store().clear()

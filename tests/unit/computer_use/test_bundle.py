@@ -129,3 +129,20 @@ def test_cached_binary_with_tampered_file_is_ignored(
     binary.write_bytes(b"tampered")
     binary.chmod(0o755)
     assert resolve_cua_driver_binary() == ""
+
+
+def test_pick_archive_member_prefers_standalone_over_app_bundle_copy() -> None:
+    from potato.computer_use.bundle import _pick_archive_member
+
+    names = [
+        "cua-driver-rs-0.20.0-darwin-universal/",
+        "cua-driver-rs-0.20.0-darwin-universal/CuaDriver.app/Contents/MacOS/cua-driver",
+        "cua-driver-rs-0.20.0-darwin-universal/cua-driver",
+        "cua-driver-rs-0.20.0-darwin-universal/libcua_driver_sdk.dylib",
+    ]
+    assert (
+        _pick_archive_member(names, "cua-driver")
+        == "cua-driver-rs-0.20.0-darwin-universal/cua-driver"
+    )
+    # Only the bundle copy present: still returned rather than failing.
+    assert _pick_archive_member(names[:2], "cua-driver") == names[1]

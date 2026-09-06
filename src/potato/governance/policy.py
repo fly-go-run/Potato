@@ -136,13 +136,7 @@ class GovernanceRule:
         """wcmatch globmatch with directory self-match support."""
         from wcmatch import glob
 
-        flags = (
-            glob.GLOBSTAR
-            | glob.BRACE
-            | glob.NEGATE
-            | glob.SPLIT
-            | glob.DOTGLOB
-        )
+        flags = glob.GLOBSTAR | glob.BRACE | glob.NEGATE | glob.SPLIT | glob.DOTGLOB
         if glob.globmatch(target, pattern, flags=flags):
             return True
         if pattern.endswith("/**"):
@@ -736,7 +730,11 @@ class GovernancePolicy:
         if tool_type == "computer" and _computer_target_invalid(tc_spec.target):
             return GovernanceDecision(
                 action=GovernanceAction.DENY,
-                reason="Computer Use observation is missing or expired",
+                reason=(
+                    "Computer Use observation is missing or expired. "
+                    "Call computer_observe again and pass the new "
+                    "observation_id."
+                ),
                 source="computer_use.invalid_observation",
             )
 
@@ -1190,10 +1188,7 @@ def _computer_app_always_allowed(target: str) -> bool:
 
 def _scan_fail_closed(tool_type: str, tool_name: str) -> bool:
     """Write / shell / network calls must not proceed if the scan dies."""
-    return (
-        tool_type in _SCAN_FAIL_CLOSED_TYPES
-        or tool_name in FILE_WRITE_TOOLS
-    )
+    return tool_type in _SCAN_FAIL_CLOSED_TYPES or tool_name in FILE_WRITE_TOOLS
 
 
 def _high_finding_overrides_allow(
@@ -1714,12 +1709,16 @@ def _guard_rule_to_detection_config(guard_rule: Any) -> DetectionRuleConfig:
         id=guard_rule.id,
         tools=list(guard_rule.tools),
         params=list(guard_rule.params),
-        category=str(guard_rule.category.value)
-        if hasattr(guard_rule.category, "value")
-        else str(guard_rule.category),
-        severity=str(guard_rule.severity.value)
-        if hasattr(guard_rule.severity, "value")
-        else str(guard_rule.severity),
+        category=(
+            str(guard_rule.category.value)
+            if hasattr(guard_rule.category, "value")
+            else str(guard_rule.category)
+        ),
+        severity=(
+            str(guard_rule.severity.value)
+            if hasattr(guard_rule.severity, "value")
+            else str(guard_rule.severity)
+        ),
         patterns=list(guard_rule.patterns),
         exclude_patterns=list(guard_rule.exclude_patterns),
         description=guard_rule.description,

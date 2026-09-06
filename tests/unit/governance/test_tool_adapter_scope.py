@@ -7,6 +7,7 @@ change future chats. This exercises that decision with a fake
 ApprovalService + governor so no real model / HTTP / agentscope runtime is
 needed.
 """
+
 from __future__ import annotations
 
 # pylint: disable=protected-access
@@ -557,3 +558,101 @@ async def test_sandbox_denial_is_not_retried_unsandboxed() -> None:
     assert calls == ["sandbox-for-touch /etc/passwd"]
     assert result.state == ToolResultState.DENIED
     assert "not retried" in result.content[0].text
+
+
+class _DenyingApprovalService(_FakeApprovalService):
+    async def wait_for_approval(self, _request_id, _timeout_seconds):  # noqa: ANN
+        return ApprovalDecision.DENIED
+
+
+async def _run_computer_approval(monkeypatch, service):
+    """Drive ``_ask_user_approval`` for a ComputerClick with a live observation."""
+    import potato.agents.tools.computer_use  # noqa: F401  registers ComputerClick
+    import potato.app.approvals as approvals_mod
+    import potato.governance.generalize as generalize_mod
+    from potato.computer_use.session import Observation, observation_store
+    from potato.governance import tool_adapter
+
+    async def _fake_generalize(_t, target, _s, agent_id=None):  # noqa: ANN
+        del agent_id
+        return target
+
+    monkeypatch.setattr(
+        generalize_mod,
+        "generalize_target_for_approval",
+        _fake_generalize,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        tool_adapter, "get_approval_service", lambda: service, raising=False
+    )
+    monkeypatch.setattr(
+        approvals_mod, "get_approval_service", lambda: service, raising=False
+    )
+
+    store = observation_store()
+    store.clear()
+    obs = Observation(
+        observation_id="obs_adapter",
+        app="Calculator",
+        bundle_id="com.apple.calculator",
+        pid=1,
+        window_id=2,
+        snapshot_id="s",
+        elements=[
+            {"element_index": 1, "role": "button", "label": "Equals", "value": ""}
+        ],
+    )
+    store.put(obs)
+    tc = ToolCallSpec(
+        tool_name="ComputerClick",
+        target="com.apple.calculator",
+        agent_id="agent-1",
+        session_id="session-1",
+        raw_params={"observation_id": "obs_adapter", "element_index": 1},
+    )
+    await tool_adapter._ask_user_approval(
+        governor=_FakeGovernor(),
+        tc_spec=tc,
+        request_context={
+            "user_id": "u",
+            "channel": "console",
+            "root_session_id": "session-1",
+            "root_agent_id": "agent-1",
+            "tool_call_id": "tc-1",
+        },
+        source="No rule hit",
+    )
+    return obs, service._pending
+
+
+class TestComputerObservationHold:
+    async def test_approved_keeps_hold_and_shows_action(self, monkeypatch):
+        from potato.computer_use.constants import OBSERVATION_TTL_SECONDS
+        from potato.computer_use.session import observation_store
+
+        try:
+            obs, pending = await _run_computer_approval(
+                monkeypatch,
+                _FakeApprovalService(None),
+            )
+            assert not obs.expired(now=obs.created_at + OBSERVATION_TTL_SECONDS + 1)
+            assert not obs.expired(now=obs.created_at + 300.0)
+            assert (
+                pending.extra["display"]["action_detail"] == 'click · button "Equals"'
+            )
+        finally:
+            observation_store().clear()
+
+    async def test_denied_releases_hold(self, monkeypatch):
+        from potato.computer_use.constants import OBSERVATION_TTL_SECONDS
+        from potato.computer_use.session import observation_store
+
+        try:
+            obs, _pending = await _run_computer_approval(
+                monkeypatch,
+                _DenyingApprovalService(None),
+            )
+            assert obs.expired(now=obs.created_at + OBSERVATION_TTL_SECONDS + 1)
+        finally:
+            observation_store().clear()

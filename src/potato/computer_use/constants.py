@@ -56,5 +56,13 @@ INPUT_DRIVER_TOOLS: frozenset[str] = frozenset(
 )
 
 OBSERVATION_TTL_SECONDS = 120
+# Slack added on top of the approval timeout when an observation is held
+# for a pending human decision.
+APPROVAL_HOLD_SLACK_SECONDS = 30.0
+# Observation screenshots kept on disk. Older or excess files are pruned
+# on the next observe; message history keeps a file:// reference, so the
+# formatter must tolerate a missing file.
+SCREENSHOT_MAX_FILES = 100
+SCREENSHOT_MAX_AGE_SECONDS = 24 * 3600
 DRIVER_CALL_TIMEOUT_SECONDS = 45.0
 DAEMON_START_TIMEOUT_SECONDS = 12.0

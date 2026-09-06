@@ -230,8 +230,11 @@ def _pick_archive_member(names: list[str], filename: str) -> str:
     ]
     if not matches:
         raise RuntimeError(f"archive has no {filename}; entries={names[:12]}")
-    # Prefer a top-level or Contents/MacOS copy over random nested copies.
-    matches.sort(key=lambda name: ("Contents/MacOS" not in name, name.count("/")))
+    # Prefer the top-level standalone executable. The copy inside
+    # CuaDriver.app/Contents/MacOS is signed against that bundle's
+    # Info.plist and resources; extracted on its own its signature is
+    # invalid and macOS SIGKILLs it at launch.
+    matches.sort(key=lambda name: (name.count("/"), "Contents/MacOS" in name))
     return matches[0]
 
 

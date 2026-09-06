@@ -183,3 +183,18 @@ class TestToolGuardResultUnchanged:
         )
         assert result.findings_count == 0
         assert result.max_severity == GuardSeverity.SAFE
+
+
+def test_display_fields_surface_action_detail() -> None:
+    from types import SimpleNamespace
+
+    pending = SimpleNamespace(
+        tool_name="ComputerClick",
+        extra={"display": {"action_detail": 'click · button "Send"'}},
+    )
+    assert (
+        approval_display_fields(pending)["action_detail"]
+        == 'click · button "Send"'
+    )
+    pending = SimpleNamespace(tool_name="Bash", extra={"display": {}})
+    assert approval_display_fields(pending)["action_detail"] == ""

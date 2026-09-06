@@ -24,10 +24,20 @@ class Observation:
     session_id: str = ""
     elements: list[dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
+    screenshot_path: str = ""
+    # Extra lifetime granted while a human approval is pending. Without
+    # it a 300 s approval wait would outlive the 120 s observation.
+    approval_hold: float = 0.0
 
     def expired(self, now: float | None = None) -> bool:
         stamp = now if now is not None else time.time()
-        return stamp - self.created_at > OBSERVATION_TTL_SECONDS
+        return stamp - self.created_at > OBSERVATION_TTL_SECONDS + self.approval_hold
+
+    def hold_for_approval(self, seconds: float, now: float | None = None) -> None:
+        """Keep this observation alive for *seconds* from *now*."""
+        stamp = now if now is not None else time.time()
+        needed = (stamp + seconds) - (self.created_at + OBSERVATION_TTL_SECONDS)
+        self.approval_hold = max(self.approval_hold, needed)
 
     def element(self, index: int) -> dict[str, Any]:
         for item in self.elements:
@@ -90,6 +100,23 @@ class ObservationStore:
                 "Call computer_observe and use the new observation_id.",
             )
         return item
+
+    def hold_for_approval(self, observation_id: str, seconds: float) -> None:
+        """Extend one live observation so a pending approval can finish."""
+        key = (observation_id or "").strip()
+        with self._lock:
+            item = self._items.get(key)
+            if item is not None and not item.expired():
+                item.hold_for_approval(seconds)
+
+    def release_hold(self, observation_id: str) -> None:
+        """Drop the approval extension; base TTL applies again."""
+        key = (observation_id or "").strip()
+        with self._lock:
+            item = self._items.get(key)
+            if item is not None:
+                item.approval_hold = 0.0
+            self._purge_unlocked()
 
     def take(self, observation_id: str) -> Observation:
         """Atomically consume one observation without reaping its session.

@@ -7,7 +7,10 @@ import asyncio
 import json
 import logging
 import mimetypes
+import os
 import secrets
+import time
+from pathlib import Path
 from typing import Any
 
 from agentscope.message import DataBlock, TextBlock, URLSource
@@ -20,6 +23,8 @@ from ...computer_use.constants import (
     COMPUTER_USE_TOOL_NAMES,
     INPUT_DRIVER_TOOLS,
     OBSERVATION_TTL_SECONDS,
+    SCREENSHOT_MAX_AGE_SECONDS,
+    SCREENSHOT_MAX_FILES,
 )
 from ...computer_use.errors import ComputerUseError
 from ...computer_use.protect import (
@@ -192,11 +197,7 @@ def _as_dict(value: Any) -> dict[str, Any]:
 
 async def _list_app_records(client: CuaDriverClient) -> list[dict[str, Any]]:
     result = await client.call("list_apps")
-    return [
-        item
-        for item in _as_list(result.data)
-        if isinstance(item, dict)
-    ]
+    return [item for item in _as_list(result.data) if isinstance(item, dict)]
 
 
 def _match_app(apps: list[dict[str, Any]], app: str) -> dict[str, Any]:
@@ -210,7 +211,9 @@ def _match_app(apps: list[dict[str, Any]], app: str) -> dict[str, Any]:
         )
 
     def _name(item: dict[str, Any]) -> str:
-        return str(item.get("name") or item.get("display_name") or item.get("app_name") or "")
+        return str(
+            item.get("name") or item.get("display_name") or item.get("app_name") or ""
+        )
 
     exact = [
         item
@@ -254,10 +257,7 @@ def _pid_of(app_rec: dict[str, Any]) -> int:
 
 def _bundle_of(app_rec: dict[str, Any]) -> str:
     return str(
-        app_rec.get("bundle_id")
-        or app_rec.get("bundleId")
-        or app_rec.get("id")
-        or "",
+        app_rec.get("bundle_id") or app_rec.get("bundleId") or app_rec.get("id") or "",
     )
 
 
@@ -298,7 +298,9 @@ def _elements_from_state(data: dict[str, Any]) -> list[dict[str, Any]]:
     raw = data.get("elements")
     if not isinstance(raw, list):
         structured = data.get("structuredContent")
-        if isinstance(structured, dict) and isinstance(structured.get("elements"), list):
+        if isinstance(structured, dict) and isinstance(
+            structured.get("elements"), list
+        ):
             raw = structured["elements"]
         else:
             raw = []
@@ -346,10 +348,52 @@ def _snapshot_id_of(data: dict[str, Any]) -> str:
     return ""
 
 
-def _screenshot_path() -> str:
+def _shots_dir() -> Path:
     shots = runtime_home() / "shots"
     shots.mkdir(parents=True, exist_ok=True)
-    return str(shots / f"observe_{secrets.token_hex(8)}.png")
+    return shots
+
+
+def _screenshot_path() -> str:
+    return str(_shots_dir() / f"observe_{secrets.token_hex(8)}.png")
+
+
+def prune_screenshots(
+    shots: Path,
+    *,
+    max_files: int = SCREENSHOT_MAX_FILES,
+    max_age_seconds: float = SCREENSHOT_MAX_AGE_SECONDS,
+    now: float | None = None,
+) -> int:
+    """Delete old or excess observe screenshots. Returns the count removed.
+
+    Chat history keeps a file:// reference to each screenshot, so this is
+    deliberately lazy: only files older than *max_age_seconds*, or beyond
+    the newest *max_files*, go. The provider formatter substitutes a text
+    placeholder when a referenced file is gone.
+    """
+    stamp = now if now is not None else time.time()
+    try:
+        files = [p for p in shots.glob("observe_*.png") if p.is_file()]
+    except OSError:
+        return 0
+    entries: list[tuple[float, Path]] = []
+    for path in files:
+        try:
+            entries.append((path.stat().st_mtime, path))
+        except OSError:
+            continue
+    entries.sort(key=lambda item: item[0], reverse=True)
+    removed = 0
+    for position, (mtime, path) in enumerate(entries):
+        if position < max_files and stamp - mtime <= max_age_seconds:
+            continue
+        try:
+            os.unlink(path)
+            removed += 1
+        except OSError:
+            continue
+    return removed
 
 
 async def _observe_app(app: str, include_screenshot: bool) -> ToolChunk:
@@ -379,7 +423,10 @@ async def _observe_app(app: str, include_screenshot: bool) -> ToolChunk:
             "WINDOW_NOT_FOUND",
             "Cua Driver returned a window without an id.",
         ) from exc
-    shot = _screenshot_path() if include_screenshot else None
+    shot = None
+    if include_screenshot:
+        prune_screenshots(_shots_dir())
+        shot = _screenshot_path()
     observation_id = new_observation_id()
     session_id = observation_session_id(observation_id)
     try:
@@ -408,6 +455,7 @@ async def _observe_app(app: str, include_screenshot: bool) -> ToolChunk:
             snapshot_id=_snapshot_id_of(data),
             session_id=session_id,
             elements=elements,
+            screenshot_path=state.screenshot_path or "",
         ),
     )
     await _reap_discarded_sessions(client)
@@ -419,6 +467,10 @@ async def _observe_app(app: str, include_screenshot: bool) -> ToolChunk:
         "pid": pid,
         "window_id": window_id,
         "element_count": len(elements),
+        "degraded": bool(data.get("degraded")),
+        "degraded_reason": (
+            str(data.get("degraded_reason") or "")[:400] if data.get("degraded") else ""
+        ),
         "ttl_seconds": OBSERVATION_TTL_SECONDS,
         "text": _tree_text(data, state.text),
         "note": (
