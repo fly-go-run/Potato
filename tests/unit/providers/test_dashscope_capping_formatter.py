@@ -15,7 +15,6 @@ field; ``0`` disables capping.
 # pylint: disable=protected-access
 from __future__ import annotations
 
-import pytest
 
 from potato.providers.dashscope_provider import (
     _CappingDashScopeFormatter,
@@ -78,9 +77,10 @@ def test_remote_video_passes_through_unchanged() -> None:
     }
 
 
-def test_missing_file_is_passed_through_to_base() -> None:
-    # A file:// URL whose target does not exist should not raise; we defer
-    # to the base formatter, which will surface a clear FileNotFoundError.
+def test_missing_file_becomes_placeholder() -> None:
+    # History keeps file:// references to media that may since have been
+    # pruned (e.g. computer_observe screenshots). A missing file must not
+    # take the whole request down; it becomes a text placeholder.
     from agentscope.message import URLSource
 
     source = URLSource(
@@ -88,8 +88,9 @@ def test_missing_file_is_passed_through_to_base() -> None:
         media_type="video/mp4",
     )
     assert _CappingDashScopeFormatter._inline_media_size(source) is None
-    with pytest.raises(FileNotFoundError):
-        _CappingDashScopeFormatter()._format_video_source(source)
+    out = _CappingDashScopeFormatter()._format_video_source(source)
+    assert out["type"] == "text"
+    assert "no longer exists" in out["text"]
 
 
 def test_custom_threshold_is_honored(tmp_path) -> None:

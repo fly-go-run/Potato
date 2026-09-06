@@ -321,3 +321,28 @@ def test_non_http_remote_scheme_passthrough() -> None:
         assert result is source, f"{scheme_url} was not passed through"
         # inline_media_size must return None (not try getsize)
         assert inline_media_size(source) is None
+
+
+# ---------------------------------------------------------------------------
+# missing local file -> placeholder instead of FileNotFoundError
+# ---------------------------------------------------------------------------
+
+
+def test_missing_local_file_is_placeholder_for_every_formatter() -> None:
+    from agentscope.message import URLSource
+
+    source = URLSource(
+        url="file:///nonexistent/observe_deadbeef.png",
+        media_type="image/png",
+    )
+    for cls in _ALL_CAPPING_FORMATTERS:
+        formatter = cls()
+        out = (
+            formatter._format_media_source(source)
+            if cls is _CappingGeminiFormatter
+            else formatter._format_image_source(source)
+        )
+        assert "no longer exists" in out["text"], cls.__name__
+    # Capping disabled must not re-enable the crash.
+    out = _CappingOpenAIFormatter(max_bytes=0)._format_image_source(source)
+    assert "no longer exists" in out["text"]

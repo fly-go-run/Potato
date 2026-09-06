@@ -92,6 +92,24 @@ def _resolve_local_path(url: str) -> str | None:
     return None
 
 
+def _local_file_is_missing(source: Any) -> bool:
+    """True for a local URLSource whose file has been deleted.
+
+    Observe screenshots and other tool media are pruned from disk while
+    the message history still references them; a crash here would take
+    the whole request down.
+    """
+    if not isinstance(source, URLSource):
+        return False
+    path = _resolve_local_path(str(source.url))
+    if path is None:
+        return False
+    try:
+        return not os.path.isfile(path)
+    except OSError:
+        return True
+
+
 def inline_media_size(source: Any) -> int | None:
     """Return the byte size of *source* if it would be inlined locally.
 
@@ -139,20 +157,32 @@ class CappingFormatterMixin:  # pylint: disable=too-few-public-methods
             f"{self.max_bytes} bytes]"
         )
 
-    def _placeholder(self, kind: str, size: int) -> dict[str, Any]:
-        """Provider-shaped text placeholder for an oversized media block.
+    def _text_part(self, text: str) -> dict[str, Any]:
+        """Provider-shaped text part.
 
         Default shape (``{"type": "text", "text": ...}``) matches the
-        OpenAI / Anthropic / DashScope wire formats; Gemini overrides this
-        to its ``{"text": ...}`` part shape.
+        OpenAI / Anthropic / DashScope wire formats; Gemini and the
+        Responses API override this.
         """
-        return {"type": "text", "text": self._placeholder_text(kind, size)}
+        return {"type": "text", "text": text}
+
+    def _placeholder(self, kind: str, size: int) -> dict[str, Any]:
+        """Provider-shaped text placeholder for an oversized media block."""
+        return self._text_part(self._placeholder_text(kind, size))
+
+    def _missing_placeholder(self, kind: str) -> dict[str, Any]:
+        return self._text_part(
+            f"[{kind} omitted from model context: the local file no "
+            "longer exists]",
+        )
 
     def _maybe_cap(self, source: Any, kind: str) -> dict[str, Any] | None:
         """Return a placeholder dict if *source* exceeds the cap, else None.
 
         ``None`` means "no capping decision — defer to the base formatter".
         """
+        if _local_file_is_missing(source):
+            return self._missing_placeholder(kind)
         if self.max_bytes <= 0:
             return None
         size = self._inline_media_size(source)
@@ -223,8 +253,8 @@ class _CappingGeminiFormatter(GeminiChatFormatter, CappingFormatterMixin):
     so :meth:`_placeholder` is overridden accordingly.
     """
 
-    def _placeholder(self, kind: str, size: int) -> dict[str, Any]:
-        return {"text": self._placeholder_text(kind, size)}
+    def _text_part(self, text: str) -> dict[str, Any]:
+        return {"text": text}
 
     def _format_media_source(self, source: Any) -> dict[str, Any]:
         capped = self._maybe_cap(source, "media")
@@ -272,15 +302,12 @@ class _CappingOpenAIResponseFormatter(
 ):
     """OpenAI Responses API formatter that caps oversized local media."""
 
-    def _placeholder(self, kind: str, size: int) -> dict[str, Any]:
+    def _text_part(self, text: str) -> dict[str, Any]:
         # Responses API uses ``input_text`` / ``output_text`` — not the
         # generic ``text`` type used by Chat Completions.  Capped media
         # almost always comes from user messages, so ``input_text`` is
         # the correct type here.
-        return {
-            "type": "input_text",
-            "text": self._placeholder_text(kind, size),
-        }
+        return {"type": "input_text", "text": text}
 
     def _format_image_source(self, source: Any) -> dict[str, Any]:
         capped = self._maybe_cap(source, "image")
