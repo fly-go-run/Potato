@@ -17,7 +17,7 @@ Potato 参考这些编排原则，选择 **Less Privileged AppContainer（LPAC�
 
 - 项目普通文件只读，任务 scratch 与独立 AppContainer profile 可写。选择 `workspace-write` 时，Shell 的 `effective_file_mode` 仍明确为 `read-only`。正常编辑继续使用原生文件工具；Shell 直接写项目要经过单次宿主执行审批。
 - 每次创建随机 profile/SID，不复用。DACL 只给本次 SID 逐项添加读取许可和写入拒绝，不授予 Everyone 或 ALL APPLICATION PACKAGES。秘密名称（含大小写、Win32 尾随点/空格）和项目内目录拒绝逐项拒绝读写。
-- LPAC 的系统基线仍可读，另外添加 `registryRead` 和 `lpacInstrumentation` 供 PowerShell 运行时及 ETW 日志初始化。不能承诺隐藏系统已向 LPAC 公开的数据。未给普通项目外文件及 Potato 私有数据授予本次 SID 的访问权；Windows 测试检查默认 ACL 下的实际拒绝。
+- LPAC 的系统基线仍可读，另外添加 `registryRead`、`lpacInstrumentation` 和 `lpacCom` 供 PowerShell 运行时、ETW 日志和 COM 初始化。不能承诺隐藏系统已向 LPAC 公开的数据。未给普通项目外文件及 Potato 私有数据授予本次 SID 的访问权；Windows 测试检查默认 ACL 下的实际拒绝。
 - 默认没有网络能力。获准联网只增加 `internetClient`，不加 LAN 能力，不设 localhost 豁免。其他网络需求继续诊断，必要时审查宿主执行。
 - 项目和 scratch 最多 20000 个已有条目。遇到硬链接、符号链接、junction/reparse point、不受支持的 DACL、非绝对/非 Unicode 路径或超限时停止受限启动。项目之外的显式目录拒绝尚不支持，核心也不会用宿主执行绕过这些拒绝。
 

@@ -262,6 +262,7 @@ impl Process {
         let mut caps = vec![
             capability("registryRead")?,
             capability("lpacInstrumentation")?,
+            capability("lpacCom")?,
         ];
         if options.network {
             caps.push(capability("internetClient")?);
