@@ -73,6 +73,18 @@ fn windows_enforcement_probe() {
 }
 
 #[test]
+fn windows_minimal_environment_preserves_requested_scratch() {
+    let (_dir, mut options) = fixture("Write-Output ('TEMP=' + $env:TEMP); Write-Output ('PROFILE=' + $env:USERPROFILE); [IO.File]::WriteAllText(($env:TEMP+'\\marker'),'ok'); exit 0");
+    options.env.remove("USERPROFILE");
+    let result = collect(Process::spawn(&options).unwrap());
+    assert_eq!(result.0, 0, "{result:?}");
+    assert!(
+        options.scratch.join("marker").exists(),
+        "requested scratch was not used: {result:?}"
+    );
+}
+
+#[test]
 fn windows_reads_project_but_denies_secrets_writes_and_parent_environment() {
     let (_dir, options) = fixture("$ErrorActionPreference='Stop'; if ([IO.File]::ReadAllText('normal.txt') -ne 'readable') { exit 10 }; foreach ($p in @('.ENV', 'blocked.txt')) { try { [IO.File]::ReadAllText($p); exit 11 } catch [UnauthorizedAccessException] {} }; try { [IO.File]::WriteAllText('normal.txt','bad'); exit 12 } catch [UnauthorizedAccessException] {}; if ($env:OPENAI_API_KEY) { exit 13 }; [IO.File]::WriteAllText(($env:TEMP+'\\result.txt'),'ok'); Write-Output 'success'; exit 0");
     std::fs::write(options.project.join("normal.txt"), "readable").unwrap();
