@@ -256,7 +256,13 @@ impl Process {
         let profile = Profile::new()?;
         let mut lease = Lease::new(profile.sid);
         lease.prepare(options)?;
-        let mut caps = vec![capability("registryRead")?];
+        // PowerShell initializes its ETW logger before executing any command.
+        // LPAC needs the explicit instrumentation capability for this; keep
+        // logging enabled instead of bypassing its initialization/security.
+        let mut caps = vec![
+            capability("registryRead")?,
+            capability("lpacInstrumentation")?,
+        ];
         if options.network {
             caps.push(capability("internetClient")?);
         }

@@ -152,7 +152,7 @@ impl Plan {
         };
         json!({"scope_digest":crate::reviewer_cache::hash(&json!([backend(),effective_mode,self.command,self.cwd,self.project,self.private,self.mode,self.network,self.unsandboxed,scope_env,self.denied])),"backend":if self.unsandboxed {"none"} else {backend()},
             "effective_file_mode":effective_mode,
-            "platform_scope":if cfg!(windows) && !self.unsandboxed {"LPAC OS baseline and registryRead; individually granted project reads; scratch/profile writes; project shell writes require reviewed host execution or file tools"} else {"project and private scratch"},
+            "platform_scope":if cfg!(windows) && !self.unsandboxed {"LPAC OS baseline, registryRead and lpacInstrumentation; individually granted project reads; scratch/profile writes; project shell writes require reviewed host execution or file tools"} else {"project and private scratch"},
             "network_scope":if cfg!(windows) && !self.unsandboxed && self.network {"internetClient capability; no LAN or loopback exemption"} else {"default"},
             "file_mode":self.mode,"denied_paths":self.denied,"project":self.project,"cwd":self.cwd,"scratch":self.scratch,
             "network":if self.network || self.unsandboxed {"enabled"} else {"disabled"},
