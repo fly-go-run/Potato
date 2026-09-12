@@ -132,7 +132,9 @@ jobs:
         run: cargo clippy --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
       - name: Test Windows sandbox enforcement
         if: runner.os == 'Windows'
-        run: cargo test --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }}
+        run: |
+          cargo test --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }} windows_minimal_environment -- --nocapture
+          cargo test --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }}
       - name: Check native code
         run: cargo clippy --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
       - name: Test core

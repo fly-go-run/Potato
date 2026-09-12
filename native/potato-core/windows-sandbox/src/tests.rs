@@ -74,14 +74,28 @@ fn windows_enforcement_probe() {
 
 #[test]
 fn windows_minimal_environment_preserves_requested_scratch() {
-    let (_dir, mut options) = fixture("Write-Output ('TEMP=' + $env:TEMP); Write-Output ('PROFILE=' + $env:USERPROFILE); [IO.File]::WriteAllText(($env:TEMP+'\\marker'),'ok'); exit 0");
+    let (_dir, mut options) = fixture("exit 99");
     options.env.remove("USERPROFILE");
+    options.env.remove("TMP");
+    // Exercise legacy PowerShell independently of the UTF-8 bootstrap so
+    // startup failures can be distinguished from command encoding failures.
+    options.args = vec!["-NoLogo".into(), "-NoProfile".into(), "-NonInteractive".into(), "-Command".into(), "Write-Output ('TEMP=' + $env:TEMP); [IO.File]::WriteAllText(($env:TEMP+'\\marker'),'ok'); exit 0".into()];
     let result = collect(Process::spawn(&options).unwrap());
     assert_eq!(result.0, 0, "{result:?}");
     assert!(
         options.scratch.join("marker").exists(),
         "requested scratch was not used: {result:?}"
     );
+}
+
+#[test]
+fn windows_native_command_preserves_output() {
+    let (_dir, mut options) = fixture("exit 99");
+    options.program = system_directory().unwrap().join("cmd.exe");
+    options.args = vec!["/d".into(), "/c".into(), "echo native-boundary".into()];
+    let result = collect(Process::spawn(&options).unwrap());
+    assert_eq!(result.0, 0, "{result:?}");
+    assert!(result.1.contains("native-boundary"), "{result:?}");
 }
 
 #[test]
