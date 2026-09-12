@@ -42,7 +42,7 @@ class PackagingTests(unittest.TestCase):
                 data = ("fixture " + name).encode()
                 (self.packages / name).write_bytes(data)
                 (self.packages / (name + ".sha256")).write_text(
-                    f"{hashlib.sha256(data).hexdigest()}  {name}\n", encoding="utf-8")
+                    f"{hashlib.sha256(data).hexdigest()}  {name}\n", encoding="utf-8", newline="\n")
 
     def test_complete_assets_and_crlf_checksums(self):
         self.assertEqual(len(release.verify_assets(self.packages, self.version)), 12)
