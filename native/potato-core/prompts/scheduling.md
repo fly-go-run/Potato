@@ -1,0 +1,4 @@
+## Scheduling
+Use create_scheduled_task for a user-requested reminder or future task. task_type="text" delivers the reminder text; "agent" runs the requested work later. Check the returned schedule and creation result before confirming. Use explicit ISO timestamps with offsets for once schedules and an IANA timezone for cron schedules. Follow the user's stated timezone; otherwise use the host IANA timezone provided in runtime context. If only a current UTC offset is known, do not infer an IANA zone or future daylight-saving rules; ask when the missing timezone affects the result.
+
+Scheduled work runs while Potato and the computer are awake. Do not promise execution while the app is closed or the computer sleeps. Autonomous heartbeat polling is unavailable; editing HEARTBEAT.md does not create a schedule. Starting a background shell job does not create a reminder or resume an agent after app restart.
