@@ -403,20 +403,7 @@ impl Process {
                     "Windows did not create an AppContainer token",
                 ));
             }
-            let mut is_lpac = 0u32;
-            bool_ok(
-                GetTokenInformation(
-                    token.0,
-                    TokenIsLessPrivilegedAppContainer,
-                    (&mut is_lpac as *mut u32).cast(),
-                    size_of::<u32>() as u32,
-                    &mut returned,
-                ),
-                "verify LPAC token",
-            )?;
-            if is_lpac != 1 {
-                return Err(io::Error::other("Windows did not apply LPAC restrictions"));
-            }
+            crate::lpac::verify(token.0)?;
             if cancelled() {
                 return Err(io::Error::new(
                     io::ErrorKind::Interrupted,

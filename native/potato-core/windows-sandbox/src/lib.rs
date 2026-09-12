@@ -66,6 +66,8 @@ fn quote(arg: &str) -> String {
 #[cfg(windows)]
 mod acl;
 #[cfg(windows)]
+mod lpac;
+#[cfg(windows)]
 mod win;
 #[cfg(windows)]
 pub use win::{probe, system_directory, Process};
