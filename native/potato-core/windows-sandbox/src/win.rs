@@ -196,6 +196,16 @@ fn capability(name: &str) -> io::Result<Local> {
     }
 }
 
+// Legacy PowerShell/.NET must receive ordinary DOS/UNC paths, including
+// lpCurrentDirectory. Keep verbatim paths for the host's ACL/security checks.
+fn legacy_path(path: &str) -> String {
+    if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{path}")
+    } else {
+        path.strip_prefix(r"\\?\").unwrap_or(path).to_owned()
+    }
+}
+
 fn pipe() -> io::Result<(Handle, Handle)> {
     unsafe {
         let (mut read, mut write) = (null_mut(), null_mut());
@@ -327,8 +337,9 @@ impl Process {
             startup.StartupInfo.hStdOutput = stdout_write.0;
             startup.StartupInfo.hStdError = stderr_write.0;
             startup.lpAttributeList = attributes.ptr();
-            let program = options.program.to_str().unwrap();
-            let mut argv = vec![quote(program)];
+            let program = legacy_path(options.program.to_str().unwrap());
+            let cwd = wide(&legacy_path(options.cwd.to_str().unwrap()));
+            let mut argv = vec![quote(&program)];
             argv.extend(options.args.iter().map(|arg| quote(arg)));
             let mut command = wide(&argv.join(" "));
             if command.len() > 32767 {
@@ -353,11 +364,7 @@ impl Process {
                     .iter()
                     .any(|name| key.eq_ignore_ascii_case(name))
                 {
-                    if let Some(path) = value.strip_prefix(r"\\?\UNC\") {
-                        *value = format!(r"\\{path}");
-                    } else if let Some(path) = value.strip_prefix(r"\\?\") {
-                        *value = path.to_owned();
-                    }
+                    *value = legacy_path(value);
                 }
             }
             child_env.retain(|key, _| !key.eq_ignore_ascii_case("LOCALAPPDATA"));
@@ -375,7 +382,7 @@ impl Process {
             let mut pi: PROCESS_INFORMATION = std::mem::zeroed();
             bool_ok(
                 CreateProcessW(
-                    wide(program).as_ptr(),
+                    wide(&program).as_ptr(),
                     command.as_mut_ptr(),
                     null(),
                     null(),
@@ -385,7 +392,7 @@ impl Process {
                         | CREATE_NO_WINDOW
                         | CREATE_SUSPENDED,
                     environment.as_ptr().cast(),
-                    wide(options.cwd.to_str().unwrap()).as_ptr(),
+                    cwd.as_ptr(),
                     &startup.StartupInfo,
                     &mut pi,
                 ),
@@ -563,12 +570,18 @@ pub fn probe() -> io::Result<()> {
             std::thread::sleep(Duration::from_millis(20));
         };
         process.finish()?;
+        use std::io::Read;
+        let mut diagnostics = String::new();
+        if let Some(stderr) = process.stderr.take() {
+            stderr.take(4096).read_to_string(&mut diagnostics)?;
+        }
         if code != 0
             || project.join("forbidden.txt").exists()
             || !scratch.join("writable.txt").exists()
         {
             return Err(io::Error::other(format!(
-                "Windows sandbox enforcement probe failed (exit {code})"
+                "Windows sandbox enforcement probe failed (exit {code}; scratch marker {}; forbidden write {}; diagnostics {diagnostics:?})",
+                scratch.join("writable.txt").exists(), project.join("forbidden.txt").exists()
             )));
         }
         Ok(())
