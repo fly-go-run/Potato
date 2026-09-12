@@ -329,7 +329,18 @@ impl Process {
                     "Windows command line exceeds 32767 UTF-16 units",
                 ));
             }
-            let mut env: Vec<_> = options.env.iter().collect();
+            // AppContainer creation needs LOCALAPPDATA even when the caller
+            // deliberately supplies a minimal child environment. Inherit only
+            // this host path, never the complete environment or credentials.
+            // This does not grant the child access to the host profile.
+            let local_app_data = std::env::var("LOCALAPPDATA")
+                .ok()
+                .filter(|value| !value.is_empty() && !value.contains('\0'))
+                .ok_or_else(|| io::Error::other("AppContainer requires host LOCALAPPDATA"))?;
+            let mut child_env = options.env.clone();
+            child_env.retain(|key, _| !key.eq_ignore_ascii_case("LOCALAPPDATA"));
+            child_env.insert("LOCALAPPDATA".into(), local_app_data);
+            let mut env: Vec<_> = child_env.iter().collect();
             env.sort_by_key(|(k, _)| k.to_uppercase());
             let mut environment: Vec<u16> = env
                 .iter()

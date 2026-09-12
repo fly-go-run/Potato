@@ -125,8 +125,12 @@ fn child_dir(dir: &Dir, name: &str) -> Result<Dir> {
     }
     Ok(dir.open_dir(name)?)
 }
-fn sync_dir(dir: &Dir) -> Result<()> {
-    dir.try_clone()?.into_std_file().sync_all()?;
+fn sync_dir(_dir: &Dir) -> Result<()> {
+    // Windows directory handles do not support FlushFileBuffers (GENERIC_WRITE
+    // is required). Keep flushing every written file, but directory fsync is a
+    // Unix durability barrier; attempting it on Windows prevents first startup.
+    #[cfg(unix)]
+    _dir.try_clone()?.into_std_file().sync_all()?;
     Ok(())
 }
 fn encode(record: &Value) -> Result<Vec<u8>> {

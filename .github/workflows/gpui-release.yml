@@ -127,16 +127,16 @@ jobs:
           xcrun --sdk macosx metal --version
       - name: Check formatting
         run: cargo fmt --manifest-path native/potato-gpui/Cargo.toml --check
-      - name: Check native code
-        run: cargo clippy --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
-      - name: Test core
-        run: cargo test --locked --release --manifest-path native/potato-core/Cargo.toml --target ${{ matrix.target }}
       - name: Check Windows sandbox
         if: runner.os == 'Windows'
         run: cargo clippy --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
       - name: Test Windows sandbox enforcement
         if: runner.os == 'Windows'
         run: cargo test --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }}
+      - name: Check native code
+        run: cargo clippy --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
+      - name: Test core
+        run: cargo test --locked --release --manifest-path native/potato-core/Cargo.toml --target ${{ matrix.target }}
       - name: Test GPUI
         run: cargo test --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }}
       - name: Build release executable
