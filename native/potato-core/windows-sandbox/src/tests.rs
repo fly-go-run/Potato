@@ -37,29 +37,34 @@ fn fixture(command: &str) -> (tempfile::TempDir, Options) {
 }
 
 fn collect(mut process: Process) -> (i32, String, String) {
+    // Drain while running: startup diagnostics can exceed anonymous-pipe
+    // capacity, and reading only after wait would deadlock the test itself.
+    let read = |mut pipe: std::fs::File| {
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            pipe.read_to_end(&mut bytes).unwrap();
+            String::from_utf8_lossy(&bytes).replace('\0', "")
+        })
+    };
+    let out = read(process.stdout.take().unwrap());
+    let err = read(process.stderr.take().unwrap());
     let deadline = Instant::now() + Duration::from_secs(20);
     let code = loop {
         if let Some(code) = process.try_wait().unwrap() {
-            break code;
+            break Some(code);
         }
-        assert!(Instant::now() < deadline, "sandbox test timed out");
+        if Instant::now() >= deadline {
+            break None;
+        }
         std::thread::sleep(Duration::from_millis(20));
     };
     process.finish().unwrap();
-    let (mut out, mut err) = (String::new(), String::new());
-    process
-        .stdout
-        .take()
-        .unwrap()
-        .read_to_string(&mut out)
-        .unwrap();
-    process
-        .stderr
-        .take()
-        .unwrap()
-        .read_to_string(&mut err)
-        .unwrap();
-    (code, out, err)
+    let (out, err) = (out.join().unwrap(), err.join().unwrap());
+    assert!(
+        code.is_some(),
+        "sandbox test timed out; stdout={out:?}; stderr={err:?}"
+    );
+    (code.unwrap(), out, err)
 }
 
 #[test]
