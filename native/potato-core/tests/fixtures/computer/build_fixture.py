@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Build the isolated macOS computer-use fixture application."""
 from pathlib import Path
 import plistlib

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Validate native assets; optionally publish a verified prerelease.
 
 Requires Python 3.11+. Publishing also requires authenticated GitHub CLI.

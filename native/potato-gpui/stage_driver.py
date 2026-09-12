@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Stage the pinned standalone official Rust driver."""
 import argparse
 import hashlib

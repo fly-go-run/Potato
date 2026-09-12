@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Exercise shipped archives and Windows installation on CI."""
 
 import argparse

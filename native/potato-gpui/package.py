@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Package GPUI releases with Python 3.11+ and NSIS (build tools only)."""
 
 import argparse

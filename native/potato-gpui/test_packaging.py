@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Portable regression tests for Windows packaging and release guards."""
 
 import contextlib
