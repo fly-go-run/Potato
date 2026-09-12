@@ -345,6 +345,21 @@ impl Process {
                 .filter(|value| !value.is_empty() && !value.contains('\0'))
                 .ok_or_else(|| io::Error::other("AppContainer requires host LOCALAPPDATA"))?;
             let mut child_env = options.env.clone();
+            // Rust canonicalization returns verbatim paths. Windows PowerShell
+            // uses legacy .NET path APIs during startup, which need DOS/UNC
+            // spelling for these environment directories.
+            for (key, value) in &mut child_env {
+                if ["TEMP", "TMP", "USERPROFILE", "HOME"]
+                    .iter()
+                    .any(|name| key.eq_ignore_ascii_case(name))
+                {
+                    if let Some(path) = value.strip_prefix(r"\\?\UNC\") {
+                        *value = format!(r"\\{path}");
+                    } else if let Some(path) = value.strip_prefix(r"\\?\") {
+                        *value = path.to_owned();
+                    }
+                }
+            }
             child_env.retain(|key, _| !key.eq_ignore_ascii_case("LOCALAPPDATA"));
             child_env.insert("LOCALAPPDATA".into(), local_app_data);
             let mut env: Vec<_> = child_env.iter().collect();
