@@ -27,6 +27,15 @@ pub(crate) struct Computer {
     socket: String,
     host: String,
     daemon: Option<Child>,
+    permissions: Value,
+}
+
+fn permission_probe() -> Value {
+    if cfg!(target_os = "windows") {
+        json!({})
+    } else {
+        json!({"prompt":false,"probe_direct_capture":false})
+    }
 }
 
 fn records(value: &Value) -> Vec<Value> {
@@ -80,6 +89,8 @@ fn protected(app: &str, bundle: &str, pid: u64) -> bool {
 impl Computer {
     fn command(&self) -> Command {
         let mut cmd = Command::new(&self.binary);
+        #[cfg(windows)]
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW for the background driver.
         cmd.env("CUA_DRIVER_RS_TELEMETRY_ENABLED", "0")
             .env("CUA_DRIVER_EMBEDDED", "1")
             .env("CUA_DRIVER_HOST_BUNDLE_ID", &self.host)
@@ -155,11 +166,20 @@ impl Computer {
             }
             let status = tokio::time::timeout(
                 Duration::from_secs(2),
-                self.cli(&["status".into(), "--socket".into(), self.socket.clone()]),
+                self.cli(&[
+                    "call".into(),
+                    "check_permissions".into(),
+                    permission_probe().to_string(),
+                    "--socket".into(),
+                    self.socket.clone(),
+                ]),
             )
             .await;
-            if matches!(status,Ok(Ok(ref value)) if value["running"]==true) {
-                return Ok(());
+            if let Ok(Ok(value)) = status {
+                if value["accessibility"].is_boolean() || value["uia"].is_boolean() {
+                    self.permissions = value;
+                    return Ok(());
+                }
             }
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
@@ -194,10 +214,22 @@ impl Computer {
 }
 
 impl Runtime {
-    pub(crate) async fn cancel_computer(&self) {
+    pub async fn cancel_computer(&self) {
         let mut configured = self.computer.lock().await;
         if let Some(driver) = configured.as_mut() {
-            driver.daemon.take();
+            if driver.daemon.is_some() {
+                // stop prints plain text; its exit still drains driver sessions.
+                // Bound graceful shutdown, then reap the owned child regardless.
+                let _ = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    driver.cli(&["stop".into(), "--socket".into(), driver.socket.clone()]),
+                )
+                .await;
+            }
+            if let Some(mut child) = driver.daemon.take() {
+                let _ = child.kill().await;
+            }
+            driver.permissions = Value::Null;
         }
         if let Ok(mut observations) = lock(&self.observations) {
             observations.clear();
@@ -221,6 +253,7 @@ impl Runtime {
             socket,
             host,
             daemon: None,
+            permissions: Value::Null,
         });
         Ok(())
     }
@@ -230,9 +263,23 @@ impl Runtime {
         Ok(
             json!({"enabled":self.db()?.get("computer_enabled",json!(false))?,"driver_available":available,
             "driver_path":configured.as_ref().map(|c|c.binary.to_string_lossy().into_owned()).unwrap_or_default(),
-            "driver_version":"","always_allowed_apps":[],"platform":std::env::consts::OS,
+            "driver_version":configured.as_ref().and_then(|c|std::fs::read_to_string(c.binary.with_file_name("VERSION")).ok()).map(|v|v.trim().to_owned()).unwrap_or_default(),
+            "permissions":configured.as_ref().map(|c|c.permissions.clone()).unwrap_or(Value::Null),
+            "always_allowed_apps":[],"platform":std::env::consts::OS,
             "hint":if available{"Native driver starts when first used; every action requires approval"}else{"Native computer driver is not bundled"}}),
         )
+    }
+    pub(crate) async fn check_computer_permissions(&self) -> Result<Value> {
+        {
+            let mut configured = self.computer.lock().await;
+            let driver = configured
+                .as_mut()
+                .filter(|c| c.binary.is_file())
+                .ok_or_else(|| Error::new(400, "Native computer driver is not bundled"))?;
+            driver.permissions = Value::Null;
+            driver.permissions = driver.call("check_permissions", permission_probe()).await?;
+        }
+        self.computer_status().await
     }
     pub(crate) fn computer_target(&self, chat: &str, name: &str, args: &Value) -> Result<String> {
         if self.db()?.get("computer_enabled", json!(false))? != true {
@@ -274,6 +321,9 @@ impl Runtime {
             return Err(Error::new(403, "Computer use disabled"));
         }
         let mut configured = self.computer.lock().await;
+        if self.db()?.get("computer_enabled", json!(false))? != true {
+            return Err(Error::new(403, "Computer use disabled"));
+        }
         let driver = configured
             .as_mut()
             .ok_or_else(|| Error::new(400, "Native computer driver is not bundled"))?;
@@ -314,7 +364,8 @@ impl Runtime {
                     (
                         w["on_current_space"] == true,
                         w["is_on_screen"] == true,
-                        w["z_index"].as_i64().unwrap_or(0),
+                        !field(w, &["title", "name"]).is_empty(),
+                        std::cmp::Reverse(w["z_index"].as_i64().unwrap_or(0)),
                     )
                 })
                 .ok_or_else(|| Error::new(404, "Application has no observable windows"))?;
@@ -336,7 +387,22 @@ impl Runtime {
                 .as_object_mut()
                 .unwrap()
                 .remove("include_screenshot");
-            payload["snapshot_id"] = json!(required(&state, "snapshot_id")?);
+            let snapshot = match required(&state, "snapshot_id") {
+                Ok(snapshot) => snapshot,
+                Err(_) => {
+                    driver.revoke(&session).await;
+                    return Err(Error::new(
+                        409,
+                        format!(
+                            "Application has no actionable accessibility snapshot: {}",
+                            state["degraded_reason"]
+                                .as_str()
+                                .unwrap_or("driver returned no snapshot identity")
+                        ),
+                    ));
+                }
+            };
+            payload["snapshot_id"] = json!(snapshot);
             let elements = state["elements"].as_array().cloned().unwrap_or_default();
             let expired: Vec<_> = {
                 let mut observations = lock(&self.observations)?;
@@ -387,6 +453,10 @@ impl Runtime {
         let result = async {
             let tool = name.strip_prefix("computer_").unwrap_or("");
             let mut payload = observation.payload.clone();
+            // 0.24.0 drag has no snapshot field; coordinates are window-bound.
+            if tool == "drag" {
+                payload.as_object_mut().unwrap().remove("snapshot_id");
+            }
             let fields: &[&str] = match tool {
                 "click" => &["x", "y", "button"],
                 "set_value" => &["value"],
@@ -455,7 +525,7 @@ pub(crate) fn definitions() -> Vec<Value> {
         ),
         (
             "scroll",
-            json!({"element_index":{"type":"integer"},"direction":{"type":"string","enum":["up","down","left","right"]},"amount":{"type":"integer","minimum":1,"maximum":100}}),
+            json!({"element_index":{"type":"integer"},"direction":{"type":"string","enum":["up","down","left","right"]},"amount":{"type":"integer","minimum":1,"maximum":50}}),
             vec!["direction"],
         ),
         (
@@ -495,13 +565,14 @@ mod tests {
 printf '%s\n' "$@" >> "$(dirname "$0")/calls"
 case "$1" in
 serve) exec sleep 60;;
-status) printf '{"running":true}';;
+status) printf 'Cua Driver daemon is running';;
 revoke) printf '{}';;
 call)
 case "$2" in
+check_permissions) printf '{"accessibility":true,"screen_recording":true}';;
 list_apps) printf '{"apps":[{"name":"Calculator","bundle_id":"com.apple.calculator","pid":12345}]}';;
 list_windows) printf '{"windows":[{"window_id":42}]}';;
-get_window_state) printf '{"snapshot_id":"snap-1","elements":[{"element_index":1,"element_token":"token-1","label":"7"}]}';;
+get_window_state) if [ -f "$(dirname "$0")/degraded" ]; then printf '{"degraded":true,"degraded_reason":"window is unavailable","elements":[]}'; exit 0; fi; printf '{"snapshot_id":"snap-1","elements":[{"element_index":1,"element_token":"token-1","label":"7"}]}';;
 *) printf '{"effect":"delivered"}';;
 esac;;
 esac
@@ -544,6 +615,94 @@ esac
         assert!(calls.contains("\"snapshot_id\":\"snap-1\""));
         assert!(calls.contains("\"element_token\":\"token-1\""));
         assert!(calls.contains("revoke"));
+        let observed: Value = serde_json::from_str(
+            &runtime
+                .computer_tool("chat-a", "computer_observe", &json!({"app":"Calculator"}))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        runtime.computer_tool("chat-a", "computer_drag", &json!({"observation_id":observed["observation_id"],"from_x":1,"from_y":1,"to_x":2,"to_y":2})).await.unwrap();
+        let calls = std::fs::read_to_string(tmp.path().join("calls")).unwrap();
+        let drag = calls.lines().find(|line| line.contains("from_x")).unwrap();
+        assert!(!drag.contains("snapshot_id"));
+        std::fs::write(tmp.path().join("degraded"), "").unwrap();
+        let error = runtime
+            .computer_tool("chat-a", "computer_observe", &json!({"app":"Calculator"}))
+            .await
+            .unwrap_err();
+        assert!(error.message.contains("window is unavailable"));
+        assert!(lock(&runtime.observations).unwrap().is_empty());
+        runtime
+            .request("PUT", "/api/computer-use", json!({"enabled":false}))
+            .await
+            .unwrap();
+        assert!(runtime
+            .computer
+            .lock()
+            .await
+            .as_ref()
+            .unwrap()
+            .daemon
+            .is_none());
+        assert!(lock(&runtime.observations).unwrap().is_empty());
+        assert!(runtime
+            .computer_tool("chat-a", "computer_list_apps", &json!({}))
+            .await
+            .is_err());
+    }
+    #[tokio::test]
+    async fn missing_driver_cannot_be_enabled() {
+        let tmp = tempfile::tempdir().unwrap();
+        let runtime = Runtime::open(tmp.path()).unwrap();
+        assert!(runtime
+            .request("PUT", "/api/computer-use", json!({"enabled":true}))
+            .await
+            .is_err());
+        let status = runtime
+            .request("GET", "/api/computer-use", Value::Null)
+            .await
+            .unwrap();
+        assert_eq!(status["enabled"], false);
+        assert_eq!(status["driver_available"], false);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    #[ignore = "Requires the official driver and desktop permissions; read-only real-driver probe"]
+    async fn live_driver_observation() {
+        let binary = std::env::var_os("POTATO_TEST_COMPUTER_DRIVER").expect("driver path");
+        let app =
+            std::env::var("POTATO_TEST_COMPUTER_APP").expect("exact running test application");
+        let tmp = tempfile::tempdir_in("/tmp").unwrap();
+        let runtime = Runtime::open(tmp.path()).unwrap();
+        runtime
+            .configure_computer_driver(binary.into(), "dev.potato.gpui-review".into())
+            .unwrap();
+        let result: Result<()> = async {
+            let health = runtime.check_computer_permissions().await?;
+            println!("permissions: {}", health["permissions"]);
+            runtime.request("PUT", "/api/computer-use", json!({"enabled":true})).await?;
+            let observed: Value = serde_json::from_str(&runtime.computer_tool("live-test", "computer_observe", &json!({"app":app})).await?)?;
+            assert!(observed["state"]["elements"].as_array().is_some_and(|e|!e.is_empty()));
+            println!("Observed {} accessibility elements", observed["state"]["elements"].as_array().unwrap().len());
+            if std::env::var("POTATO_TEST_COMPUTER_ACTIONS").as_deref() == Ok("1") {
+                assert_eq!(app, "dev.cua.native-fixture", "Actions are allowed only on the disposable fixture");
+                let elements = observed["state"]["elements"].as_array().unwrap();
+
+                let input = elements.iter().find(|e|e.to_string().contains("Integration input")).expect("fixture input");
+                runtime.computer_tool("live-test", "computer_set_value", &json!({"observation_id":observed["observation_id"], "element_index":input["element_index"], "value":"native-driver-verified"})).await?;
+                let next: Value = serde_json::from_str(&runtime.computer_tool("live-test", "computer_observe", &json!({"app":app})).await?)?;
+                assert!(next["state"]["elements"].to_string().contains("native-driver-verified"));
+                let button = next["state"]["elements"].as_array().unwrap().iter().find(|e|e.to_string().contains("Increment")).expect("fixture button");
+                runtime.computer_tool("live-test", "computer_click", &json!({"observation_id":next["observation_id"], "element_index":button["element_index"]})).await?;
+                let verified: Value = serde_json::from_str(&runtime.computer_tool("live-test", "computer_observe", &json!({"app":app})).await?)?;
+                assert!(verified["state"]["elements"].to_string().contains("Clicks: 1"));
+                println!("Fixture value and background click verified by fresh observations");
+            }
+            Ok(())
+        }.await;
         runtime.cancel_computer().await;
+        result.unwrap();
     }
 }

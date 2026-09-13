@@ -21,6 +21,26 @@ fn cron_schedule(value: &Value) -> Result<(cron::Schedule, chrono_tz::Tz)> {
     while fields.len() < 5 {
         fields.insert(0, "0".into());
     }
+    // Expand numeric ranges before mapping Sunday to 1: 1-7 must remain
+    // Monday through Sunday, and range steps must start at the original bound.
+    let mut weekdays = Vec::new();
+    for item in fields[4].split(',') {
+        let (range, step) = item.split_once('/').unwrap_or((item, "1"));
+        if let Some((start, end)) = range.split_once('-') {
+            if let (Ok(start), Ok(end)) = (start.parse::<usize>(), end.parse::<usize>()) {
+                let step = step
+                    .parse::<usize>()
+                    .map_err(|_| Error::new(400, "Invalid weekday step"))?;
+                if start > end || end > 7 || step == 0 {
+                    return Err(Error::new(400, "Invalid weekday range"));
+                }
+                weekdays.extend((start..=end).step_by(step).map(|day| day.to_string()));
+                continue;
+            }
+        }
+        weekdays.push(item.to_owned());
+    }
+    fields[4] = weekdays.join(",");
     // Python normalized crontab 0/7=Sunday; cron crate uses 1=Sunday.
     // Use names so the public contract is independent of library numbering.
     let names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -225,6 +245,12 @@ impl Runtime {
             let Some(runtime) = weak.upgrade() else {
                 return;
             };
+            if let Err(error) = runtime.tick_outbox() {
+                eprintln!("Native outbox: {error}");
+            }
+            if let Err(error) = runtime.tick_shell_followups() {
+                eprintln!("Native shell recovery: {error}");
+            }
             if let Err(error) = runtime.tick_jobs(Utc::now()).await {
                 eprintln!("Native scheduler: {error}");
             }
@@ -429,6 +455,32 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(next.to_rfc3339(), "2026-03-08T13:00:00+00:00");
+    }
+
+    #[test]
+    fn numeric_weekday_ranges_preserve_sunday_and_steps() {
+        let after = DateTime::parse_from_rfc3339("2026-09-06T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        for (expression, expected) in [
+            ("0 9 * * 1-7", "2026-09-06T09:00:00+00:00"),
+            ("0 9 * * 5-7", "2026-09-06T09:00:00+00:00"),
+            ("0 9 * * 1-7/2", "2026-09-06T09:00:00+00:00"),
+            ("0 9 * * 2-7/2", "2026-09-08T09:00:00+00:00"),
+            ("0 9 * * 1-5", "2026-09-07T09:00:00+00:00"),
+            ("0 9 * * 0-6", "2026-09-06T09:00:00+00:00"),
+        ] {
+            let next = next_time(
+                &json!({"type":"cron","cron":expression,"timezone":"UTC"}),
+                after,
+            )
+            .unwrap()
+            .unwrap();
+            assert_eq!(next.to_rfc3339(), expected, "{expression}");
+        }
+        for expression in ["0 9 * * 1-7/0", "0 9 * * 1-8", "0 9 * * 7-1"] {
+            assert!(cron_schedule(&json!({"cron":expression})).is_err());
+        }
     }
 
     #[tokio::test]

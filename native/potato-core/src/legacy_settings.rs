@@ -88,6 +88,12 @@ impl Runtime {
             ));
         }
         let cipher = cipher(secret)?;
+        let agent = read(&working.join("workspaces/default/agent.json"))?;
+        let active = if agent["active_model"].is_object() {
+            agent["active_model"].clone()
+        } else {
+            read(&secret.join("providers/active_model.json"))?
+        };
         let mut imported = Vec::new();
         let mut unsupported = 0;
         for folder in ["builtin", "custom"] {
@@ -111,13 +117,15 @@ impl Runtime {
                     unsupported += 1;
                     continue;
                 }
-                if string(&provider, "api_key").is_empty() {
+                if provider["id"] == crate::cloud::PROVIDER { continue; }
+                let env_key = self.model_env_key_at(Some(working), string(&provider,"id"), if active["provider_id"] == provider["id"] { string(&active,"model") } else { "" });
+                if string(&provider, "api_key").is_empty() && env_key.is_none() {
                     continue;
                 }
                 required(&provider, "id")?;
                 required(&provider, "name")?;
                 crate::api::validate_url(required(&provider, "base_url")?)?;
-                provider["api_key"] = json!(decrypt(&cipher, string(&provider, "api_key"))?);
+                provider["api_key"] = json!(match env_key { Some(key) => key, None => decrypt(&cipher, string(&provider, "api_key"))? });
                 for field in ["models", "extra_models"] {
                     if !provider[field].is_array() {
                         provider[field] = json!([]);
@@ -127,7 +135,6 @@ impl Runtime {
             }
         }
         let config = read(&working.join("config.json"))?;
-        let agent = read(&working.join("workspaces/default/agent.json"))?;
         let image_config = &agent["tools"]["builtin_tools"]["generate_image_gpt"]["config"];
         let mut image_id = None;
         if !string(image_config, "api_key").is_empty() {
@@ -146,11 +153,6 @@ impl Runtime {
                 unsupported += 1;
             }
         }
-        let active = if agent["active_model"].is_object() {
-            agent["active_model"].clone()
-        } else {
-            read(&secret.join("providers/active_model.json"))?
-        };
         let env = read(&secret.join("envs.json"))?;
         let setting = |names: &[&str]| -> Result<String> {
             for name in names {
@@ -211,7 +213,8 @@ impl Runtime {
         if count > 0 {
             values.push(("providers".into(), json!(providers)));
         }
-        if db.get("active", Value::Null)?.is_null()
+        let native_active = db.get("active", Value::Null)?;
+        if (native_active.is_null() || native_active["provider_id"] == crate::cloud::PROVIDER && db.get("active_manual",Value::Null)? != native_active)
             && active.is_object()
             && providers.iter().any(|p| p["id"] == active["provider_id"])
         {
@@ -238,6 +241,8 @@ impl Runtime {
         }
         let result = json!({"providers_imported":count,"speech_imported":voice,"image_imported":image,"unsupported_providers":unsupported,"original_data_unchanged":true});
         values.push(("legacy_settings_import".into(), result.clone()));
+        values.push(("legacy_auto_models".into(), json!(true)));
+        values.push(("legacy_auto_models_error".into(), Value::Null));
         db.put_batch(&values)?;
         Ok(result)
     }

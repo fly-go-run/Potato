@@ -12,11 +12,12 @@ impl Runtime {
         // The finish boundary takes this same lock: an accepted message can
         // never fall between the last queue check and a successful completion.
         let runs = lock(&self.runs)?;
+        let expected = body["expected_run_id"].as_str();
         let run = runs
             .get(session)
-            .filter(|r| r.accepting_steering && !r.cancel.is_cancelled())
+            .filter(|r| r.accepting_steering && !r.cancel.is_cancelled() && expected.is_none_or(|id| id == r.request_id))
             .ok_or_else(|| {
-                Error::new(409, "Turn has finished or is stopping; send a new message")
+                Error::new(if expected.is_some() { 412 } else { 409 }, "Turn has finished or changed; refresh before sending again")
             })?;
         let id = uuid::Uuid::new_v4().to_string();
         let mut frame = protocol::message(
@@ -27,11 +28,18 @@ impl Runtime {
             "completed",
         );
         frame["metadata"] = json!({"steering_state":"queued"});
+        if let Some(operation) = body["remote_operation_id"].as_str() {
+            uuid::Uuid::parse_str(operation).map_err(|_| Error::new(400, "Invalid remote operation ID"))?;
+            frame["metadata"]["remote_operation_id"] = json!(operation);
+        }
+        let mut permissions = lock(&self.permissions)?;
         let mut db = self.db()?;
         let chat = db.ensure_chat(session, text)?;
         db.append(required(&chat, "id")?, &frame, None)?;
         let publish = run.replay.clone();
         drop(db);
+        permissions.version += 1;
+        drop(permissions);
         drop(runs);
         // Pending approvals are not actions in progress. Release them so the
         // loop can consume the correction before starting another action.

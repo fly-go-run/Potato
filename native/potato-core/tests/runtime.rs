@@ -1,5 +1,5 @@
-use potato_core::{protocol::SseDecoder, Runtime};
-use serde_json::{json, Value};
+use potato_core::{Runtime, protocol::SseDecoder};
+use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -58,6 +58,8 @@ fn answer(text: &str) -> String {
         + "data: [DONE]\n\n"
 }
 async fn configure(runtime: &Runtime, url: &str, protocol: &str) {
+    // Main-model fixtures exercise manual approvals; reviewer behavior has its own replay suite.
+    runtime.request("PUT", "/api/workspace/running-config", json!({"reviewer":"user"})).await.unwrap();
     runtime
         .request(
             "PUT",
@@ -140,15 +142,26 @@ async fn long_history_is_compacted_once_without_destroying_display_history() {
         "completed"
     );
     for _ in 0..4 {
-        assert!(requests
-            .recv()
-            .await
-            .unwrap()
-            .contains("Summarize conversation history"));
+        assert!(
+            requests
+                .recv()
+                .await
+                .unwrap()
+                .contains("Summarize conversation history")
+        );
     }
     let request = requests.recv().await.unwrap();
     assert!(request.contains("Saved goals and decisions"));
-    assert!(request.len() < 40_000);
+    let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+    // Bound the history being compacted, independently of the static prompt
+    // and tool catalog. Full request capacity is checked by harness tests.
+    let projected_history: Vec<_> = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|message| message["role"] != "system")
+        .collect();
+    assert!(serde_json::to_vec(&projected_history).unwrap().len() < 40_000);
     assert_eq!(
         finish(&mut start(&runtime, "long", "run2"))
             .await
@@ -256,13 +269,15 @@ async fn hosted_search_preserves_citations_and_uses_separate_responses_request()
     runtime.request("PUT","/api/workspace/web-search-backend",json!({"web_search_backend":"hosted","web_search_provider_id":"deepseek","web_search_model":"search-model"})).await.unwrap();
     let mut stream = start(&runtime, "search", "run");
     // AUTO uses the already configured search service without a second prompt.
-    assert!(runtime
-        .request("GET", "/api/approval/list?session_id=search", Value::Null)
-        .await
-        .unwrap()["pending_approvals"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert!(
+        runtime
+            .request("GET", "/api/approval/list?session_id=search", Value::Null)
+            .await
+            .unwrap()["pending_approvals"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
     assert_eq!(
         finish(&mut stream).await.last().unwrap()["status"],
         "completed"
@@ -271,6 +286,9 @@ async fn hosted_search_preserves_citations_and_uses_separate_responses_request()
     let search = requests.recv().await.unwrap();
     assert!(search.starts_with("POST /responses"));
     assert!(search.contains("search-model"));
+    let request: Value = serde_json::from_str(search.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+    assert_eq!(request["max_output_tokens"], 1600);
+    assert_eq!(request["reasoning"]["effort"], "low");
     let followup = requests.recv().await.unwrap();
     assert!(followup.contains("https://example.org/source"));
     assert!(followup.contains("Untrusted web content"));
@@ -420,11 +438,13 @@ async fn streams_and_persists_history_without_python() {
         .unwrap();
     assert_eq!(history["messages"][1]["content"][0]["text"], "你好，家人");
     finish(&mut start(&runtime, "session", "run-2")).await;
-    assert!(requests
-        .recv()
-        .await
-        .unwrap()
-        .starts_with("POST /chat/completions"));
+    assert!(
+        requests
+            .recv()
+            .await
+            .unwrap()
+            .starts_with("POST /chat/completions")
+    );
     let second = requests.recv().await.unwrap();
     assert!(second.contains("你好，家人"));
     drop(runtime);
@@ -446,7 +466,7 @@ async fn workspace_documents_survive_restart_and_feed_both_model_protocols() {
         .await
         .unwrap();
     assert!(original["content"].as_str().unwrap().contains("可用能力"));
-    let custom="Answer in short sentences.\n<!-- heartbeat:start -->\nDO_NOT_SEND_SCHEDULER_INSTRUCTIONS\n<!-- heartbeat:end -->";
+    let custom = "Answer in short sentences.\n<!-- heartbeat:start -->\nDO_NOT_SEND_SCHEDULER_INSTRUCTIONS\n<!-- heartbeat:end -->";
     runtime
         .request(
             "PUT",
@@ -506,10 +526,21 @@ async fn workspace_documents_survive_restart_and_feed_both_model_protocols() {
             &body["input"]
         };
         assert_eq!(messages[0]["role"], "system");
-        assert!(messages[0]["content"]
-            .as_str()
-            .unwrap()
-            .contains("Answer in short sentences."));
+        let system = messages[0]["content"].as_str().unwrap();
+        assert!(system.contains("## Continuity"));
+        assert!(system.contains("create_scheduled_task"));
+        assert!(system.contains("memory_write(scope=\"global\")"));
+        assert!(!system.contains("Host local time:"));
+        assert!(!system.contains("Approval policy: AUTO"));
+        assert!(request.contains("Host local time:"));
+        assert!(request.contains("Host IANA timezone:"));
+        assert!(request.contains("Approval policy: AUTO"));
+        assert!(
+            messages[0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Answer in short sentences.")
+        );
         assert!(!request.contains("DO_NOT_SEND_SCHEDULER_INSTRUCTIONS"));
         assert!(!request.contains("Family preference")); // Memory files aren't silently all injected.
     }
@@ -557,13 +588,15 @@ async fn document_api_rejects_invalid_paths_and_preserves_saved_content() {
             .status,
         413
     );
-    assert!(runtime
-        .request("GET", "/api/workspace/files/AGENTS.md", Value::Null)
-        .await
-        .unwrap()["content"]
-        .as_str()
-        .unwrap()
-        .contains("可用能力"));
+    assert!(
+        runtime
+            .request("GET", "/api/workspace/files/AGENTS.md", Value::Null)
+            .await
+            .unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .contains("可用能力")
+    );
     assert_eq!(
         runtime
             .request("PUT", "/api/workspace/system-prompt-files", json!([]))
@@ -652,11 +685,13 @@ async fn project_creation_git_preview_and_session_selection_work_without_python(
         .request("GET", "/api/workspace/git/status", Value::Null)
         .await
         .unwrap();
-    assert!(status["changes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|v| v["path"] == "hello world.txt" && v["staged"] == false));
+    assert!(
+        status["changes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["path"] == "hello world.txt" && v["staged"] == false)
+    );
     let diff = runtime
         .request(
             "GET",
@@ -780,9 +815,11 @@ async fn reconnect_replays_existing_turn_without_duplicating_user_input() {
     assert!(runtime.cancel("reattached").unwrap());
     let frames = finish(&mut replay).await;
     assert_eq!(frames.last().unwrap()["status"], "cancelled");
-    assert!(frames
-        .iter()
-        .any(|v| v.to_string().contains("I will read the file")));
+    assert!(
+        frames
+            .iter()
+            .any(|v| v.to_string().contains("I will read the file"))
+    );
     assert_eq!(
         finish(&mut original).await.last().unwrap()["status"],
         "cancelled"
@@ -999,10 +1036,12 @@ async fn history_import_is_atomic_idempotent_and_can_continue() {
     let mut broken = bundle;
     broken["chats"][0]["spec"]["id"] = json!("new-id");
     broken["chats"][0]["messages"] = json!(false);
-    assert!(runtime
-        .request("POST", "/api/native/import-history", broken)
-        .await
-        .is_err());
+    assert!(
+        runtime
+            .request("POST", "/api/native/import-history", broken)
+            .await
+            .is_err()
+    );
     assert_eq!(
         runtime
             .request("GET", "/api/chats", Value::Null)
@@ -1034,14 +1073,14 @@ async fn image_roundtrip(edit: bool) {
     let tmp = tempfile::tempdir().unwrap();
     let runtime = Runtime::open(tmp.path()).unwrap();
     let call = sse(
-        json!({"choices":[{"delta":{"tool_calls":[{"index":0,"id":"image-1","function":{"name":if edit {"edit_image"}else{"generate_image_gpt"},"arguments":"{\"prompt\":\"a potato\"}"}}]},"finish_reason":"tool_calls"}]}),
+        json!({"choices":[{"delta":{"tool_calls":[{"index":0,"id":"image-1","function":{"name":if edit {"edit_image"}else{"generate_image_gpt"},"arguments":"{\"prompt\":\"a potato\",\"n\":2}"}}]},"finish_reason":"tool_calls"}]}),
     ) + "data: [DONE]\n\n";
     let encoded = "iVBORw0KGgo=";
     let (url, mut requests) = fixture(vec![
         ("text/event-stream".into(), call),
         (
             "application/json".into(),
-            json!({"data":[{"b64_json":encoded}]}).to_string(),
+            json!({"data":[{"b64_json":encoded},{"b64_json":"c2Vjb25k"}]}).to_string(),
         ),
         ("text/event-stream".into(), answer("Image ready")),
     ])
@@ -1050,7 +1089,7 @@ async fn image_roundtrip(edit: bool) {
     runtime.request("PUT","/api/native/media-settings",json!({"speech_provider_id":"","speech_model":"","image_provider_id":"deepseek","image_model":"test-image"})).await.unwrap();
     let mut rx = if edit {
         let (tx, rx) = mpsc::unbounded_channel();
-        runtime.start("run".into(),json!({"session_id":"session","input":[{"role":"user","content":[{"type":"text","text":"edit this"},{"type":"image","image_url":"data:image/png;base64,aW5wdXQ="}]}]}),Arc::new(move|value|{let _=tx.send(value);Ok(())})).unwrap();
+        runtime.start("run".into(),json!({"session_id":"session","input":[{"role":"user","content":[{"type":"text","text":"edit this"},{"type":"image","image_url":"data:image/png;base64,aW5wdXQ="},{"type":"image","image_url":"data:image/jpeg;base64,c2Vjb25k"}]}]}),Arc::new(move|value|{let _=tx.send(value);Ok(())})).unwrap();
         rx
     } else {
         start(&runtime, "session", "run")
@@ -1083,9 +1122,16 @@ async fn image_roundtrip(edit: bool) {
         .unwrap();
     let frames = finish(&mut rx).await;
     assert_eq!(frames.last().unwrap()["status"], "completed");
-    assert!(frames.iter().any(|f| f["content"][0]["image_url"]
-        .as_str()
-        .is_some_and(|u| u.contains(encoded))));
+    assert!(frames.iter().any(|f| {
+        f["content"][0]["image_url"]
+            .as_str()
+            .is_some_and(|u| u.contains(encoded))
+    }));
+    assert!(
+        frames
+            .iter()
+            .any(|f| f["content"][1]["image_url"] == "data:image/png;base64,c2Vjb25k")
+    );
     requests.recv().await.unwrap();
     let request = requests.recv().await.unwrap();
     assert!(request.starts_with(if edit {
@@ -1093,9 +1139,12 @@ async fn image_roundtrip(edit: bool) {
     } else {
         "POST /images/generations"
     }));
+    if !edit {
+        assert!(request.contains("\"n\":2"));
+    }
     if edit {
         assert!(request.contains("multipart/form-data"));
-        assert!(request.contains("name=\"image[]\""));
+        assert_eq!(request.matches("name=\"image[]\"").count(), 2);
         assert!(request.contains("input"));
     }
     assert!(!requests.recv().await.unwrap().contains(encoded));
@@ -1168,11 +1217,13 @@ async fn question_answer_is_streamed_and_saved_before_model_continues() {
         )
         .await
         .unwrap();
-    assert!(history["messages"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|f| f["metadata"]["question_request_id"] == question["request_id"]));
+    assert!(
+        history["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["metadata"]["question_request_id"] == question["request_id"])
+    );
     requests.recv().await.unwrap();
     assert!(requests.recv().await.unwrap().contains("浅色一些"));
 }
@@ -1365,22 +1416,26 @@ async fn custom_provider_creation_saves_encrypted_key_and_rejects_invalid_url_at
         .request("POST", "/api/models/atomic/test", json!({}))
         .await
         .unwrap();
-    assert!(requests
-        .recv()
-        .await
-        .unwrap()
-        .to_lowercase()
-        .contains("authorization: bearer fixture-only-secret"));
+    assert!(
+        requests
+            .recv()
+            .await
+            .unwrap()
+            .to_lowercase()
+            .contains("authorization: bearer fixture-only-secret")
+    );
     assert!(runtime.request("POST","/api/models/custom-providers",json!({"id":"invalid","name":"Invalid","default_base_url":"file:///tmp/not-a-model","api_key":"secret"})).await.is_err());
     let providers = runtime
         .request("GET", "/api/models", Value::Null)
         .await
         .unwrap();
-    assert!(!providers
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|p| p["id"] == "invalid"));
+    assert!(
+        !providers
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["id"] == "invalid")
+    );
 }
 
 #[tokio::test]
@@ -1452,14 +1507,16 @@ fn native_runtime_initializes_tls_for_direct_websocket_clients() {
 async fn provider_removal_key_clearing_and_model_removal_keep_config_consistent() {
     let dir = tempfile::tempdir().unwrap();
     let runtime = Runtime::open(dir.path()).unwrap();
-    assert!(runtime
-        .request(
-            "DELETE",
-            "/api/models/custom-providers/deepseek",
-            Value::Null
-        )
-        .await
-        .is_err());
+    assert!(
+        runtime
+            .request(
+                "DELETE",
+                "/api/models/custom-providers/deepseek",
+                Value::Null
+            )
+            .await
+            .is_err()
+    );
     runtime.request("POST","/api/models/custom-providers",json!({"id":"qa","name":"QA","default_base_url":"https://example.com/v1","api_key":"dummy-test-key"})).await.unwrap();
     runtime
         .request(
@@ -1470,14 +1527,16 @@ async fn provider_removal_key_clearing_and_model_removal_keep_config_consistent(
         .await
         .unwrap();
     runtime.request("PUT","/api/models/qa/models/vendor%2Fmodel",json!({"name":"Renamed","max_tokens":2048,"max_input_length":32000,"reasoning_effort":"high"})).await.unwrap();
-    assert!(runtime
-        .request(
-            "PUT",
-            "/api/models/qa/models/vendor%2Fmodel",
-            json!({"max_tokens":0})
-        )
-        .await
-        .is_err());
+    assert!(
+        runtime
+            .request(
+                "PUT",
+                "/api/models/qa/models/vendor%2Fmodel",
+                json!({"max_tokens":0})
+            )
+            .await
+            .is_err()
+    );
     runtime
         .request(
             "PUT",
@@ -1494,11 +1553,13 @@ async fn provider_removal_key_clearing_and_model_removal_keep_config_consistent(
         )
         .await
         .unwrap();
-    assert!(runtime
-        .request("GET", "/api/models/active", Value::Null)
-        .await
-        .unwrap()["active_llm"]
-        .is_null());
+    assert!(
+        runtime
+            .request("GET", "/api/models/active", Value::Null)
+            .await
+            .unwrap()["active_llm"]
+            .is_null()
+    );
     runtime
         .request("PUT", "/api/models/qa/config", json!({"api_key":""}))
         .await
@@ -1545,9 +1606,140 @@ fn attachment_file_reader_checks_size_before_reading_and_preserves_original() {
         .unwrap()
         .set_len(potato_core::attachments::MAX_BYTES + 1)
         .unwrap();
-    assert!(potato_core::attachments::upload_path(&large)
-        .unwrap_err()
-        .message
-        .contains("200 MB"));
+    assert!(
+        potato_core::attachments::upload_path(&large)
+            .unwrap_err()
+            .message
+            .contains("200 MB")
+    );
     assert!(potato_core::attachments::upload_path(dir.path()).is_err());
+}
+
+#[tokio::test]
+async fn outbox_dispatches_fifo_with_model_snapshot_and_durable_history() {
+    let tmp = tempfile::tempdir().unwrap();
+    let runtime = Runtime::open(tmp.path()).unwrap();
+    let (url, mut requests) = fixture(vec![
+        ("text/event-stream".into(), answer("first done")),
+        ("text/event-stream".into(), answer("second done")),
+    ])
+    .await;
+    configure(&runtime, &url, "OpenAIChatModel").await;
+    for id in ["first", "second"] {
+        runtime.request("POST","/api/agent/outbox",json!({"session_id":"fifo","action":"add","id":id,"request":{"session_id":"fifo","input":[{"role":"user","content":[{"type":"text","text":id}]}]}})).await.unwrap();
+    }
+    runtime
+        .request(
+            "PUT",
+            "/api/models/active",
+            json!({"provider_id":"deepseek","model":"different-model"}),
+        )
+        .await
+        .unwrap();
+    let task = tokio::spawn(runtime.clone().serve_scheduler());
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let first = requests.recv().await.unwrap();
+        let second = requests.recv().await.unwrap();
+        assert!(first.contains("test-model"));
+        assert!(!first.contains("different-model"));
+        let first_body: Value =
+            serde_json::from_str(first.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        let user_messages = first_body["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["role"] == "user")
+            .collect::<Vec<_>>();
+        assert_eq!(user_messages.len(), 1);
+        assert!(user_messages[0]["content"].to_string().contains("first"));
+        assert!(!user_messages[0]["content"].to_string().contains("second"));
+        assert!(second.contains("first done"));
+        assert!(second.contains("second"));
+        loop {
+            let q = runtime
+                .request("POST", "/api/agent/outbox", json!({"session_id":"fifo"}))
+                .await
+                .unwrap();
+            if q["running"] == false && q["items"].as_array().unwrap().is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    task.abort();
+}
+
+#[tokio::test]
+async fn outbox_waits_for_active_run_and_interrupt_starts_only_after_cancel() {
+    let tmp = tempfile::tempdir().unwrap();
+    let runtime = Runtime::open(tmp.path()).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let (seen_tx, mut seen) = mpsc::unbounded_channel();
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut bytes = [0; 16384];
+        let _ = socket.read(&mut bytes).await.unwrap();
+        seen_tx.send(()).unwrap();
+        // Keep the first provider response pending until the client cancels.
+        let mut one = [0; 1];
+        while socket.read(&mut one).await.unwrap_or(0) > 0 {}
+        let (mut next, _) = listener.accept().await.unwrap();
+        let _ = next.read(&mut bytes).await.unwrap();
+        let body = answer("interrupted follow-up done");
+        next.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).as_bytes()).await.unwrap();
+    });
+    configure(&runtime, &url, "OpenAIChatModel").await;
+    let mut frames = start(&runtime, "interrupt", "initial-run");
+    seen.recv().await.unwrap();
+    let scheduler = tokio::spawn(runtime.clone().serve_scheduler());
+    runtime.request("POST","/api/agent/outbox",json!({"session_id":"interrupt","action":"add","id":"next","request":{"session_id":"interrupt","input":[{"role":"user","content":[{"type":"text","text":"next"}]}]}})).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    let q = runtime
+        .request(
+            "POST",
+            "/api/agent/outbox",
+            json!({"session_id":"interrupt"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(q["items"].as_array().unwrap().len(), 1);
+    assert_eq!(q["running"], true);
+    runtime
+        .request(
+            "POST",
+            "/api/agent/outbox",
+            json!({"session_id":"interrupt","action":"promote","id":"next"}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let f = frames.recv().await.unwrap();
+            if f["object"] == "response" && f["status"] == "cancelled" {
+                break;
+            }
+        }
+        server.await.unwrap();
+        loop {
+            let q = runtime
+                .request(
+                    "POST",
+                    "/api/agent/outbox",
+                    json!({"session_id":"interrupt"}),
+                )
+                .await
+                .unwrap();
+            if q["running"] == false && q["items"].as_array().unwrap().is_empty() {
+                assert_eq!(q["paused"], false);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    scheduler.abort();
 }

@@ -101,7 +101,20 @@ impl Runtime {
         }
         question["status"] = json!(status);
         question["answer"] = answer;
-        self.db()?.save_question(&question)?;
+        question["answered_at"] = json!(chrono::Utc::now().to_rfc3339());
+        {
+            let db = self.db()?;
+            let history = db
+                .chats()?
+                .into_iter()
+                .find(|c| c["session_id"] == question["session_id"])
+                .map(|c| db.history(crate::string(&c, "id"), false))
+                .transpose()?
+                .unwrap_or_default();
+            question["answered_before_history_index"] = json!(history.len());
+            db.save_question(&question)?;
+        }
+        self.clear_review_cache(crate::string(&question, "session_id"))?;
         if let Some(tx) = pending.remove(id) {
             let _ = tx.send(question.clone());
         }

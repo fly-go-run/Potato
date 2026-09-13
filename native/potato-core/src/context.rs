@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn repair_keeps_native_arguments_and_call_results_consistent() {
         let mut message = json!({"role":"assistant","content":"", "tool_calls":[{"id":"a","function":{"name":"probe","arguments":{}}}], "_responses_output":[{"type":"reasoning","id":"rs"},{"type":"function_call","call_id":"a","name":"probe","arguments":{}}]});
-        let fixed = repair(&[message.clone()]);
+        let fixed = repair(std::slice::from_ref(&message));
         assert_eq!(fixed[0]["_responses_output"][1]["arguments"], "{}");
         assert_eq!(fixed[0]["tool_calls"][0]["function"]["arguments"], "{}");
         assert_eq!(fixed[1]["tool_call_id"], "a");
@@ -360,7 +360,7 @@ mod tests {
             {"id":"rs_orphan","type":"reasoning"}
         ]);
         let message = json!({"role":"assistant","content":"","tool_calls":[call,call],"_responses_output":items});
-        let fixed = repair(&[message.clone()]);
+        let fixed = repair(std::slice::from_ref(&message));
         assert_eq!(
             fixed[0]["_responses_output"],
             json!([items[0], items[1], items[6], items[7]])

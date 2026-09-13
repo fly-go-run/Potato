@@ -90,6 +90,8 @@ impl Runtime {
                 }
             }
             command.wrap(KillOnDrop);
+            #[cfg(windows)]
+            command.command_mut().creation_flags(0x08000000); // CREATE_NO_WINDOW
             #[cfg(unix)]
             command.wrap(ProcessGroup::leader());
             #[cfg(windows)]

@@ -9,6 +9,9 @@ pub(crate) struct Replay {
     overflow: bool,
 }
 impl Replay {
+    pub(crate) fn remote_snapshot(&self) -> Value {
+        crate::remote::display_messages(&self.frames)
+    }
     pub(crate) fn new(id: String, emit: Emit) -> Self {
         Self {
             listeners: HashMap::from([(id, emit)]),

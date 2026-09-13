@@ -8,6 +8,8 @@ license = "Apache-2.0"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
+libc = "0.2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
@@ -35,6 +37,14 @@ calamine = "0.36"
 fernet = { version = "0.2.2", default-features = false, features = ["rustcrypto"] }
 regex = "1.13.1"
 globset = "0.4.20"
+docx-rs = { version = "=0.4.22", default-features = false }
+# 0.2.25 references pdfrs unconditionally; pdf-native is needed to compile.
+ppt-rs = { version = "=0.2.25", default-features = false, features = ["pdf-native"] }
+rust_xlsxwriter = { version = "=0.99.0", default-features = false }
+ironcalc_base = "=0.8.3"
 
 [dev-dependencies]
 tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+potato-windows-sandbox = { path = "windows-sandbox" }

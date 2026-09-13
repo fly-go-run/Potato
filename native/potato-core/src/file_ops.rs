@@ -14,6 +14,46 @@ pub(crate) struct PreparedWrite {
     name: OsString,
     before: Option<Vec<u8>>,
     content: Vec<u8>,
+    create_only: bool,
+}
+
+/// Template input is limited to ordinary, non-symlink files in the project.
+pub(crate) fn read_office_template(project: &Path, target: &Path) -> Result<Vec<u8>> {
+    let relative = if target.is_absolute() {
+        target
+            .strip_prefix(project)
+            .map_err(|_| Error::new(403, "Template must be inside the project"))?
+    } else {
+        target
+    };
+    if relative
+        .components()
+        .any(|c| !matches!(c, Component::Normal(_)))
+        || crate::approval::sensitive(relative)
+    {
+        return Err(Error::new(403, "Template must be an ordinary project file"));
+    }
+    let mut path = project.to_path_buf();
+    for component in relative.components() {
+        path.push(component.as_os_str());
+        if std::fs::symlink_metadata(&path)?.file_type().is_symlink() {
+            return Err(Error::new(403, "Template cannot traverse symlinks"));
+        }
+    }
+    let root = Dir::open_ambient_dir(project, ambient_authority())?;
+    let file = root.open(relative)?;
+    if !file.metadata()?.is_file() || file.metadata()?.len() > 20_000_000 {
+        return Err(Error::new(
+            413,
+            "Template must be a regular file up to 20 MB",
+        ));
+    }
+    let mut bytes = Vec::new();
+    file.take(20_000_001).read_to_end(&mut bytes)?;
+    if bytes.len() > 20_000_000 {
+        return Err(Error::new(413, "Template exceeds 20 MB"));
+    }
+    Ok(bytes)
 }
 
 fn read_existing(dir: &Dir, name: &Path) -> Result<Option<Vec<u8>>> {
@@ -35,6 +75,27 @@ fn read_existing(dir: &Dir, name: &Path) -> Result<Option<Vec<u8>>> {
 }
 
 impl PreparedWrite {
+    /// Office artifacts are binary and create-only. Reuse the same confined
+    /// directory handle and concurrent-change checks as ordinary file writes.
+    pub(crate) fn prepare_artifact(
+        project: &Path,
+        target: &Path,
+        content: Vec<u8>,
+    ) -> Result<Self> {
+        if content.len() > 20_000_000 {
+            return Err(Error::new(413, "Office artifact exceeds 20 MB"));
+        }
+        let mut prepared = Self::prepare(project, target, "")?;
+        if prepared.before.is_some() {
+            return Err(Error::new(
+                409,
+                "Office output already exists; choose a new file name",
+            ));
+        }
+        prepared.content = content;
+        prepared.create_only = true;
+        Ok(prepared)
+    }
     pub(crate) fn expect_content(self, expected: Option<&serde_json::Value>) -> Result<Self> {
         if let Some(expected) = expected {
             let before = match &self.before {
@@ -150,6 +211,7 @@ impl PreparedWrite {
             name,
             before,
             content: content.as_bytes().to_vec(),
+            create_only: false,
         })
     }
 
@@ -176,7 +238,22 @@ impl PreparedWrite {
             file.write_all(&self.content)?;
             file.sync_all()?;
             drop(file);
-            self.directory.rename(&temp, &self.directory, &self.name)?;
+            if self.create_only {
+                // Atomic no-clobber publication, including files created after
+                // the optimistic check above. Both names share one directory.
+                self.directory
+                    .hard_link(&temp, &self.directory, &self.name)
+                    .map_err(|e| {
+                        if e.kind() == std::io::ErrorKind::AlreadyExists {
+                            Error::new(409, "Office output already exists; choose a new file name")
+                        } else {
+                            e.into()
+                        }
+                    })?;
+                let _ = self.directory.remove_file(&temp);
+            } else {
+                self.directory.rename(&temp, &self.directory, &self.name)?;
+            }
             Ok(self.content.len())
         })();
         if result.is_err() {
@@ -237,6 +314,29 @@ pub(crate) fn read_range(path: &Path, args: &serde_json::Value) -> Result<String
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn binary_artifacts_preserve_concurrent_files_and_support_large_outputs() {
+        let root = tempfile::tempdir().unwrap();
+        let target = Path::new("result.xlsx");
+        let prepared =
+            PreparedWrite::prepare_artifact(root.path(), target, vec![0; 2_000_000]).unwrap();
+        std::fs::write(root.path().join(target), b"user content").unwrap();
+        assert_eq!(prepared.apply().unwrap_err().status, 409);
+        assert_eq!(
+            std::fs::read(root.path().join(target)).unwrap(),
+            b"user content"
+        );
+        PreparedWrite::prepare_artifact(root.path(), Path::new("large.xlsx"), vec![0; 2_000_000])
+            .unwrap()
+            .apply()
+            .unwrap();
+        assert_eq!(
+            std::fs::metadata(root.path().join("large.xlsx"))
+                .unwrap()
+                .len(),
+            2_000_000
+        );
+    }
     #[test]
     fn writes_atomically_and_rejects_changed_or_outside_targets() {
         let root = tempfile::tempdir().unwrap();

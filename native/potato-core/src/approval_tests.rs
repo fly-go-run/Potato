@@ -2,6 +2,114 @@
 use crate::*;
 use std::time::Duration;
 
+#[test]
+fn prompt_permissions_follow_effective_policy_and_file_mode() {
+    let dir = tempfile::tempdir().unwrap();
+    let runtime = Runtime::open(dir.path()).unwrap();
+    runtime.db().unwrap().put("running", &json!({"approval_level":"STRICT","sandbox_mode":"read-only","reviewer":"model"})).unwrap();
+    for level in ["AUTO", "STRICT", "NEVER"] {
+        for mode in ["read-only", "workspace-write", "danger-full-access"] {
+            let body = json!({"request_context":{"approval_level":level,"sandbox_mode":mode}});
+            let text = runtime.approval_guidance(&body).unwrap();
+            assert!(text.contains(&format!("Approval policy: {level}.")));
+            assert!(text.contains(&format!("File access: {mode}.")));
+            assert!(text.contains("Shell sandbox:"));
+            assert_eq!(text.contains("Shell runs without OS file isolation"), mode == "danger-full-access");
+            assert_eq!(text.contains("independent model auto-review"), level == "AUTO");
+            assert_eq!(text.contains("interactive questions are rejected"), level == "NEVER");
+            assert_eq!(text.contains("Project file and project memory writes are disabled"), mode == "read-only");
+            assert_eq!(text.contains("reusable grants do not skip it"), level == "STRICT");
+        }
+    }
+    let fallback = runtime.approval_guidance(&json!({})).unwrap();
+    assert!(fallback.contains("Approval policy: STRICT."));
+    assert!(fallback.contains("File access: read-only."));
+}
+
+#[tokio::test]
+async fn office_template_dispatch_preserves_source_and_confines_reads() {
+    let (_dir, r, mut body) = setup();
+    let project = r.turn_project(&body).await.unwrap();
+    tool(&r,&body,"create_office_file",json!({"file_path":"source.docx","format":"docx","document":{"title":"{{title}}","paragraphs":["客户：{{name}}"]}})).await.unwrap();
+    let original = std::fs::read(project.join("source.docx")).unwrap();
+    let args = json!({"file_path":"filled.docx","template_path":"source.docx","format":"docx","replacements":{"{{title}}":"报告","{{name}}":"研发团队"}});
+    tool(&r, &body, "fill_office_template", args.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        std::fs::read(project.join("source.docx")).unwrap(),
+        original
+    );
+    assert!(lock(&r.approvals).unwrap().is_empty());
+    for source in ["../source.docx", ".git/source.docx"] {
+        let mut bad = args.clone();
+        bad["template_path"] = json!(source);
+        bad["file_path"] = json!("bad.docx");
+        assert!(tool(&r, &body, "fill_office_template", bad).await.is_err());
+    }
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(project.join("source.docx"), project.join("alias.docx"))
+            .unwrap();
+        let mut bad = args.clone();
+        bad["template_path"] = json!("alias.docx");
+        bad["file_path"] = json!("bad.docx");
+        assert_eq!(
+            tool(&r, &body, "fill_office_template", bad)
+                .await
+                .unwrap_err()
+                .status,
+            403
+        );
+    }
+    body["request_context"]["sandbox_mode"] = json!("read-only");
+    assert_eq!(
+        tool(&r, &body, "fill_office_template", args)
+            .await
+            .unwrap_err()
+            .status,
+        403
+    );
+}
+
+#[tokio::test]
+async fn office_artifacts_use_project_policy_and_never_overwrite() {
+    let (_dir, r, mut body) = setup();
+    let project = r.turn_project(&body).await.unwrap();
+    let args = json!({"file_path":"report.docx","format":"docx","document":{"title":"中文报告","paragraphs":["验证内容"]}});
+    let result = tool(&r, &body, "create_office_file", args.clone())
+        .await
+        .unwrap();
+    let result: Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(result["path"], json!(project.join("report.docx")));
+    assert!(lock(&r.approvals).unwrap().is_empty());
+    let before = std::fs::read(project.join("report.docx")).unwrap();
+    assert_eq!(
+        tool(&r, &body, "create_office_file", args.clone())
+            .await
+            .unwrap_err()
+            .status,
+        409
+    );
+    assert_eq!(before, std::fs::read(project.join("report.docx")).unwrap());
+    for path in ["../outside.docx", ".git/report.docx"] {
+        let mut bad = args.clone();
+        bad["file_path"] = json!(path);
+        assert!(tool(&r, &body, "create_office_file", bad).await.is_err());
+    }
+    body["request_context"]["sandbox_mode"] = json!("read-only");
+    let mut readonly = args;
+    readonly["file_path"] = json!("blocked.docx");
+    assert_eq!(
+        tool(&r, &body, "create_office_file", readonly)
+            .await
+            .unwrap_err()
+            .status,
+        403
+    );
+    assert!(!project.join("blocked.docx").exists());
+}
+
 #[tokio::test]
 async fn project_memory_and_artifacts_are_files_but_runtime_config_stays_sensitive() {
     let (_dir, r, body) = setup();
@@ -91,6 +199,8 @@ fn setup() -> (tempfile::TempDir, Arc<Runtime>, Value) {
     let project = dir.path().join("project");
     std::fs::create_dir(&project).unwrap();
     let runtime = Runtime::open(&dir.path().join("runtime")).unwrap();
+    // These cases exercise explicit manual approval, independently of installation defaults.
+    runtime.db().unwrap().put("running", &json!({"approval_level":"AUTO","sandbox_mode":"workspace-write","reviewer":"user"})).unwrap();
     let body = json!({"request_context":{"potato.coding_project_dir":project}});
     (dir, runtime, body)
 }
@@ -452,7 +562,10 @@ async fn sensitive_write_keeps_conflict_check_and_policy_change_invalidates_prom
     )
     .await
     .unwrap();
-    decide(&r, &a, "approve", "exact").await.unwrap();
+    assert_eq!(
+        decide(&r, &a, "approve", "exact").await.unwrap_err().status,
+        404
+    );
     assert_eq!(run.await.unwrap().unwrap_err().status, 409);
 }
 
@@ -479,7 +592,7 @@ async fn shell_escalation_is_once_and_symlinks_do_not_hide_sensitive_targets() {
     assert_eq!(
         tool(
             &r,
-            &body,
+            &never,
             "execute_shell_command",
             json!({"command":"printf approved"})
         )
@@ -559,4 +672,357 @@ async fn cancellation_revocation_expiry_and_bad_config_fail_closed() {
             400
         );
     }
+}
+
+async fn directory_reply(
+    r: &Runtime,
+    a: &Value,
+    scope: &str,
+    directory: &std::path::Path,
+) -> Result<Value> {
+    r.request("POST","/api/approval/approve",json!({"request_id":a["request_id"],"session_id":"s","user_id":"default","scope":scope,"directory":directory,"recursive":true})).await
+}
+
+#[tokio::test]
+async fn directory_grants_reuse_reads_aliases_search_and_survive_restart() {
+    let (dir, r, body) = setup();
+    let outside = dir.path().join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(outside.join("a.txt"), "one\ntwo\nthree").unwrap();
+    std::fs::write(outside.join("b.txt"), "another").unwrap();
+    let first = pending_tool(
+        &r,
+        &body,
+        "read_file",
+        json!({"file_path":outside.join("a.txt")}),
+    );
+    let card = pending(&r).await;
+    assert_eq!(card["allow_directory"], true);
+    let second = pending_tool(
+        &r,
+        &body,
+        "read_file",
+        json!({"path":outside.join("b.txt")}),
+    );
+    tokio::task::yield_now().await;
+    assert_eq!(lock(&r.approvals).unwrap().len(), 1);
+    directory_reply(&r, &card, "persistent_directory", &outside)
+        .await
+        .unwrap();
+    first.await.unwrap().unwrap();
+    second.await.unwrap().unwrap();
+    for (name, args) in [
+        (
+            "read_file",
+            json!({"path":outside.join("a.txt"),"start_line":2}),
+        ),
+        ("list_directory", json!({"path":outside})),
+        ("grep_search", json!({"path":outside,"pattern":"one"})),
+        ("grep_search", json!({"path":outside,"pattern":"two"})),
+        ("glob_search", json!({"path":outside,"pattern":"*.txt"})),
+    ] {
+        tool(&r, &body, name, args).await.unwrap();
+    }
+    let root = r.root.clone();
+    drop(r);
+    let r = Runtime::open(&root).unwrap();
+    tool(
+        &r,
+        &body,
+        "read_file",
+        json!({"file_path":outside.join("b.txt")}),
+    )
+    .await
+    .unwrap();
+    let rules = r.permission_rules_api("GET", &Value::Null).unwrap();
+    r.permission_rules_api("DELETE", &json!({"id":rules["rules"][0]["id"]}))
+        .unwrap();
+    let denied = pending_tool(
+        &r,
+        &body,
+        "read_file",
+        json!({"path":outside.join("b.txt")}),
+    );
+    let card = pending(&r).await;
+    decide(&r, &card, "deny", "exact").await.unwrap();
+    assert!(denied.await.unwrap().is_err());
+}
+
+#[tokio::test]
+async fn session_directories_never_cross_sessions_or_override_strict_never_or_writes() {
+    let (dir, r, body) = setup();
+    let outside = dir.path().join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    let file = outside.join("a");
+    std::fs::write(&file, "hi").unwrap();
+    let run = pending_tool(&r, &body, "read_file", json!({"path":file}));
+    let card = pending(&r).await;
+    directory_reply(&r, &card, "session_directory", &outside)
+        .await
+        .unwrap();
+    run.await.unwrap().unwrap();
+    assert!(r
+        .directory_decision("other", "read_file", file.to_str().unwrap())
+        .unwrap()
+        .is_none());
+    assert!(r
+        .directory_decision("s", "write_file", file.to_str().unwrap())
+        .unwrap()
+        .is_none());
+    assert!(r
+        .directory_decision("s", "execute_shell_command", outside.to_str().unwrap())
+        .unwrap()
+        .is_none());
+    let mut strict = body.clone();
+    strict["request_context"]["approval_level"] = json!("STRICT");
+    let run = pending_tool(&r, &strict, "read_file", json!({"path":file}));
+    let card = pending(&r).await;
+    assert_eq!(card["allow_directory"], false);
+    decide(&r, &card, "deny", "exact").await.unwrap();
+    assert!(run.await.unwrap().is_err());
+    strict["request_context"]["approval_level"] = json!("NEVER");
+    assert_eq!(
+        tool(&r, &strict, "read_file", json!({"path":file}))
+            .await
+            .unwrap_err()
+            .status,
+        403
+    );
+    r.revoke_approval_grants("s").unwrap();
+    assert!(r
+        .directory_decision("s", "read_file", file.to_str().unwrap())
+        .unwrap()
+        .is_none());
+}
+
+#[tokio::test]
+async fn directory_rules_protect_prefixes_sensitive_paths_and_denied_subtrees() {
+    let (dir, r, body) = setup();
+    let outside = dir.path().join("outside");
+    let similar = dir.path().join("outside-similar");
+    std::fs::create_dir_all(outside.join("private")).unwrap();
+    std::fs::create_dir(&similar).unwrap();
+    std::fs::write(outside.join(".env"), "secret").unwrap();
+    r.permission_rules_api("POST", &json!({"path":outside}))
+        .unwrap();
+    assert!(r
+        .directory_decision("s", "read_file", similar.to_str().unwrap())
+        .unwrap()
+        .is_none());
+    assert!(r
+        .directory_decision("s", "read_file", outside.join(".env").to_str().unwrap())
+        .unwrap()
+        .is_none());
+    r.permission_rules_api(
+        "POST",
+        &json!({"path":outside.join("private"),"decision":"deny","operations":["read"]}),
+    )
+    .unwrap();
+    assert_eq!(
+        tool(
+            &r,
+            &body,
+            "grep_search",
+            json!({"path":outside,"pattern":"secret"})
+        )
+        .await
+        .unwrap_err()
+        .status,
+        403
+    );
+    assert!(r
+        .permission_rules_api("POST", &json!({"path":outside,"operations":["write"]}))
+        .is_err());
+    assert!(r
+        .permission_rules_api("POST", &json!({"path":r.root}))
+        .is_err());
+}
+
+#[tokio::test]
+async fn pending_directory_grants_cannot_revive_after_policy_change_or_revoke() {
+    let (dir, r, body) = setup();
+    let file = dir.path().join("a");
+    std::fs::write(&file, "hello").unwrap();
+    for policy_change in [false, true] {
+        let run = pending_tool(&r, &body, "read_file", json!({"path":file}));
+        let card = pending(&r).await;
+        if policy_change {
+            r.request(
+                "PUT",
+                "/api/workspace/running-config",
+                json!({"approval_level":"AUTO"}),
+            )
+            .await
+            .unwrap();
+        } else {
+            r.revoke_approval_grants("s").unwrap();
+        }
+        assert!(
+            directory_reply(&r, &card, "persistent_directory", dir.path())
+                .await
+                .is_err()
+        );
+        assert!(run.await.unwrap().is_err());
+        assert!(r.persistent_rules().unwrap().is_empty());
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn directory_replacement_and_symlinks_invalidate_approval_and_saved_grants() {
+    let (dir, r, body) = setup();
+    let outside = dir.path().join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    let file = outside.join("a");
+    std::fs::write(&file, "original").unwrap();
+    let run = pending_tool(&r, &body, "read_file", json!({"path":file}));
+    let card = pending(&r).await;
+    std::fs::rename(&outside, dir.path().join("old")).unwrap();
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(&file, "changed").unwrap();
+    directory_reply(&r, &card, "persistent_directory", &outside)
+        .await
+        .unwrap();
+    assert_eq!(run.await.unwrap().unwrap_err().status, 409);
+    assert!(r.persistent_rules().unwrap().is_empty());
+    r.permission_rules_api("POST", &json!({"path":outside}))
+        .unwrap();
+    let escape = dir.path().join("escape");
+    std::fs::create_dir(&escape).unwrap();
+    std::fs::write(escape.join("private"), "secret").unwrap();
+    std::os::unix::fs::symlink(&escape, outside.join("link")).unwrap();
+    let run = pending_tool(
+        &r,
+        &body,
+        "read_file",
+        json!({"path":outside.join("link/private")}),
+    );
+    let card = pending(&r).await;
+    decide(&r, &card, "deny", "exact").await.unwrap();
+    assert!(run.await.unwrap().is_err());
+    std::fs::rename(&outside, dir.path().join("old2")).unwrap();
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(&file, "new").unwrap();
+    assert!(r
+        .directory_decision("s", "read_file", file.to_str().unwrap())
+        .unwrap()
+        .is_none());
+}
+
+#[tokio::test]
+async fn typed_permissions_migrate_full_access_and_require_configured_reviewer() {
+    let (_dir, r, _body) = setup();
+    let saved = r
+        .request(
+            "PUT",
+            "/api/workspace/running-config",
+            json!({"sandbox_mode":"full-access"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(saved["sandbox_mode"], "danger-full-access");
+    assert_eq!(saved["reviewer"], "user");
+    let value = r
+        .request("GET", "/api/workspace/running-config", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(value["sandbox_mode"], "danger-full-access");
+    assert_eq!(
+        r.request(
+            "PUT",
+            "/api/workspace/running-config",
+            json!({"reviewer":"model"})
+        )
+        .await
+        .unwrap_err()
+        .status,
+        400
+    );
+}
+
+#[tokio::test]
+async fn nonrecursive_rules_and_directory_scope_validation_stay_narrow() {
+    let (dir, r, body) = setup();
+    let root = dir.path().join("outside");
+    std::fs::create_dir_all(root.join("nested")).unwrap();
+    std::fs::write(root.join("a"), "one").unwrap();
+    std::fs::write(root.join("nested/b"), "two").unwrap();
+    r.permission_rules_api("POST", &json!({"path":root,"recursive":false}))
+        .unwrap();
+    tool(&r, &body, "read_file", json!({"path":root.join("a")}))
+        .await
+        .unwrap();
+    assert!(r
+        .directory_decision("s", "read_file", root.join("nested/b").to_str().unwrap())
+        .unwrap()
+        .is_none());
+    assert!(r
+        .directory_decision("s", "grep_search", root.to_str().unwrap())
+        .unwrap()
+        .is_none());
+    let run = pending_tool(
+        &r,
+        &body,
+        "grep_search",
+        json!({"path":root,"pattern":"two"}),
+    );
+    let card = pending(&r).await;
+    assert_eq!(r.request("POST","/api/approval/approve",json!({"request_id":card["request_id"],"session_id":"s","user_id":"default","scope":"persistent_directory","directory":root,"recursive":false})).await.unwrap_err().status,400);
+    decide(&r, &card, "deny", "exact").await.unwrap();
+    assert!(run.await.unwrap().is_err());
+    r.permission_rules_api(
+        "POST",
+        &json!({"path":root,"recursive":false,"decision":"deny"}),
+    )
+    .unwrap();
+    assert!(matches!(
+        r.directory_decision("s", "read_file", root.join("a").to_str().unwrap())
+            .unwrap(),
+        Some((crate::permissions::Decision::Deny, _))
+    ));
+    assert!(r
+        .directory_decision("s", "read_file", root.join("nested/b").to_str().unwrap())
+        .unwrap()
+        .is_none());
+}
+
+#[tokio::test]
+async fn cancelled_directory_approval_never_persists_and_session_grants_do_not_restart() {
+    let (dir, r, body) = setup();
+    let file = dir.path().join("outside");
+    std::fs::write(&file, "text").unwrap();
+    let cancel = CancellationToken::new();
+    let task_cancel = cancel.clone();
+    let rr = r.clone();
+    let bb = body.clone();
+    let ff = file.clone();
+    let run = tokio::spawn(async move {
+        rr.execute_tool(
+            "s",
+            "read_file",
+            &json!({"path":ff}),
+            &bb,
+            &task_cancel,
+            &(Arc::new(|_| Ok(())) as Emit),
+        )
+        .await
+    });
+    let card = pending(&r).await;
+    cancel.cancel();
+    let _ = directory_reply(&r, &card, "persistent_directory", dir.path()).await;
+    assert!(run.await.unwrap().is_err());
+    assert!(r.persistent_rules().unwrap().is_empty());
+    let run = pending_tool(&r, &body, "read_file", json!({"path":file}));
+    let card = pending(&r).await;
+    directory_reply(&r, &card, "session_directory", dir.path())
+        .await
+        .unwrap();
+    run.await.unwrap().unwrap();
+    let root = r.root.clone();
+    drop(r);
+    let r = Runtime::open(&root).unwrap();
+    assert!(r
+        .directory_decision("s", "read_file", file.to_str().unwrap())
+        .unwrap()
+        .is_none());
 }

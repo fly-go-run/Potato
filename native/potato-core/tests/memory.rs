@@ -262,3 +262,43 @@ async fn symlink_note_parent_and_root_cannot_access_outside_files() {
         );
     }
 }
+
+#[tokio::test]
+async fn binary_note_is_rejected_before_creation_or_overwrite() {
+    let tmp = tempfile::tempdir().unwrap();
+    let runtime = Runtime::open(tmp.path()).unwrap();
+    let path = "/api/workspace/memory/note.md";
+    let invalid = json!({"content":"before\u{0000}after"});
+    assert_eq!(
+        runtime
+            .request("PUT", path, invalid.clone())
+            .await
+            .unwrap_err()
+            .status,
+        400
+    );
+    assert_eq!(
+        runtime
+            .request("GET", path, Value::Null)
+            .await
+            .unwrap_err()
+            .status,
+        404
+    );
+    runtime
+        .request("PUT", path, json!({"content":"original"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        runtime
+            .request("PUT", path, invalid)
+            .await
+            .unwrap_err()
+            .status,
+        400
+    );
+    assert_eq!(
+        runtime.request("GET", path, Value::Null).await.unwrap()["content"],
+        "original"
+    );
+}

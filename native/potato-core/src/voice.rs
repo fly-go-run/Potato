@@ -283,6 +283,7 @@ mod tests {
             let (tcp, _) = listener.accept().await.unwrap();
             let mut socket = tokio_tungstenite::accept_hdr_async(
                 tcp,
+                #[allow(clippy::result_large_err)] // Signature belongs to tungstenite's callback API.
                 |request: &tokio_tungstenite::tungstenite::handshake::server::Request, response| {
                     assert_eq!(request.headers()["X-Api-Key"], "test-speech-key");
                     Ok(response)

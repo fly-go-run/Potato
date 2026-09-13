@@ -1,5 +1,30 @@
 use crate::{Error, Result};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
+
+/// Wall time survives history/replay; elapsed time uses a monotonic clock.
+#[derive(Debug)]
+pub(crate) struct ActivityClock {
+    started_at_ms: i64,
+    started: std::time::Instant,
+}
+impl Default for ActivityClock {
+    fn default() -> Self {
+        Self {
+            started_at_ms: chrono::Utc::now().timestamp_millis(),
+            started: std::time::Instant::now(),
+        }
+    }
+}
+impl ActivityClock {
+    pub(crate) fn metadata(&self, state: &str) -> Value {
+        let mut value = json!({"activity":{"started_at_ms":self.started_at_ms,"state":state}});
+        if state != "running" {
+            value["activity"]["elapsed_ms"] = json!(self.started.elapsed().as_millis() as u64);
+            value["activity"]["completed_at_ms"] = json!(chrono::Utc::now().timestamp_millis());
+        }
+        value
+    }
+}
 
 pub fn message(id: &str, kind: &str, role: &str, content: Value, status: &str) -> Value {
     json!({"object":"message", "id":id,"type":kind,"role":role,

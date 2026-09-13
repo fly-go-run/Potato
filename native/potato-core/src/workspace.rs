@@ -26,6 +26,17 @@ fn valid_name(name: &str, nested: bool) -> Result<()> {
 
 fn template(name: &str, language: &str) -> &'static str {
     match (language, name) {
+        ("zh", "AGENTS.md") => include_str!("../prompts/workspace/zh.md"),
+        ("id", "AGENTS.md") => include_str!("../prompts/workspace/id.md"),
+        ("ru", "AGENTS.md") => include_str!("../prompts/workspace/ru.md"),
+        (_, "AGENTS.md") => include_str!("../prompts/workspace/en.md"),
+        _ => "",
+    }
+}
+
+// Exact legacy defaults are retained only to recognize uncustomized documents.
+fn legacy_template(name: &str, language: &str) -> &'static str {
+    match (language, name) {
         ("zh", "AGENTS.md") => include_str!("../../../src/potato/agents/md_files/zh/AGENTS.md"),
         ("id", "AGENTS.md") => include_str!("../../../src/potato/agents/md_files/id/AGENTS.md"),
         ("ru", "AGENTS.md") => include_str!("../../../src/potato/agents/md_files/ru/AGENTS.md"),
@@ -123,6 +134,15 @@ impl Runtime {
                 }
             }
             db.put(key, &documents)?;
+        } else if let Some(doc) = documents.get_mut("AGENTS.md") {
+            // Match all original languages, since the UI language may have changed.
+            if let Some(language) = ["zh", "en", "id", "ru"].into_iter().find(|language| {
+                doc["content"].as_str() == Some(legacy_template("AGENTS.md", language))
+            }) {
+                doc["content"] = json!(template("AGENTS.md", language));
+                doc["modified_time"] = json!(chrono::Utc::now().timestamp());
+                db.put(key, &documents)?;
+            }
         }
         Ok(documents)
     }
@@ -223,7 +243,7 @@ impl Runtime {
         let files = self
             .db()?
             .get("system_prompt_files", json!(DEFAULT_FILES))?;
-        let mut prompt = String::from("You are Potato, the user's desktop assistant. Use only the tools supplied in this request. Never claim that a reminder, background job, file change or message was completed without a successful tool result.\n");
+        let mut prompt = String::from(crate::prompts::CORE);
         for name in files
             .as_array()
             .into_iter()
@@ -233,10 +253,14 @@ impl Runtime {
             let content = documents[name]["content"].as_str().unwrap_or("");
             // Cron is available, but autonomous heartbeat polling is not enabled.
             let content = without_heartbeat(content);
-            if prompt.len() + content.len() > MAX_CONTENT {
+            if content.trim().is_empty() {
+                continue;
+            }
+            let section = format!("\n# Workspace guidance: {name}\n{content}\n");
+            if prompt.len() + section.len() > MAX_CONTENT {
                 return Err(Error::new(413, "Combined system prompt exceeds 128 KB"));
             }
-            prompt.push_str(&format!("\n# {name}\n{content}\n"));
+            prompt.push_str(&section);
         }
         Ok(prompt)
     }
@@ -255,3 +279,7 @@ fn without_heartbeat(content: &str) -> String {
     result.push_str(remaining);
     result
 }
+
+#[cfg(test)]
+#[path = "workspace_tests.rs"]
+mod tests;

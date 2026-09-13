@@ -125,8 +125,12 @@ fn child_dir(dir: &Dir, name: &str) -> Result<Dir> {
     }
     Ok(dir.open_dir(name)?)
 }
-fn sync_dir(dir: &Dir) -> Result<()> {
-    dir.try_clone()?.into_std_file().sync_all()?;
+fn sync_dir(_dir: &Dir) -> Result<()> {
+    // Windows directory handles do not support FlushFileBuffers (GENERIC_WRITE
+    // is required). Keep flushing every written file, but directory fsync is a
+    // Unix durability barrier; attempting it on Windows prevents first startup.
+    #[cfg(unix)]
+    _dir.try_clone()?.into_std_file().sync_all()?;
     Ok(())
 }
 fn encode(record: &Value) -> Result<Vec<u8>> {
@@ -652,7 +656,16 @@ impl Archive {
         }
         sync_dir(&deleted)?;
         *self.cache.lock().unwrap() = None;
-        if session.is_some() {
+        let existed = session.is_some();
+        // cap-std intentionally denies FILE_SHARE_DELETE for directory handles.
+        // The durable deletion marker already prevents subsequent appends; let
+        // Windows close our lock and directory before attempting removal.
+        #[cfg(windows)]
+        {
+            drop(_lock);
+            drop(session);
+        }
+        if existed {
             sessions.remove_dir_all(id)?;
             sync_dir(&sessions)?;
         }
@@ -675,6 +688,11 @@ impl Archive {
         if check_entry(&sessions, id, true)? {
             let dir = sessions.open_dir(id)?;
             let _lock = lock(&dir)?;
+            #[cfg(windows)]
+            {
+                drop(_lock);
+                drop(dir);
+            }
             sessions.remove_dir_all(id)?;
             sync_dir(&sessions)?;
         }

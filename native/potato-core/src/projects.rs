@@ -9,6 +9,8 @@ use tokio::{io::AsyncReadExt, process::Command};
 
 async fn git(root: &Path, args: &[&str]) -> Result<Vec<u8>> {
     let mut command = Command::new("git");
+    #[cfg(windows)]
+    command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     // Never let inherited Git routing select an unrelated repository/index.
     for (key, _) in std::env::vars_os() {
         if key.to_string_lossy().starts_with("GIT_") {

@@ -1,6 +1,6 @@
-use crate::{lock, required, string, Error, Result, Runtime};
-use base64::{engine::general_purpose::STANDARD, Engine};
-use serde_json::{json, Value};
+use crate::{Error, Result, Runtime, required, string};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
 
@@ -26,7 +26,7 @@ fn resolve_write_path(path: &Path) -> Result<PathBuf> {
 }
 
 impl Runtime {
-    fn check_history_write(&self, project: &Path, target: &Path) -> Result<()> {
+    pub(crate) fn check_history_write(&self, project: &Path, target: &Path) -> Result<()> {
         let history = self.root.canonicalize()?.join("workspace/history");
         let path = if target.is_absolute() {
             target.to_owned()
@@ -63,18 +63,21 @@ impl Runtime {
         let access = spec.as_ref().map(|s| s.access).unwrap_or(Access::None);
         match builtin {
             Some(Builtin::JobOutput) => {
-                return Ok(self
+                let output = self
                     .jobs
                     .output(session, required(args, "job_id")?, args)
-                    .await?
-                    .to_string())
+                    .await?;
+                if !crate::jobs::active(&output) {
+                    self.acknowledge_shell_followup(session,required(args,"job_id")?)?;
+                }
+                return Ok(output.to_string());
             }
             Some(Builtin::JobList) => return Ok(self.jobs.list(session)?.to_string()),
             Some(Builtin::JobKill) => {
                 return Ok(self
                     .jobs
                     .cancel(session, required(args, "job_id")?)?
-                    .to_string())
+                    .to_string());
             }
             _ => {}
         }
@@ -111,7 +114,10 @@ impl Runtime {
         }
         if builtin == Some(Builtin::AskUser) {
             if self.approval_level(body)? == "NEVER" {
-                return Err(Error::new(403, "Interactive questions are unavailable in NEVER mode; continue with available information or report what is missing"));
+                return Err(Error::new(
+                    403,
+                    "Interactive questions are unavailable in NEVER mode; continue with available information or report what is missing",
+                ));
             }
             let answer = self.ask_user(session, args, cancel).await?;
             let question: Value = serde_json::from_str(&answer)?;
@@ -166,6 +172,13 @@ impl Runtime {
             return Err(Error::new(400, "Unknown native tool"));
         }
         let mut args = args.clone();
+        // Execution evidence belongs to the host. Model/MCP arguments must not
+        // impersonate sandbox scope, prior failures or a background approval.
+        if let Some(args) = args.as_object_mut() {
+            for key in ["_execution", "_sandbox_failure", "_job_id"] {
+                args.remove(key);
+            }
+        }
         if access == Access::WritePath || builtin == Some(Builtin::ReadFile) {
             if let Some(path) = args.get("file_path").cloned() {
                 args["path"] = path;
@@ -183,42 +196,9 @@ impl Runtime {
                 args["path"] = json!(self.turn_project(body).await?.join(path));
             }
         }
-        let shell_project = if builtin == Some(Builtin::Shell) {
-            let mode = self.file_mode(body)?;
-            let escalation = match args["sandbox_permissions"]
-                .as_str()
-                .unwrap_or("use_default")
-            {
-                "use_default" => false,
-                "require_escalated" => {
-                    required(&args, "justification")?;
-                    true
-                }
-                _ => return Err(Error::new(400, "Unsupported sandbox_permissions")),
-            };
-            if mode != "danger-full-access" && !escalation {
-                return Err(Error::new(403, "Native shell has no OS sandbox. Retry with sandbox_permissions=require_escalated and justification to request this unsandboxed action once, or use project file tools."));
-            }
-            let mut project = self.turn_project(body).await?;
-            if let Some(cwd) = args["cwd"].as_str() {
-                let path = PathBuf::from(cwd);
-                project = tokio::fs::canonicalize(if path.is_absolute() {
-                    path
-                } else {
-                    project.join(path)
-                })
-                .await?;
-                self.check_public_path(&project).await?;
-                if !project.is_dir() {
-                    return Err(Error::new(400, "cwd must be a directory"));
-                }
-            }
-            self.check_history_write(&project, &project)?;
-            args["cwd"] = json!(project.to_string_lossy());
-            Some(project)
-        } else {
-            None
-        };
+        if builtin == Some(Builtin::Shell) {
+            return self.execute_shell(session, &args, body, cancel).await;
+        }
         let prepared_write = if access == Access::WritePath {
             let mode = self.file_mode(body)?;
             if !matches!(mode.as_str(), "workspace-write" | "danger-full-access") {
@@ -230,15 +210,46 @@ impl Runtime {
             let mut project = self.turn_project(body).await?;
             let target = PathBuf::from(required(&args, "path")?);
             let memory = self.memory_root()?;
-            if target.is_absolute() && target.starts_with(&memory) {
+            if !matches!(builtin, Some(Builtin::CreateOffice | Builtin::FillOffice))
+                && target.is_absolute()
+                && target.starts_with(&memory)
+            {
                 project = memory;
             }
             self.check_history_write(&project, &target)?;
+            if builtin == Some(Builtin::FillOffice) {
+                let source = PathBuf::from(required(&args, "template_path")?);
+                self.check_history_write(&project, &source)?;
+            }
             let args = args.clone();
             let operation = name.to_owned();
             Some(
                 tokio::task::spawn_blocking(move || {
-                    if operation == "write_file" {
+                    if operation == "fill_office_template" {
+                        let source = PathBuf::from(required(&args, "template_path")?);
+                        let format = required(&args, "format")?;
+                        for path in [&source, &target] {
+                            if path
+                                .extension()
+                                .and_then(|v| v.to_str())
+                                .map(str::to_ascii_lowercase)
+                                .as_deref()
+                                != Some(format)
+                            {
+                                return Err(Error::new(
+                                    400,
+                                    "Template and output extension must match format",
+                                ));
+                            }
+                        }
+                        let bytes = crate::file_ops::read_office_template(&project, &source)?;
+                        let bytes =
+                            crate::office::template::fill(bytes, format, &args["replacements"])?;
+                        crate::file_ops::PreparedWrite::prepare_artifact(&project, &target, bytes)
+                    } else if operation == "create_office_file" {
+                        let bytes = crate::office::generate(&target, &args)?;
+                        crate::file_ops::PreparedWrite::prepare_artifact(&project, &target, bytes)
+                    } else if operation == "write_file" {
                         crate::file_ops::PreparedWrite::prepare(
                             &project,
                             &target,
@@ -294,12 +305,6 @@ impl Runtime {
             self.computer_target(session, name, &args)?
         } else if builtin == Some(Builtin::WebSearch) {
             required(&args, "query")?.to_owned()
-        } else if shell_project.is_some() {
-            format!(
-                "Unsandboxed command in {}: {}",
-                string(&args, "cwd"),
-                required(&args, "command")?
-            )
         } else if let Some((_, path)) = &prepared_memory {
             path.display().to_string()
         } else if matches!(access, Access::MemoryWrite | Access::WritePath) {
@@ -337,9 +342,7 @@ impl Runtime {
             && ((matches!(access, Access::ReadPath | Access::WritePath) && in_project && ordinary)
                 || builtin == Some(Builtin::WebSearch)
                 || (builtin == Some(Builtin::MemoryWrite) && args["scope"] == "project"));
-        let reason = if shell_project.is_some() {
-            "Run this command with the computer account's permissions, without an OS sandbox"
-        } else if computer || mcp.is_some() {
+        let reason = if computer || mcp.is_some() {
             "Interact with an external application or service"
         } else if access == Access::ReadPath && !in_project {
             "Read outside the conversation project"
@@ -358,10 +361,31 @@ impl Runtime {
                 "File permissions changed during tool preparation",
             ));
         }
+        let permission_version = self.permission_version()?;
+        let review_generation = self.review_generation(session)?;
+        let read_snapshot = if access == Access::ReadPath {
+            Some(crate::permissions::PathSnapshot::capture(Path::new(
+                &target,
+            ))?)
+        } else {
+            None
+        };
         self.authorize(
             session, name, &args, body, &target, automatic, reason, cancel,
         )
         .await?;
+        if let Some(snapshot) = read_snapshot {
+            snapshot.verify()?;
+        }
+        if self.permission_version()? != permission_version
+            || self.review_generation(session)? != review_generation
+            || cancel.is_cancelled()
+        {
+            return Err(Error::new(
+                409,
+                "Permissions changed or action cancelled before execution",
+            ));
+        }
         if self.has_steering(session)? {
             return Err(Error::new(
                 409,
@@ -400,47 +424,10 @@ impl Runtime {
             .await
             .map_err(|_| Error::new(500, "Search failed"))?;
         }
-        if let Some(project) = shell_project {
-            if tokio::fs::canonicalize(&project).await? != project {
-                return Err(Error::new(
-                    409,
-                    "Command working directory changed after approval",
-                ));
-            }
-            self.check_public_path(&project).await?;
-            self.check_history_write(&project, &project)?;
-            let background = args["run_in_background"] == true;
-            let job_cancel = if background {
-                CancellationToken::new()
-            } else {
-                cancel.child_token()
-            };
-            let listener = self.background_emit.clone();
-            let notify_session = session.to_owned();
-            let notify = std::sync::Arc::new(move || {
-                let emit = lock(&listener).ok().and_then(|e| e.clone());
-                if let Some(emit) = emit {
-                    let _ = emit(json!({"session_id":notify_session}));
-                }
-            });
-            let id = self.jobs.start(
-                session,
-                required(&args, "command")?.to_owned(),
-                project,
-                args["timeout"].as_u64().unwrap_or(60),
-                job_cancel,
-                notify,
-            )?;
-            if background {
-                return Ok(json!({"job_id":id,"status":"running","notice":"Use job_output for status and paged output; job_kill stops the process group."}).to_string());
-            }
-            let state = self.jobs.wait(session, &id, cancel).await?;
-            return Ok(state.to_string());
-        }
         if builtin == Some(Builtin::EditImage) {
             return tokio::select! {
                 _ = cancel.cancelled() => Err(Error::new(499,"Image editing cancelled")),
-                result = self.edit_image(required(&args,"prompt")?, body) => result,
+                result = self.edit_image(required(&args,"prompt")?, body, image_count(&args)?) => result,
             };
         }
         if let Some((config, tool)) = mcp {
@@ -457,9 +444,23 @@ impl Runtime {
         }
         if let Some(write) = prepared_write {
             self.check_history_write(&project, &path)?;
+            if cancel.is_cancelled() {
+                return Err(Error::new(499, "File write cancelled"));
+            }
             let bytes = tokio::task::spawn_blocking(move || write.apply())
                 .await
                 .map_err(|_| Error::new(500, "File write failed"))??;
+            if matches!(builtin, Some(Builtin::CreateOffice | Builtin::FillOffice)) {
+                let warnings = if builtin == Some(Builtin::FillOffice) {
+                    vec![
+                        "Template text length changed; inspect layout in Office before delivery"
+                            .to_owned(),
+                    ]
+                } else {
+                    crate::office::layout_warnings(&args)
+                };
+                return Ok(json!({"written":true,"bytes":bytes,"path":resolved,"format":args["format"],"validation":"package checks and content-density heuristics only; not visually rendered","warnings":warnings,"formula_calculation":if args["format"]=="xlsx" {"explicit numeric formulas evaluated by IronCalc; cached results saved"} else {"not applicable"}}).to_string());
+            }
             return Ok(json!({"written":true,"bytes":bytes,"path":args["path"]}).to_string());
         }
         if let Some((write, path)) = prepared_memory {
@@ -491,7 +492,9 @@ impl Runtime {
             return self.web_search(required(args, "query")?).await;
         }
         if builtin == Some(Builtin::GenerateImage) {
-            return self.generate_image(required(args, "prompt")?).await;
+            return self
+                .generate_image(required(args, "prompt")?, image_count(args)?)
+                .await;
         }
         let path = PathBuf::from(required(args, "path")?);
         if tokio::fs::canonicalize(&path).await? != path {
@@ -520,7 +523,7 @@ impl Runtime {
         }
     }
 
-    async fn generate_image(&self, prompt: &str) -> Result<String> {
+    async fn generate_image(&self, prompt: &str, count: u64) -> Result<String> {
         if self.db()?.get("image_plugin_installed", json!(true))? != true {
             return Err(Error::new(403, "Image plugin is disabled"));
         }
@@ -533,13 +536,13 @@ impl Runtime {
             .client
             .post(format!("{}/images/generations", connection.url))
             .bearer_auth(connection.key)
-            .json(&json!({"model":connection.model,"prompt":prompt,"n":1}))
+            .json(&json!({"model":connection.model,"prompt":prompt,"n":count}))
             .send()
             .await?;
         self.image_response(response).await
     }
 
-    async fn edit_image(&self, prompt: &str, body: &Value) -> Result<String> {
+    async fn edit_image(&self, prompt: &str, body: &Value, count: u64) -> Result<String> {
         if self.db()?.get("image_plugin_installed", json!(true))? != true {
             return Err(Error::new(403, "Image plugin is disabled"));
         }
@@ -550,7 +553,8 @@ impl Runtime {
         )?;
         let mut form = reqwest::multipart::Form::new()
             .text("model", connection.model)
-            .text("prompt", prompt.to_owned());
+            .text("prompt", prompt.to_owned())
+            .text("n", count.to_string());
         let mut count = 0;
         let mut total = 0;
         for message in body["input"].as_array().into_iter().flatten() {
@@ -614,59 +618,60 @@ impl Runtime {
             ));
         }
         let value: Value = response.json().await?;
-        let item = value["data"]
+        let items = value["data"]
             .as_array()
-            .and_then(|d| d.first())
+            .filter(|items| !items.is_empty())
             .ok_or_else(|| Error::new(502, "Image service returned no image"))?;
-        let url = if let Some(encoded) = item["b64_json"].as_str() {
-            if encoded.len() > 28_000_000 {
-                return Err(Error::new(413, "Generated image is too large"));
-            }
-            STANDARD
-                .decode(encoded)
-                .map_err(|_| Error::new(502, "Invalid image encoding"))?;
-            format!("data:image/png;base64,{encoded}")
-        } else {
-            let url = required(item, "url")?;
-            if !url.starts_with("https://") {
-                return Err(Error::new(502, "Image URL must use HTTPS"));
-            }
-            use futures_util::StreamExt;
-            let response = self.client.get(url).send().await?;
-            if !response.status().is_success() {
-                return Err(Error::new(502, "Could not download generated image"));
-            }
-            let mime = response
-                .headers()
-                .get("content-type")
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("image/png")
-                .split(';')
-                .next()
-                .unwrap_or("image/png")
-                .to_owned();
-            if !matches!(mime.as_str(), "image/png" | "image/jpeg" | "image/webp") {
-                return Err(Error::new(
-                    502,
-                    "Generated image has unsupported media type",
-                ));
-            }
-            let mut bytes = Vec::new();
-            let mut stream = response.bytes_stream();
-            while let Some(chunk) = stream.next().await {
-                let chunk = chunk?;
-                if bytes.len() + chunk.len() > 20_000_000 {
+        let mut blocks = Vec::new();
+        for item in items {
+            let url = if let Some(encoded) = item["b64_json"].as_str() {
+                if encoded.len() > 28_000_000 {
                     return Err(Error::new(413, "Generated image is too large"));
                 }
-                bytes.extend_from_slice(&chunk);
-            }
-            format!("data:{mime};base64,{}", STANDARD.encode(bytes))
-        };
-        // Existing frontend renders rich tool-output image blocks.
-        Ok(
-            json!([{"type":"image","image_url":url},{"type":"text","text":"Image generated"}])
-                .to_string(),
-        )
+                STANDARD
+                    .decode(encoded)
+                    .map_err(|_| Error::new(502, "Invalid image encoding"))?;
+                format!("data:image/png;base64,{encoded}")
+            } else {
+                let url = required(item, "url")?;
+                if !url.starts_with("https://") {
+                    return Err(Error::new(502, "Image URL must use HTTPS"));
+                }
+                use futures_util::StreamExt;
+                let response = self.client.get(url).send().await?;
+                if !response.status().is_success() {
+                    return Err(Error::new(502, "Could not download generated image"));
+                }
+                let mime = response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("image/png")
+                    .split(';')
+                    .next()
+                    .unwrap_or("image/png")
+                    .to_owned();
+                if !matches!(mime.as_str(), "image/png" | "image/jpeg" | "image/webp") {
+                    return Err(Error::new(
+                        502,
+                        "Generated image has unsupported media type",
+                    ));
+                }
+                let mut bytes = Vec::new();
+                let mut stream = response.bytes_stream();
+                while let Some(chunk) = stream.next().await {
+                    let chunk = chunk?;
+                    if bytes.len() + chunk.len() > 20_000_000 {
+                        return Err(Error::new(413, "Generated image is too large"));
+                    }
+                    bytes.extend_from_slice(&chunk);
+                }
+                format!("data:{mime};base64,{}", STANDARD.encode(bytes))
+            };
+            blocks.push(json!({"type":"image","image_url":url}));
+        }
+        blocks.push(json!({"type":"text","text":format!("Generated {} image(s)", blocks.len())}));
+        Ok(Value::Array(blocks).to_string())
     }
 
     /// Used by the desktop IPC upload adapter; WAV is produced by the existing
@@ -850,5 +855,35 @@ mod history_write_tests {
         .unwrap_err();
         assert_eq!(error.status, 403);
         assert!(!history.join(".potato").exists());
+    }
+}
+
+fn image_count(args: &Value) -> Result<u64> {
+    match args.get("n") {
+        None => Ok(1),
+        Some(value) => value
+            .as_u64()
+            .filter(|n| (1..=8).contains(n))
+            .ok_or_else(|| Error::new(400, "Image count must be an integer between 1 and 8")),
+    }
+}
+
+#[cfg(test)]
+mod image_count_tests {
+    use super::*;
+    #[test]
+    fn defaults_to_one_and_rejects_invalid_counts() {
+        assert_eq!(image_count(&json!({})).unwrap(), 1);
+        assert_eq!(image_count(&json!({"n": 8})).unwrap(), 8);
+        for n in [
+            json!(0),
+            json!(9),
+            json!(-1),
+            json!(1.5),
+            json!("2"),
+            Value::Null,
+        ] {
+            assert!(image_count(&json!({"n": n})).is_err());
+        }
     }
 }

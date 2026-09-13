@@ -51,12 +51,19 @@ impl Runtime {
             return Ok(result);
         }
         match (method, path.as_ref()) {
+            ("GET", "/api/native/remote") => return self.remote_settings(),
+            ("POST", "/api/native/remote") => return self.configure_remote(body).await,
+            ("POST", "/api/native/remote/login/start") => return self.begin_remote_login(body).await,
+            ("POST", "/api/native/remote/login/poll") => return self.poll_remote_login().await,
+            ("POST", "/api/native/remote/login/cancel") => return self.cancel_remote_login(),
+            ("POST", "/api/native/remote/logout") => return self.logout_remote().await,
+            ("POST", "/api/agent/outbox") => return self.outbox_request(&body),
             ("POST", "/api/agent/steer") => return self.steer(&body),
             ("GET", "/api/native/preferences")=>return self.db()?.get("native_preferences",json!({"dark":false,"collapsed":false,"width":1080,"height":760,"selected":""})),
             ("PUT", "/api/native/preferences")=>{
                 let mut saved=self.db()?.get("native_preferences",json!({} ))?;
                 for key in ["dark","collapsed","follow_system","remember_window"]{if let Some(value)=body.get(key){if !value.is_boolean(){return Err(Error::new(400,"Invalid preference"));}saved[key]=value.clone();}}
-                for (key,min,max) in [("width",760.,4000.),("height",540.,2400.)]{if let Some(value)=body.get(key){let n=value.as_f64().ok_or_else(||Error::new(400,"Invalid window size"))?;if !n.is_finite()||n<min||n>max{return Err(Error::new(400,"Invalid window size"));}saved[key]=value.clone();}}
+                for (key,min,max) in [("width",760.,4000.),("height",540.,2400.),("file_list_width",240.,720.),("file_detail_width",240.,720.)]{if let Some(value)=body.get(key){let n=value.as_f64().ok_or_else(||Error::new(400,"Invalid window size"))?;if !n.is_finite()||n<min||n>max{return Err(Error::new(400,"Invalid window size"));}saved[key]=value.clone();}}
                 for key in ["x","y"] {if let Some(value)=body.get(key) {let n=value.as_f64().ok_or_else(||Error::new(400,"Invalid window position"))?;if !n.is_finite() || n.abs()>100_000. {return Err(Error::new(400,"Invalid window position"));}saved[key]=value.clone();}}
                 if let Some(value)=body.get("selected"){let id=value.as_str().ok_or_else(||Error::new(400,"Invalid selected conversation"))?;if id.len()>200{return Err(Error::new(400,"Invalid selected conversation"));}saved["selected"]=value.clone();}
                 self.db()?.put("native_preferences",&saved)?;return Ok(saved);
@@ -117,7 +124,19 @@ impl Runtime {
                 self.db()?.put("language",&json!(language))?;
                 return Ok(json!({"agent_id":"default","language":language}));
             }
-            ("GET", "/api/workspace/running-config") => return self.db()?.get("running",crate::approval::defaults()),
+            ("GET" | "POST" | "PUT" | "DELETE", "/api/permissions/rules") => return self.permission_rules_api(method, &body),
+            ("GET", "/api/workspace/running-config") => {
+                let mut value=self.db()?.get("running",crate::approval::defaults())?;
+                let config: crate::permissions::PermissionConfig=serde_json::from_value(value.clone())?;
+                config.validate()?;
+                value["sandbox_mode"]=serde_json::to_value(config.sandbox_mode)?;
+                value["reviewer"]=serde_json::to_value(config.reviewer)?;
+                value["reviewer_provider_id"]=json!(config.reviewer_provider_id);
+                value["reviewer_model"]=json!(config.reviewer_model);
+                value["directory_rule_count"]=json!(self.persistent_rules()?.len());
+                value["shell_sandbox"]=crate::sandbox::status();
+                return Ok(value);
+            },
             ("PUT", "/api/workspace/running-config") => {
                 // File capability and prompting policy are independent.
                 let mut value = self.db()?.get("running",crate::approval::defaults())?;
@@ -137,16 +156,43 @@ impl Runtime {
                 if let Some(level)=body.get("approval_level") {let level=level.as_str().ok_or_else(||Error::new(400,"approval_level must be a string"))?;crate::approval::validate(level)?;value["approval_level"]=json!(level);}
                 if let Some(mode)=body.get("sandbox_mode") {
                     let mode=mode.as_str().ok_or_else(||Error::new(400,"sandbox_mode must be a string"))?;
-                    if !matches!(mode,"read-only"|"workspace-write"|"danger-full-access"){return Err(Error::new(400,"Unsupported native file access mode"));}
-                    value["sandbox_mode"]=json!(mode);
+                    let mode: crate::permissions::FileMode=serde_json::from_value(json!(mode)).map_err(|_|Error::new(400,"Unsupported native file access mode"))?;
+                    value["sandbox_mode"]=serde_json::to_value(mode)?;
                 }
-                self.db()?.put("running", &value)?; return Ok(value);
+                if let Some(reviewer)=body.get("reviewer") {value["reviewer"]=reviewer.clone();}
+                for field in ["reviewer_provider_id","reviewer_model"] {if let Some(selected)=body.get(field) {let selected=selected.as_str().ok_or_else(||Error::new(400,"Reviewer selection must be a string"))?;value[field]=json!(selected.trim());}}
+                let config: crate::permissions::PermissionConfig=serde_json::from_value(value.clone()).map_err(|_|Error::new(400,"Invalid permission configuration"))?;
+                config.validate()?;
+                if ["reviewer", "reviewer_provider_id", "reviewer_model"].iter().any(|key| body.get(*key).is_some()) {
+                    self.validate_reviewer_connection(&config)?;
+                }
+                value["reviewer"]=serde_json::to_value(config.reviewer)?;
+                let mut permissions=lock(&self.permissions)?;
+                self.db()?.put("running", &value)?;
+                if body.get("approval_level").is_some() || body.get("sandbox_mode").is_some() || body.get("reviewer").is_some() || body.get("reviewer_provider_id").is_some() || body.get("reviewer_model").is_some() {
+                    permissions.version+=1;
+                    lock(&self.approvals)?.clear();
+                }
+                return Ok(value);
             }
-            ("GET", "/api/config/security/sandbox") => return Ok(json!({"enabled":false,"effective":false,"reason":"unsupported"})),
+            ("GET", "/api/config/security/sandbox") => {
+                let mut status = crate::sandbox::status();
+                let mode = self.file_mode(&json!({}))?;
+                status["enabled"] = json!(mode != "danger-full-access");
+                status["effective"] = json!(mode != "danger-full-access" && status["available"] == true);
+                status["mode"] = json!(mode);
+                status["scope"] = json!("shell commands and descendants; MCP/computer use have separate permissions");
+                return Ok(status);
+            },
             ("GET", "/api/computer-use") => return self.computer_status().await,
+            ("POST", "/api/computer-use/check") => return self.check_computer_permissions().await,
             ("PUT", "/api/computer-use") => {
                 if body["always_allowed_apps"].as_array().is_some_and(|a|!a.is_empty()){return Err(Error::new(400,"Native computer actions require exact approval"));}
-                if let Some(enabled)=body["enabled"].as_bool(){self.db()?.put("computer_enabled",&json!(enabled))?;}
+                if let Some(enabled)=body["enabled"].as_bool(){
+                    if enabled && self.computer_status().await?["driver_available"] != true {return Err(Error::new(400,"Native computer driver is not bundled"));}
+                    self.db()?.put("computer_enabled",&json!(enabled))?;
+                    if !enabled {self.cancel_computer().await;}
+                }
                 return self.computer_status().await;
             }
             ("GET", "/api/settings/upload-limit") => return Ok(json!({"upload_max_size_mb":crate::attachments::MAX_BYTES / 1_000_000})),
@@ -165,15 +211,17 @@ impl Runtime {
             }
             ("POST", "/api/console/chat/stop") => {
                 let chat = self.db()?.chat(&query("chat_id"))?;
-                let runs = lock(&self.runs)?;
-                let run = runs.get(string(&chat,"session_id"));
-                if let Some(run) = run { run.cancel.cancel(); }
-                return Ok(json!({"stopped":run.is_some()}));
+                let mut request = json!({"session_id":chat["session_id"],"action":"stop"});
+                if let Some(expected) = body.get("expected_run_id") { request["expected_run_id"] = expected.clone(); }
+                let result = self.outbox_request(&request)?;
+                return Ok(json!({"stopped":result["stopped"]}));
             }
             ("GET", "/api/approval/list" | "/api/console/push-messages") => {
                 let approvals = lock(&self.approvals)?;
                 let pending: Vec<_> = approvals.values().filter(|a| a.view["root_session_id"] == query("session_id")).map(|a|a.view.clone()).collect();
-                return Ok(json!({"messages":[],"pending_approvals":pending,"session_grants":self.approval_grant_count(&query("session_id"))?}));
+                drop(approvals);
+                let reviews=self.review_status(&query("session_id"))?;
+                return Ok(json!({"shell_jobs":self.jobs.list(&query("session_id"))?["jobs"],"messages":[],"pending_approvals":pending,"session_grants":self.approval_grant_count(&query("session_id"))?,"active_reviews":reviews["active_reviews"],"recent_reviews":reviews["recent_reviews"],"review_cache":reviews["review_cache"]}));
             }
             ("POST", "/api/approval/approve" | "/api/approval/deny") => {
                 let mut approvals = lock(&self.approvals)?;
@@ -187,13 +235,23 @@ impl Runtime {
                     return Err(Error::new(409,"Approval expired or turn cancelled"));
                 }
                 let scope = body["scope"].as_str().unwrap_or("exact");
-                if !matches!(scope,"exact"|"session") || (scope=="session" && approval.view["allow_session"]!=true) {
+                if !matches!(scope,"exact"|"session"|"session_directory"|"persistent_directory") || (scope=="session" && approval.view["allow_session"]!=true) || (scope.ends_with("_directory") && approval.view["allow_directory"]!=true) {
                     return Err(Error::new(400,"Approval scope is not available for this action"));
                 }
-                let reply = if path.ends_with("/deny") {crate::approval::Reply::Deny} else if scope=="session" {crate::approval::Reply::Session} else {crate::approval::Reply::Once};
+                let reply = if path.ends_with("/deny") {crate::approval::Reply::Deny} else if scope.ends_with("_directory") {
+                    let rule=self.make_directory_rule(&json!({"path":required(&body,"directory")?,"recursive":body["recursive"].as_bool().unwrap_or(true)}), if scope=="session_directory" {Some(required(&body,"session_id")?)} else {None})?;
+                    if !rule.recursive && matches!(required(&approval.view,"tool_name")?,"grep_search"|"glob_search") {return Err(Error::new(400,"Recursive search requires a recursive directory grant"));}
+                    let target=std::path::Path::new(required(&approval.view,"exact_target")?);
+                    if !target.starts_with(&rule.path) || (!rule.recursive && target!=rule.path && target.parent()!=Some(rule.path.as_path())) {return Err(Error::new(400,"Selected directory does not cover this action"));}
+                    crate::approval::Reply::Directory(Box::new(rule))
+                } else if scope=="session" {crate::approval::Reply::Session} else {crate::approval::Reply::Once};
                 let approval = approvals.remove(id).unwrap();
                 approval.reply.send(reply).map_err(|_| Error::new(409,"Turn no longer waiting for approval"))?;
                 return Ok(json!({"success":true,"request_id":id,"message":"Decision recorded","tool_name":approval.view["tool_name"]}));
+            }
+            ("DELETE", "/api/approval/review-cache") => {
+                if required(&body,"user_id")?!="default"{return Err(Error::new(403,"Unknown user"));}
+                return self.clear_review_cache(required(&body,"session_id")?);
             }
             ("POST", "/api/approval/revoke-session") => {
                 if required(&body,"user_id")? != "default" {return Err(Error::new(403,"Unknown user"));}
@@ -201,18 +259,27 @@ impl Runtime {
                 return Ok(json!({"success":true}));
             }
             ("GET", "/api/approval/audit") => return self.db()?.get(&format!("approval_audit:{}",query("session_id")),json!([])),
+            ("GET", "/api/native/cloud") => return self.cloud_settings(),
+            ("POST", "/api/native/cloud/login/start") => return self.begin_cloud_login(body).await,
+            ("POST", "/api/native/cloud/login/poll") => return self.poll_cloud_login().await,
+            ("POST", "/api/native/cloud/login/cancel") => return self.cancel_cloud_login(),
+            ("POST", "/api/native/cloud/refresh") => return self.refresh_cloud_models().await,
+            ("POST", "/api/native/cloud/logout") => return self.logout_cloud().await,
             ("GET", "/api/models/active") => return self.active_model(),
             ("PUT", "/api/models/active") => {
                 let provider_id = required(&body,"provider_id")?;
                 let model = required(&body,"model")?;
+                if provider_id == crate::cloud::PROVIDER { self.cloud_connection(model)?; }
                 let providers = self.providers()?;
                 if !providers.iter().any(|p| p["id"] == provider_id) { return Err(Error::new(404,"Provider not found")); }
-                self.db()?.put("active", &json!({"provider_id":provider_id,"model":model}))?;
+                let selection = json!({"provider_id":provider_id,"model":model});
+                self.db()?.put_batch(&[("active".into(),selection.clone()),("active_manual".into(),selection)])?;
                 return self.active_model();
             }
             ("GET", "/api/models") => return Ok(json!(self.public_providers()?)),
             ("POST", "/api/models/custom-providers") => {
                 let id = required(&body,"id")?;
+                if id == crate::cloud::PROVIDER { return Err(Error::new(403,"云端服务商由系统管理")); }
                 let mut providers = self.providers()?;
                 if providers.iter().any(|p|p["id"] == id) { return Err(Error::new(409,"Provider already exists")); }
                 let protocol = body["chat_model"].as_str().unwrap_or("OpenAIChatModel");
@@ -330,6 +397,12 @@ impl Runtime {
                 _ => Err(Error::new(405, "Method not allowed")),
             };
         }
+        if let Some(rest) = path.strip_prefix("/api/models/potato-cloud/") {
+            if method == "PUT" {
+                if let Some(model) = rest.strip_prefix("models/").and_then(|s|s.strip_suffix("/config")) { return self.cloud_model_preference(model, &body); }
+            }
+            return Err(Error::new(403,"云端模型由服务端管理，请使用邮箱登录或刷新模型列表"));
+        }
         if let Some(rest) = path.strip_prefix("/api/models/") {
             let mut providers = self.providers()?;
             if let Some(id) = rest
@@ -394,6 +467,7 @@ impl Runtime {
                     } else {
                         "models"
                     };
+                    let provider_capabilities = p.clone();
                     let model = p[key]
                         .as_array_mut()
                         .unwrap()
@@ -426,8 +500,39 @@ impl Runtime {
                             {
                                 return Err(Error::new(400, "Reasoning effort must be text"));
                             }
+                            if field == "reasoning_effort_options"
+                                && !value.is_null()
+                                && !value.as_array().is_some_and(|a| {
+                                    a.iter()
+                                        .all(|v| v.as_str().is_some_and(|s| !s.trim().is_empty()))
+                                })
+                            {
+                                return Err(Error::new(
+                                    400,
+                                    "Reasoning options must be an array of nonempty strings",
+                                ));
+                            }
                             model[field] = value.clone();
                         }
+                    }
+                    if body
+                        .get("reasoning_effort")
+                        .is_some_and(|v| v.as_str().is_some_and(|s| !s.is_empty()))
+                        && (model["reasoning_effort_options"].is_array()
+                            || provider_capabilities["reasoning_effort_options"].is_array())
+                        && crate::reasoning::effective_effort(&provider_capabilities, model)
+                            .is_none()
+                    {
+                        return Err(Error::new(
+                            400,
+                            "This model does not support the selected reasoning effort",
+                        ));
+                    }
+                    if body.get("reasoning_effort_options").is_some()
+                        && crate::reasoning::effective_effort(&provider_capabilities, model)
+                            .is_none()
+                    {
+                        model["reasoning_effort"] = Value::Null;
                     }
                     if let (Some(input), Some(output)) = (
                         model["max_input_length"].as_u64(),
@@ -491,7 +596,7 @@ impl Runtime {
                         .as_array()
                         .ok_or_else(|| Error::new(502, "Invalid model list"))?
                         .iter()
-                        .filter_map(|m| m["id"].as_str().map(|id| json!({"id":id,"name":id})))
+                        .filter_map(crate::reasoning::discovered_model)
                         .collect();
                     if action == "test" {
                         return Ok(json!({"success":true,"message":"Connected"}));
@@ -499,7 +604,18 @@ impl Runtime {
                     let count = models.len();
                     let mut merged = p["extra_models"].as_array().cloned().unwrap_or_default();
                     for model in &models {
-                        if !merged.iter().any(|existing| existing["id"] == model["id"]) {
+                        if let Some(existing) = merged
+                            .iter_mut()
+                            .find(|existing| existing["id"] == model["id"])
+                        {
+                            for field in ["reasoning_effort_options", "thinking_param_style"] {
+                                if existing.get(field).is_none_or(Value::is_null) {
+                                    if let Some(value) = model.get(field) {
+                                        existing[field] = value.clone();
+                                    }
+                                }
+                            }
+                        } else {
                             merged.push(model.clone());
                         }
                     }
@@ -555,6 +671,8 @@ impl Runtime {
                 }
             }
         }
+        providers.retain(|p| p["id"] != crate::cloud::PROVIDER);
+        if let Some(cloud) = self.cloud_provider()? { providers.insert(0, cloud); }
         Ok(providers)
     }
     pub(crate) fn speech_type(&self) -> Result<String> {
@@ -574,7 +692,8 @@ impl Runtime {
         }
         .into())
     }
-    fn save_providers(&self, providers: Vec<Value>) -> Result<()> {
+    fn save_providers(&self, mut providers: Vec<Value>) -> Result<()> {
+        providers.retain(|p| p["id"] != crate::cloud::PROVIDER);
         self.db()?.put("providers", &json!(providers))
     }
     fn public_providers(&self) -> Result<Vec<Value>> {
@@ -583,7 +702,8 @@ impl Runtime {
             if matches!(string(p, "id"), "deepseek" | "sub2api") {
                 p["is_custom"] = json!(false);
             }
-            p["api_key"] = json!(if string(p, "api_key").is_empty() {
+            let env_configured = self.model_env_key_at(None, string(p,"id"), "").is_some();
+            p["api_key"] = json!(if string(p, "api_key").is_empty() && !env_configured {
                 ""
             } else {
                 "********"
@@ -593,7 +713,7 @@ impl Runtime {
     }
     fn active_model(&self) -> Result<Value> {
         Ok(
-            json!({"active_llm":self.db()?.get("active",Value::Null)?,"effective_max_input_length":null}),
+            json!({"active_llm":self.ensure_model_selection()?,"effective_max_input_length":null}),
         )
     }
 }

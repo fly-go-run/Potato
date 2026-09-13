@@ -1,7 +1,7 @@
 //! Session-bound shell jobs. Stream archives survive restarts; live processes do
 //! not resume implicitly. This module owns process lifetime, not the model loop.
-use crate::{lock, Error, Result};
-use serde_json::{json, Value};
+use crate::{Error, Result, lock};
+use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -16,6 +16,78 @@ struct Job {
     state: Mutex<Value>,
     cancel: CancellationToken,
 }
+pub(crate) fn active(state: &Value) -> bool {
+    matches!(
+        state["status"].as_str(),
+        Some("running" | "diagnosing" | "reviewing" | "awaiting_approval" | "retrying")
+    )
+}
+
+#[derive(Clone)]
+pub(crate) struct Progress {
+    job: Arc<Job>,
+    directory: PathBuf,
+    notify: Arc<dyn Fn() + Send + Sync>,
+}
+impl Progress {
+    pub fn id(&self) -> String {
+        self.directory
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
+    }
+    pub fn update(&self, fields: Value) -> Result<()> {
+        let mut state = lock(&self.job.state)?;
+        for (key, value) in fields.as_object().into_iter().flatten() {
+            state[key] = value.clone();
+        }
+        save_state(&self.directory, &state)?;
+        drop(state);
+        (self.notify)();
+        Ok(())
+    }
+    pub fn attempt(&self, index: usize, context: Value) -> Result<PathBuf> {
+        let directory = self.directory.join(format!("attempt-{index}"));
+        std::fs::create_dir(&directory)?;
+        let mut state = lock(&self.job.state)?;
+        if !state["attempts"].is_array() {
+            state["attempts"] = json!([]);
+        }
+        state["attempts"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"attempt":index,"sandbox":context}));
+        state["current_attempt"] = json!(index);
+        state["sandbox"] = context;
+        state["status"] = json!(if index == 0 { "running" } else { "retrying" });
+        state["stdout_path"] = json!(directory.join("stdout"));
+        state["stderr_path"] = json!(directory.join("stderr"));
+        save_state(&self.directory, &state)?;
+        drop(state);
+        (self.notify)();
+        Ok(directory)
+    }
+    pub fn finish_attempt(&self, index: usize, result: &Result<Value>) -> Result<()> {
+        let mut state = lock(&self.job.state)?;
+        let item = &mut state["attempts"][index];
+        match result {
+            Ok(out) => {
+                item["exit_code"] = out["exit_code"].clone();
+                item["signal"] = out["signal"].clone();
+                if out["cleanup_error"].is_string() {
+                    item["cleanup_error"] = out["cleanup_error"].clone();
+                }
+            }
+            Err(error) => {
+                item["error"] = json!(error.message);
+                item["error_status"] = json!(error.status);
+            }
+        }
+        save_state(&self.directory, &state)
+    }
+}
+
 pub(crate) struct Jobs {
     root: PathBuf,
     jobs: Mutex<HashMap<String, Arc<Job>>>,
@@ -50,15 +122,26 @@ impl Jobs {
             let Some(session) = state["session_id"].as_str().map(str::to_owned) else {
                 continue;
             };
-            let stdout = json!(entry.path().join("stdout"));
-            let stderr = json!(entry.path().join("stderr"));
+            let archive = state["current_attempt"]
+                .as_u64()
+                .filter(|n| *n < 3)
+                .map(|n| entry.path().join(format!("attempt-{n}")))
+                .unwrap_or_else(|| entry.path());
+            let stdout = json!(archive.join("stdout"));
+            let stderr = json!(archive.join("stderr"));
             let paths_changed = state["stdout_path"] != stdout || state["stderr_path"] != stderr;
             state["stdout_path"] = stdout;
             state["stderr_path"] = stderr;
-            let interrupted = state["status"] == "running";
+            let interrupted = active(&state);
+            if state["continuation"] == "pending" || state["continuation"] == "dispatched" {
+                state["continuation"] = json!("interrupted");
+                save_state(&entry.path(), &state)?;
+            }
             if interrupted {
                 state["status"] = json!("interrupted");
-                state["error"]=json!("Runtime restarted; this command was not resumed. Inspect the archived output before retrying.");
+                state["error"] = json!(
+                    "Runtime restarted; this command was not resumed. Inspect the archived output before retrying."
+                );
             }
             if interrupted || paths_changed {
                 if let Err(error) = save_state(&entry.path(), &state) {
@@ -79,6 +162,7 @@ impl Jobs {
             jobs: Mutex::new(jobs),
         })
     }
+    #[cfg(all(test, unix))]
     pub fn start(
         &self,
         session: &str,
@@ -88,10 +172,41 @@ impl Jobs {
         cancel: CancellationToken,
         notify: Arc<dyn Fn() + Send + Sync>,
     ) -> Result<String> {
+        let metadata = json!({"command":command,"cwd":cwd});
+        self.start_with(
+            session,
+            metadata,
+            cancel,
+            notify,
+            move |_, directory, token| async move {
+                let plan = crate::sandbox::Plan::new(
+                    command,
+                    cwd.clone(),
+                    cwd.clone(),
+                    cwd.join("private"),
+                    "danger-full-access".into(),
+                    cwd,
+                );
+                crate::processes::execute_spooled(&plan, timeout, &token, Some(&directory)).await
+            },
+        )
+    }
+    pub fn start_with<F, Fut>(
+        &self,
+        session: &str,
+        metadata: Value,
+        cancel: CancellationToken,
+        notify: Arc<dyn Fn() + Send + Sync>,
+        run: F,
+    ) -> Result<String>
+    where
+        F: FnOnce(Progress, PathBuf, CancellationToken) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = Result<Value>> + Send + 'static,
+    {
         let mut jobs = lock(&self.jobs)?;
         if jobs
             .values()
-            .filter(|j| lock(&j.state).is_ok_and(|s| s["status"] == "running"))
+            .filter(|j| lock(&j.state).is_ok_and(|s| active(&s)))
             .count()
             >= 16
         {
@@ -100,7 +215,10 @@ impl Jobs {
         let id = uuid::Uuid::new_v4().to_string();
         let directory = self.root.join(&id);
         std::fs::create_dir(&directory)?;
-        let state = json!({"job_id":id,"session_id":session,"status":"running","cwd":cwd,"command":command,"stdout_path":directory.join("stdout"),"stderr_path":directory.join("stderr"),"created_at":chrono::Utc::now().to_rfc3339()});
+        let mut state = json!({"job_id":id,"session_id":session,"status":"running","stdout_path":directory.join("stdout"),"stderr_path":directory.join("stderr"),"created_at":chrono::Utc::now().to_rfc3339()});
+        for (key, value) in metadata.as_object().into_iter().flatten() {
+            state[key] = value.clone();
+        }
         save_state(&directory, &state)?;
         let job = Arc::new(Job {
             session: session.into(),
@@ -110,14 +228,12 @@ impl Jobs {
         jobs.insert(id.clone(), job.clone());
         drop(jobs);
         tokio::spawn(async move {
-            let result = crate::processes::execute_spooled(
-                &command,
-                &cwd,
-                timeout,
-                &job.cancel,
-                Some(&directory),
-            )
-            .await;
+            let progress = Progress {
+                job: job.clone(),
+                directory: directory.clone(),
+                notify: notify.clone(),
+            };
+            let result = run(progress, directory.clone(), job.cancel.clone()).await;
             if let Ok(mut state) = lock(&job.state) {
                 state["completed_at"] = json!(chrono::Utc::now().to_rfc3339());
                 match result {
@@ -141,6 +257,7 @@ impl Jobs {
                             "failed"
                         });
                         state["error"] = json!(error.message);
+                        state["error_status"] = json!(error.status);
                     }
                 }
                 if let Err(error) = save_state(&directory, &state) {
@@ -177,11 +294,20 @@ impl Jobs {
         job.cancel.cancel();
         Ok(json!({"job_id":id,"cancellation_requested":true}))
     }
+    pub fn state(&self, session: &str, id: &str) -> Result<Value> {
+        Ok(lock(&self.get(session,id)?.state)?.clone())
+    }
+    pub fn annotate(&self, session: &str, id: &str, fields: Value) -> Result<()> {
+        let job = self.get(session,id)?;
+        let mut state = lock(&job.state)?;
+        for (k,v) in fields.as_object().into_iter().flatten() { state[k] = v.clone(); }
+        save_state(&self.root.join(id),&state)
+    }
     pub async fn wait(&self, session: &str, id: &str, cancel: &CancellationToken) -> Result<Value> {
         let job = self.get(session, id)?;
         loop {
             let state = lock(&job.state)?.clone();
-            if state["status"] != "running" {
+            if !active(&state) {
                 return Ok(state);
             }
             tokio::select! {
@@ -200,7 +326,27 @@ impl Jobs {
         }
         let offset = args["offset"].as_u64().unwrap_or(0);
         let limit = args["limit"].as_u64().unwrap_or(8000).clamp(4, 16000) as usize;
-        let path = self.root.join(id).join(stream);
+        let attempt = args
+            .get("attempt")
+            .map(|v| {
+                v.as_u64()
+                    .filter(|n| *n < 3)
+                    .ok_or_else(|| Error::new(400, "Invalid attempt index"))
+            })
+            .transpose()?
+            .or_else(|| state["current_attempt"].as_u64());
+        if let Some(n) = attempt {
+            if state["attempts"]
+                .as_array()
+                .is_none_or(|a| n as usize >= a.len())
+            {
+                return Err(Error::new(404, "Attempt not found"));
+            }
+        }
+        let directory = attempt
+            .map(|n| self.root.join(id).join(format!("attempt-{n}")))
+            .unwrap_or_else(|| self.root.join(id));
+        let path = directory.join(stream);
         let mut file = match tokio::fs::File::open(path).await {
             Ok(file) => file,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -316,10 +462,12 @@ mod lifecycle_tests {
                 assert_eq!(state["signal"], 15);
             }
             if expected == "timed_out" {
-                assert!(jobs.output("s", &id, &json!({})).await.unwrap()["output"]
-                    .as_str()
-                    .unwrap()
-                    .contains("partial"));
+                assert!(
+                    jobs.output("s", &id, &json!({})).await.unwrap()["output"]
+                        .as_str()
+                        .unwrap()
+                        .contains("partial")
+                );
             }
         }
     }

@@ -24,14 +24,21 @@ pub(crate) struct Completion {
     pub(crate) calls: BTreeMap<usize, Value>,
     pub(crate) finished: bool,
     pub(crate) usage: Option<Value>,
+    // Public commentary/final items keep separate UI identities. The model wire
+    // still contains the complete, ordered Responses output.
+    phased_messages: BTreeMap<usize, Value>,
+    unphased_text: String,
+    reasoning_clock: Option<protocol::ActivityClock>,
+    reasoning_finished: Option<Value>,
 }
 
 impl Runtime {
     pub(crate) fn connection(&self) -> Result<Connection> {
-        let active = self.db()?.get("active", Value::Null)?;
+        let active = self.ensure_model_selection()?;
         self.provider_connection(string(&active, "provider_id"), string(&active, "model"))
     }
     pub(crate) fn provider_connection(&self, id: &str, model: &str) -> Result<Connection> {
+        if id == crate::cloud::PROVIDER { return self.cloud_connection(model); }
         if model.trim().is_empty() {
             return Err(Error::new(400, "Select a model in Settings first"));
         }
@@ -45,18 +52,20 @@ impl Runtime {
             .to_owned();
         validate_url(&url)?;
         validate_protocol(string(&provider, "chat_model"))?;
-        let key = self.db()?.unseal(string(&provider, "api_key"))?;
-        if key.is_empty() {
+        let key = match self.model_env_key_at(None, id, model) {
+            Some(key) => key,
+            None => self.db()?.unseal(string(&provider, "api_key"))?,
+        };
+        if key.trim().is_empty() || key == "********" {
             return Err(Error::new(400, "Configure the provider API key first"));
         }
+        let mut options = ["extra_models", "models"].iter()
+            .flat_map(|key| provider[*key].as_array().into_iter().flatten())
+            .find(|m| m["id"] == model).cloned().unwrap_or(json!({}));
+        options["reasoning_effort"] = crate::reasoning::effective_effort(&provider, &options).map_or(Value::Null, |v| json!(v));
         Ok(Connection {
             cache_key: String::new(),
-            options: ["extra_models", "models"]
-                .iter()
-                .flat_map(|key| provider[*key].as_array().into_iter().flatten())
-                .find(|m| m["id"] == model)
-                .cloned()
-                .unwrap_or(Value::Null),
+            options,
             url,
             key,
             model: model.to_owned(),
@@ -81,19 +90,20 @@ impl Runtime {
         let project = self.turn_project(body).await?;
         let history_guidance = self.db()?.bind_project(chat, &project)?;
         let system = format!(
-            "{}\n{}\n{}\n{}",
+            "{}\n{}\n{}\n{}\n{}",
             self.system_prompt()?,
             self.skill_instructions()?,
             crate::memory::GUIDANCE,
-            crate::approval::GUIDANCE
+            crate::approval::GUIDANCE,
+            crate::prompts::SCHEDULING
         );
         let memory_snapshot = self.memory_guidance(&project)?;
         let memory_fingerprint = json!(crate::context::fingerprint(&memory_snapshot));
         let memory_key = format!("memory_context_fingerprint:{chat}");
         let memory_changed = self.db()?.get(&memory_key, Value::Null)? != memory_fingerprint;
         let runtime_context = format!(
-            "<runtime_context>\nCurrent time (UTC): {}\nConversation project directory: {}\n{}\n{}\n{}\n</runtime_context>",
-            chrono::Utc::now().to_rfc3339(), project.display(), history_guidance, if memory_changed { memory_snapshot.as_str() } else { "Memory locations and index previews unchanged; retrieve current files on demand." }, self.approval_guidance(body)?);
+            "<runtime_context>\n{}\nConversation project directory: {}\n{}\n{}\n{}\n</runtime_context>",
+            crate::prompts::time_context(), project.display(), history_guidance, if memory_changed { memory_snapshot.as_str() } else { "Memory locations and index previews unchanged; retrieve current files on demand." }, self.approval_guidance(body)?);
         self.db()?.attach_runtime_context(chat, &runtime_context)?;
         self.db()?.put(&memory_key, &memory_fingerprint)?;
         let media = self.db()?.get("media", json!({}))?;
@@ -126,13 +136,16 @@ impl Runtime {
             let mut messages = prepared.messages.clone();
             let id = uuid::Uuid::new_v4().to_string();
             let reasoning_id = uuid::Uuid::new_v4().to_string();
-            emit(protocol::message(
+            let clock = protocol::ActivityClock::default();
+            let mut initial = protocol::message(
                 &id,
                 "message",
                 "assistant",
                 json!([]),
                 "in_progress",
-            ))?;
+            );
+            initial["metadata"] = clock.metadata("running");
+            emit(initial)?;
             let mut completion = Completion::default();
             let mut result = tokio::select! {
                 _=cancel.cancelled()=>Err(Error::new(499,"Turn cancelled")),
@@ -196,13 +209,14 @@ impl Runtime {
             } else {
                 "completed"
             };
-            let frame = protocol::message(
+            let mut frame = protocol::message(
                 &id,
                 "message",
                 "assistant",
-                json!([protocol::text(&id, &completion.text, false)]),
+                json!([protocol::text(&id, if completion.phased_messages.is_empty() { &completion.text } else { &completion.unphased_text }, false)]),
                 status,
             );
+            frame["metadata"] = clock.metadata(status);
             let mut wire = json!({"role":"assistant","content":completion.text});
             if result.is_ok() && !completion.response_output.is_empty() {
                 // BTreeMap merges all output kinds by their provider output_index.
@@ -211,13 +225,16 @@ impl Runtime {
             }
             if !completion.reasoning.is_empty() {
                 wire["reasoning_content"] = json!(completion.reasoning);
-                let reasoning = protocol::message(
+                let mut reasoning = protocol::message(
                     &reasoning_id,
                     "reasoning",
                     "assistant",
                     json!([protocol::text(&reasoning_id, &completion.reasoning, false)]),
                     status,
                 );
+                reasoning["metadata"] = completion.reasoning_finished.clone()
+                    .or_else(|| completion.reasoning_clock.as_ref().map(|c| c.metadata(status)))
+                    .unwrap_or(Value::Null);
                 self.db()?.append(chat, &reasoning, None)?;
                 emit(reasoning)?;
             }
@@ -227,6 +244,12 @@ impl Runtime {
             }
             self.db()?.append(chat, &frame, Some(&wire))?;
             emit(frame)?;
+            for mut message in completion.phased_messages.into_values() {
+                message["status"] = json!(status);
+                message["metadata"] = clock.metadata(status);
+                self.db()?.append(chat, &message, None)?;
+                emit(message)?;
+            }
             result?;
 
             if calls.is_empty() {
@@ -343,8 +366,14 @@ impl Runtime {
         }
         let mut stream = response.bytes_stream();
         let mut decoder = protocol::SseDecoder::default();
+        let mut received_bytes = 0u64;
         while let Some(bytes) = stream.next().await {
-            for event in decoder.push(&bytes?)? {
+            let bytes = bytes?;
+            received_bytes = received_bytes.saturating_add(bytes.len() as u64);
+            if connection.options["response_byte_limit"].as_u64().is_some_and(|limit|received_bytes>limit) {
+                return Err(Error::new(502,"Model response exceeded its byte limit"));
+            }
+            for event in decoder.push(&bytes)? {
                 if event == "[DONE]" {
                     if !completion.finished {
                         return Err(Error::new(
@@ -376,6 +405,19 @@ impl Runtime {
                 }
                 if connection.responses {
                     match string(&value, "type") {
+                        "response.output_item.added" => {
+                            let item = &value["item"];
+                            if item["type"] == "message" {
+                                if let Some(phase) = item["phase"].as_str() {
+                                    let index = value["output_index"].as_u64().unwrap_or(0) as usize;
+                                    let message_id = format!("{id}-output-{index}");
+                                    let mut frame = protocol::message(&message_id, "message", "assistant", json!([]), "in_progress");
+                                    frame["phase"] = json!(phase);
+                                    completion.phased_messages.insert(index, frame.clone());
+                                    emit(frame)?;
+                                }
+                            }
+                        }
                         "response.output_text.delta" => {
                             // Keep text positions even for compatible providers that
                             // omit output_item.done for messages.
@@ -391,11 +433,19 @@ impl Runtime {
                                 string(&value, "delta")
                             );
                             item["content"][0]["text"] = json!(text);
+                            let delta_id = if let Some(frame) = completion.phased_messages.get_mut(&index) {
+                                let message_id = string(frame, "id").to_owned();
+                                frame["content"] = json!([protocol::text(&message_id, &text, false)]);
+                                message_id
+                            } else {
+                                completion.unphased_text.push_str(string(&value, "delta"));
+                                id.to_owned()
+                            };
                             append_text(
                                 completion,
                                 string(&value, "delta"),
                                 false,
-                                id,
+                                &delta_id,
                                 reasoning_id,
                                 emit,
                             )?;
@@ -411,6 +461,10 @@ impl Runtime {
                         "response.output_item.done" => {
                             let item = &value["item"];
                             let index = value["output_index"].as_u64().unwrap_or(0) as usize;
+                            if let Some(frame) = completion.phased_messages.get_mut(&index) {
+                                frame["status"] = json!("completed");
+                                emit(frame.clone())?;
+                            }
                             if matches!(
                                 string(item, "type"),
                                 "reasoning" | "message" | "function_call"
@@ -500,6 +554,18 @@ fn append_text(
     if text.is_empty() {
         return Ok(());
     }
+    if !reasoning && !completion.reasoning.is_empty() && completion.reasoning_finished.is_none() {
+        let metadata = completion.reasoning_clock.as_ref().map(|c| c.metadata("completed")).unwrap_or(Value::Null);
+        let mut frame = protocol::message(reasoning_id, "reasoning", "assistant",
+            json!([protocol::text(reasoning_id, &completion.reasoning, false)]), "completed");
+        frame["metadata"] = metadata.clone();
+        completion.reasoning_finished = Some(metadata);
+        emit(frame)?;
+    }
+    if reasoning && completion.reasoning_clock.is_none() {
+        completion.reasoning_clock = Some(protocol::ActivityClock::default());
+    }
+    let restarting = reasoning && completion.reasoning_finished.take().is_some();
     let target = if reasoning {
         &mut completion.reasoning
     } else {
@@ -508,14 +574,16 @@ fn append_text(
     if target.len() + text.len() > 4_000_000 {
         return Err(Error::new(502, "Model output too large"));
     }
-    if reasoning && target.is_empty() {
-        emit(protocol::message(
+    if reasoning && (target.is_empty() || restarting) {
+        let mut frame = protocol::message(
             reasoning_id,
             "reasoning",
             "assistant",
             json!([]),
             "in_progress",
-        ))?;
+        );
+        frame["metadata"] = completion.reasoning_clock.as_ref().map(|c| c.metadata("running")).unwrap_or(Value::Null);
+        emit(frame)?;
     }
     target.push_str(text);
     emit(protocol::text(
@@ -592,6 +660,28 @@ fn normalize_usage(usage: &Value) -> Value {
 #[cfg(test)]
 mod replay_tests {
     use super::*;
+
+    #[test]
+    fn reasoning_finishes_on_first_body_delta_and_can_resume() {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let emit: Emit = std::sync::Arc::new(move |v| { sink.lock().unwrap().push(v); Ok(()) });
+        let mut completion = Completion::default();
+        append_text(&mut completion, "summary", true, "m", "r", &emit).unwrap();
+        append_text(&mut completion, "answer", false, "m", "r", &emit).unwrap();
+        append_text(&mut completion, " continues", false, "m", "r", &emit).unwrap();
+        {
+            let events = events.lock().unwrap();
+            let completed: Vec<_> = events.iter().filter(|e| e["id"] == "r" && e["status"] == "completed").collect();
+            assert_eq!(completed.len(), 1);
+            assert_eq!(completed[0]["metadata"]["activity"]["state"], "completed");
+            assert!(completed[0]["metadata"]["activity"]["elapsed_ms"].is_u64());
+        }
+        append_text(&mut completion, " resumed", true, "m", "r", &emit).unwrap();
+        assert!(completion.reasoning_finished.is_none());
+        let events = events.lock().unwrap();
+        assert_eq!(events.iter().filter(|e| e["id"] == "r" && e["status"] == "in_progress").count(), 2);
+    }
 
     #[tokio::test]
     async fn every_turn_keeps_history_locations_when_memory_preview_is_unchanged() {

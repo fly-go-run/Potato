@@ -20,6 +20,9 @@ impl Runtime {
             .as_u64()
             .unwrap_or(4)
             .clamp(1, 16) as usize;
+        let execution_cancel = cancel.child_token();
+        let cancel = &execution_cancel;
+        let mut blocked = false;
         let mut start = 0;
         while start < calls.len() {
             let parallel = |call: &Value| {
@@ -35,9 +38,11 @@ impl Runtime {
                 let name = required(&call["function"],"name")?;
                 let arguments = required(&call["function"],"arguments")?;
                 let id = uuid::Uuid::new_v4().to_string();
-                let frame = protocol::message(&id,"function_call","assistant",json!([protocol::data(&id,json!({"call_id":call_id,"name":name,"arguments":arguments}))]),"completed");
+                let clock = protocol::ActivityClock::default();
+                let mut frame = protocol::message(&id,"function_call","assistant",json!([protocol::data(&id,json!({"call_id":call_id,"name":name,"arguments":arguments}))]),"completed");
+                frame["metadata"] = clock.metadata("running");
                 self.db()?.append(chat,&frame,None)?;
-                emit(frame)?;
+                emit(frame.clone())?;
                 let result = if cancel.is_cancelled() {
                     Err(Error::new(499,"Tool was not started: turn cancelled"))
                 } else if self.has_steering(session)? {
@@ -50,14 +55,34 @@ impl Runtime {
                         _ => Err(Error::new(400,"Tool arguments must be a valid JSON object; correct the arguments and retry")),
                     }
                 };
-                Ok::<_,Error>((call_id,name,result))
+                let state = execution_state(&result);
+                let timing = clock.metadata(state);
+                // Report completion immediately, even when ordered output is
+                // waiting for an earlier parallel read. Persist timing on the
+                // result below, keeping model evidence in its original order.
+                frame["metadata"] = timing.clone();
+                emit(frame)?;
+                Ok::<_,Error>((call_id,name,result,timing))
             }.boxed()).collect();
             let mut results = stream::iter(futures).buffered(concurrency);
             while let Some(result) = results.next().await {
-                let (call_id, name, result) = result?;
-                self.record_tool_result(chat, call_id, name, result, emit)?;
+                let (call_id, name, result, timing) = result?;
+                if result
+                    .as_ref()
+                    .is_err_and(|error| error.status == crate::reviewer::CIRCUIT_BREAKER)
+                {
+                    blocked = true;
+                    execution_cancel.cancel();
+                }
+                self.record_tool_result(chat, call_id, name, result, timing, emit)?;
             }
             start = end;
+        }
+        if blocked {
+            return Err(Error::new(
+                crate::reviewer::CIRCUIT_BREAKER,
+                "助手重复申请同一个已拒绝动作，已停止本轮执行。请补充授权或调整任务后再继续。",
+            ));
         }
         Ok(())
     }
@@ -68,6 +93,7 @@ impl Runtime {
         call_id: &str,
         name: &str,
         result: Result<String>,
+        timing: Value,
         emit: &Emit,
     ) -> Result<()> {
         let (mut output, mut state) = match result {
@@ -107,7 +133,7 @@ impl Runtime {
             output = "Image generated and displayed to the user.".into();
         }
         let output_id = uuid::Uuid::new_v4().to_string();
-        let output_frame = protocol::message(
+        let mut output_frame = protocol::message(
             &output_id,
             "function_call_output",
             "tool",
@@ -121,9 +147,32 @@ impl Runtime {
                 "failed"
             },
         );
+        output_frame["metadata"] = timing;
         let wire = json!({"role":"tool","tool_call_id":call_id,"content":output});
         self.db()?.append(chat, &output_frame, Some(&wire))?;
         emit(output_frame)?;
         Ok(())
+    }
+}
+
+fn execution_state(result: &Result<String>) -> &'static str {
+    match result {
+        Err(error) if error.status == 499 => "cancelled",
+        Err(_) => "failed",
+        Ok(output) => {
+            let data = serde_json::from_str::<Value>(output).unwrap_or(Value::Null);
+            if data["exit_code"].as_i64().is_some_and(|n| n != 0)
+                || matches!(
+                    data["status"].as_str(),
+                    Some("failed" | "timed_out" | "terminated" | "interrupted")
+                )
+            {
+                "failed"
+            } else if data["status"] == "cancelled" {
+                "cancelled"
+            } else {
+                "completed"
+            }
+        }
     }
 }

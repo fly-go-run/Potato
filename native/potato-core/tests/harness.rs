@@ -63,6 +63,8 @@ async fn server(
     (url, requests, task)
 }
 async fn configure(r: &Runtime, url: &str, responses: bool, capacity: Option<u64>) {
+    // These scripted main-model replays use the manual approval helper below.
+    r.request("PUT", "/api/workspace/running-config", json!({"reviewer":"user"})).await.unwrap();
     r.request("PUT","/api/models/deepseek/config",json!({"api_key":"fixture-key","base_url":url,"chat_model":if responses{"OpenAIResponseModel"}else{"OpenAIChatModel"}})).await.unwrap();
     r.request(
         "POST",
@@ -294,16 +296,22 @@ async fn a_long_single_turn_compacts_closed_steps_and_retains_the_actual_user_re
     })
     .await;
     let r = Runtime::open(&root.path().join("runtime")).unwrap();
-    configure(&r, &url, false, Some(14_000)).await;
+    // Leave room for the native prompt/tool catalog and an unconsumed result;
+    // twelve verbose exchanges must still force compaction (asserted below).
+    configure(&r, &url, false, Some(18_000)).await;
     let rx = start(
         &r,
         "long-turn",
         "USER-GOAL-EXACT: inspect twelve reads and preserve this request.",
     );
+    let mut completion = tokio::spawn(finish(rx));
     for _ in 0..12 {
-        approve(&r, "long-turn").await;
+        tokio::select! {
+            _ = approve(&r, "long-turn") => {},
+            result = &mut completion => panic!("Turn ended before all twelve reads: {}", result.unwrap()),
+        }
     }
-    let end = finish(rx).await;
+    let end = completion.await.unwrap();
     assert_eq!(end["status"], "completed", "{end}");
     let state = stats(&r, "long-turn").await;
     assert!(state["context"]["covered_messages"].as_u64().unwrap() > 0);
@@ -1047,25 +1055,26 @@ async fn steering_releases_approval_skips_unstarted_actions_and_preserves_pairs(
         )
         .await
         .is_err());
-    let frames = requests.lock().unwrap();
-    assert_eq!(frames.len(), 2);
-    let messages = frames[1]["messages"].as_array().unwrap();
-    assert_tool_pairs(messages);
-    let shell = messages
-        .iter()
-        .find(|m| m["tool_call_id"] == "shell")
-        .unwrap();
-    assert!(shell["content"].as_str().unwrap().contains("not started"));
-    let correction = messages
-        .iter()
-        .position(|m| m.to_string().contains("CORRECTION"))
-        .unwrap();
-    let shell_pos = messages
-        .iter()
-        .position(|m| m["tool_call_id"] == "shell")
-        .unwrap();
-    assert!(correction > shell_pos);
-    drop(frames);
+    {
+        let frames = requests.lock().unwrap();
+        assert_eq!(frames.len(), 2);
+        let messages = frames[1]["messages"].as_array().unwrap();
+        assert_tool_pairs(messages);
+        let shell = messages
+            .iter()
+            .find(|m| m["tool_call_id"] == "shell")
+            .unwrap();
+        assert!(shell["content"].as_str().unwrap().contains("not started"));
+        let correction = messages
+            .iter()
+            .position(|m| m.to_string().contains("CORRECTION"))
+            .unwrap();
+        let shell_pos = messages
+            .iter()
+            .position(|m| m["tool_call_id"] == "shell")
+            .unwrap();
+        assert!(correction > shell_pos);
+    }
     assert!(!stats(&r, "steering").await.is_null());
     assert!(
         !root
@@ -1277,15 +1286,100 @@ async fn ordinary_steps_do_not_accumulate_notices_or_repeat_static_guidance_and_
             .iter()
             .any(|m| m.to_string().contains("runtime_context_notice")));
         let system = messages[0]["content"].as_str().unwrap();
-        assert!(system.contains("Approval never changes file confinement."));
+        assert!(system.contains("Approval never silently changes session defaults."));
         assert!(system.contains("The model chooses note organization and retrieval."));
         assert!(!messages.iter().skip(1).any(|m| m
             .to_string()
-            .contains("Approval never changes file confinement.")));
+            .contains("Approval never silently changes session defaults.")));
     }
     let final_request = all.last().unwrap().to_string();
     assert_eq!(final_request.matches("INDEX_MARKER_FIRST").count(), 1);
     assert_eq!(final_request.matches("INDEX_MARKER_CHANGED").count(), 1);
     drop(all);
     server_task.abort();
+}
+
+#[tokio::test]
+async fn activity_completion_precedes_ordered_parallel_output_and_survives_history() {
+    let root = tempfile::tempdir().unwrap();
+    let one = root.path().join("one.txt");
+    let two = root.path().join("two.txt");
+    std::fs::write(&one, "one").unwrap();
+    std::fs::write(&two, "two").unwrap();
+    let mut step = 0;
+    let (url, _, server) = server(move |_| {
+        step += 1;
+        (200, if step == 1 {
+            calls(&[("first", "read_file", json!({"file_path":one})),
+                    ("second", "read_file", json!({"file_path":two}))])
+        } else { answer("done") })
+    }).await;
+    let r = Runtime::open(&root.path().join("runtime")).unwrap();
+    configure(&r, &url, false, None).await;
+    r.request("PUT", "/api/workspace/running-config", json!({"approval_level":"STRICT","max_parallel_reads":2})).await.unwrap();
+    let mut rx = start(&r, "activity-timing", "Read both");
+    let pending = pending_count(&r, "activity-timing", 2).await;
+    let second = pending.iter().find(|p| p["tool_params"]["path"].as_str().unwrap().ends_with("two.txt")).unwrap();
+    approve_id(&r, "activity-timing", &second["request_id"]).await;
+    let timing = tokio::time::timeout(Duration::from_secs(3), async {
+        while let Some(frame) = rx.recv().await {
+            assert_ne!(frame["type"], "function_call_output", "ordered evidence must still wait for first call");
+            if frame["type"] == "function_call" && frame["content"][0]["data"]["call_id"] == "second"
+                && frame["metadata"]["activity"]["state"] == "completed" {
+                return frame["metadata"]["activity"].clone();
+            }
+        }
+        panic!("missing immediate completion");
+    }).await.unwrap();
+    assert!(timing["elapsed_ms"].is_u64());
+    let first = pending.iter().find(|p| p["request_id"] != second["request_id"]).unwrap();
+    approve_id(&r, "activity-timing", &first["request_id"]).await;
+    assert_eq!(finish(rx).await["status"], "completed");
+    let chats = r.request("GET", "/api/chats", Value::Null).await.unwrap();
+    let list = chats.as_array().or_else(|| chats["chats"].as_array()).unwrap();
+    let id = list.iter().find(|c| c["session_id"] == "activity-timing").unwrap()["id"].as_str().unwrap();
+    let history = r.request("GET", &format!("/api/chats/{id}"), Value::Null).await.unwrap();
+    let output = history["messages"].as_array().unwrap().iter().find(|m| m["type"] == "function_call_output" && m["content"][0]["data"]["call_id"] == "second").unwrap();
+    assert_eq!(output["metadata"]["activity"], timing, "history must keep actual completion time, not ordered delivery time");
+    server.abort();
+}
+
+#[tokio::test]
+async fn response_commentary_and_final_keep_separate_live_and_saved_messages() {
+    let root = tempfile::tempdir().unwrap();
+    let (url, _, server) = server(|_| {
+        let mut body = String::new();
+        for (index, phase, text) in [(0, "commentary", "Checking the source."), (1, "final_answer", "The verified answer.")] {
+            let item = json!({"id":format!("item-{index}"),"type":"message","role":"assistant","phase":phase,"content":[{"type":"output_text","text":text}]});
+            body += &sse(json!({"type":"response.output_item.added","output_index":index,"item":item}));
+            body += &sse(json!({"type":"response.output_text.delta","output_index":index,"delta":text}));
+            body += &sse(json!({"type":"response.output_item.done","output_index":index,"item":item}));
+        }
+        (200, body + &sse(json!({"type":"response.completed","response":{}})))
+    }).await;
+    let r = Runtime::open(root.path()).unwrap();
+    configure(&r, &url, true, None).await;
+    let mut rx = start(&r, "phased-activity", "Check and answer");
+    let events = tokio::time::timeout(Duration::from_secs(5), async {
+        let mut events = Vec::new();
+        while let Some(event) = rx.recv().await {
+            let done = event["object"] == "response" && event["status"] != "in_progress";
+            events.push(event);
+            if done { return events; }
+        }
+        panic!("missing completion");
+    }).await.unwrap();
+    assert_eq!(events.last().unwrap()["status"], "completed");
+    let commentary = events.iter().find(|v| v["phase"] == "commentary").unwrap();
+    let final_answer = events.iter().find(|v| v["phase"] == "final_answer").unwrap();
+    assert_ne!(commentary["id"], final_answer["id"]);
+    let chats = r.request("GET", "/api/chats", Value::Null).await.unwrap();
+    let id = chats.as_array().unwrap().iter().find(|c| c["session_id"] == "phased-activity").unwrap()["id"].as_str().unwrap();
+    let history = r.request("GET", &format!("/api/chats/{id}"), Value::Null).await.unwrap();
+    for (phase, text) in [("commentary", "Checking the source."), ("final_answer", "The verified answer.")] {
+        let rows: Vec<_> = history["messages"].as_array().unwrap().iter().filter(|v| v["phase"] == phase).collect();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["content"][0]["text"], text);
+    }
+    server.abort();
 }
