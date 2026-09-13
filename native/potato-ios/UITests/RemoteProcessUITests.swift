@@ -1,0 +1,123 @@
+import XCTest
+
+final class RemoteProcessUITests: XCTestCase {
+    override func setUpWithError() throws {
+        guard ProcessInfo.processInfo.environment["POTATO_IOS_PROCESS_UI"] == "1" else { throw XCTSkip("Requires scripts/remote-process-fixture.py on loopback") }
+    }
+    private func control(_ mode: String, delay: Double = 0, overviewDelay: Double = 0, runID: String = "fixture-run", stopProtocol: Int = 1) {
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:19014/fixture/control")!)
+        request.httpMethod = "POST"; request.httpBody = try! JSONSerialization.data(withJSONObject: ["mode": mode, "delay": delay, "overview_delay": overviewDelay, "run_id": runID, "stop_protocol": stopProtocol]); request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let done = expectation(description: "Fixture state")
+        URLSession.shared.dataTask(with: request) { _, response, error in XCTAssertNil(error); XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200); done.fulfill() }.resume()
+        wait(for: [done], timeout: 5)
+    }
+    private func launch(large: Bool = false, reduceMotion: Bool = false) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--reset", "--remote-preview", "--remote-process-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+        if large { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
+        if reduceMotion { app.launchArguments.append("--reduce-motion-preview") }
+        app.launch()
+        XCTAssertTrue(app.buttons["remote-sidebar"].waitForExistence(timeout: 10))
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "调整侧栏和项目导航")).firstMatch
+        for _ in 0..<8 { if row.exists && row.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(row.isHittable); row.tap(); return app
+    }
+    private func status(_ app: XCUIApplication, _ value: String, timeout: Double = 10) {
+        let item = app.staticTexts["remote-current-status"]
+        XCTAssertTrue(item.waitForExistence(timeout: timeout))
+        let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", value), object: item)
+        XCTAssertEqual(XCTWaiter.wait(for: [expected], timeout: timeout), .completed, "Actual status: \(item.label)")
+    }
+    private func spinner(_ app: XCUIApplication) -> XCUIElement { app.descendants(matching: .any).matching(identifier: "remote-activity-spinner").firstMatch }
+    private func input(_ app: XCUIApplication) -> XCUIElement { app.descendants(matching: .any).matching(identifier: "remote-prompt").firstMatch }
+    private func capture(_ app: XCUIApplication, _ name: String) { let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot) }
+    func testThinkingToolReplyCompletionAndDisclosure() {
+        control("thinking"); let app = launch(); status(app, "正在思考")
+        XCTAssertTrue(spinner(app).exists)
+        // A ScrollView's offscreen pull-to-refresh spinner remains in the AX tree.
+        XCTAssertEqual(app.activityIndicators.allElementsBoundByIndex.filter { !$0.frame.isEmpty && app.frame.contains($0.frame) && $0.isHittable }.count, 1)
+        app.buttons["remote-process-toggle"].tap(); XCTAssertTrue(app.buttons["remote-scroll-latest"].exists)
+        XCTAssertTrue(app.staticTexts["正在比较两个合成方案。"].exists); capture(app, "remote-thinking-expanded")
+        control("tool"); status(app, "执行命令")
+        XCTAssertEqual(app.buttons["remote-process-toggle"].value as? String, "已展开"); capture(app, "remote-tool-active")
+        control("reply"); status(app, "正在回复"); capture(app, "remote-body-active")
+        control("complete"); status(app, "本轮任务已完成")
+        XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-stop"].exists)
+        XCTAssertTrue(app.buttons["remote-copy-reply"].exists); capture(app, "remote-completed")
+        // XCTest terminates the app at suite teardown. Keep the final state on
+        // screen briefly when recording, so Simulator's video encoder catches it.
+        if ProcessInfo.processInfo.environment["POTATO_IOS_PROCESS_VIDEO"] == "1" { Thread.sleep(forTimeInterval: 4) }
+    }
+    func testDisconnectStopsAnimationKeepsDraftAndReconnects() {
+        control("thinking"); let app = launch(); status(app, "正在思考")
+        input(app).tap(); input(app).typeText("keep draft")
+        control("offline"); status(app, "连接中断，任务状态未确认")
+        XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-send"].isEnabled); XCTAssertFalse(app.buttons["remote-stop"].isEnabled)
+        XCTAssertEqual(input(app).value as? String, "keep draft"); capture(app, "remote-offline-draft-keyboard")
+        control("tool"); status(app, "执行命令")
+        XCTAssertTrue(spinner(app).exists); XCTAssertTrue(app.buttons["remote-send"].isEnabled); XCTAssertEqual(input(app).value as? String, "keep draft")
+        capture(app, "remote-reconnected")
+    }
+    func testSlowRequestsExpireSnapshotAndModelLookupDoesNotBlockChat() {
+        control("thinking", overviewDelay: 12); let app = launch(); status(app, "正在思考", timeout: 5)
+        control("thinking", delay: 12)
+        status(app, "正在确认任务状态…", timeout: 14)
+        XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-stop"].isEnabled)
+        XCTAssertTrue(app.staticTexts["remote-last-status"].exists); capture(app, "remote-slow-request-stale")
+        control("complete"); status(app, "本轮任务已完成", timeout: 18)
+    }
+    func testApprovalQuestionStopAndFailureUseRealStates() {
+        control("approval"); let app = launch(); status(app, "等待你的批准")
+        XCTAssertFalse(spinner(app).exists); app.buttons["允许这一次"].tap(); status(app, "本轮任务已完成")
+        control("question"); status(app, "等待你的回答"); XCTAssertFalse(spinner(app).exists)
+        app.buttons["方案 A"].tap(); app.buttons["提交回答"].tap(); status(app, "本轮任务已完成")
+        control("thinking"); status(app, "正在思考"); app.buttons["remote-stop"].tap()
+        app.sheets.buttons["停止任务"].tap(); status(app, "本轮任务已停止")
+        XCTAssertFalse(spinner(app).exists); capture(app, "remote-stopped")
+        control("failed"); status(app, "本轮任务失败"); XCTAssertFalse(spinner(app).exists)
+        capture(app, "remote-failed")
+    }
+    func testBackgroundRequiresReconfirmationWithReducedMotion() {
+        control("thinking"); let app = launch(reduceMotion: true); status(app, "正在思考")
+        XCTAssertFalse(spinner(app).exists); XCTAssertTrue(app.images["remote-static-activity"].exists)
+        input(app).tap(); input(app).typeText("background draft"); capture(app, "remote-reduced-motion")
+        XCUIDevice.shared.press(.home)
+        control("complete", delay: 12); app.activate()
+        status(app, "正在确认任务状态…", timeout: 5); XCTAssertFalse(spinner(app).exists)
+        XCTAssertFalse(app.buttons["remote-send"].isEnabled); XCTAssertEqual(input(app).value as? String, "background draft")
+        capture(app, "remote-foreground-unconfirmed")
+        control("complete"); status(app, "本轮任务已完成", timeout: 18)
+    }
+    func testStopConfirmationCannotCancelAReplacementRun() {
+        control("thinking"); let app = launch(); status(app, "正在思考")
+        app.buttons["remote-stop"].tap()
+        XCTAssertTrue(app.sheets.buttons["停止任务"].waitForExistence(timeout: 3))
+        control("tool", runID: "replacement-run")
+        // Polling changes the underlying snapshot while the confirmation remains open.
+        status(app, "执行命令")
+        app.sheets.buttons["停止任务"].tap()
+        XCTAssertTrue(app.staticTexts["原任务已结束或改变，未停止其他任务，请刷新后确认"].waitForExistence(timeout: 8))
+        status(app, "执行命令"); XCTAssertTrue(spinner(app).exists)
+        capture(app, "remote-stale-stop-rejected")
+        app.buttons["remote-stop"].tap(); app.sheets.buttons["停止任务"].tap()
+        status(app, "本轮任务已停止")
+    }
+    func testOldComputerRequiresUpdateBeforeStopping() {
+        control("thinking", stopProtocol: 0); let app = launch(large: true); status(app, "正在思考")
+        XCTAssertTrue(app.staticTexts["remote-stop-update-required"].exists)
+        XCTAssertTrue(app.frame.contains(app.staticTexts["remote-stop-update-required"].frame))
+        XCTAssertFalse(app.buttons["remote-stop"].exists)
+        capture(app, "remote-old-computer-stop")
+    }
+    func testLargeTextOfflineStatusAndKeyboardAreReachable() {
+        control("thinking"); let app = launch(large: true); status(app, "正在思考")
+        input(app).tap(); input(app).typeText("draft")
+        control("offline"); status(app, "连接中断，任务状态未确认")
+        XCTAssertTrue(input(app).isHittable); XCTAssertTrue(app.buttons["remote-status-refresh"].isHittable)
+        XCTAssertLessThanOrEqual(input(app).frame.maxY, app.keyboards.firstMatch.frame.minY)
+        XCTAssertTrue(app.frame.contains(input(app).frame))
+        XCTAssertFalse(spinner(app).exists); capture(app, "remote-large-offline-keyboard")
+        control("complete"); status(app, "本轮任务已完成")
+        XCTAssertTrue(app.buttons["remote-send"].isHittable); XCTAssertEqual(input(app).value as? String, "draft")
+    }
+}

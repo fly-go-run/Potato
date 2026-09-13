@@ -1,0 +1,65 @@
+#if DEBUG
+import Foundation
+
+/// Explicit, isolated UI fixture. It exercises URLSession/SSE and store updates;
+/// it never contacts a model, and cannot be enabled in a Release build.
+final class ReasoningPreview: URLProtocol {
+    private var delivery: Task<Void, Never>?
+    static var requested: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return args.contains("--ui-testing") && args.contains("--reasoning-preview")
+    }
+    static var configuration: URLSessionConfiguration {
+        let result = URLSessionConfiguration.ephemeral
+        if requested { result.protocolClasses = [Self.self] }
+        return result
+    }
+    @MainActor static func prepare(_ store: WorkspaceStore) {
+        guard requested, ProcessInfo.processInfo.arguments.contains("--reset") else { return }
+        let mode = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--reasoning-case=") }?.components(separatedBy: "=").last ?? "complete"
+        store.settings.demo = false; store.settings.endpoint = "https://potato-reasoning-preview.invalid/" + mode; store.settings.model = "reasoning-fixture"
+        store.newChat()
+        store.update { chat in
+            chat.draft = nil; chat.messages = []; chat.title = "思考流程验证"; chat.input = "比较 9.11 和 9.8，解释结论。"
+        }
+        store.persist()
+    }
+    override class func canInit(with request: URLRequest) -> Bool { requested && request.url?.host == "potato-reasoning-preview.invalid" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        delivery = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let mode = self.request.url!.lastPathComponent
+                self.client?.urlProtocol(self, didReceive: HTTPURLResponse(url: self.request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "text/event-stream"])!, cacheStoragePolicy: .notAllowed)
+                try await Task.sleep(for: .seconds(2))
+                self.emit(["choices": [["delta": ["reasoning_content": "先把小数位对齐，再比较相同数位。"]]]])
+                try await Task.sleep(for: .seconds(mode == "hold" ? 30 : 7))
+                if mode == "interrupted" { self.client?.urlProtocolDidFinishLoading(self); return }
+                if mode == "only" { self.done(); return }
+                if mode == "search" {
+                    self.emit(["potato_search": ["id": "fixture-search", "query": "十进制小数比较规则", "state": "searching", "results": []]])
+                    try await Task.sleep(for: .seconds(6))
+                    self.emit(["potato_search": ["id": "fixture-search", "query": "十进制小数比较规则", "state": "complete", "results": []]])
+                    self.emit(["choices": [["delta": ["reasoning_content": "\n继续核对：9.8 等于 9.80。"]]]])
+                    try await Task.sleep(for: .seconds(5))
+                }
+                self.emit(["choices": [["delta": ["reasoning_content": "\n十分位的 8 大于 1。", "content": "**9.8 更大。**"]]]])
+                try await Task.sleep(for: .seconds(4))
+                self.emit(["choices": [["delta": ["content": " 把 9.8 写成 9.80，就能直接比较：9.80 > 9.11。"]]]])
+                self.done()
+            } catch { /* Cancellation ends the fixture without delivering late data. */ }
+        }
+    }
+    private func emit(_ value: [String: Any]) {
+        guard !Task.isCancelled, let data = try? JSONSerialization.data(withJSONObject: value) else { return }
+        client?.urlProtocol(self, didLoad: Data("data: ".utf8) + data + Data("\n\n".utf8))
+    }
+    private func done() {
+        guard !Task.isCancelled else { return }
+        client?.urlProtocol(self, didLoad: Data("data: [DONE]\n\n".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() { delivery?.cancel(); delivery = nil }
+}
+#endif

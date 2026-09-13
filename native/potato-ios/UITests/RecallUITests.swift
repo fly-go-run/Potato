@@ -1,0 +1,31 @@
+import XCTest
+final class RecallUITests: XCTestCase {
+    func testRecallSettingsPersistAndClearlyExplainCloudSync() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--reset", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+        app.launch()
+        XCTAssertTrue(app.buttons["more"].waitForExistence(timeout: 10))
+        app.buttons["more"].tap(); app.buttons["记忆与历史"].tap()
+        let toggle = app.switches["跨对话检索"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5)); XCTAssertEqual(toggle.value as? String, "0")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "E2B")).firstMatch.exists)
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap(); XCTAssertEqual(toggle.value as? String, "1")
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "recall-settings"; capture.lifetime = .keepAlways; add(capture)
+        app.buttons["完成"].tap(); app.terminate()
+        app.launchArguments.removeAll { $0 == "--reset" }; app.launch()
+        XCTAssertTrue(app.buttons["more"].waitForExistence(timeout: 10)); app.buttons["more"].tap(); app.buttons["记忆与历史"].tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5)); XCTAssertEqual(toggle.value as? String, "1")
+    }
+    func testHistorySourceOpensOriginalMessage() {
+        let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reset", "--recall-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+        app.launch()
+        let history = app.buttons["检索到的历史 · 1 条"]
+        XCTAssertTrue(history.waitForExistence(timeout: 10)); history.tap()
+        XCTAssertTrue(app.buttons["查看原对话"].waitForExistence(timeout: 5))
+        app.buttons["查看原对话"].tap()
+        let original = app.staticTexts["我最后选择 X100，并已下单。"]
+        XCTAssertTrue(original.waitForExistence(timeout: 5)); XCTAssertTrue(original.isHittable)
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "recall-source-jump"; capture.lifetime = .keepAlways; add(capture)
+    }
+
+}

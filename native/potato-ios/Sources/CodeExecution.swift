@@ -1,0 +1,98 @@
+import SwiftUI
+
+struct CodeExecutionRun: Codable, Equatable, Identifiable {
+    var id: String
+    var state: String
+    var code: String
+    var result: SandboxExecution?
+    var message: String?
+
+    func validate() throws {
+        guard !id.isEmpty, id.utf8.count <= 200, code.utf8.count <= 128_000,
+              ["running", "complete", "failed"].contains(state), (message?.count ?? 0) <= 500 else {
+            throw LocalFailure.message("代码执行事件格式无效。")
+        }
+        if let result {
+            guard state != "running", result.status == state,
+                  result.stdout.count <= 32_000, result.stderr.count <= 16_000,
+                  result.text.count <= 32_000, (result.error?.count ?? 0) <= 4_000,
+                  result.artifacts.count <= 8,
+                  result.artifacts.reduce(0, { $0 + $1.base64.utf8.count }) <= 4_000_000 else {
+                throw LocalFailure.message("代码执行结果过大或格式无效。")
+            }
+        } else if state == "complete" { throw LocalFailure.message("代码执行缺少结果。") }
+    }
+}
+
+extension SandboxService {
+    /// Files already attached to this conversation are task inputs. Keep large-file
+    /// chat usable, but explicitly tell the model which files cannot fit the tool.
+    static func automaticInput(messages: [ChatMessage], storage: LocalStorage, bodyBytes: Int) throws -> [String: Any] {
+        let candidates = messages.last(where: { !$0.displayAttachments.isEmpty })?.displayAttachments ?? []
+        var files: [[String: String]] = [], notes: [String] = []
+        var remaining = min(2_800_000, max(0, 4 * 1_024 * 1_024 - bodyBytes - 16_000))
+        for (index, file) in candidates.prefix(4).enumerated() {
+            let label = String(file.name.prefix(150)), name = filename(file, index: index)
+            guard file.size <= 2_000_000 else { notes.append("\(label)：文件过大，未提供给代码执行工具。"); continue }
+            let data = try Data(contentsOf: storage.url(for: file))
+            let encoded = data.base64EncodedString()
+            guard data.count <= 2_000_000, encoded.utf8.count + 512 <= remaining else { notes.append("\(label)：超出本轮附件预算，未提供给代码执行工具。"); continue }
+            remaining -= encoded.utf8.count + 512
+            files.append(["name": name, "base64": encoded]); notes.append("\(label) → /home/user/\(name)")
+        }
+        if candidates.count > 4 { notes.append("其余 \(candidates.count - 4) 个文件未提供，本轮最多使用 4 个输入文件。") }
+        return ["enabled": true, "files": files, "file_notes": notes]
+    }
+}
+
+extension WorkspaceStore {
+    func recordCodeExecution(_ event: CodeExecutionRun, messageID: UUID, conversationID: UUID) throws {
+        guard let chat = conversations.first(where: { $0.id == conversationID }),
+              let message = chat.messages.first(where: { $0.id == messageID }), message.state == .streaming else { return }
+        var runs = message.codeRuns ?? []
+        if let old = runs.first(where: { $0.id == event.id }), old.state != "running" { return }
+        guard runs.contains(where: { $0.id == event.id }) || runs.count < 3 else { throw LocalFailure.message("本轮代码执行次数超过限制。") }
+        var saved = event
+        let files = try importExecutionArtifacts(event.result?.artifacts ?? [])
+        saved.result?.artifacts = event.result?.artifacts.map { SandboxArtifact(name: $0.name, mime: $0.mime, base64: "") } ?? []
+        if let i = runs.firstIndex(where: { $0.id == event.id }) { runs[i] = saved } else { runs.append(saved) }
+        update(conversationID) { chat in
+            guard let i = chat.messages.firstIndex(where: { $0.id == messageID }) else { return }
+            chat.messages[i].reasoning?.finish(.complete, at: Date())
+            chat.messages[i].codeRuns = runs
+            chat.messages[i].attachments.append(contentsOf: files)
+        }
+        persist()
+    }
+}
+
+struct CodeExecutionView: View {
+    let run: CodeExecutionRun
+    var body: some View {
+        DisclosureGroup {
+            if let result = run.result {
+                Text([result.stdout, result.text, result.stderr, result.error ?? ""].filter { !$0.isEmpty }.joined(separator: "\n"))
+                    .font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
+            }
+            if let message = run.message { Text(message).font(.footnote).foregroundStyle(Palette.secondary) }
+            if !run.code.isEmpty {
+                DisclosureGroup("查看 Python 代码") { Text(run.code).font(.system(.footnote, design: .monospaced)).textSelection(.enabled) }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if run.state == "running" { ProgressView().controlSize(.small) }
+                else { Image(systemName: run.state == "complete" ? "checkmark.circle" : "exclamationmark.circle") }
+                Text(title).font(.subheadline)
+            }.frame(minHeight: 44)
+        }.padding(.horizontal, 12).background(Palette.muted, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityIdentifier("code-execution-\(run.state)")
+    }
+    private var title: String {
+        switch run.state {
+        case "running": "正在运行 Python…"
+        case "complete": "Python 执行完成"
+        case "stopped": "代码执行已停止"
+        default: "代码执行未完成"
+        }
+    }
+}

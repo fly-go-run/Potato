@@ -1,0 +1,890 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		02775FF44A7B202A5F55F469 /* SidebarGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C4A8FCDA1DE4D34C3A8712 /* SidebarGesture.swift */; };
+		038B6A7B6A4018A130B14EA3 /* KeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 277DE1B7A819B3FDDE1AE9AF /* KeychainTests.swift */; };
+		074BCC9C9F6F192996661381 /* RemoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C72C66AEA4708EF749D1D0EE /* RemoteView.swift */; };
+		09330AF43513EB9D7BC7D821 /* LiveConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F14C8FB3032E47682E9C8D /* LiveConnectionTests.swift */; };
+		0A8EBB8BB1BC2C932A269A8C /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A65A3DD12F859AF79004B90 /* SpeechService.swift */; };
+		0B41AAEF4348BAB2CA5CDF94 /* SearchSpeechTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF600DDF8D43D588289C9087 /* SearchSpeechTests.swift */; };
+		0C9C4B3B5C5D1F0544924630 /* ReplyActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F7019309A3F26C3C7BCDD99 /* ReplyActions.swift */; };
+		0F19243EE5037338A9EA9CD5 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67132F622526300B72ADA1C /* LibraryView.swift */; };
+		0F4B6EC137A676CC98C0CF9B /* DeveloperConnectionImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8374E266A2D0F80CB6C6F8D /* DeveloperConnectionImport.swift */; };
+		13FE63C0875894B7A2174EAB /* ReplyProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3415D7F175B235CC10FA870F /* ReplyProcess.swift */; };
+		1CB5ED7E7CF17DCA09E5F084 /* LocalStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC36E5936A902BA0ED39B5C /* LocalStorage.swift */; };
+		1E63945BDB50E5ED172047EC /* RemoteMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9FCB68E163F6C6937B70BCE /* RemoteMessageView.swift */; };
+		1F49DBB745E71B7E90E63D70 /* DraftHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC2CA5D59F2A5C2C18DC116C /* DraftHistoryView.swift */; };
+		204B5A3F74C1662C1E5CA965 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF48C55023D7CB463441668 /* WorkspaceStore.swift */; };
+		22CAC4EB1D0405FBBFD1253D /* CloudAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C765278791966BF9DBF54C9 /* CloudAccount.swift */; };
+		237A34BEAC1752FAD9A8C662 /* SandboxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2DF7482AC62A24953EB379 /* SandboxService.swift */; };
+		24DD61ADA75A54AF6A66FC5B /* RecallUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D03FD079682004F6AB481E /* RecallUITests.swift */; };
+		2516C137EA96AFEA0C1A1CA1 /* LocalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD4A203EB7D4BE811628A76 /* LocalModels.swift */; };
+		26D87A740BC4FE53B5C5C531 /* WorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61BF7A1BAC70C8BDD8B8DB33 /* WorkspaceView.swift */; };
+		2E190B2CF55ECD451D2AB8A5 /* RecallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBF4B1D8E1342C867A9477D /* RecallTests.swift */; };
+		3A45A2EAD3638D470DA49FEA /* PrototypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE08C07F46DFC395E7FF327 /* PrototypeTests.swift */; };
+		3F2706F222654BFB8DAAA9C5 /* VoiceComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F695A53E21B6900E6C71482 /* VoiceComposerTests.swift */; };
+		42E0AD933E1E27A6F030EAFE /* LocalModelPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B898E14E9C3B0F474F165BE /* LocalModelPreview.swift */; };
+		46191E960E40EEF674AF3147 /* RemoteUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADFA4C366DF41D23299B54EF /* RemoteUITests.swift */; };
+		46D8FEB448569EDB5FE955A2 /* ImageImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B2E92CE7149FBCAEC7D402 /* ImageImport.swift */; };
+		47F85432F537F3755931B6E7 /* LocalModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A34B6B8857851E597F9FE60D /* LocalModelTests.swift */; };
+		5620F000A9183B1AC838D32E /* RevisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3CBB68C5167886BDCE7DB17 /* RevisionTests.swift */; };
+		57F84D21C851345BC1A047FF /* CloudLiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937E860340F49C728634DE1C /* CloudLiveTests.swift */; };
+		583042CB67359A2ACBBCABAE /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF758DF0E9497D5845F05AE /* Models.swift */; };
+		59EA81227E795E806BDD1E84 /* LocalModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD30E8E77EAA4FAF05506A5 /* LocalModelPicker.swift */; };
+		5C431C4EF9062679E2A78805 /* CodeExecutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6044C806D489C6EE74C09BFA /* CodeExecutionTests.swift */; };
+		5D6C2E254A3E8969B11CF7F8 /* CloudAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52099DBBEAF3644830FE2832 /* CloudAccountTests.swift */; };
+		68A5BD1039A9BA0EF36A1816 /* SidebarGestureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E0C37E65ED429AC6FFD94B /* SidebarGestureTests.swift */; };
+		6B412F93D3D94D89BFB67C30 /* SidebarUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 853E8E348A57E1AE7A09C044 /* SidebarUITests.swift */; };
+		6B94C75DEC52253CFD324491 /* ComposerTextInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A021EAF877F1024F51132B4 /* ComposerTextInput.swift */; };
+		6C10411DD63BC161177EA2FD /* StreamServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 219719A99C539643EDBEB6F0 /* StreamServiceTests.swift */; };
+		70949D842BA634574B30E4DB /* RemotePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3E351C87EAB0C2E62227AC /* RemotePresentationTests.swift */; };
+		7125476B5DE7F389EAD4AC0B /* RemoteModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39E58778ED41C61AE4DF01BD /* RemoteModelTests.swift */; };
+		743B2642174CA8708C2B5D86 /* CloudAccountUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA52B9A0A44430F7F9DE02E7 /* CloudAccountUITests.swift */; };
+		76852761682DA36B43FF6F93 /* ReasoningUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E58AB2859B70BE2B86E7C5 /* ReasoningUITests.swift */; };
+		787883C1A753DEC47D4C0ADD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9E48D4677699F2D1D7630BA0 /* Assets.xcassets */; };
+		78FAC775474D5947EFDEB2ED /* ReasoningPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1A353D2E82CA14B096E75B /* ReasoningPreview.swift */; };
+		7E87273BCD6BC4989676FA39 /* VoiceComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42F0A4E1E53EC006D154143 /* VoiceComposer.swift */; };
+		8072BDDC9D88D62DF397B61E /* AttachmentThumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E12F596DC3321E3D15C6EC /* AttachmentThumbnails.swift */; };
+		83503EB14F678C1DE210C4D9 /* CodeExecutionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C01D66ADA38FDAFE9830E4A /* CodeExecutionUITests.swift */; };
+		8387A2892CD43590AB28337D /* VoiceInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 678C9764A99E186C578016E2 /* VoiceInteractionTests.swift */; };
+		89D759A8AB9220E793B72944 /* AttachmentPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B0171DA7175B0E26C1AB18 /* AttachmentPreview.swift */; };
+		911262324F2C869556ECDD6D /* RemoteProcessUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 959551670B675DAB9F681360 /* RemoteProcessUITests.swift */; };
+		92C8C6DD4AD88E203BC25F87 /* RemoteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103B4225AB2B47B60037D1DE /* RemoteService.swift */; };
+		942D1685AAAF1266CA38DD35 /* MarkdownBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAA6BDBCE3505EFB44A5E559 /* MarkdownBlock.swift */; };
+		9501CF2CA34F0C56E8295109 /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5944163B604D283DE5AC68 /* ChatService.swift */; };
+		9A8EFD07F974C6DCC1A4DC37 /* CodeExecutionPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D310F208BEB2CC2006BC42 /* CodeExecutionPreview.swift */; };
+		9AF9454859C19D878D1559A3 /* WorkspaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B563B7911D3FF18F0F384D57 /* WorkspaceTests.swift */; };
+		A373AECAC5A060B6ACEE2232 /* ReasoningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 560CC1DD48FF16EECB5686E1 /* ReasoningTests.swift */; };
+		A9D7C949049829EDC3724CC6 /* PotatoMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AEC5B8C08FF4D8971102517 /* PotatoMobileApp.swift */; };
+		AC37BAAE854D9E5E496BF78C /* CodeExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C57524247E5284BD3B4FC41 /* CodeExecution.swift */; };
+		ADBC7A11FC8EA5F22E2D151F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 391AA368471F4B4E2397B9F7 /* PrivacyInfo.xcprivacy */; };
+		B0FF9E367E1A676C289C2D75 /* Recall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328331D54FA2D0190EF46ABF /* Recall.swift */; };
+		BD4D979C95770D9EDA0D4BF4 /* RemoteDraftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE43ECD088E93552B6288FAE /* RemoteDraftTests.swift */; };
+		BFE26B1D0A414EC61E1DD690 /* VoiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 711E76FB29D48E004563CD39 /* VoiceInput.swift */; };
+		C57A18DD8E3829F1BBCD4E7E /* DocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91E774BA045C46615831CA0F /* DocumentView.swift */; };
+		C7A55C05C09204FD35F03C50 /* RecallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EDBF50559E09A74625F0A74 /* RecallView.swift */; };
+		CF6AED5C9EA195B0B447B630 /* WebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3FFCF482A4E008EB4F066B2 /* WebSearch.swift */; };
+		D09AB63E35472C1444BF5B95 /* LongInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 788086505432F687EB328FDF /* LongInputTests.swift */; };
+		D2A355696EA6EDBF8206228B /* RemoteModelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1587B69B586E8495EE2E1461 /* RemoteModelUITests.swift */; };
+		D2BE84E6C722FF4AE4ED177F /* Draft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 857A760BBDE5AF2B5A80B83C /* Draft.swift */; };
+		D6A256B71908AAE43E43B4D0 /* LocalModelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C6982485614C2E79A7B5BDC /* LocalModelUITests.swift */; };
+		DAD4D139C94BD15455049645 /* SandboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E7222A12A558EAE39DFBF32 /* SandboxTests.swift */; };
+		DCB889451B435AD1558C2DA2 /* RemoteDrafts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC0006280E4436FA032ADB9 /* RemoteDrafts.swift */; };
+		E370D2A7297275575808DCCC /* SandboxRunSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059F91D433528E3588E08465 /* SandboxRunSheet.swift */; };
+		E4615800F14D862B8F8A9700 /* RemoteTaskObservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B56B7362AF32F541A98610 /* RemoteTaskObservationTests.swift */; };
+		EFAC7F2C233E5F5EEC19D2A5 /* RemoteTaskObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE4355A43B1F8F64F737B39F /* RemoteTaskObservation.swift */; };
+		F78FB41A47F49C49A36A9F2C /* RemoteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B71FB9A0AE49993AF28BF77 /* RemoteModels.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A84A9ACD8E7FDE97FE2973E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 54A24D4DFE49AFD00B9960C2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 46EA42B73F07E69040227CF9;
+			remoteInfo = PotatoMobile;
+		};
+		D45E1E21BA3EBC18BE6C0EBD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 54A24D4DFE49AFD00B9960C2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 46EA42B73F07E69040227CF9;
+			remoteInfo = PotatoMobile;
+		};
+		FFE0913FC00258E1FCEAB23C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 54A24D4DFE49AFD00B9960C2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 46EA42B73F07E69040227CF9;
+			remoteInfo = PotatoMobile;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		059F91D433528E3588E08465 /* SandboxRunSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxRunSheet.swift; sourceTree = "<group>"; };
+		0AEC5B8C08FF4D8971102517 /* PotatoMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PotatoMobileApp.swift; sourceTree = "<group>"; };
+		0B71FB9A0AE49993AF28BF77 /* RemoteModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteModels.swift; sourceTree = "<group>"; };
+		0E7222A12A558EAE39DFBF32 /* SandboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxTests.swift; sourceTree = "<group>"; };
+		0EDBF50559E09A74625F0A74 /* RecallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallView.swift; sourceTree = "<group>"; };
+		0FC36E5936A902BA0ED39B5C /* LocalStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStorage.swift; sourceTree = "<group>"; };
+		103B4225AB2B47B60037D1DE /* RemoteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteService.swift; sourceTree = "<group>"; };
+		1587B69B586E8495EE2E1461 /* RemoteModelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteModelUITests.swift; sourceTree = "<group>"; };
+		1B33C13130DF7972408A5944 /* PotatoMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PotatoMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C01D66ADA38FDAFE9830E4A /* CodeExecutionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeExecutionUITests.swift; sourceTree = "<group>"; };
+		219719A99C539643EDBEB6F0 /* StreamServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamServiceTests.swift; sourceTree = "<group>"; };
+		277DE1B7A819B3FDDE1AE9AF /* KeychainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTests.swift; sourceTree = "<group>"; };
+		29E12F596DC3321E3D15C6EC /* AttachmentThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentThumbnails.swift; sourceTree = "<group>"; };
+		2F695A53E21B6900E6C71482 /* VoiceComposerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceComposerTests.swift; sourceTree = "<group>"; };
+		328331D54FA2D0190EF46ABF /* Recall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recall.swift; sourceTree = "<group>"; };
+		3415D7F175B235CC10FA870F /* ReplyProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyProcess.swift; sourceTree = "<group>"; };
+		391AA368471F4B4E2397B9F7 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		39E58778ED41C61AE4DF01BD /* RemoteModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteModelTests.swift; sourceTree = "<group>"; };
+		3C6982485614C2E79A7B5BDC /* LocalModelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelUITests.swift; sourceTree = "<group>"; };
+		40F14C8FB3032E47682E9C8D /* LiveConnectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveConnectionTests.swift; sourceTree = "<group>"; };
+		4DF758DF0E9497D5845F05AE /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		52099DBBEAF3644830FE2832 /* CloudAccountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudAccountTests.swift; sourceTree = "<group>"; };
+		560CC1DD48FF16EECB5686E1 /* ReasoningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReasoningTests.swift; sourceTree = "<group>"; };
+		590EE516B815B30F4077AFA3 /* PotatoMobileLiveUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PotatoMobileLiveUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		59C4A8FCDA1DE4D34C3A8712 /* SidebarGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarGesture.swift; sourceTree = "<group>"; };
+		5C395F0F56EFA0E864122CD2 /* PotatoMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PotatoMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C57524247E5284BD3B4FC41 /* CodeExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeExecution.swift; sourceTree = "<group>"; };
+		5E5944163B604D283DE5AC68 /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
+		5F1A353D2E82CA14B096E75B /* ReasoningPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReasoningPreview.swift; sourceTree = "<group>"; };
+		6044C806D489C6EE74C09BFA /* CodeExecutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeExecutionTests.swift; sourceTree = "<group>"; };
+		61BF7A1BAC70C8BDD8B8DB33 /* WorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceView.swift; sourceTree = "<group>"; };
+		678C9764A99E186C578016E2 /* VoiceInteractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInteractionTests.swift; sourceTree = "<group>"; };
+		6B898E14E9C3B0F474F165BE /* LocalModelPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelPreview.swift; sourceTree = "<group>"; };
+		711E76FB29D48E004563CD39 /* VoiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInput.swift; sourceTree = "<group>"; };
+		73B0171DA7175B0E26C1AB18 /* AttachmentPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPreview.swift; sourceTree = "<group>"; };
+		788086505432F687EB328FDF /* LongInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LongInputTests.swift; sourceTree = "<group>"; };
+		7CC0006280E4436FA032ADB9 /* RemoteDrafts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDrafts.swift; sourceTree = "<group>"; };
+		81E58AB2859B70BE2B86E7C5 /* ReasoningUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReasoningUITests.swift; sourceTree = "<group>"; };
+		853E8E348A57E1AE7A09C044 /* SidebarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarUITests.swift; sourceTree = "<group>"; };
+		857A760BBDE5AF2B5A80B83C /* Draft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Draft.swift; sourceTree = "<group>"; };
+		8A021EAF877F1024F51132B4 /* ComposerTextInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerTextInput.swift; sourceTree = "<group>"; };
+		8C765278791966BF9DBF54C9 /* CloudAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudAccount.swift; sourceTree = "<group>"; };
+		8F7019309A3F26C3C7BCDD99 /* ReplyActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyActions.swift; sourceTree = "<group>"; };
+		90B4665830233D0B3453BC52 /* PotatoMobileUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PotatoMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		91E774BA045C46615831CA0F /* DocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentView.swift; sourceTree = "<group>"; };
+		937E860340F49C728634DE1C /* CloudLiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudLiveTests.swift; sourceTree = "<group>"; };
+		959551670B675DAB9F681360 /* RemoteProcessUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteProcessUITests.swift; sourceTree = "<group>"; };
+		9A65A3DD12F859AF79004B90 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
+		9CD30E8E77EAA4FAF05506A5 /* LocalModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelPicker.swift; sourceTree = "<group>"; };
+		9CD4A203EB7D4BE811628A76 /* LocalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModels.swift; sourceTree = "<group>"; };
+		9DE08C07F46DFC395E7FF327 /* PrototypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrototypeTests.swift; sourceTree = "<group>"; };
+		9E3E351C87EAB0C2E62227AC /* RemotePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemotePresentationTests.swift; sourceTree = "<group>"; };
+		9E48D4677699F2D1D7630BA0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A34B6B8857851E597F9FE60D /* LocalModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelTests.swift; sourceTree = "<group>"; };
+		ADFA4C366DF41D23299B54EF /* RemoteUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteUITests.swift; sourceTree = "<group>"; };
+		B3FFCF482A4E008EB4F066B2 /* WebSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearch.swift; sourceTree = "<group>"; };
+		B563B7911D3FF18F0F384D57 /* WorkspaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTests.swift; sourceTree = "<group>"; };
+		B67132F622526300B72ADA1C /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		BA52B9A0A44430F7F9DE02E7 /* CloudAccountUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudAccountUITests.swift; sourceTree = "<group>"; };
+		C3CBB68C5167886BDCE7DB17 /* RevisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevisionTests.swift; sourceTree = "<group>"; };
+		C72C66AEA4708EF749D1D0EE /* RemoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteView.swift; sourceTree = "<group>"; };
+		C9FCB68E163F6C6937B70BCE /* RemoteMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteMessageView.swift; sourceTree = "<group>"; };
+		D42F0A4E1E53EC006D154143 /* VoiceComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceComposer.swift; sourceTree = "<group>"; };
+		D5D310F208BEB2CC2006BC42 /* CodeExecutionPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeExecutionPreview.swift; sourceTree = "<group>"; };
+		D6B2E92CE7149FBCAEC7D402 /* ImageImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageImport.swift; sourceTree = "<group>"; };
+		D8374E266A2D0F80CB6C6F8D /* DeveloperConnectionImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperConnectionImport.swift; sourceTree = "<group>"; };
+		DDF48C55023D7CB463441668 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
+		DE43ECD088E93552B6288FAE /* RemoteDraftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDraftTests.swift; sourceTree = "<group>"; };
+		DFBF4B1D8E1342C867A9477D /* RecallTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallTests.swift; sourceTree = "<group>"; };
+		E3B56B7362AF32F541A98610 /* RemoteTaskObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTaskObservationTests.swift; sourceTree = "<group>"; };
+		E8D03FD079682004F6AB481E /* RecallUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallUITests.swift; sourceTree = "<group>"; };
+		EAA6BDBCE3505EFB44A5E559 /* MarkdownBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownBlock.swift; sourceTree = "<group>"; };
+		F1E0C37E65ED429AC6FFD94B /* SidebarGestureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarGestureTests.swift; sourceTree = "<group>"; };
+		FC2CA5D59F2A5C2C18DC116C /* DraftHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftHistoryView.swift; sourceTree = "<group>"; };
+		FD2DF7482AC62A24953EB379 /* SandboxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxService.swift; sourceTree = "<group>"; };
+		FE4355A43B1F8F64F737B39F /* RemoteTaskObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTaskObservation.swift; sourceTree = "<group>"; };
+		FF600DDF8D43D588289C9087 /* SearchSpeechTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSpeechTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0E26769A59984F858F69FCBA = {
+			isa = PBXGroup;
+			children = (
+				9E48D4677699F2D1D7630BA0 /* Assets.xcassets */,
+				996BC1D1C9347771C9ED046A /* LiveUITests */,
+				B75EF377E824725CE53BFD0F /* Sources */,
+				663C1040874A68DC642752BA /* Tests */,
+				103BD70093DD9771CDA52295 /* UITests */,
+				71EC0748E89621F50964B130 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		103BD70093DD9771CDA52295 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				BA52B9A0A44430F7F9DE02E7 /* CloudAccountUITests.swift */,
+				1C01D66ADA38FDAFE9830E4A /* CodeExecutionUITests.swift */,
+				3C6982485614C2E79A7B5BDC /* LocalModelUITests.swift */,
+				788086505432F687EB328FDF /* LongInputTests.swift */,
+				9DE08C07F46DFC395E7FF327 /* PrototypeTests.swift */,
+				81E58AB2859B70BE2B86E7C5 /* ReasoningUITests.swift */,
+				E8D03FD079682004F6AB481E /* RecallUITests.swift */,
+				1587B69B586E8495EE2E1461 /* RemoteModelUITests.swift */,
+				959551670B675DAB9F681360 /* RemoteProcessUITests.swift */,
+				ADFA4C366DF41D23299B54EF /* RemoteUITests.swift */,
+				853E8E348A57E1AE7A09C044 /* SidebarUITests.swift */,
+				678C9764A99E186C578016E2 /* VoiceInteractionTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		663C1040874A68DC642752BA /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				52099DBBEAF3644830FE2832 /* CloudAccountTests.swift */,
+				6044C806D489C6EE74C09BFA /* CodeExecutionTests.swift */,
+				277DE1B7A819B3FDDE1AE9AF /* KeychainTests.swift */,
+				A34B6B8857851E597F9FE60D /* LocalModelTests.swift */,
+				560CC1DD48FF16EECB5686E1 /* ReasoningTests.swift */,
+				DFBF4B1D8E1342C867A9477D /* RecallTests.swift */,
+				DE43ECD088E93552B6288FAE /* RemoteDraftTests.swift */,
+				39E58778ED41C61AE4DF01BD /* RemoteModelTests.swift */,
+				9E3E351C87EAB0C2E62227AC /* RemotePresentationTests.swift */,
+				E3B56B7362AF32F541A98610 /* RemoteTaskObservationTests.swift */,
+				C3CBB68C5167886BDCE7DB17 /* RevisionTests.swift */,
+				0E7222A12A558EAE39DFBF32 /* SandboxTests.swift */,
+				FF600DDF8D43D588289C9087 /* SearchSpeechTests.swift */,
+				F1E0C37E65ED429AC6FFD94B /* SidebarGestureTests.swift */,
+				219719A99C539643EDBEB6F0 /* StreamServiceTests.swift */,
+				2F695A53E21B6900E6C71482 /* VoiceComposerTests.swift */,
+				B563B7911D3FF18F0F384D57 /* WorkspaceTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		71EC0748E89621F50964B130 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5C395F0F56EFA0E864122CD2 /* PotatoMobile.app */,
+				590EE516B815B30F4077AFA3 /* PotatoMobileLiveUITests.xctest */,
+				1B33C13130DF7972408A5944 /* PotatoMobileTests.xctest */,
+				90B4665830233D0B3453BC52 /* PotatoMobileUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		996BC1D1C9347771C9ED046A /* LiveUITests */ = {
+			isa = PBXGroup;
+			children = (
+				937E860340F49C728634DE1C /* CloudLiveTests.swift */,
+				40F14C8FB3032E47682E9C8D /* LiveConnectionTests.swift */,
+			);
+			path = LiveUITests;
+			sourceTree = "<group>";
+		};
+		B75EF377E824725CE53BFD0F /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				73B0171DA7175B0E26C1AB18 /* AttachmentPreview.swift */,
+				29E12F596DC3321E3D15C6EC /* AttachmentThumbnails.swift */,
+				5E5944163B604D283DE5AC68 /* ChatService.swift */,
+				8C765278791966BF9DBF54C9 /* CloudAccount.swift */,
+				5C57524247E5284BD3B4FC41 /* CodeExecution.swift */,
+				D5D310F208BEB2CC2006BC42 /* CodeExecutionPreview.swift */,
+				8A021EAF877F1024F51132B4 /* ComposerTextInput.swift */,
+				D8374E266A2D0F80CB6C6F8D /* DeveloperConnectionImport.swift */,
+				91E774BA045C46615831CA0F /* DocumentView.swift */,
+				857A760BBDE5AF2B5A80B83C /* Draft.swift */,
+				FC2CA5D59F2A5C2C18DC116C /* DraftHistoryView.swift */,
+				D6B2E92CE7149FBCAEC7D402 /* ImageImport.swift */,
+				B67132F622526300B72ADA1C /* LibraryView.swift */,
+				9CD30E8E77EAA4FAF05506A5 /* LocalModelPicker.swift */,
+				6B898E14E9C3B0F474F165BE /* LocalModelPreview.swift */,
+				9CD4A203EB7D4BE811628A76 /* LocalModels.swift */,
+				0FC36E5936A902BA0ED39B5C /* LocalStorage.swift */,
+				EAA6BDBCE3505EFB44A5E559 /* MarkdownBlock.swift */,
+				4DF758DF0E9497D5845F05AE /* Models.swift */,
+				0AEC5B8C08FF4D8971102517 /* PotatoMobileApp.swift */,
+				391AA368471F4B4E2397B9F7 /* PrivacyInfo.xcprivacy */,
+				5F1A353D2E82CA14B096E75B /* ReasoningPreview.swift */,
+				328331D54FA2D0190EF46ABF /* Recall.swift */,
+				0EDBF50559E09A74625F0A74 /* RecallView.swift */,
+				7CC0006280E4436FA032ADB9 /* RemoteDrafts.swift */,
+				C9FCB68E163F6C6937B70BCE /* RemoteMessageView.swift */,
+				0B71FB9A0AE49993AF28BF77 /* RemoteModels.swift */,
+				103B4225AB2B47B60037D1DE /* RemoteService.swift */,
+				FE4355A43B1F8F64F737B39F /* RemoteTaskObservation.swift */,
+				C72C66AEA4708EF749D1D0EE /* RemoteView.swift */,
+				8F7019309A3F26C3C7BCDD99 /* ReplyActions.swift */,
+				3415D7F175B235CC10FA870F /* ReplyProcess.swift */,
+				059F91D433528E3588E08465 /* SandboxRunSheet.swift */,
+				FD2DF7482AC62A24953EB379 /* SandboxService.swift */,
+				59C4A8FCDA1DE4D34C3A8712 /* SidebarGesture.swift */,
+				9A65A3DD12F859AF79004B90 /* SpeechService.swift */,
+				D42F0A4E1E53EC006D154143 /* VoiceComposer.swift */,
+				711E76FB29D48E004563CD39 /* VoiceInput.swift */,
+				B3FFCF482A4E008EB4F066B2 /* WebSearch.swift */,
+				DDF48C55023D7CB463441668 /* WorkspaceStore.swift */,
+				61BF7A1BAC70C8BDD8B8DB33 /* WorkspaceView.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		199B0AC6FFCCD87B82C15F52 /* PotatoMobileTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AE4A0D751944A1ADC9548F4E /* Build configuration list for PBXNativeTarget "PotatoMobileTests" */;
+			buildPhases = (
+				AF5FBF832212A1604FFF837C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9A686D54DBBAE8A0CF704347 /* PBXTargetDependency */,
+			);
+			name = PotatoMobileTests;
+			packageProductDependencies = (
+			);
+			productName = PotatoMobileTests;
+			productReference = 1B33C13130DF7972408A5944 /* PotatoMobileTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		2E674117821BAB1D9BB76E40 /* PotatoMobileUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9E0F57ED427AAFA1FB9E90EB /* Build configuration list for PBXNativeTarget "PotatoMobileUITests" */;
+			buildPhases = (
+				74738C6A7B83E2456CFA15D1 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F846612360D38E70AA822F1E /* PBXTargetDependency */,
+			);
+			name = PotatoMobileUITests;
+			packageProductDependencies = (
+			);
+			productName = PotatoMobileUITests;
+			productReference = 90B4665830233D0B3453BC52 /* PotatoMobileUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		46EA42B73F07E69040227CF9 /* PotatoMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E949CD004EA3CF3AE7BDB2EC /* Build configuration list for PBXNativeTarget "PotatoMobile" */;
+			buildPhases = (
+				D016747D2006971008D6AB83 /* Sources */,
+				58D0E7E23340BF2E119D2E5C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PotatoMobile;
+			packageProductDependencies = (
+			);
+			productName = PotatoMobile;
+			productReference = 5C395F0F56EFA0E864122CD2 /* PotatoMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		914EC7EC51467705E40BE965 /* PotatoMobileLiveUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0EFEEBFDE37FADA2A1E54B45 /* Build configuration list for PBXNativeTarget "PotatoMobileLiveUITests" */;
+			buildPhases = (
+				8D251E4D21801A950A1A20A6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				80032960D37A23CD7B79AEC1 /* PBXTargetDependency */,
+			);
+			name = PotatoMobileLiveUITests;
+			packageProductDependencies = (
+			);
+			productName = PotatoMobileLiveUITests;
+			productReference = 590EE516B815B30F4077AFA3 /* PotatoMobileLiveUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		54A24D4DFE49AFD00B9960C2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					2E674117821BAB1D9BB76E40 = {
+						TestTargetID = 46EA42B73F07E69040227CF9;
+					};
+					914EC7EC51467705E40BE965 = {
+						TestTargetID = 46EA42B73F07E69040227CF9;
+					};
+				};
+			};
+			buildConfigurationList = D78E773FEB001A7FFA31FFE4 /* Build configuration list for PBXProject "PotatoMobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 0E26769A59984F858F69FCBA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 71EC0748E89621F50964B130 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				46EA42B73F07E69040227CF9 /* PotatoMobile */,
+				199B0AC6FFCCD87B82C15F52 /* PotatoMobileTests */,
+				2E674117821BAB1D9BB76E40 /* PotatoMobileUITests */,
+				914EC7EC51467705E40BE965 /* PotatoMobileLiveUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		58D0E7E23340BF2E119D2E5C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				787883C1A753DEC47D4C0ADD /* Assets.xcassets in Resources */,
+				ADBC7A11FC8EA5F22E2D151F /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		74738C6A7B83E2456CFA15D1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				743B2642174CA8708C2B5D86 /* CloudAccountUITests.swift in Sources */,
+				83503EB14F678C1DE210C4D9 /* CodeExecutionUITests.swift in Sources */,
+				D6A256B71908AAE43E43B4D0 /* LocalModelUITests.swift in Sources */,
+				D09AB63E35472C1444BF5B95 /* LongInputTests.swift in Sources */,
+				3A45A2EAD3638D470DA49FEA /* PrototypeTests.swift in Sources */,
+				76852761682DA36B43FF6F93 /* ReasoningUITests.swift in Sources */,
+				24DD61ADA75A54AF6A66FC5B /* RecallUITests.swift in Sources */,
+				D2A355696EA6EDBF8206228B /* RemoteModelUITests.swift in Sources */,
+				911262324F2C869556ECDD6D /* RemoteProcessUITests.swift in Sources */,
+				46191E960E40EEF674AF3147 /* RemoteUITests.swift in Sources */,
+				6B412F93D3D94D89BFB67C30 /* SidebarUITests.swift in Sources */,
+				8387A2892CD43590AB28337D /* VoiceInteractionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8D251E4D21801A950A1A20A6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57F84D21C851345BC1A047FF /* CloudLiveTests.swift in Sources */,
+				09330AF43513EB9D7BC7D821 /* LiveConnectionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF5FBF832212A1604FFF837C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D6C2E254A3E8969B11CF7F8 /* CloudAccountTests.swift in Sources */,
+				5C431C4EF9062679E2A78805 /* CodeExecutionTests.swift in Sources */,
+				038B6A7B6A4018A130B14EA3 /* KeychainTests.swift in Sources */,
+				47F85432F537F3755931B6E7 /* LocalModelTests.swift in Sources */,
+				A373AECAC5A060B6ACEE2232 /* ReasoningTests.swift in Sources */,
+				2E190B2CF55ECD451D2AB8A5 /* RecallTests.swift in Sources */,
+				BD4D979C95770D9EDA0D4BF4 /* RemoteDraftTests.swift in Sources */,
+				7125476B5DE7F389EAD4AC0B /* RemoteModelTests.swift in Sources */,
+				70949D842BA634574B30E4DB /* RemotePresentationTests.swift in Sources */,
+				E4615800F14D862B8F8A9700 /* RemoteTaskObservationTests.swift in Sources */,
+				5620F000A9183B1AC838D32E /* RevisionTests.swift in Sources */,
+				DAD4D139C94BD15455049645 /* SandboxTests.swift in Sources */,
+				0B41AAEF4348BAB2CA5CDF94 /* SearchSpeechTests.swift in Sources */,
+				68A5BD1039A9BA0EF36A1816 /* SidebarGestureTests.swift in Sources */,
+				6C10411DD63BC161177EA2FD /* StreamServiceTests.swift in Sources */,
+				3F2706F222654BFB8DAAA9C5 /* VoiceComposerTests.swift in Sources */,
+				9AF9454859C19D878D1559A3 /* WorkspaceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D016747D2006971008D6AB83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				89D759A8AB9220E793B72944 /* AttachmentPreview.swift in Sources */,
+				8072BDDC9D88D62DF397B61E /* AttachmentThumbnails.swift in Sources */,
+				9501CF2CA34F0C56E8295109 /* ChatService.swift in Sources */,
+				22CAC4EB1D0405FBBFD1253D /* CloudAccount.swift in Sources */,
+				AC37BAAE854D9E5E496BF78C /* CodeExecution.swift in Sources */,
+				9A8EFD07F974C6DCC1A4DC37 /* CodeExecutionPreview.swift in Sources */,
+				6B94C75DEC52253CFD324491 /* ComposerTextInput.swift in Sources */,
+				0F4B6EC137A676CC98C0CF9B /* DeveloperConnectionImport.swift in Sources */,
+				C57A18DD8E3829F1BBCD4E7E /* DocumentView.swift in Sources */,
+				D2BE84E6C722FF4AE4ED177F /* Draft.swift in Sources */,
+				1F49DBB745E71B7E90E63D70 /* DraftHistoryView.swift in Sources */,
+				46D8FEB448569EDB5FE955A2 /* ImageImport.swift in Sources */,
+				0F19243EE5037338A9EA9CD5 /* LibraryView.swift in Sources */,
+				59EA81227E795E806BDD1E84 /* LocalModelPicker.swift in Sources */,
+				42E0AD933E1E27A6F030EAFE /* LocalModelPreview.swift in Sources */,
+				2516C137EA96AFEA0C1A1CA1 /* LocalModels.swift in Sources */,
+				1CB5ED7E7CF17DCA09E5F084 /* LocalStorage.swift in Sources */,
+				942D1685AAAF1266CA38DD35 /* MarkdownBlock.swift in Sources */,
+				583042CB67359A2ACBBCABAE /* Models.swift in Sources */,
+				A9D7C949049829EDC3724CC6 /* PotatoMobileApp.swift in Sources */,
+				78FAC775474D5947EFDEB2ED /* ReasoningPreview.swift in Sources */,
+				B0FF9E367E1A676C289C2D75 /* Recall.swift in Sources */,
+				C7A55C05C09204FD35F03C50 /* RecallView.swift in Sources */,
+				DCB889451B435AD1558C2DA2 /* RemoteDrafts.swift in Sources */,
+				1E63945BDB50E5ED172047EC /* RemoteMessageView.swift in Sources */,
+				F78FB41A47F49C49A36A9F2C /* RemoteModels.swift in Sources */,
+				92C8C6DD4AD88E203BC25F87 /* RemoteService.swift in Sources */,
+				EFAC7F2C233E5F5EEC19D2A5 /* RemoteTaskObservation.swift in Sources */,
+				074BCC9C9F6F192996661381 /* RemoteView.swift in Sources */,
+				0C9C4B3B5C5D1F0544924630 /* ReplyActions.swift in Sources */,
+				13FE63C0875894B7A2174EAB /* ReplyProcess.swift in Sources */,
+				E370D2A7297275575808DCCC /* SandboxRunSheet.swift in Sources */,
+				237A34BEAC1752FAD9A8C662 /* SandboxService.swift in Sources */,
+				02775FF44A7B202A5F55F469 /* SidebarGesture.swift in Sources */,
+				0A8EBB8BB1BC2C932A269A8C /* SpeechService.swift in Sources */,
+				7E87273BCD6BC4989676FA39 /* VoiceComposer.swift in Sources */,
+				BFE26B1D0A414EC61E1DD690 /* VoiceInput.swift in Sources */,
+				CF6AED5C9EA195B0B447B630 /* WebSearch.swift in Sources */,
+				204B5A3F74C1662C1E5CA965 /* WorkspaceStore.swift in Sources */,
+				26D87A740BC4FE53B5C5C531 /* WorkspaceView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		80032960D37A23CD7B79AEC1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 46EA42B73F07E69040227CF9 /* PotatoMobile */;
+			targetProxy = A84A9ACD8E7FDE97FE2973E0 /* PBXContainerItemProxy */;
+		};
+		9A686D54DBBAE8A0CF704347 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 46EA42B73F07E69040227CF9 /* PotatoMobile */;
+			targetProxy = D45E1E21BA3EBC18BE6C0EBD /* PBXContainerItemProxy */;
+		};
+		F846612360D38E70AA822F1E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 46EA42B73F07E69040227CF9 /* PotatoMobile */;
+			targetProxy = FFE0913FC00258E1FCEAB23C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2EDA22B55150BA13BD0F3689 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.PotatoMobileUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PotatoMobile;
+			};
+			name = Debug;
+		};
+		4B5DFF46750B54DD1209EAD3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.PotatoMobileLiveUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PotatoMobile;
+			};
+			name = Debug;
+		};
+		5563966FC89EEE2AB9C70C43 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.PotatoMobileTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PotatoMobile.app/PotatoMobile";
+			};
+			name = Debug;
+		};
+		96FBD1800E15B80E6C09DD43 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		998774D83D8DFDA2E70F6313 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.PotatoMobileLiveUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PotatoMobile;
+			};
+			name = Release;
+		};
+		AABCAA3147165465E2864257 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ENTITLEMENTS = PotatoMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 2026091306;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Potato;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于语音输入，点发送后提交转写文字，也可以修改或取消。";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.iphone.prototype;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C92E02E578C1E4E3744DBD79 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		ED2141CE03563609C60188BD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ENTITLEMENTS = PotatoMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 2026091306;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Potato;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于语音输入，点发送后提交转写文字，也可以修改或取消。";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.iphone.prototype;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		FA61854103244F6A0F927EEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.PotatoMobileTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PotatoMobile.app/PotatoMobile";
+			};
+			name = Release;
+		};
+		FEE02EA9A5479041AE53A1FC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.potato.PotatoMobileUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PotatoMobile;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0EFEEBFDE37FADA2A1E54B45 /* Build configuration list for PBXNativeTarget "PotatoMobileLiveUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4B5DFF46750B54DD1209EAD3 /* Debug */,
+				998774D83D8DFDA2E70F6313 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9E0F57ED427AAFA1FB9E90EB /* Build configuration list for PBXNativeTarget "PotatoMobileUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2EDA22B55150BA13BD0F3689 /* Debug */,
+				FEE02EA9A5479041AE53A1FC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AE4A0D751944A1ADC9548F4E /* Build configuration list for PBXNativeTarget "PotatoMobileTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5563966FC89EEE2AB9C70C43 /* Debug */,
+				FA61854103244F6A0F927EEE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D78E773FEB001A7FFA31FFE4 /* Build configuration list for PBXProject "PotatoMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				96FBD1800E15B80E6C09DD43 /* Debug */,
+				C92E02E578C1E4E3744DBD79 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E949CD004EA3CF3AE7BDB2EC /* Build configuration list for PBXNativeTarget "PotatoMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABCAA3147165465E2864257 /* Debug */,
+				ED2141CE03563609C60188BD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 54A24D4DFE49AFD00B9960C2 /* Project object */;
+}
