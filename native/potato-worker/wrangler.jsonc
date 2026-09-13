@@ -1,0 +1,125 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "potato-iphone-api",
+  "main": "src/entry.ts",
+  "compatibility_date": "2026-09-12",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "secrets": {
+    "required": [
+      "CLIENT_TOKEN",
+      "UPSTREAM_API_KEY"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "vars": {
+    "DOUBAO_RESOURCE_ID": "volc.seedasr.sauc.duration",
+    "E2B_TEMPLATE": "chat-web-office-pdf",
+    "UPSTREAM_URL": "https://api.deepseek.com/chat/completions",
+    "ALLOWED_MODELS": "deepseek-flash",
+    "MAX_OUTPUT_TOKENS": "4096",
+    "REMOTE_ACCESS_TEAM": "https://liuxu-cf.cloudflareaccess.com",
+    "REMOTE_ACCESS_AUD": "3caaf83d896a6d75eb39ef46a87e47ef2b093cc5129995489a789e7757a05310",
+    "REMOTE_PUBLIC_URL": "https://potato-remote.recodex.top",
+    "REMOTE_CONTROL_ENABLED": "true",
+    "CLOUD_ACCESS_AUD": "1bf05234bd56ae3508e5235764cd8b062d75d89ff74bad1bdc710f7203cc2c9a"
+  },
+  "ratelimits": [
+    {
+      "name": "SEARCH_RATE_LIMIT",
+      "namespace_id": "1003",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    },
+    {
+      "name": "SPEECH_RATE_LIMIT",
+      "namespace_id": "1004",
+      "simple": {
+        "limit": 3,
+        "period": 60
+      }
+    },
+    {
+      "name": "SANDBOX_RATE_LIMIT",
+      "namespace_id": "1002",
+      "simple": {
+        "limit": 3,
+        "period": 60
+      }
+    },
+    {
+      "name": "CHAT_RATE_LIMIT",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    },
+    {
+      "name": "REMOTE_RATE_LIMIT",
+      "namespace_id": "1005",
+      "simple": {
+        "limit": 240,
+        "period": 60
+      }
+    },
+    {
+      "name": "RECALL_RATE_LIMIT",
+      "namespace_id": "1006",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REMOTE_DEVICES",
+        "class_name": "RemoteDevice"
+      },
+      {
+        "name": "REMOTE_ACCOUNTS",
+        "class_name": "RemoteAccount"
+      },
+      {
+        "name": "REMOTE_LOGINS",
+        "class_name": "RemoteLogin"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "remote-v1",
+      "new_sqlite_classes": [
+        "RemoteDevice"
+      ]
+    },
+    {
+      "tag": "remote-account-v1",
+      "new_sqlite_classes": [
+        "RemoteAccount",
+        "RemoteLogin"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "potato-remote.recodex.top",
+      "custom_domain": true
+    }
+  ],
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "RECALL_BUCKET",
+      "bucket_name": "potato-personal-recall"
+    }
+  ]
+}

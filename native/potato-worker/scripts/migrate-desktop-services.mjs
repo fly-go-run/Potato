@@ -1,0 +1,12 @@
+import { desktopServices } from './desktop-services.mjs';
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+const settings = desktopServices();
+if (!settings.exaKey || !settings.doubaoKey) throw new Error('Both desktop service credentials are required.');
+const config = JSON.parse(readFileSync('wrangler.jsonc', 'utf8'));
+if (config.name !== 'potato-iphone-api' || config.vars.DOUBAO_RESOURCE_ID !== settings.resourceId) throw new Error('Worker target or Doubao resource does not match the reviewed configuration.');
+const secrets = { EXA_API_KEY: settings.exaKey, DOUBAO_API_KEY: settings.doubaoKey, DOUBAO_APP_ID: settings.doubaoAppId };
+const result = spawnSync('node_modules/.bin/wrangler', ['secret', 'bulk', '--name', config.name], { input: JSON.stringify(secrets), encoding: 'utf8', timeout: 90000, env: { ...process.env, WRANGLER_LOG: 'error', WRANGLER_SEND_METRICS: 'false' } });
+let output = (result.stdout || '') + (result.stderr || '');
+for (const value of Object.values(secrets)) if (value) output = output.replaceAll(value, '[REDACTED]');
+console.log(output); if (result.status !== 0) process.exitCode = 1;

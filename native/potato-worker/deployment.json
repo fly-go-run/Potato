@@ -1,0 +1,38 @@
+{
+  "url": "https://potato-iphone-api.pal-xu.workers.dev",
+  "model": "deepseek-v4.1-flash-expires-on-0910",
+  "upstream": "https://api.deepseek.com/chat/completions",
+  "deployedAt": "2026-09-12T09:36:36.192516+00:00",
+  "healthStatus": 200,
+  "unauthorizedStatus": 401,
+  "clientProvisioned": true,
+  "versionId": "2cfc1662-2d0b-475e-8cbc-8e5a717b73d2",
+  "sandbox": {
+    "route": "/v1/sandbox/run",
+    "provider": "e2b",
+    "template": "chat-web-office-pdf",
+    "credentialConfigured": true,
+    "liveExecutionVerified": true,
+    "liveIOSResult": "LiveE2BVerified.xcresult",
+    "directCSVVerified": true,
+    "activeSandboxesAfterVerification": 0
+  },
+  "verifiedAt": "2026-09-12T09:40:56.595103+00:00",
+  "search": {
+    "provider": "exa",
+    "automatic": true,
+    "maxSearchesPerReply": 4,
+    "credentialConfigured": true,
+    "liveIOSResult": "LiveSearchSpeechVerified.xcresult",
+    "sourcesPersistAfterRelaunch": true
+  },
+  "speech": {
+    "provider": "doubao",
+    "route": "/v1/audio/transcriptions",
+    "resourceId": "volc.seedasr.sauc.duration",
+    "credentialConfigured": true,
+    "liveIOSResult": "LiveSearchSpeechVerified.xcresult",
+    "verificationAudio": "synthetic Mandarin, 3.6 seconds",
+    "physicalMicrophoneVerified": false
+  }
+}
