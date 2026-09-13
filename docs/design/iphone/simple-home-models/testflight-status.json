@@ -1,0 +1,16 @@
+{
+  "version": "0.2.2",
+  "build": "2026091301",
+  "build_id": "5068b446-530e-4abb-8c55-7e9a246a7cfb",
+  "processing": "Complete",
+  "distribution": "TestFlight Internal Only",
+  "group": "个人内测",
+  "group_id": "fbbe4f4e-56a2-4ba2-8298-5d80bc4ffe4d",
+  "status": "Testing",
+  "testers": 1,
+  "group_build_count": 3,
+  "expires_in_days": 90,
+  "test_notes_saved": true,
+  "verified_at": "2026-09-13T15:04:00+08:00",
+  "source": "https://appstoreconnect.apple.com/teams/2b4712b4-b6bc-437e-a154-eb5d72362d9a/apps/6811367042/testflight/groups/fbbe4f4e-56a2-4ba2-8298-5d80bc4ffe4d/builds"
+}

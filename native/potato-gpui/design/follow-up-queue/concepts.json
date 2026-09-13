@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-06",
+  "status": "awaiting_selection",
+  "generator": "built-in image_gen",
+  "reference": "../verification/compact-final.png",
+  "brief": "research-and-spec.md",
+  "display_order": [
+    {
+      "option": 1,
+      "file": "option-1.png",
+      "source": "/Users/liuxu/.codex/generated_images/01a076b9-58ed-7820-bb02-3f550436d7d0/exec-bf3fd2de-c24f-4352-b33e-e36806392300.png"
+    },
+    {
+      "option": 2,
+      "file": "option-2.png",
+      "source": "/Users/liuxu/.codex/generated_images/01a076b9-58ed-7820-bb02-3f550436d7d0/exec-efbe9e9b-ccd9-4fd3-a38d-d01a66a5c6c4.png"
+    },
+    {
+      "option": 3,
+      "file": "option-3.png",
+      "source": "/Users/liuxu/.codex/generated_images/01a076b9-58ed-7820-bb02-3f550436d7d0/exec-0c554234-2f82-40d1-8f36-2ee019635e66.png"
+    }
+  ]
+}

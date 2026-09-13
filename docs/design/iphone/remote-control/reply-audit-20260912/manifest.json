@@ -1,0 +1,44 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "3F8D1A7C-CFA8-46C8-8DEC-A44FF756D37E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "03-remote-reply-markdown_0_E954021B-EFDA-4E82-8566-A869EE27643D.png",
+        "timestamp" : 1789226282.602
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "5D2F5BEB-ED2B-499E-A375-97102605FE71.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "04-remote-reply-tool-expanded_0_00E29E8A-5753-4CCF-807A-E886C426AA92.png",
+        "timestamp" : 1789226275.586
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "87E05141-733D-4923-A6B7-3F5B1146F263.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "02-remote-reply-process_0_900BAA3D-DA4F-422C-BA51-24BE315CEB6E.png",
+        "timestamp" : 1789226274.08
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "B34D50AD-9273-4AA2-9982-3E618AF9CE35.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "01-remote-reply-text_0_156FD90C-2F87-48B6-9955-83899031AEA3.png",
+        "timestamp" : 1789226267.088
+      }
+    ],
+    "testIdentifier" : "RemoteUITests/testRemoteReplyStyleAudit()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/RemoteUITests/testRemoteReplyStyleAudit"
+  }
+]

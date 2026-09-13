@@ -1,0 +1,8 @@
+{
+  "method": "Isolated debug fixture replay via existing local GPUI executable; no model API call",
+  "binary": "/Users/liuxu/lifeProjects/Potato/native/potato-gpui/target/debug/potato-gpui",
+  "sha256": "96054cbb87da72e08f972586c717c840395ab92275f4df1d9b018211e135a57d",
+  "fixture": "replay.json",
+  "viewport": "1080 x 760",
+  "note": "Current source build blocked by concurrent side_panel ButtonVariants import error. Findings separate observed replay from current source analysis."
+}

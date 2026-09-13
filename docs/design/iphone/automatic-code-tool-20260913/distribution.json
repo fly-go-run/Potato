@@ -1,0 +1,15 @@
+{
+  "version": "0.2.2",
+  "build": "2026091306",
+  "apple_build_id": "3f529c5b-fee8-469a-bbeb-1bfda95f4bdf",
+  "uploaded_at": "2026-09-13T20:41:00+08:00",
+  "apple_processing": "Complete",
+  "group": "个人内测",
+  "group_id": "fbbe4f4e-56a2-4ba2-8298-5d80bc4ffe4d",
+  "testers": 1,
+  "notes_saved": true,
+  "worker_version": "1a91e9e5-9a5f-4659-9cc4-01e2f9925eb2",
+  "status": "Testing",
+  "expires_in_days": 90,
+  "verified_at": "2026-09-13T20:45:50.244433+08:00"
+}

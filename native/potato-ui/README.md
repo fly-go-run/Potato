@@ -1,5 +1,7 @@
 # Potato Rust native client
 
+> 历史实现：本 Iced 原型逐步废弃，当前唯一原生前端为 GPUI。见[原生架构与退役原则](../../docs/architecture/native-only.md)。
+
 Iced 原生界面直接链接 `../potato-core`。窗口、SQLite 会话、模型设置与工具执行属于同一应用，
 不需要 Python、Tauri、WebView 或独立 HTTP 后端。不再提供后端地址、令牌或模拟聊天模式。
 `app/` 与 `console/` 的 Tauri 客户端仍保留；本目录尚未替换正式分发入口。

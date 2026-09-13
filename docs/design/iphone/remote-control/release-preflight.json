@@ -1,0 +1,33 @@
+{
+  "checked_on": "2026-09-12",
+  "worker": "potato-iphone-api",
+  "current_deployment_id": "e5ec88d5-bd9c-4adc-b6a8-4ed8e4853e6f",
+  "current_versions": [
+    {
+      "version_id": "2cfc1662-2d0b-475e-8cbc-8e5a717b73d2",
+      "percentage": 100
+    }
+  ],
+  "deployment_created_on": "2026-09-12T09:36:34.019817Z",
+  "remote_vars": {},
+  "binding_names": [
+    "ALLOWED_MODELS",
+    "CHAT_RATE_LIMIT",
+    "CLIENT_TOKEN",
+    "DOUBAO_API_KEY",
+    "DOUBAO_APP_ID",
+    "DOUBAO_RESOURCE_ID",
+    "E2B_API_KEY",
+    "E2B_TEMPLATE",
+    "EXA_API_KEY",
+    "MAX_OUTPUT_TOKENS",
+    "SANDBOX_RATE_LIMIT",
+    "SEARCH_RATE_LIMIT",
+    "SPEECH_RATE_LIMIT",
+    "UPSTREAM_API_KEY",
+    "UPSTREAM_URL"
+  ],
+  "cloud_changes_made": false,
+  "access_visibility_note": "Wrangler OAuth 返回空列表，但浏览器确认既有 Zero Trust 团队和 video-restore 应用；空列表不代表账号无 Access 应用。",
+  "record_scope": "2026-09-12 部署前历史快照；部署结果见 release.md"
+}

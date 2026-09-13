@@ -1,0 +1,19 @@
+    func testRemoteReplyStyleAudit() throws {
+        guard ProcessInfo.processInfo.environment["POTATO_REMOTE_STYLE_AUDIT"] == "1" else { throw XCTSkip("Opt-in local style fixture") }
+        for (title, marker, name) in [
+            ("调整侧栏和项目导航", "已完成远程连接和账号关联。", "01-remote-reply-text"),
+            ("检查 iPhone 远程控制的实现", "检查完成，配置正常。", "02-remote-reply-process"),
+            ("查看今天的运行日志", "示例代码：", "03-remote-reply-markdown")
+        ] {
+            let app = launch()
+            let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
+            XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", marker)).firstMatch.waitForExistence(timeout: 10))
+            capture(app, name)
+            if name == "02-remote-reply-process" {
+                app.buttons["电脑执行步骤"].firstMatch.tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(1))
+                capture(app, "04-remote-reply-tool-expanded")
+            }
+        }
+    }

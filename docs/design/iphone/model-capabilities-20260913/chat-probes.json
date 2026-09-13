@@ -1,0 +1,552 @@
+[
+  {
+    "provider": "deepseek",
+    "model": "deepseek-v4.1-flash",
+    "setting": "alias-disabled",
+    "http": 400,
+    "error": "The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-v4.1-flash.",
+    "error_code": "invalid_request_error",
+    "answer": "",
+    "correct": false,
+    "reasoning_chars": 0,
+    "elapsed_ms": 117
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "alias-disabled",
+    "http": 200,
+    "returned_model": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 1,
+      "total_tokens": 19,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 18
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 688
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "low",
+    "http": 200,
+    "returned_model": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 44,
+      "completion_tokens": 20,
+      "total_tokens": 64,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 18
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 44
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 64,
+    "elapsed_ms": 872
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "high",
+    "http": 200,
+    "returned_model": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 44,
+      "completion_tokens": 19,
+      "total_tokens": 63,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 17
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 44
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 58,
+    "elapsed_ms": 849
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "max",
+    "http": 200,
+    "returned_model": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 44,
+      "completion_tokens": 20,
+      "total_tokens": 64,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 18
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 44
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 65,
+    "elapsed_ms": 1226
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "none",
+    "http": 200,
+    "returned_model": "gpt-5.6",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 4198
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "low",
+    "http": 200,
+    "returned_model": "gpt-5.6",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 3617
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "medium",
+    "http": 200,
+    "returned_model": "gpt-5.6",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1770
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "high",
+    "http": 200,
+    "returned_model": "gpt-5.6",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1839
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "xhigh",
+    "http": 200,
+    "returned_model": "gpt-5.6",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1859
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "max",
+    "http": 200,
+    "returned_model": "gpt-5.6",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 2716
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-sol",
+    "setting": "none",
+    "http": 200,
+    "returned_model": "gpt-5.6-sol",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1682
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-sol",
+    "setting": "low",
+    "http": 200,
+    "returned_model": "gpt-5.6-sol",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1586
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-sol",
+    "setting": "medium",
+    "http": 200,
+    "returned_model": "gpt-5.6-sol",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 2036
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-sol",
+    "setting": "high",
+    "http": 200,
+    "returned_model": "gpt-5.6-sol",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1635
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-sol",
+    "setting": "xhigh",
+    "http": 200,
+    "returned_model": "gpt-5.6-sol",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 2361
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-sol",
+    "setting": "max",
+    "http": 200,
+    "returned_model": "gpt-5.6-sol",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 2223
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-terra",
+    "setting": "none",
+    "http": 200,
+    "returned_model": "gpt-5.6-terra",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1547
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-terra",
+    "setting": "low",
+    "http": 200,
+    "returned_model": "gpt-5.6-terra",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1524
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-terra",
+    "setting": "medium",
+    "http": 200,
+    "returned_model": "gpt-5.6-terra",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1675
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-terra",
+    "setting": "high",
+    "http": 200,
+    "returned_model": "gpt-5.6-terra",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1339
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-terra",
+    "setting": "max",
+    "http": 200,
+    "returned_model": "gpt-5.6-terra",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1535
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-terra",
+    "setting": "xhigh",
+    "http": 200,
+    "returned_model": "gpt-5.6-terra",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1950
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-luna",
+    "setting": "low",
+    "http": 200,
+    "returned_model": "gpt-5.6-luna",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1411
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-luna",
+    "setting": "none",
+    "http": 200,
+    "returned_model": "gpt-5.6-luna",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 2162
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-luna",
+    "setting": "medium",
+    "http": 200,
+    "returned_model": "gpt-5.6-luna",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 5,
+      "total_tokens": 25
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1362
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-luna",
+    "setting": "high",
+    "http": 200,
+    "returned_model": "gpt-5.6-luna",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 24,
+      "total_tokens": 44,
+      "completion_tokens_details": {
+        "reasoning_tokens": 17
+      }
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 34,
+    "elapsed_ms": 2088
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-luna",
+    "setting": "max",
+    "http": 200,
+    "returned_model": "gpt-5.6-luna",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 24,
+      "total_tokens": 44,
+      "completion_tokens_details": {
+        "reasoning_tokens": 17
+      }
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 30,
+    "elapsed_ms": 3454
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "invalid-control",
+    "http": 400,
+    "error": "Failed to deserialize the JSON body into the target type: reasoning_effort: unknown variant `potato_invalid`, expected one of `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` at line 1 column 193",
+    "error_code": "invalid_request_error",
+    "answer": "",
+    "correct": false,
+    "reasoning_chars": 0,
+    "elapsed_ms": 93
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "invalid-control",
+    "http": 400,
+    "error": "Invalid value: 'potato_invalid'. Supported values are: 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', and 'max'.",
+    "error_code": "",
+    "answer": "",
+    "correct": false,
+    "reasoning_chars": 0,
+    "elapsed_ms": 1313
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6-luna",
+    "setting": "xhigh",
+    "http": 200,
+    "returned_model": "gpt-5.6-luna",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 24,
+      "total_tokens": 44,
+      "completion_tokens_details": {
+        "reasoning_tokens": 17
+      }
+    },
+    "finish_reason": "stop",
+    "answer": "323",
+    "correct": true,
+    "reasoning_chars": 45,
+    "elapsed_ms": 5946
+  }
+]

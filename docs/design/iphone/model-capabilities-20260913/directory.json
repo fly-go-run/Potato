@@ -1,0 +1,103 @@
+[
+  {
+    "provider": "deepseek",
+    "status": 200,
+    "models": [
+      {
+        "id": "deepseek-flash"
+      },
+      {
+        "id": "deepseek-v4-pro"
+      }
+    ],
+    "configured": [
+      "deepseek-chat",
+      "deepseek-reasoner",
+      "deepseek-v4-flash",
+      "deepseek-v4-pro",
+      "deepseek-v4.1-flash-expires-on-0910"
+    ]
+  },
+  {
+    "provider": "sub2api",
+    "status": 200,
+    "models": [
+      {
+        "id": "codex-auto-review"
+      },
+      {
+        "id": "gpt-4o-audio-preview"
+      },
+      {
+        "id": "gpt-4o-realtime-preview"
+      },
+      {
+        "id": "gpt-5.2"
+      },
+      {
+        "id": "gpt-5.2-2025-12-11"
+      },
+      {
+        "id": "gpt-5.2-chat-latest"
+      },
+      {
+        "id": "gpt-5.2-pro"
+      },
+      {
+        "id": "gpt-5.2-pro-2025-12-11"
+      },
+      {
+        "id": "gpt-5.3-codex-spark"
+      },
+      {
+        "id": "gpt-5.4"
+      },
+      {
+        "id": "gpt-5.4-2026-03-05"
+      },
+      {
+        "id": "gpt-5.4-mini"
+      },
+      {
+        "id": "gpt-5.5"
+      },
+      {
+        "id": "gpt-5.6"
+      },
+      {
+        "id": "gpt-5.6-luna"
+      },
+      {
+        "id": "gpt-5.6-sol"
+      },
+      {
+        "id": "gpt-5.6-terra"
+      },
+      {
+        "id": "gpt-image-1"
+      },
+      {
+        "id": "gpt-image-1.5"
+      },
+      {
+        "id": "gpt-image-2"
+      }
+    ],
+    "configured": [
+      "gpt-5.2",
+      "gpt-5.2-2025-12-11",
+      "gpt-5.2-chat-latest",
+      "gpt-5.2-pro",
+      "gpt-5.2-pro-2025-12-11",
+      "gpt-5.3-codex-spark",
+      "gpt-5.4",
+      "gpt-5.4-2026-03-05",
+      "gpt-5.4-mini",
+      "gpt-5.5",
+      "gpt-5.6",
+      "gpt-5.6-luna",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra"
+    ]
+  }
+]

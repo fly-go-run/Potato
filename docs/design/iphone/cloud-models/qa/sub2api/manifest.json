@@ -1,0 +1,35 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "7A0BFB88-87AD-4540-A2D9-0C02257C9823.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "cloud-live-logged-out_0_F368694D-9F2E-4F21-8275-887FD602D5E1.png",
+        "timestamp" : 1789278643.99
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "03D6DABC-B1C2-4B21-B503-54ADE7B5AF4F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "cloud-live-sub2api-reply_0_C1395A45-B5C6-44F7-9B32-ECF460797B5E.png",
+        "timestamp" : 1789278636.458
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "31230D5D-AA98-457C-BA68-4E70BA7A7F38.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "cloud-live-sub2api-selected_0_2A11020B-3B5D-4C71-8725-59F0052225BB.png",
+        "timestamp" : 1789278629.062
+      }
+    ],
+    "testIdentifier" : "CloudLiveTests/testSub2apiThroughCloudAndLogout()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileLiveUITests/CloudLiveTests/testSub2apiThroughCloudAndLogout"
+  }
+]

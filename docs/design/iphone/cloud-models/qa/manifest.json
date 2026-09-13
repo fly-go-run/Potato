@@ -1,0 +1,26 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "273C05CF-D981-4121-8F7B-73F783799097.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "cloud-account-login_0_6D4E723B-FBE8-42CB-9898-DF803590AC14.png",
+        "timestamp" : 1789277739.147
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "B6DDB426-AFBE-4E14-8863-F779D37FEB6D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "cloud-settings-entry_0_1A6178A0-FF81-453F-8063-3BFF450C925E.png",
+        "timestamp" : 1789277736.725
+      }
+    ],
+    "testIdentifier" : "CloudAccountUITests/testCloudLoginEntryAndDismissPreserveManualSettings()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/CloudAccountUITests/testCloudLoginEntryAndDismissPreserveManualSettings"
+  }
+]

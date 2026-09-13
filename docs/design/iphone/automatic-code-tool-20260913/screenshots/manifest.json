@@ -1,0 +1,25 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "BE607F6F-D4EA-451B-8C87-700261289E18.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "automatic-code-result_0_B4DFBA4D-A205-4E94-8FD5-B1F20436CB4A.png",
+        "timestamp" : 1789302597.442
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "BC20CB5A-FAC0-4A46-8E85-C58C35337B22",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "4FADF351-D595-4A60-B402-3673A7D56F78.txt",
+        "isAssociatedWithFailure" : true,
+        "suggestedHumanReadableName" : "Complete Issue Description.txt"
+      }
+    ],
+    "testIdentifier" : "CodeExecutionUITests/testAutomaticExecutionAndFilesSurviveRelaunch()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/CodeExecutionUITests/testAutomaticExecutionAndFilesSurviveRelaunch"
+  }
+]

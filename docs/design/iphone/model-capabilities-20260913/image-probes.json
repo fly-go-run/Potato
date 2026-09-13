@@ -1,0 +1,62 @@
+[
+  {
+    "provider": "sub2api",
+    "model": "gpt-image-1.5",
+    "setting": "image-low",
+    "http": 403,
+    "error": "Image generation is not enabled for this group",
+    "error_code": "",
+    "image_count": 0,
+    "image_bytes": 0,
+    "url_present": false,
+    "elapsed_ms": 569
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-image-1",
+    "setting": "image-low",
+    "http": 403,
+    "error": "Image generation is not enabled for this group",
+    "error_code": "",
+    "image_count": 0,
+    "image_bytes": 0,
+    "url_present": false,
+    "elapsed_ms": 816
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-image-2",
+    "setting": "image-low",
+    "http": 403,
+    "error": "Image generation is not enabled for this group",
+    "error_code": "",
+    "image_count": 0,
+    "image_bytes": 0,
+    "url_present": false,
+    "elapsed_ms": 267
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-image-2.5-sunburst",
+    "setting": "image-low",
+    "http": 403,
+    "error": "Image generation is not enabled for this group",
+    "error_code": "",
+    "image_count": 0,
+    "image_bytes": 0,
+    "url_present": false,
+    "elapsed_ms": 236
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-image-2.5-flare",
+    "setting": "image-low",
+    "http": 403,
+    "error": "Image generation is not enabled for this group",
+    "error_code": "",
+    "image_count": 0,
+    "image_bytes": 0,
+    "url_present": false,
+    "elapsed_ms": 578
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "user_messages": 1,
+  "host_recovery_notices": 1,
+  "marker": "once\n",
+  "model_calls": [
+    "main-0",
+    "review-allow",
+    "main-1",
+    "main-2",
+    "review-allow",
+    "main-3"
+  ],
+  "jobs": [
+    {
+      "exit_code": 7,
+      "network": "disabled",
+      "unsandboxed": false,
+      "continuation": "completed"
+    },
+    {
+      "exit_code": 0,
+      "network": "enabled",
+      "unsandboxed": false,
+      "continuation": null
+    }
+  ]
+}

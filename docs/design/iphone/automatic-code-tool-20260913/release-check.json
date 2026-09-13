@@ -1,0 +1,14 @@
+{
+  "version": "0.2.2",
+  "build": "2026091306",
+  "bundle": "com.potato.iphone.prototype",
+  "device_family": [
+    1
+  ],
+  "minimum_os": "17.0",
+  "privacy_manifest": true,
+  "archive_signature_valid": true,
+  "binary_sha256": "de37ee418f9c322b792d80f8302892b9becf73fb6071d7c9d07b64805c4a9477",
+  "code_execution_present": true,
+  "debug_fixtures_absent": true
+}

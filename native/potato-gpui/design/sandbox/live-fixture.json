@@ -1,0 +1,7 @@
+{
+  "title": "后台沙箱恢复验收",
+  "files_open": true,
+  "window_width": 1250,
+  "window_height": 800,
+  "start_request": "请在项目的 marker 中写入一次 once，然后下载本地测试内容。必要时允许联网，下载失败后继续剩余步骤，不要重复写入 marker。"
+}

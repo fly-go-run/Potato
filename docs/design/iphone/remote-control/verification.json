@@ -1,0 +1,65 @@
+{
+  "date": "2026-09-12",
+  "scope": "SwiftUI iPhone simulator → deployed Cloudflare Worker/SQLite DO/WebSocket → isolated native Rust core; real Cloudflare account, synthetic model. Also retains earlier local regression evidence.",
+  "results": {
+    "worker_tests": {
+      "passed": 27,
+      "failed": 0
+    },
+    "worker_types": "passed",
+    "worker_deploy_dry_run": "passed before deployment",
+    "core_remote_tests": {
+      "passed": 6,
+      "failed": 0
+    },
+    "gpui_check": "passed",
+    "iphone_remote_ui_tests": {
+      "passed": 3,
+      "failed": 0,
+      "bundle": "/tmp/potato-remote-e2e-ui-v4.xcresult"
+    },
+    "iphone_final_build": "passed with eager bounded message layout",
+    "cloud_worker_version": "69312217-b291-4870-8142-499eb836b996",
+    "real_cloudflare_login": "host and native iPhone simulator passed via Chrome, matching confirmation codes",
+    "live_remote_ui": {
+      "passed": 1,
+      "failed": 0,
+      "bundle": "/tmp/potato-live-account-ui-v2.xcresult",
+      "covers": [
+        "account discovery",
+        "new task",
+        "continue",
+        "question",
+        "approval",
+        "stop"
+      ]
+    },
+    "live_logout_ui": {
+      "passed": 1,
+      "failed": 0,
+      "bundle": "/tmp/potato-live-account-cleanup.xcresult",
+      "covers": [
+        "host logout removes device",
+        "phone logout"
+      ]
+    },
+    "macos_release_build": "passed",
+    "macos_zip_dmg_verification": "passed native binary and bundled driver checks",
+    "initial_live_attempt": "Browser form rejected null Origin, then fixed same-origin policy; initial UI run interrupted for LazyVStack keyboard layout loop, fixed and final rerun passed."
+  },
+  "sha256": {
+    "native/potato-core/src/remote.rs": "662f1e7a85228f0ec7835ec5e6c4aadf19c7c1620d5d404bb744650a7adccc6a",
+    "native/potato-core/src/remote_tests.rs": "39c54a6ba682490555abfcafc312e7d3079603adac74882dcefed11c787033c1",
+    "native/potato-core/src/lib.rs": "0d5266fa6d4c6724a97204d0464657ad14e110c921932b14d25a3677baf285f1",
+    "native/potato-gpui/src/settings.rs": "4b65233983d13163dfebbf22b4a73d63159afd4745849e9562c7b51382984706",
+    "native/potato-worker/src/remote.ts": "b72db7521cda54443cfe05238c419457f7d8b209da293b043f2ac7c74f5570bb",
+    "native/potato-worker/src/remote-auth.ts": "f5d18246b40c4584711a995e77904368c9de2b9bd89e14ea4ecd3dfc9a70c517",
+    "native/potato-worker/test/remote.test.ts": "320be63efa6dd848b53bf44e50f8e8d6cbbaad33254bbfed720533b21c7053ca",
+    "native/potato-ios/Sources/RemoteService.swift": "7ae5a0398796be5e83c85193db08fa0ca55021ce3d118795bcb51fc7b9518d2d",
+    "native/potato-ios/Sources/RemoteView.swift": "e192cdb2e679fbd18e46c7b9bff0cb0f89e8db56f45b36e4bd6652101dfe6266",
+    "native/potato-ios/UITests/RemoteUITests.swift": "29998f43d547219b538836aa8e9e5c84dc653a949790624220b365ca3b619d60",
+    "native/potato-worker/src/entry.ts": "f4554f7951870e51bbc317dbae9d4b4831503104007e71909d47752d7b7367cc",
+    "native/potato-worker/wrangler.jsonc": "3401bd4c409247b9fac8916d8e3dee5f0f226651c64ed72ccbfc59de65f0ab1f",
+    "native/potato-core/examples/remote_fixture.rs": "dd4d4cf5b8deae79e88dd250ba45e9da29780f6615dd1d55dd624dff2a769701"
+  }
+}

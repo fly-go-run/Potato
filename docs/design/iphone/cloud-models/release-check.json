@@ -1,0 +1,28 @@
+{
+  "version": "0.2.2",
+  "build": "2026091302",
+  "bundle_id": "com.potato.iphone.prototype",
+  "device_family": [
+    1
+  ],
+  "minimum_ios": "17.0",
+  "archive_succeeded": true,
+  "codesign_verified": true,
+  "privacy_manifest_present": true,
+  "testflight_uploaded": true,
+  "worker_version": "08d8e5e6-c8df-48b3-a236-60b6cc223a17",
+  "worker_tests": 42,
+  "ios_unit_tests": 103,
+  "cloud_ui_test": true,
+  "live_deepseek_and_relaunch": true,
+  "live_sub2api_and_logout": true,
+  "apple_uploaded_at": "2026-09-13T15:12:00+08:00",
+  "testflight_status": "Testing",
+  "testflight_verified_at": "2026-09-13T15:17:00+08:00",
+  "apple_build_id": "9baa5570-14d4-41db-bbfd-28cedbed9628",
+  "testflight_group": "个人内测",
+  "testflight_group_id": "fbbe4f4e-56a2-4ba2-8298-5d80bc4ffe4d",
+  "testflight_testers": 1,
+  "testflight_notes_saved": true,
+  "testflight_expires_in_days": 90
+}

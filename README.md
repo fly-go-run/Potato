@@ -1,9 +1,6 @@
-> Desktop migration (2026-09-06): macOS/Windows builds now default to the embedded
-> Rust backend with the existing Tauri + React UI. Build with
-> `node scripts/native/build-desktop.mjs`; Python is not shipped as a desktop
-> runtime. See [runtime coverage, migration and validation](docs/rfc/rust-desktop-runtime.md)
-> for current compatibility gaps. The Python CLI/server documentation below
-> describes the retained legacy implementation, not full Rust feature parity.
+> Current architecture (2026-09-08): the sole maintenance target is the **Rust GPUI frontend + in-process Rust potato-core backend**.
+> React/Tauri, the Python runtime and the Iced prototype are being retired. Legacy documentation below does not describe the current product architecture.
+> See the [native-only architecture policy](docs/architecture/native-only.md) and [native build and release guide](native/potato-gpui/README.md).
 
 <div align="center">
 

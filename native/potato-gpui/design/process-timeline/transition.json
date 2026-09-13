@@ -1,0 +1,160 @@
+{
+  "title": "回复体验优化",
+  "run_elapsed_seconds": 24,
+  "window_width": 1280,
+  "window_height": 780,
+  "streaming": true,
+  "history": [
+    {
+      "id": "u",
+      "role": "user",
+      "content": "帮我看看回复过程，怎样让等待更自然？"
+    }
+  ],
+  "initial": [
+    {
+      "object": "response",
+      "id": "resp",
+      "status": "in_progress"
+    },
+    {
+      "object": "message",
+      "id": "r1",
+      "type": "reasoning",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "text",
+          "text": "已梳理等待、思考和回答之间的状态切换。"
+        }
+      ],
+      "metadata": {
+        "activity": {
+          "state": "completed",
+          "elapsed_ms": 6200
+        }
+      }
+    },
+    {
+      "object": "message",
+      "id": "tool",
+      "type": "function_call",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "read1",
+            "name": "read_file",
+            "arguments": "{\"path\": \"native/potato-gpui/src/chat.rs\"}"
+          }
+        }
+      ]
+    },
+    {
+      "object": "message",
+      "id": "result",
+      "type": "function_call_output",
+      "role": "tool",
+      "status": "completed",
+      "content": [
+        {
+          "type": "data",
+          "data": {
+            "call_id": "read1",
+            "state": "success",
+            "output": "已读取 chat.rs，确认过程分组和流式正文的渲染入口。"
+          }
+        }
+      ],
+      "metadata": {
+        "activity": {
+          "state": "completed",
+          "elapsed_ms": 12400
+        }
+      }
+    },
+    {
+      "object": "message",
+      "id": "r2",
+      "type": "reasoning",
+      "role": "assistant",
+      "status": "in_progress",
+      "content": [
+        {
+          "type": "text",
+          "text": "正在整理改进建议，让当前动作更明确。"
+        }
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "delay_ms": 20000,
+      "frame": {
+        "object": "message",
+        "id": "r2",
+        "type": "reasoning",
+        "role": "assistant",
+        "status": "completed",
+        "content": [
+          {
+            "type": "text",
+            "text": "正在整理改进建议，让当前动作更明确。"
+          }
+        ],
+        "metadata": {
+          "activity": {
+            "state": "completed",
+            "elapsed_ms": 5000
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 500,
+      "frame": {
+        "object": "message",
+        "id": "answer",
+        "type": "message",
+        "role": "assistant",
+        "status": "in_progress",
+        "content": [
+          {
+            "type": "text",
+            "text": "等待可以更轻，也可以更清楚。\n\n先让状态被看见，再让正文自然出现。"
+          }
+        ],
+        "phase": "final_answer"
+      }
+    },
+    {
+      "delay_ms": 15000,
+      "frame": {
+        "object": "message",
+        "id": "answer",
+        "type": "message",
+        "role": "assistant",
+        "status": "completed",
+        "content": [
+          {
+            "type": "text",
+            "text": "等待可以更轻，也可以更清楚。\n\n先让状态被看见，再让正文自然出现。"
+          }
+        ],
+        "phase": "final_answer"
+      }
+    },
+    {
+      "delay_ms": 0,
+      "frame": {
+        "object": "response",
+        "id": "resp",
+        "status": "completed"
+      }
+    }
+  ],
+  "dark": false
+}

@@ -1,5 +1,7 @@
 # Rust desktop runtime
 
+> Historical migration document: the React/Tauri architecture described here has been superseded by GPUI + potato-core. See the [native-only architecture policy](../architecture/native-only.md).
+
 The desktop defaults to an embedded Rust backend. Tauri and the existing
 React/TypeScript UI remain in place. Each macOS/Windows installation has its
 own SQLite database; launching the application does not start a Python server,

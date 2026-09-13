@@ -1,0 +1,102 @@
+[
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "disabled",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 0
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "low",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 64
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "max",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 39
+  },
+  {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "setting": "high",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 64
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "none",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 0
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "low",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 0
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "high",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 0
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "medium",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 0
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "xhigh",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 0
+  },
+  {
+    "provider": "sub2api",
+    "model": "gpt-5.6",
+    "setting": "max",
+    "http": 200,
+    "sse": true,
+    "done": true,
+    "correct": true,
+    "reasoning_chars": 0
+  }
+]

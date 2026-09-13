@@ -1,0 +1,20 @@
+{
+  "orderBasis": "Order of generated images displayed in this conversation, 2026-09-12",
+  "options": [
+    {
+      "number": 1,
+      "file": "concept-1-direct-send.png",
+      "source": "exec-0d9ce286-2fba-408d-a1ec-f234f75a9efc.png"
+    },
+    {
+      "number": 2,
+      "file": "concept-2-inline-edit.png",
+      "source": "exec-a004ee54-3b01-448c-8b5e-cd128c7829ed.png"
+    },
+    {
+      "number": 3,
+      "file": "concept-3-hold-to-talk.png",
+      "source": "exec-0f242e70-f9ad-4eb6-97d4-21d74e3cd9e3.png"
+    }
+  ]
+}
