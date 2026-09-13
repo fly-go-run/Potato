@@ -169,3 +169,7 @@ provision.applied.json
 
 # Rust core build output
 /native/potato-core/target/
+
+# Local native UI audit bundles, recordings and raw simulator captures
+/native/potato-gpui/design/**/*.app/
+/native/potato-ios/qa/
