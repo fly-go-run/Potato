@@ -12,16 +12,25 @@ on:
       - '.github/workflows/gpui-release.yml'
   push:
     branches:
+      - main
+      - master
       - 'codex/native-ci/**'
     tags:
       - 'native-v*'
+    paths:
+      - 'native/potato-gpui/**'
+      - 'native/potato-core/**'
+      - 'native/potato-ui/src/stream.rs'
+      - 'src/potato/agents/md_files/**'
+      - 'console/src-tauri/icons/**'
+      - '.github/workflows/gpui-release.yml'
 
 permissions:
   contents: read
 
 concurrency:
   group: gpui-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -38,12 +47,15 @@ jobs:
       matrix:
         include:
           - os: windows-2022
+            shell: pwsh
             target: x86_64-pc-windows-msvc
             platform: Windows-x86_64
           - os: macos-15
+            shell: bash
             target: aarch64-apple-darwin
             platform: macOS-arm64
           - os: macos-15-intel
+            shell: bash
             target: x86_64-apple-darwin
             platform: macOS-x86_64
     env:
@@ -52,9 +64,11 @@ jobs:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
     defaults:
       run:
-        shell: bash
+        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -70,7 +84,10 @@ jobs:
             native/potato-core
           key: gpui-${{ matrix.target }}
           cache-on-failure: true
+      - name: Test packaging and release guards
+        run: python -m unittest discover -s native/potato-gpui -p 'test_packaging.py' -v
       - name: Check release version
+        shell: bash
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
@@ -94,6 +111,9 @@ jobs:
           if (-not $fxc) { throw 'Windows SDK fxc.exe is required by GPUI release builds' }
           "GPUI_FXC_PATH=$($fxc.FullName)" >> $env:GITHUB_ENV
           Get-Command cl.exe
+          $link = Get-Command link.exe
+          if ($link.Source -notmatch '\\VC\\Tools\\MSVC\\') { throw 'MSVC link.exe must precede Git tools in PATH' }
+          "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$($link.Source)" >> $env:GITHUB_ENV
       - name: Install NSIS
         if: runner.os == 'Windows'
         uses: negrutiu/nsis-install@v2
@@ -107,6 +127,14 @@ jobs:
           xcrun --sdk macosx metal --version
       - name: Check formatting
         run: cargo fmt --manifest-path native/potato-gpui/Cargo.toml --check
+      - name: Check Windows sandbox
+        if: runner.os == 'Windows'
+        run: cargo clippy --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
+      - name: Test Windows sandbox enforcement
+        if: runner.os == 'Windows'
+        run: |
+          cargo test --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }} windows_minimal_environment -- --nocapture
+          cargo test --locked --manifest-path native/potato-core/windows-sandbox/Cargo.toml --target ${{ matrix.target }}
       - name: Check native code
         run: cargo clippy --locked --release --manifest-path native/potato-gpui/Cargo.toml --target ${{ matrix.target }} --all-targets -- -D warnings
       - name: Test core
@@ -155,47 +183,26 @@ jobs:
     needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/native-v')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
           pattern: Potato-GPUI-*
           merge-multiple: true
           path: packages
-      - name: Verify complete release assets
-        working-directory: packages
-        run: |
-          set -euo pipefail
-          test "$(find . -maxdepth 1 -name '*-setup.exe' | wc -l)" -eq 1
-          test "$(find . -maxdepth 1 -name '*.dmg' | wc -l)" -eq 2
-          test "$(find . -maxdepth 1 -name '*.zip' | wc -l)" -eq 3
-          test "$(find . -maxdepth 1 -name '*.sha256' | wc -l)" -eq 6
-          sha256sum --check ./*.sha256
-      - name: Publish GitHub prerelease
+      - name: Validate, upload and read back native prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          RELEASE_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          set -euo pipefail
-          cat > notes.md <<'NOTES'
-          Native Rust desktop preview: GPUI + in-process potato-core.
-
-          - Windows x86_64: run the setup EXE, or extract the portable ZIP.
-          - macOS 15+: choose arm64 (Apple Silicon) or x86_64 (Intel), open the DMG and drag Potato GPUI to Applications.
-          - No Python or WebView runtime installation is required.
-          - Packages are not developer-signed/notarized (macOS uses ad-hoc signing); OS trust prompts may appear.
-          - CI verifies packaged core startup, and Windows installation/uninstallation. GPU rendering, IME, and microphone interaction still need real-device testing.
-          - This preview has its own app identity, shares the Rust preview data directory, and does not use the Tauri updater feed.
-          NOTES
-          # A rerun may finish a draft, but must never replace a published release.
-          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > draft.txt 2>/dev/null; then
-            test "$(cat draft.txt)" = true
-          else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease \
-              --title "Potato GPUI $RELEASE_TAG" --notes-file notes.md
-          fi
-          gh release upload "$RELEASE_TAG" packages/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false --notes-file notes.md
+          python native/potato-gpui/release.py --packages packages \
+            --tag "$RELEASE_TAG" --repo "$RELEASE_REPO" --publish
