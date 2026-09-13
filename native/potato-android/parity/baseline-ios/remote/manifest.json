@@ -1,0 +1,50 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "ABA5C742-C379-4990-8009-0A00A2596135.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "remote-empty_0_D149C7EA-3EC2-46BE-AD07-F8C471E80FC7.png",
+        "timestamp" : 1789300828.289
+      }
+    ],
+    "testIdentifier" : "RemoteUITests/testEmptyRemotePairingValidationAndLocalChatReturn()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/RemoteUITests/testEmptyRemotePairingValidationAndLocalChatReturn"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "81DF07CE-3433-43E8-9DF3-C398C3B7DFF5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "remote-search_0_EC805119-4433-4B76-B410-3B57D888C04F.png",
+        "timestamp" : 1789300846.931
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "75C78751-6DCA-4D3F-B122-BF9A1501CA04.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "remote-sidebar_0_CF3EA9EB-6012-4C36-8CC0-1299F33E135F.png",
+        "timestamp" : 1789300843.04
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "8F9B9FA9-1964-401F-9DFA-BB16AA6099BC.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "remote-home_0_07DA1E09-A087-4A63-AD35-6C1BFFB7D51E.png",
+        "timestamp" : 1789300841.497
+      }
+    ],
+    "testIdentifier" : "RemoteUITests/testRemoteNavigationSearchAndDrawer()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/RemoteUITests/testRemoteNavigationSearchAndDrawer"
+  }
+]

@@ -1,0 +1,110 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "9C2D2042-9974-4A05-A27B-552A928CEF7F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "compact-reply-change-model_0_AD6F733C-A356-46EF-8E28-792987B98CB8.png",
+        "timestamp" : 1789299664.522
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "BAE9AD2A-13D2-44EF-A18D-A066BE344A65.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "compact-reply-more_0_A77F2CF1-25EE-4BD4-9B29-4C8BE9F3C8A5.png",
+        "timestamp" : 1789299652.951
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "E2592F65-533A-468E-AB5A-D0C2FA0C1E8C.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "compact-reply-actions_0_9C196487-AD2F-4193-B6CA-0E9DBBA0D186.png",
+        "timestamp" : 1789299650.97
+      }
+    ],
+    "testIdentifier" : "LocalModelUITests/testCompactReplyActionsAndCancelledModelChange()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/LocalModelUITests/testCompactReplyActionsAndCancelledModelChange"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "9D60D314-BF7D-4D58-945A-C79444B1EE53.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "curated-gpt-thinking_0_0E5388A2-95CF-4BD9-A861-899A8294F8BD.png",
+        "timestamp" : 1789299680.253
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "EFBE8204-AFB7-4FFA-9255-A13749B8D703.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "curated-deepseek-thinking_0_CED0EF0E-90C0-4820-99B6-A6A4BE211DA6.png",
+        "timestamp" : 1789299677.058
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "03326790-8AE3-499C-89E5-5A46B054BBEA.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "curated-cloud-models_0_A04AB5AF-658C-4991-ACB8-C234DDBAC780.png",
+        "timestamp" : 1789299676.206
+      }
+    ],
+    "testIdentifier" : "LocalModelUITests/testCuratedCloudModelsAndExactThinkingOptions()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/LocalModelUITests/testCuratedCloudModelsAndExactThinkingOptions"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "B945C71E-3DE6-4B2D-AEA4-1852AD1B141C.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "simple-thinking-sheet_0_EB15A665-A69A-4D0B-B777-A6D0538D3556.png",
+        "timestamp" : 1789299696.384
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "D6F2B6E8-E9F9-461C-8F72-368821D0AC7E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "simple-model-sheet_0_2A43FD3D-AC1B-41A9-8EDB-37CD620D682A.png",
+        "timestamp" : 1789299694.141
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "5F62C9DE-6DB1-43E3-A644-EF68A11B297B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "simple-home-keyboard_0_F9642539-FF55-47F9-9BBF-BCDBF9F95D0E.png",
+        "timestamp" : 1789299692.535
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "39FB337D-30C3-4B46-ACF6-F276C22979B5",
+        "deviceName" : "PotatoParityiOS",
+        "exportedFileName" : "E7248AD4-DC44-40B4-AC6A-1F4EA8E5DA12.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "simple-home_0_7F923EE1-BEBF-4D22-90FA-CCB699DFE534.png",
+        "timestamp" : 1789299691.188
+      }
+    ],
+    "testIdentifier" : "LocalModelUITests/testSimpleHomeAndLayeredModelPicker()",
+    "testIdentifierURL" : "test://com.apple.xcode/PotatoMobile/PotatoMobileUITests/LocalModelUITests/testSimpleHomeAndLayeredModelPicker"
+  }
+]

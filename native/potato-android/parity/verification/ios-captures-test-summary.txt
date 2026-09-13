@@ -1,0 +1,15 @@
+Test Suite 'Selected tests' started at 2026-09-13 19:40:39.217.
+Test Suite 'PotatoMobileUITests.xctest' started at 2026-09-13 19:40:39.217.
+Test Suite 'LocalModelUITests' started at 2026-09-13 19:40:39.218.
+Test Case '-[PotatoMobileUITests.LocalModelUITests testCompactReplyActionsAndCancelledModelChange]' started.
+Test Case '-[PotatoMobileUITests.LocalModelUITests testCompactReplyActionsAndCancelledModelChange]' passed (30.552 seconds).
+Test Case '-[PotatoMobileUITests.LocalModelUITests testCuratedCloudModelsAndExactThinkingOptions]' started.
+Test Case '-[PotatoMobileUITests.LocalModelUITests testCuratedCloudModelsAndExactThinkingOptions]' passed (16.696 seconds).
+Test Case '-[PotatoMobileUITests.LocalModelUITests testSimpleHomeAndLayeredModelPicker]' started.
+Test Case '-[PotatoMobileUITests.LocalModelUITests testSimpleHomeAndLayeredModelPicker]' passed (19.525 seconds).
+Test Suite 'LocalModelUITests' passed at 2026-09-13 19:41:45.994.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 66.773 (66.776) seconds
+Test Suite 'PotatoMobileUITests.xctest' passed at 2026-09-13 19:41:45.994.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 66.773 (66.777) seconds
+Test Suite 'Selected tests' passed at 2026-09-13 19:41:45.995.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 66.773 (66.778) seconds

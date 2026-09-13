@@ -1,0 +1,11 @@
+{
+  "application_id": "top.recodex.potato",
+  "version": "0.1.0",
+  "version_code": 26091301,
+  "min_sdk": 28,
+  "target_sdk": 35,
+  "apk_bytes": 18965882,
+  "apk_sha256": "0fc4b37d0c28589742cd05ec85b48aeaeaee51300692d1d30fc766206af88ee9",
+  "main_source_sha256": "3c70faba21d02bceac03a5a7d051f580852ef5cda8701e01b22cef3388e3d467",
+  "signing_certificate_sha256": "8d2c7407e97d4c76dcdf2967f04a2cdc111b1b16e9c960596f188de5d2655d7a"
+}

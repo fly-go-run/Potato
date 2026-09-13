@@ -1,0 +1,10 @@
+{
+  "emulator": "emulator-5554 / PotatoAndroid35",
+  "fromVersion": "0.1.0 (26091301)",
+  "toVersion": "0.2.0 (26091302)",
+  "sameSignatureInstall": true,
+  "oldMessagePreserved": true,
+  "oldDraftPreserved": true,
+  "launchSucceeded": true,
+  "syntheticDataOnly": true
+}

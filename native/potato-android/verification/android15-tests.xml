@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="top.recodex.potato.NativeFlowTest" tests="16" failures="0" errors="0" skipped="0" time="19.868" timestamp="2026-09-13T11:08:15" hostname="localhost">
+  <properties>
+    <property name="device" value="PotatoAndroid35(AVD) - 15" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="branchKeepsOriginalMessagesAndDocuments" classname="top.recodex.potato.NativeFlowTest" time="0.942" />
+  <testcase name="markdownTablesAndReasoningRender" classname="top.recodex.potato.NativeFlowTest" time="1.034" />
+  <testcase name="demoSendAndRelaunchPersist" classname="top.recodex.potato.NativeFlowTest" time="2.317" />
+  <testcase name="nativeTextAndImageAttachmentsProduceActualWirePayload" classname="top.recodex.potato.NativeFlowTest" time="0.83" />
+  <testcase name="keystoreCiphertextAndOriginBinding" classname="top.recodex.potato.NativeFlowTest" time="0.868" />
+  <testcase name="homeAndNativeComposerAreVisible" classname="top.recodex.potato.NativeFlowTest" time="1.841" />
+  <testcase name="corruptStorageNeverOverwritesOriginal" classname="top.recodex.potato.NativeFlowTest" time="1.262" />
+  <testcase name="modelCatalogDeduplicatesAndMigrates" classname="top.recodex.potato.NativeFlowTest" time="0.697" />
+  <testcase name="longDraftSurvivesRecreateAndNewChat" classname="top.recodex.potato.NativeFlowTest" time="0.881" />
+  <testcase name="interruptedReplyRestoresAsInterrupted" classname="top.recodex.potato.NativeFlowTest" time="0.792" />
+  <testcase name="remoteDraftsAreBoundToComputerAndTask" classname="top.recodex.potato.NativeFlowTest" time="0.883" />
+  <testcase name="sendReceiptPreservesFollowupTypedInFlight" classname="top.recodex.potato.RemoteFlowTest" time="2.039" />
+  <testcase name="lostReplyRetainsSameOperationIdAndTarget" classname="top.recodex.potato.RemoteFlowTest" time="1.616" />
+  <testcase name="missingDoneNeverMarksPartialComplete" classname="top.recodex.potato.StreamingFlowTest" time="0.904" />
+  <testcase name="visibleChineseStreamAndStopKeepPartialDraft" classname="top.recodex.potato.StreamingFlowTest" time="1.266" />
+  <testcase name="retryUsesOriginalModelAndKeepsReplyVersion" classname="top.recodex.potato.StreamingFlowTest" time="1.073" />
+</testsuite>

@@ -1,0 +1,32 @@
+Test Suite 'Selected tests' started at 2026-09-13 19:48:39.618.
+Test Suite 'PotatoMobileUITests.xctest' started at 2026-09-13 19:48:39.619.
+Test Suite 'PrototypeTests' started at 2026-09-13 19:48:39.619.
+Test Case '-[PotatoMobileUITests.PrototypeTests testDraftEditCopyShareAndPersistence]' started.
+Test Case '-[PotatoMobileUITests.PrototypeTests testDraftEditCopyShareAndPersistence]' passed (17.967 seconds).
+Test Case '-[PotatoMobileUITests.PrototypeTests testReplyActionsAndMultiPhotoGallery]' started.
+Test Case '-[PotatoMobileUITests.PrototypeTests testReplyActionsAndMultiPhotoGallery]' passed (39.094 seconds).
+Test Case '-[PotatoMobileUITests.PrototypeTests testSettingsValidationAndLargeText]' started.
+Test Case '-[PotatoMobileUITests.PrototypeTests testSettingsValidationAndLargeText]' passed (10.954 seconds).
+Test Suite 'PrototypeTests' passed at 2026-09-13 19:49:47.636.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 68.014 (68.017) seconds
+Test Suite 'RecallUITests' started at 2026-09-13 19:49:47.637.
+Test Case '-[PotatoMobileUITests.RecallUITests testHistorySourceOpensOriginalMessage]' started.
+Test Case '-[PotatoMobileUITests.RecallUITests testHistorySourceOpensOriginalMessage]' passed (7.612 seconds).
+Test Case '-[PotatoMobileUITests.RecallUITests testRecallSettingsPersistAndClearlyExplainCloudSync]' started.
+Test Case '-[PotatoMobileUITests.RecallUITests testRecallSettingsPersistAndClearlyExplainCloudSync]' passed (21.244 seconds).
+Test Suite 'RecallUITests' passed at 2026-09-13 19:50:16.494.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 28.856 (28.858) seconds
+Test Suite 'SidebarUITests' started at 2026-09-13 19:50:16.495.
+Test Case '-[PotatoMobileUITests.SidebarUITests testFullSurfaceDragOpensAndBackdropCloses]' started.
+Test Case '-[PotatoMobileUITests.SidebarUITests testFullSurfaceDragOpensAndBackdropCloses]' passed (9.009 seconds).
+Test Suite 'SidebarUITests' passed at 2026-09-13 19:50:25.505.
+	 Executed 1 test, with 0 failures (0 unexpected) in 9.009 (9.010) seconds
+Test Suite 'VoiceInteractionTests' started at 2026-09-13 19:50:25.506.
+Test Case '-[PotatoMobileUITests.VoiceInteractionTests testReferenceCompactVoice]' started.
+Test Case '-[PotatoMobileUITests.VoiceInteractionTests testReferenceCompactVoice]' passed (7.453 seconds).
+Test Suite 'VoiceInteractionTests' passed at 2026-09-13 19:50:32.961.
+	 Executed 1 test, with 0 failures (0 unexpected) in 7.453 (7.455) seconds
+Test Suite 'PotatoMobileUITests.xctest' passed at 2026-09-13 19:50:32.962.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 113.332 (113.344) seconds
+Test Suite 'Selected tests' passed at 2026-09-13 19:50:32.964.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 113.332 (113.346) seconds

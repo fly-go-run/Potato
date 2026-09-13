@@ -1,0 +1,13 @@
+Test Suite 'Selected tests' started at 2026-09-13 20:00:22.526.
+Test Suite 'PotatoMobileUITests.xctest' started at 2026-09-13 20:00:22.526.
+Test Suite 'RemoteUITests' started at 2026-09-13 20:00:22.526.
+Test Case '-[PotatoMobileUITests.RemoteUITests testEmptyRemotePairingValidationAndLocalChatReturn]' started.
+Test Case '-[PotatoMobileUITests.RemoteUITests testEmptyRemotePairingValidationAndLocalChatReturn]' passed (14.294 seconds).
+Test Case '-[PotatoMobileUITests.RemoteUITests testRemoteNavigationSearchAndDrawer]' started.
+Test Case '-[PotatoMobileUITests.RemoteUITests testRemoteNavigationSearchAndDrawer]' passed (11.849 seconds).
+Test Suite 'RemoteUITests' passed at 2026-09-13 20:00:48.672.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 26.144 (26.146) seconds
+Test Suite 'PotatoMobileUITests.xctest' passed at 2026-09-13 20:00:48.673.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 26.144 (26.147) seconds
+Test Suite 'Selected tests' passed at 2026-09-13 20:00:48.674.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 26.144 (26.148) seconds

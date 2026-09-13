@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="top.recodex.potato.ApiTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-09-13T11:08:44.993Z" hostname="Mac.lan" time="0.377">
+  <properties/>
+  <testcase name="nonSseResponseRejected" classname="top.recodex.potato.ApiTest" time="0.128"/>
+  <testcase name="cancellationUnblocksStream" classname="top.recodex.potato.ApiTest" time="0.114"/>
+  <testcase name="multilineData" classname="top.recodex.potato.ApiTest" time="0.002"/>
+  <testcase name="servicePathRetainsPrefixButNotChatPath" classname="top.recodex.potato.ApiTest" time="0.0"/>
+  <testcase name="endpointsRejectCredentialLeakAndInsecureSchemes" classname="top.recodex.potato.ApiTest" time="0.001"/>
+  <testcase name="redirectsNeverForwardAuthorization" classname="top.recodex.potato.ApiTest" time="0.003"/>
+  <testcase name="actualHttpStreamWithFragmentedUtf8" classname="top.recodex.potato.ApiTest" time="0.091"/>
+  <testcase name="missingTerminalPreservesPartialAndFails" classname="top.recodex.potato.ApiTest" time="0.001"/>
+  <testcase name="outputLimitIsNotSuccess" classname="top.recodex.potato.ApiTest" time="0.0"/>
+  <testcase name="chineseReasoningSearchAndDone" classname="top.recodex.potato.ApiTest" time="0.0"/>
+  <testcase name="requestBudgetRejectedBeforeNetwork" classname="top.recodex.potato.ApiTest" time="0.022"/>
+  <testcase name="errorFrameIsNotSuccess" classname="top.recodex.potato.ApiTest" time="0.0"/>
+  <testcase name="rejectOversizedLine" classname="top.recodex.potato.ApiTest" time="0.013"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[9月 13, 2026 7:08:45 下午 okhttp3.mockwebserver.MockWebServer$SocketHandler handle
+警告: MockWebServer[49409] connection from /127.0.0.1 didn't make a request
+]]></system-err>
+</testsuite>

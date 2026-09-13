@@ -1,0 +1,7 @@
+{
+  "install": "passed",
+  "same_signature_reinstall": "passed",
+  "history_after_force_stop_and_reinstall": "passed",
+  "device": "Android 15 ARM64 emulator",
+  "personal_data_used": false
+}

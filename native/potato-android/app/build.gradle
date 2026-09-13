@@ -1,0 +1,44 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'top.recodex.potato'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'top.recodex.potato'
+        minSdk 28
+        targetSdk 35
+        versionCode 26091302
+        versionName '0.2.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    signingConfigs {
+        release {
+            def keyPath = System.getenv('POTATO_ANDROID_KEYSTORE')
+            if (keyPath) {
+                storeFile file(keyPath)
+                storePassword System.getenv('POTATO_ANDROID_STORE_PASSWORD')
+                keyAlias 'potato'
+                keyPassword System.getenv('POTATO_ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes { release { signingConfig signingConfigs.release; minifyEnabled false } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { abortOnError true; disable 'ObsoleteSdkInt' }
+}
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.exifinterface:exifinterface:1.3.7'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'io.noties.markwon:core:4.6.2'
+    implementation 'io.noties.markwon:ext-tables:4.6.2'
+    implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
+    implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
+    androidTestImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+    androidTestImplementation 'com.squareup.okhttp3:okhttp-tls:4.12.0'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+}
