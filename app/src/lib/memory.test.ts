@@ -125,3 +125,15 @@ describe("memory editor state", () => {
     });
   });
 });
+
+describe("unavailable memory timestamps", () => {
+  it("leaves invalid times blank and sorts undated files last", () => {
+    for (const value of [null, "", "invalid", Infinity, NaN, 1e30]) {
+      expect(memoryTimeIso(value)).toBeNull();
+    }
+    expect(memoryTimeIso(0)).toBe("1970-01-01T00:00:00.000Z");
+    const missing = { ...file("unknown.md", ""), modified_time: null };
+    expect(groupMemoryFiles([missing, file("new.md", "2026-09-08")])[0].items.map(f => f.filename))
+      .toEqual(["new.md", "unknown.md"]);
+  });
+});

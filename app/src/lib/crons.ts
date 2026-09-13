@@ -111,7 +111,9 @@ export function buildCronSpec(
     task_type: "agent",
     request: {
       ...(existing?.request ?? {}),
-      input,
+      input: existing && form.prompt === promptFromSpec(existing)
+        ? existing.request?.input
+        : input,
     },
     dispatch: {
       ...(existing?.dispatch ?? {}),
@@ -129,26 +131,25 @@ export function promptFromSpec(spec: CronJobSpec): string {
   if (!spec.request) return "";
   const input = spec.request.input;
   if (!Array.isArray(input)) return "";
-  for (const message of input) {
-    if (!message || typeof message !== "object") continue;
+  return input.flatMap((message) => {
+    if (!message || typeof message !== "object") return [];
     const content = (message as { content?: unknown }).content;
-    if (typeof content === "string") return content;
-    if (!Array.isArray(content)) continue;
-    for (const part of content) {
-      if (
-        part &&
-        typeof part === "object" &&
-        typeof (part as { text?: unknown }).text === "string"
-      ) {
-        return (part as { text: string }).text;
-      }
-    }
-  }
-  return "";
+    if (typeof content === "string") return [content];
+    if (!Array.isArray(content)) return [];
+    return content.flatMap((part) =>
+      part && typeof part === "object" && part.type === "text" && typeof part.text === "string"
+        ? [part.text] : [],
+    );
+  }).join("\n");
 }
 
 /** The compact editor only round-trips recurring agent jobs safely. */
 export function isCronJobEditable(spec: CronJobSpec): boolean {
+  const input = spec.request?.input;
+  if (!Array.isArray(input) || input.length !== 1 || input[0]?.role !== "user") return false;
+  const content = input[0].content;
+  if (typeof content !== "string" && !(Array.isArray(content) && content.length > 0 &&
+    content.every((part) => part?.type === "text" && typeof part.text === "string"))) return false;
   return (
     spec.schedule.type === "cron" &&
     spec.task_type === "agent" &&

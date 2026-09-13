@@ -382,3 +382,24 @@ async def test_run_job_creates_background_task_for_known_job(
 
     mock_exec.assert_called_once()
     await manager.stop()
+
+@pytest.mark.asyncio
+async def test_pause_resume_persists_latest_spec(manager, repo):
+    spec = make_cron_job_spec(job_id="toggle")
+    await repo.upsert_job(spec)
+    await manager.start()
+    try:
+        newer = spec.model_copy(update={"name": "Newer configuration"})
+        await manager.create_or_replace_job(newer)
+        await manager.pause_job("toggle")
+        saved = await repo.get_job("toggle")
+        assert saved.enabled is False
+        assert saved.name == "Newer configuration"
+        assert manager.get_state("toggle").next_run_at is None
+        await manager.resume_job("toggle")
+        saved = await repo.get_job("toggle")
+        assert saved.enabled is True
+        assert saved.name == "Newer configuration"
+        assert manager.get_state("toggle").next_run_at is not None
+    finally:
+        await manager.stop()

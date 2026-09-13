@@ -818,6 +818,7 @@ export const dictionaries = {
     "memory.contentLoading": "正在读取记忆内容…",
     "memory.contentLoadFailed": "读取记忆内容失败：{message}",
     "memory.saveFailed": "保存记忆失败：{message}",
+    "memory.saveConflict": "记忆已被其他操作修改，未覆盖新内容。草稿已保留，请先复制草稿，再关闭并重新打开记忆以合并修改。",
     "memory.saved": "内容已保存，检索索引稍后自动更新。",
     "memory.emptyContent": "这条记忆暂时没有内容。",
     "memory.editorLabel": "编辑记忆 Markdown 内容",
@@ -1698,6 +1699,7 @@ export const dictionaries = {
     "memory.contentLoading": "Loading memory content…",
     "memory.contentLoadFailed": "Could not load memory content: {message}",
     "memory.saveFailed": "Could not save memory: {message}",
+    "memory.saveConflict": "This memory changed elsewhere and was not overwritten. Your draft is preserved. Copy it, then close and reopen the memory to merge your changes.",
     "memory.saved":
       "Content saved. The retrieval index will update automatically soon.",
     "memory.emptyContent": "This memory does not have any content yet.",

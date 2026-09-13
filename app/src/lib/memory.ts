@@ -4,8 +4,8 @@ export interface MdFileInfo {
   filename: string;
   path: string;
   size: number;
-  created_time: string | number;
-  modified_time: string | number;
+  created_time: string | number | null;
+  modified_time: string | number | null;
 }
 
 export type MemoryGroupKey = "journal" | "procedure" | "wiki" | "other";
@@ -38,8 +38,8 @@ export function groupMemoryFiles(files: MdFileInfo[]): MemoryGroup[] {
       .slice()
       .sort(
         (left, right) =>
-          timestampValue(right.modified_time) -
-          timestampValue(left.modified_time),
+          (timestampValue(right.modified_time) ?? -Infinity) -
+          (timestampValue(left.modified_time) ?? -Infinity),
       );
     return items.length > 0 ? [{ key, items }] : [];
   });
@@ -79,9 +79,9 @@ export function memoryDisplayName(file: MdFileInfo): string {
  * 把后端的 epoch 秒/毫秒或日期串归一成 ISO 串，交给 lib/relativeTime 渲染。
  * 无法解析时返回 null（调用方留白）。
  */
-export function memoryTimeIso(value: string | number): string | null {
+export function memoryTimeIso(value: string | number | null): string | null {
   const timestamp = timestampValue(value);
-  if (!timestamp) return null;
+  if (timestamp === null) return null;
   return new Date(timestamp).toISOString();
 }
 
@@ -100,16 +100,13 @@ export function formatFileSize(bytes: number, language: "zh" | "en"): string {
   }).format(value)} ${unit}`;
 }
 
-function timestampValue(value: string | number): number {
-  if (typeof value === "number") {
-    return value < 1_000_000_000_000 ? value * 1000 : value;
-  }
+function timestampValue(value: string | number | null): number | null {
+  if (value === null || (typeof value === "string" && !value.trim())) return null;
   const numeric = Number(value);
-  if (value.trim() && Number.isFinite(numeric)) {
-    return numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
-  }
-  const parsed = new Date(value).valueOf();
-  return Number.isNaN(parsed) ? 0 : parsed;
+  const parsed = Number.isFinite(numeric)
+    ? new Date(numeric < 1_000_000_000_000 ? numeric * 1000 : numeric).valueOf()
+    : new Date(value).valueOf();
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export interface MemoryEditorState {
@@ -198,12 +195,12 @@ export const memoryApi = {
       `/api/workspace/memory/${encodeMemoryPath(path)}`,
       { signal },
     ),
-  update: (path: string, content: string) =>
+  update: (path: string, content: string, expectedContent: string) =>
     apiJson<{ written: true }>(
       `/api/workspace/memory/${encodeMemoryPath(path)}`,
       {
         method: "PUT",
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, expected_content: expectedContent }),
       },
     ),
 };

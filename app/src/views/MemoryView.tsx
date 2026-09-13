@@ -1,3 +1,4 @@
+import { ApiError } from "../lib/api";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   ChevronRight,
@@ -262,11 +263,13 @@ function MemoryDetails({
     dispatch({ type: "saveStart" });
     setNotice(null);
     try {
-      await memoryApi.update(file.filename, editor.draft);
+      await memoryApi.update(file.filename, editor.draft, editor.content);
     } catch (reason) {
       dispatch({
         type: "saveFailure",
-        error: t("memory.saveFailed", { message: readableError(reason) }),
+        error: reason instanceof ApiError && reason.status === 409
+          ? t("memory.saveConflict")
+          : t("memory.saveFailed", { message: readableError(reason) }),
       });
       return;
     }
@@ -545,15 +548,12 @@ function TechnicalDetails({
 }
 
 function formatAbsoluteTime(
-  value: string | number,
+  value: string | number | null,
   language: "zh" | "en",
 ): string {
-  const numeric = typeof value === "number" ? value : Number(value);
-  const date =
-    Number.isFinite(numeric) && String(value).trim()
-      ? new Date(numeric < 1_000_000_000_000 ? numeric * 1000 : numeric)
-      : new Date(String(value));
-  if (Number.isNaN(date.valueOf())) return String(value);
+  const iso = memoryTimeIso(value);
+  if (!iso) return "—";
+  const date = new Date(iso);
   return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en", {
     year: "numeric",
     month: "short",

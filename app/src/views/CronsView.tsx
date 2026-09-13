@@ -231,11 +231,6 @@ export function CronsView() {
       await cronApi.action(job.id, action);
       if (action === "run") {
         setNotice(t("crons.runStarted", { name: job.name }));
-      } else {
-        await cronApi.replace(job.id, {
-          ...job,
-          enabled: action === "resume",
-        });
       }
       await load();
     } catch (reason) {

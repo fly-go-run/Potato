@@ -116,3 +116,26 @@ describe("legacy cron variants", () => {
     expect(isCronJobEditable(legacy)).toBe(false);
   });
 });
+
+describe("multipart task editing", () => {
+  const form = { name: "Report", cron: "0 9 * * *", prompt: "Report", targetKey: targetKey(target) };
+  it("shows every text block and preserves original input when only the name changes", () => {
+    const spec = buildCronSpec(form, target, "UTC");
+    spec.request!.input = [{ role: "user", type: "message", content: [
+      { type: "text", text: "Report" }, { type: "text", text: "Keep secrets private" },
+    ] }];
+    expect(isCronJobEditable(spec)).toBe(true);
+    expect(promptFromSpec(spec)).toBe("Report\nKeep secrets private");
+    const edited = buildCronSpec({ ...form, name: "Renamed", prompt: promptFromSpec(spec) }, target, "UTC", spec);
+    expect(edited.request!.input).toEqual(spec.request!.input);
+    const changed = buildCronSpec({ ...form, prompt: "New report\nKeep secrets private" }, target, "UTC", spec);
+    expect(promptFromSpec(changed)).toBe("New report\nKeep secrets private");
+  });
+  it("does not offer a text-only editor for images or multiple messages", () => {
+    const spec = buildCronSpec(form, target, "UTC");
+    spec.request!.input = [{ role: "user", content: [{ type: "text", text: "Report" }, { type: "image", image_url: "image" }] }];
+    expect(isCronJobEditable(spec)).toBe(false);
+    spec.request!.input = [{ role: "user", content: "one" }, { role: "user", content: "two" }];
+    expect(isCronJobEditable(spec)).toBe(false);
+  });
+});
