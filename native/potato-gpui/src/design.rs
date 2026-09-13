@@ -1,6 +1,22 @@
 //! Values from app/src/styles/tokens.css.
 use gpui_kit::component::{Theme, ThemeMode};
 use gpui_kit::*;
+/// Shared reading column, keeping messages and the composer aligned.
+pub const CHAT_WIDTH: f32 = 768.;
+
+/// Body text inherits the platform font. Keep headings modest for long answers.
+pub fn answer_style() -> gpui_kit::component::text::TextViewStyle {
+    gpui_kit::component::text::TextViewStyle::default()
+        .paragraph_gap(rems(1.))
+        .heading_font_size(|level, _| {
+            px(match level {
+                1 => 24.,
+                2 => 21.,
+                3 => 18.,
+                _ => 16.,
+            })
+        })
+}
 pub fn apply(dark: bool, window: Option<&mut Window>, cx: &mut App) {
     Theme::change(
         if dark {

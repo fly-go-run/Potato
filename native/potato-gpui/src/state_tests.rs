@@ -5,6 +5,103 @@ use gpui_kit::{AppContext, Context, TestAppContext, Window, gpui};
 use serde_json::{Value, json};
 
 struct ComposerControl(gpui::Entity<Potato>);
+
+#[gpui::test]
+fn timeline_completion_preserves_scrolled_reading_position(cx: &mut TestAppContext) {
+    let backend = Backend::for_ui_test(
+        std::env::temp_dir().join(format!("potato-reading-position-{}", uuid::Uuid::new_v4())),
+    )
+    .unwrap();
+    cx.update(|cx| {
+        gpui_kit::init(cx);
+        cx.set_reduce_motion(true);
+    });
+    let (app, cx) = cx.add_window_view(|window, cx| {
+        let mut app = Potato::new(backend, window, cx);
+        app.session = "reading-position".into();
+        for n in 0..12 {
+            app.history.push(json!({"id":format!("u-{n}"),"role":"user","content":format!("Earlier question {n}")}));
+            app.history.push(json!({"id":format!("a-{n}"),"role":"assistant","type":"message","status":"completed","content":"Earlier answer\n\nDetails stay at the same reading position."}));
+        }
+        app.history.push(json!({"id":"current-user","role":"user","content":"Check the current task"}));
+        app.streaming = true;
+        app.turn.apply(json!({"object":"response","id":"response","status":"in_progress"}));
+        app.turn.apply(json!({"object":"message","id":"live-reasoning","role":"assistant","type":"reasoning","status":"in_progress","content":[{"type":"text","text":"Checking current task"}]}));
+        app
+    });
+    cx.run_until_parked();
+    app.update(cx, |app, cx| {
+        assert!(app.chat.scroll.max_offset().y > gpui::px(300.));
+        app.chat.scroll_paused = true;
+        app.preserve_process_reading();
+        app.chat
+            .scroll
+            .set_offset(gpui::point(gpui::px(0.), gpui::px(-300.)));
+        cx.notify();
+    });
+    cx.update(|w, _| w.refresh());
+    cx.run_until_parked();
+    let before = app.read_with(cx, |app, _| app.chat.scroll.offset());
+    app.update(cx, |app, cx| {
+        app.turn.apply(json!({"object":"message","id":"answer","role":"assistant","type":"message","phase":"final_answer","status":"completed","content":[{"type":"text","text":"The final answer"}]}));
+        app.turn.apply(json!({"object":"response","id":"response","status":"completed"}));
+        app.finish_process();
+        app.streaming = false;
+        app.history.append(&mut app.turn.messages);
+        cx.notify();
+    });
+    cx.update(|w, _| w.refresh());
+    cx.run_until_parked();
+    app.read_with(cx, |app, _| {
+        assert_eq!(app.chat.scroll.offset(), before);
+        assert_eq!(
+            app.chat.process_open.get("reading-position:live-reasoning"),
+            Some(&true)
+        );
+    });
+}
+
+#[gpui::test]
+fn selected_conversation_renders_live_timeline_and_reduced_motion_disclosure(
+    cx: &mut TestAppContext,
+) {
+    let backend = Backend::for_ui_test(
+        std::env::temp_dir().join(format!("potato-timeline-{}", uuid::Uuid::new_v4())),
+    )
+    .unwrap();
+    cx.update(|cx| {
+        gpui_kit::init(cx);
+        cx.set_reduce_motion(true);
+    });
+    let (app, cx) = cx.add_window_view(|window, cx| {
+        let mut app = Potato::new(backend, window, cx);
+        let fixture: Value =
+            serde_json::from_str(include_str!("../design/process-timeline/running.json")).unwrap();
+        app.session = "visual-review".into();
+        app.selected = Some("visual-review".into());
+        app.chats = vec![json!({"id":"visual-review", "name":"回复体验优化"})];
+        app.history = fixture["history"].as_array().unwrap().clone();
+        app.streaming = true;
+        for frame in fixture["initial"].as_array().unwrap() {
+            app.turn.apply(frame.clone());
+        }
+        app
+    });
+    cx.run_until_parked();
+    for open in [false, true] {
+        app.update(cx, |app, cx| {
+            app.chat
+                .process_open
+                .insert("visual-review:r1".into(), open);
+            cx.notify();
+        });
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        app.read_with(cx, |app, _| {
+            assert_eq!(app.chat.process_open.get("visual-review:r1"), Some(&open))
+        });
+    }
+}
 impl gpui::Render for ComposerControl {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl gpui::IntoElement {
         use gpui_kit::{InteractiveElement, ParentElement, Styled, div, px};
@@ -19,7 +116,7 @@ impl gpui::Render for ComposerControl {
 
 #[gpui::test]
 fn composer_grows_for_wrapped_input_caps_and_shrinks_after_clear(cx: &mut TestAppContext) {
-    let backend = Backend::open_at(
+    let backend = Backend::for_ui_test(
         std::env::temp_dir().join(format!("potato-composer-{}", uuid::Uuid::new_v4())),
     )
     .unwrap();
@@ -27,9 +124,20 @@ fn composer_grows_for_wrapped_input_caps_and_shrinks_after_clear(cx: &mut TestAp
     let (control, cx) = cx.add_window_view(|window, cx| {
         ComposerControl(cx.new(|cx| Potato::new(backend, window, cx)))
     });
-    let empty = cx.debug_bounds("composer-size").unwrap().size.height;
-    assert!(empty <= gpui::px(104.), "empty composer: {empty:?}");
+    let home = cx.debug_bounds("composer-size").unwrap().size.height;
+    assert!(home >= gpui::px(140.), "home composer: {home:?}");
     let app = control.read_with(cx, |control, _| control.0.clone());
+    cx.update(|window, cx| {
+        app.update(cx, |app, cx| {
+            app.history
+                .push(serde_json::json!({"role": "user", "content": "你好"}));
+            cx.notify();
+        });
+        window.refresh();
+    });
+    cx.run_until_parked();
+    let empty = cx.debug_bounds("composer-size").unwrap().size.height;
+    assert!(empty <= gpui::px(104.), "conversation composer: {empty:?}");
     let mut set_text = |text: String| {
         cx.update(|window, cx| {
             app.update(cx, |app, cx| {
@@ -65,6 +173,7 @@ impl gpui::Render for ProcessControl {
                 "completed",
                 true,
                 Some(176),
+                false,
                 cx,
             )
         })
@@ -74,7 +183,7 @@ impl gpui::Render for ProcessControl {
 #[gpui::test]
 fn process_summary_mouse_click_toggles_same_stable_round(cx: &mut TestAppContext) {
     use gpui_kit::{Modifiers, point, px};
-    let backend = Backend::open_at(
+    let backend = Backend::for_ui_test(
         std::env::temp_dir().join(format!("potato-gpui-click-{}", uuid::Uuid::new_v4())),
     )
     .unwrap();
@@ -111,7 +220,7 @@ fn with_potato(
 ) {
     let directory =
         std::env::temp_dir().join(format!("potato-gpui-state-{}", uuid::Uuid::new_v4()));
-    let backend = Backend::open_at(directory).unwrap();
+    let backend = Backend::for_ui_test(directory).unwrap();
     cx.update(gpui_kit::init);
     let window = cx.add_empty_window();
     window.update(|window, cx| {
@@ -278,7 +387,9 @@ fn reading_live_process_survives_completion_without_opening_old_history(cx: &mut
             json!({"id":"new-user", "role":"user", "content":"new"}),
         ];
         app.streaming = true;
-        app.turn.messages = vec![json!({"id":"live", "role":"assistant", "content":"checking"})];
+        app.turn.messages = vec![
+            json!({"id":"live", "role":"assistant", "phase":"commentary", "content":"checking"}),
+        ];
         app.preserve_process_reading();
         assert!(!app.chat.process_open.contains_key("reading:old-tool"));
         assert!(app.chat.process_open["reading:live"]);
@@ -348,7 +459,7 @@ fn archives_load_separately_restore_persistently_and_keep_failed_rows(cx: &mut T
         ),
     )
     .unwrap();
-    let backend = Backend::open_at(directory).unwrap();
+    let backend = Backend::for_ui_test(directory).unwrap();
     let request = |method: &str, path: &str, body| {
         backend
             .executor
@@ -404,5 +515,103 @@ fn archives_load_separately_restore_persistently_and_keep_failed_rows(cx: &mut T
         assert_eq!(app.conversations.archive_rows.len(), 1);
         assert!(app.conversations.archive_restoring.is_empty());
         assert!(app.conversations.archive_row_errors.contains_key("missing"));
+    });
+}
+
+struct QueueControl(gpui::Entity<Potato>);
+impl gpui::Render for QueueControl {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+        use gpui_kit::{ParentElement, Styled, div, px};
+        div()
+            .pt(px(200.))
+            .w(px(760.))
+            .child(self.0.update(cx, |s, cx| s.composer_view(window, cx)))
+    }
+}
+#[gpui::test]
+fn queue_shelf_is_compact_and_hover_menu_survives_pointer_entry(cx: &mut TestAppContext) {
+    use gpui_kit::{Modifiers, px};
+    let backend = Backend::for_ui_test(
+        std::env::temp_dir().join(format!("potato-outbox-ui-{}", uuid::Uuid::new_v4())),
+    )
+    .unwrap();
+    cx.update(gpui_kit::init);
+    let (control,cx)=cx.add_window_view(|window,cx| {
+        let app=cx.new(|cx|Potato::new(backend,window,cx));
+        app.update(cx,|s,cx| {
+            s.streaming=true;
+            s.composer.update(cx,|i,cx|i.set_value("还有，顺便检查一下快捷键",window,cx));
+            s.outbox.session=s.session.clone();
+            s.outbox.value=json!({"items":[{"id":"one","state":"pending","request":{"input":[{"content":[{"type":"text","text":"检查工具调用"}]}]}},{"id":"two","state":"pending","request":{"input":[{"content":[{"type":"text","text":"检查语音输入"}]}]}}]});
+        });
+        QueueControl(app)
+    });
+    let shelf = cx.debug_bounds("outbox-shelf").unwrap();
+    assert!(shelf.size.height <= px(84.));
+    control.update(cx, |c, cx| {
+        c.0.update(cx, |s, cx| {
+            s.outbox.menu = Some("one".into());
+            cx.notify();
+        })
+    });
+    cx.update(|w, _| w.refresh());
+    cx.run_until_parked();
+    assert_eq!(
+        cx.debug_bounds("outbox-shelf").unwrap(),
+        shelf,
+        "opening the menu must not move the composer"
+    );
+    assert!(cx.debug_bounds("queue-action-menu").is_some());
+    control.update(cx, |c, cx| {
+        c.0.update(cx, |s, cx| {
+            s.outbox.menu = None;
+            cx.notify();
+        })
+    });
+    assert!(cx.debug_bounds("send-menu").is_none());
+    let send = cx.debug_bounds("send-region").unwrap();
+    cx.simulate_mouse_move(send.center(), None, Modifiers::none());
+    cx.update(|w, _| w.refresh());
+    cx.run_until_parked();
+    let menu = cx
+        .debug_bounds("send-menu")
+        .expect("hover must reveal the menu");
+    cx.simulate_mouse_move(menu.center(), None, Modifiers::none());
+    cx.update(|w, _| w.refresh());
+    cx.run_until_parked();
+    control.read_with(cx, |c, cx| assert!(c.0.read(cx).outbox.send_hover));
+}
+
+#[gpui::test]
+fn switching_during_reply_preserves_draft_and_resets_visible_run(cx: &mut TestAppContext) {
+    with_potato(cx, |app, window, cx| {
+        app.session = "running-session".into();
+        app.selected = Some("running-chat".into());
+        app.history = vec![previous_message()];
+        app.streaming = true;
+        app.turn.status = "in_progress".into();
+        app.chat.run_started = Some(std::time::Instant::now());
+        draft(app, "unsent followup", "image", window, cx);
+        let epoch = app.epoch;
+        app.select_chat(existing_chat(), window, cx);
+        assert_eq!(app.session, "existing-session");
+        assert!(!app.streaming);
+        assert!(app.turn.messages.is_empty());
+        assert!(app.chat.run_started.is_none());
+        assert!(app.epoch > epoch);
+        assert_eq!(app.drafts["running-session"].0, "unsent followup");
+        assert_eq!(app.drafts["running-session"].1.len(), 1);
+        app.streaming = true;
+        let epoch = app.epoch;
+        app.select_chat(existing_chat(), window, cx);
+        assert!(
+            app.streaming,
+            "reselecting the current chat keeps its stream"
+        );
+        assert_eq!(app.epoch, epoch);
+        app.new_chat(window, cx);
+        assert!(app.selected.is_none());
+        assert!(!app.streaming);
+        assert!(app.epoch > epoch);
     });
 }

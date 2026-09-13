@@ -7,6 +7,7 @@ use gpui_kit::prelude::*;
 use std::collections::BTreeSet;
 #[derive(Default)]
 pub struct ChatState {
+    pub markdown: crate::media::MarkdownCache,
     pub loading: bool,
     pub load_error: bool,
     pub scroll: ScrollHandle,
@@ -18,6 +19,7 @@ pub struct ChatState {
     pub full_output: BTreeSet<String>,
     pub completed_runs: BTreeMap<String, Value>,
     pub run_started: Option<std::time::Instant>,
+    pub motion: crate::process::ProcessMotion,
     pub copied: Option<String>,
     pub edit_backup: Option<(String, Vec<Value>)>,
 }
@@ -26,13 +28,13 @@ pub fn draft_key(session: &str, unsent: bool) -> &str {
     if unsent { NEW_DRAFT } else { session }
 }
 /// Tool outputs only join their matching call; an orphan remains visible.
-fn is_call(v: &Value) -> bool {
+pub(crate) fn is_call(v: &Value) -> bool {
     matches!(
         v["type"].as_str(),
         Some("plugin_call" | "function_call" | "mcp_tool_call")
     )
 }
-fn is_output(v: &Value) -> bool {
+pub(crate) fn is_output(v: &Value) -> bool {
     matches!(
         v["type"].as_str(),
         Some("plugin_call_output" | "function_call_output" | "mcp_tool_call_output")
@@ -73,6 +75,7 @@ pub enum ChatBlock {
         active: bool,
         state: String,
         elapsed: Option<u64>,
+        answering: bool,
     },
 }
 
@@ -81,26 +84,23 @@ fn turn_boundary(message: &Value) -> bool {
         && message["metadata"]["steering_state"].is_null()
         && message["metadata"]["question_request_id"].is_null()
 }
-fn phase(message: &Value) -> &str {
+pub(crate) fn phase(message: &Value) -> &str {
     message["phase"]
         .as_str()
         .or_else(|| message["metadata"]["phase"].as_str())
         .unwrap_or("")
 }
-fn answer_text(message: &Value) -> bool {
+pub(crate) fn answer_text(message: &Value) -> bool {
     message["role"] == "assistant"
         && matches!(message["type"].as_str(), None | Some("message"))
         && (!reusable(message).0.trim().is_empty() || !reusable(message).1.is_empty())
 }
 fn visible(message: &Value) -> bool {
-    is_call(message)
-        || is_output(message)
-        || message["type"] == "reasoning"
-        || !message_text(message).trim().is_empty()
+    is_call(message) || is_output(message) || !message_text(message).trim().is_empty()
 }
-/// A message-completed event is not a run-completed event. With no phase
-/// supplied by the provider, live narration stays in the process until the
-/// response reaches its terminal state. Steering does not split a turn.
+/// Unphased assistant text stays in the same body throughout the run. Only
+/// explicit commentary, reasoning and tools belong to the collapsible process.
+/// A message-completed event alone never enables final-answer actions.
 pub fn chat_blocks(messages: &[Value], streaming: bool, latest_status: &str) -> Vec<ChatBlock> {
     let rows = presentation(messages);
     let mut blocks = vec![];
@@ -143,17 +143,13 @@ pub fn chat_blocks(messages: &[Value], streaming: bool, latest_status: &str) -> 
                 )
         });
         let finished = !active && candidate.is_some() && matches!(state, "" | "completed");
-        let answer = if finished {
-            candidate
-        } else if active {
-            last_content.filter(|&n| answer_text(&rows[n].1) && phase(&rows[n].1) == "final")
-        } else {
-            None
-        };
+        let bodies: Vec<_> = (start..end)
+            .filter(|&n| answer_text(&rows[n].1) && phase(&rows[n].1) != "commentary")
+            .collect();
         let process: Vec<_> = rows[start..end]
             .iter()
             .enumerate()
-            .filter(|(n, (_, m))| Some(start + n) != answer && visible(m))
+            .filter(|(n, (_, m))| !bodies.contains(&(start + n)) && visible(m))
             .map(|(_, row)| row.clone())
             .collect();
         if !process.is_empty() {
@@ -177,15 +173,26 @@ pub fn chat_blocks(messages: &[Value], streaming: bool, latest_status: &str) -> 
                 finished,
                 active,
                 state: inferred.into(),
-                elapsed: saved["elapsed"].as_u64(),
+                elapsed: saved["elapsed"]
+                    .as_u64()
+                    .or_else(|| crate::process::round_elapsed(&rows[start..end])),
+                answering: active
+                    && bodies.iter().any(|&n| {
+                        matches!(phase(&rows[n].1), "final" | "final_answer") && visible(&rows[n].1)
+                    })
+                    && !rows[start..end].iter().any(|(_, m)| {
+                        is_call(m)
+                            && crate::process::step_state(m, true)
+                                == crate::process::StepState::Running
+                    }),
             });
         }
-        if let Some(n) = answer {
+        for n in bodies {
             let (index, message) = rows[n].clone();
             blocks.push(ChatBlock::Message {
                 index,
                 message,
-                final_answer: finished,
+                final_answer: finished && Some(n) == candidate,
             });
         }
         start = end;
@@ -197,7 +204,7 @@ pub fn chat_blocks(messages: &[Value], streaming: bool, latest_status: &str) -> 
 pub fn process_is_open(choice: Option<bool>, finished: bool) -> bool {
     choice.unwrap_or(!finished)
 }
-fn row_key(session: &str, index: usize, message: &Value) -> String {
+pub(crate) fn row_key(session: &str, index: usize, message: &Value) -> String {
     format!(
         "{session}:{}",
         message["id"]
@@ -206,7 +213,7 @@ fn row_key(session: &str, index: usize, message: &Value) -> String {
             .unwrap_or_else(|| index.to_string())
     )
 }
-fn duration_label(seconds: u64) -> String {
+pub(crate) fn duration_label(seconds: u64) -> String {
     if seconds < 60 {
         format!("{seconds}秒")
     } else if seconds < 3600 {
@@ -215,7 +222,7 @@ fn duration_label(seconds: u64) -> String {
         format!("{}小时{}分", seconds / 3600, seconds % 3600 / 60)
     }
 }
-fn tool_failed(message: &Value) -> bool {
+pub(crate) fn tool_failed(message: &Value) -> bool {
     let result = if is_output(message) {
         message
     } else {
@@ -231,7 +238,7 @@ fn tool_failed(message: &Value) -> bool {
         .unwrap_or(Value::Null);
     output["exit_code"].as_i64().is_some_and(|n| n != 0)
 }
-fn tool_label(message: &Value) -> (IconName, String) {
+pub(crate) fn tool_label(message: &Value) -> (IconName, String) {
     if message["type"] == "reasoning" {
         return (IconName::Sparkles, "思考".into());
     }
@@ -250,6 +257,8 @@ fn tool_label(message: &Value) -> (IconName, String) {
         .unwrap_or(path);
     let name = data["name"].as_str().unwrap_or("工具调用");
     let (icon, fallback) = match name {
+        "create_office_file" => (IconName::FileText, format!("生成 Office 文件 {file}")),
+        "fill_office_template" => (IconName::FileText, format!("填充 Office 模板 {file}")),
         "read_file" => (IconName::FileText, format!("读取 {file}")),
         "write_file" | "edit_file" | "apply_patch" => (
             IconName::SquarePen,
@@ -282,7 +291,7 @@ fn tool_label(message: &Value) -> (IconName, String) {
             .join(" "),
     )
 }
-fn tool_details(message: &Value) -> String {
+pub(crate) fn tool_details(message: &Value) -> String {
     if message["type"] == "reasoning" {
         return message_text(message);
     }
@@ -320,7 +329,7 @@ fn answer_button(id: &'static str, icon: IconName, label: &'static str) -> Butto
         .tooltip(label)
         .accessibility_label(label)
 }
-fn preview_rows(rows: &[(usize, Value)], full: bool) -> Vec<usize> {
+pub(crate) fn preview_rows(rows: &[(usize, Value)], full: bool) -> Vec<usize> {
     if full {
         return (0..rows.len()).collect();
     }
@@ -334,10 +343,16 @@ fn preview_rows(rows: &[(usize, Value)], full: bool) -> Vec<usize> {
         .map(|(n, _)| n)
         .collect();
     (0..rows.len())
-        .filter(|n| Some(*n) == last_text || recent.contains(n) || rows[*n].1["role"] == "user")
+        .filter(|n| {
+            Some(*n) == last_text
+                || recent.contains(n)
+                || rows[*n].1["role"] == "user"
+                || crate::process::step_state(&rows[*n].1, true)
+                    == crate::process::StepState::Running
+        })
         .collect()
 }
-fn output_preview(text: &str, full: bool) -> (String, bool) {
+pub(crate) fn output_preview(text: &str, full: bool) -> (String, bool) {
     if full {
         return (text.into(), false);
     }
@@ -418,163 +433,7 @@ impl Potato {
             self.chat.run_started = None;
         }
     }
-    pub fn process_view(
-        &self,
-        index: usize,
-        rows: &[(usize, Value)],
-        state: &str,
-        finished: bool,
-        elapsed: Option<u64>,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let source = self
-            .history
-            .iter()
-            .chain(&self.turn.messages)
-            .nth(index)
-            .unwrap_or(&rows[0].1);
-        let key = row_key(&self.session, index, source);
-        let open = process_is_open(self.chat.process_open.get(&key).copied(), finished);
-        let active = state == "in_progress";
-        let waiting = if active && !self.interactions.approvals.is_empty() {
-            Some("等待确认")
-        } else if active && !self.interactions.questions.is_empty() {
-            Some("等待你的回复")
-        } else {
-            None
-        };
-        let seconds = elapsed.or_else(|| {
-            active
-                .then(|| self.chat.run_started.map(|t| t.elapsed().as_secs()))
-                .flatten()
-        });
-        let label = if let Some(waiting) = waiting {
-            waiting.into()
-        } else if finished {
-            seconds
-                .map(|s| format!("耗时 {}", duration_label(s)))
-                .unwrap_or_else(|| "已完成".into())
-        } else if active {
-            seconds
-                .map(|s| format!("正在执行 · {}", duration_label(s)))
-                .unwrap_or_else(|| "正在执行".into())
-        } else if state == "cancelled" {
-            "已停止".into()
-        } else {
-            "已中断".into()
-        };
-        let toggle_key = key.clone();
-        let mut toggle = Button::new(("process-toggle", index))
-            .ghost()
-            .small()
-            .h(px(32.))
-            .w_full()
-            .px_0()
-            .justify_start()
-            .font_weight(FontWeight::NORMAL)
-            .text_color(cx.theme().muted_foreground)
-            .accessibility_label(format!(
-                "{}执行过程，{label}",
-                if open { "收起" } else { "展开" }
-            ))
-            .tooltip(if open {
-                "收起执行过程"
-            } else {
-                "展开执行过程"
-            });
-        if active && waiting.is_none() {
-            toggle = toggle.child(Spinner::new().with_size(px(16.)));
-        }
-        toggle = toggle
-            .child(div().text_size(px(14.)).child(label))
-            .child(
-                Icon::new(if open {
-                    IconName::ChevronUp
-                } else {
-                    IconName::ChevronDown
-                })
-                .size(px(16.)),
-            )
-            .child(div().flex_1());
-        let mut group = div()
-            .id(("process", index))
-            .w_full()
-            .max_w(px(760.))
-            .min_w_0()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(toggle.on_click(cx.listener(move |s, _, _, cx| {
-                s.chat.scroll_paused = true;
-                s.chat.process_open.insert(toggle_key.clone(), !open);
-                if !open {
-                    s.chat.full_process.insert(toggle_key.clone());
-                    s.chat.frozen_preview.remove(&toggle_key);
-                }
-                cx.notify();
-            })));
-        if open {
-            let full = !active || self.chat.full_process.contains(&key);
-            let selected = if let Some(frozen) = self.chat.frozen_preview.get(&key) {
-                rows.iter()
-                    .enumerate()
-                    .filter(|(_, (i, _))| frozen.contains(i))
-                    .map(|(n, _)| n)
-                    .collect()
-            } else {
-                preview_rows(rows, full)
-            };
-            let mut details = div().flex().flex_col().gap_1().min_w_0();
-            let mut shortened = false;
-            for n in &selected {
-                let (i, message) = &rows[*n];
-                let narration = message_text(message);
-                if message["role"] == "user" {
-                    details = details.child(
-                        div()
-                            .py_2()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(format!("补充指令：{}", message_text(message))),
-                    );
-                } else if !full
-                    && answer_text(message)
-                    && (narration.chars().count() > 64 || narration.lines().count() > 2)
-                {
-                    shortened = true;
-                    details = details.child(
-                        div()
-                            .py_2()
-                            .text_size(px(16.))
-                            .line_clamp(2)
-                            .child(narration),
-                    );
-                } else {
-                    details = details.child(self.message_view(*i, message, false, false, cx));
-                }
-            }
-            if shortened || selected.len() < rows.len() {
-                details = details.child(
-                    Button::new(("earlier-process", index))
-                        .ghost()
-                        .small()
-                        .px_0()
-                        .self_start()
-                        .font_weight(FontWeight::NORMAL)
-                        .text_color(cx.theme().muted_foreground)
-                        .label("更早记录")
-                        .on_click(cx.listener(move |s, _, _, cx| {
-                            s.chat.scroll_paused = true;
-                            s.chat.process_open.insert(key.clone(), true);
-                            s.chat.full_process.insert(key.clone());
-                            s.chat.frozen_preview.remove(&key);
-                            cx.notify();
-                        })),
-                );
-            }
-            group = group.child(details);
-        }
-        group.into_any_element()
-    }
+
     pub fn cancel_chat_edit(&mut self, w: &mut Window, cx: &mut Context<Self>) {
         if self.streaming {
             return;
@@ -651,10 +510,10 @@ impl Potato {
         let text = message_text(m);
         let hover_group = format!("chat-message-{i}");
         let mut card = div()
-            .id(("message-row", i))
+            .id(ElementId::Name(format!("message-row-{key}").into()))
             .group(hover_group.clone())
             .w_full()
-            .max_w(px(760.))
+            .max_w(px(crate::design::CHAT_WIDTH))
             .min_w_0()
             .flex()
             .flex_col()
@@ -770,13 +629,20 @@ impl Potato {
         } else {
             card = card.child(
                 div()
-                    .when(!user, |d| d.text_size(px(16.)))
+                    .when(!user, |d| d.text_size(px(16.)).line_height(px(26.)))
+                    .when(!user, |d| d.w_full())
                     .max_w_full()
                     .min_w_0()
                     .when(user, |d| {
                         d.bg(cx.theme().muted).rounded(px(20.)).px_5().py_3()
                     })
-                    .child(TextView::markdown(("message", i), text.clone()).selectable(true)),
+                    .child(crate::media::message_view(
+                        &self.session,
+                        &self.chat.markdown,
+                        i,
+                        m,
+                        cx,
+                    )),
             );
         }
         let copy_key = key.clone();
@@ -889,10 +755,39 @@ mod tests {
         json!({"role":role,"type":kind,"status":"completed","content":[{"type":"text","text":text}]})
     }
     #[test]
+    fn empty_reasoning_does_not_create_process_rows() {
+        let messages = vec![
+            message("user", "message", "question"),
+            message("assistant", "message", "answer"),
+            message("assistant", "reasoning", "  "),
+        ];
+        let blocks = chat_blocks(&messages, false, "completed");
+        assert_eq!(blocks.len(), 2);
+        assert!(matches!(
+            &blocks[1],
+            ChatBlock::Message {
+                final_answer: true,
+                ..
+            }
+        ));
+        let blocks = chat_blocks(&messages, true, "in_progress");
+        assert!(matches!(
+            &blocks[1],
+            ChatBlock::Message {
+                final_answer: false,
+                ..
+            }
+        ));
+    }
+    #[test]
     fn completed_turn_groups_narration_and_tools_before_one_final_answer() {
         let messages = vec![
             message("user", "message", "question"),
-            message("assistant", "message", "checking files"),
+            {
+                let mut m = message("assistant", "message", "checking files");
+                m["phase"] = json!("commentary");
+                m
+            },
             message("assistant", "reasoning", "thinking"),
             json!({"type":"function_call","role":"assistant","content":[{"data":{"call_id":"x"}}]}),
             json!({"type":"function_call_output","role":"tool","content":[{"data":{"call_id":"x","output":"done"}}]}),
@@ -927,7 +822,34 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(live.len(), 2, "unphased live text stays in the process");
+        assert_eq!(live.len(), 3, "unphased live text stays in the body");
+        assert!(matches!(
+            &live[2],
+            ChatBlock::Message {
+                index: 5,
+                final_answer: false,
+                ..
+            }
+        ));
+    }
+    #[test]
+    fn body_is_never_reclassified_when_a_tool_arrives_or_run_stops() {
+        let body = message("assistant", "message", "# Title\n\n".repeat(100).as_str());
+        for status in ["in_progress", "completed", "cancelled", "failed"] {
+            let rows = vec![
+                body.clone(),
+                json!({"type":"function_call", "role":"assistant", "content":[]}),
+            ];
+            let blocks = chat_blocks(&rows, status == "in_progress", status);
+            assert!(
+                blocks
+                    .iter()
+                    .any(|b| matches!(b, ChatBlock::Message { index: 0, .. }))
+            );
+            assert!(blocks.iter().all(
+                |b| !matches!(b, ChatBlock::Process { rows, .. } if rows.iter().any(|(i,_)| *i==0))
+            ));
+        }
     }
     #[test]
     fn earlier_turn_stays_settled_while_latest_turn_streams() {

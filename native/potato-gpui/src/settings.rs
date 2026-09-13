@@ -6,12 +6,15 @@ use gpui_kit::prelude::*;
 #[derive(Default)]
 pub struct SettingsState {
     pub scroll: ScrollHandle,
+    pub cloud_pending: bool,
+    pub cloud_generation: u64,
     pub loading: std::collections::BTreeSet<String>,
     pub load_errors: BTreeMap<String, String>,
     pub generation: u64,
     pub open: bool,
     pub section: usize,
     pub provider: Option<Value>,
+    pub permission_edit: Option<Value>,
     pub model: Option<Value>,
     pub creating: bool,
     pub dropdown: Option<String>,
@@ -43,6 +46,7 @@ impl Potato {
         self.reset_settings_fields();
         self.settings.generation += 1;
         let generation = self.settings.generation;
+        let cloud_generation = self.settings.cloud_generation;
         self.settings.loading.clear();
         self.settings.load_errors.clear();
         self.modal_focus.focus(w, cx);
@@ -51,6 +55,10 @@ impl Potato {
         self.notice.clear();
         self.refresh(w, cx);
         for (key, path) in [
+            ("cloud", "/api/native/cloud"),
+            ("remote", "/api/native/remote"),
+            ("computer", "/api/computer-use"),
+            ("permissions", "/api/permissions/rules"),
             ("search", "/api/workspace/web-search-backend"),
             ("speech", "/api/native/doubao-settings"),
             ("media", "/api/native/media-settings"),
@@ -60,7 +68,7 @@ impl Potato {
         ] {
             self.settings.loading.insert(key.into());
             self.request_result("GET", path, Value::Null, w, cx, move |s, result, _, _| {
-                if s.settings.generation != generation {
+                if s.settings.generation != generation || key == "cloud" && s.settings.cloud_generation != cloud_generation {
                     return;
                 }
                 s.settings.loading.remove(key);
@@ -75,6 +83,68 @@ impl Potato {
             });
         }
         cx.notify();
+    }
+    fn remote_settings_panel(&mut self, w: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let value = self.settings.data.get("remote").cloned().unwrap_or_default();
+        let relay = value["relay"].as_str().unwrap_or("https://potato-remote.recodex.top/");
+        let name = value["name"].as_str().unwrap_or("我的电脑");
+        let url = self.settings_field("remote-relay", relay, "远程服务地址", false, w, cx);
+        let name = self.settings_field("remote-name", name, "电脑名称", false, w, cx);
+        let mut panel = group("iPhone 远程控制", cx)
+            .child(muted("手机和电脑登录同一个 Cloudflare 账号，即可查看项目、继续任务并处理审批。开启远程访问后请保持 Potato 运行。", cx))
+            .child(url).child(name)
+            .child(muted(value["status"].as_str().filter(|s| !s.is_empty()).unwrap_or("尚未开启"), cx));
+        if value["auth_mode"] == "account" {
+            panel = panel.child(muted(format!("Cloudflare · {}",value["email"].as_str().unwrap_or("已登录")),cx))
+                .child(Button::new("remote-account-toggle").outline().small().label(if value["enabled"] == true {"关闭远程访问"} else {"开启远程访问"}).disabled(self.busy)
+                .on_click(cx.listener(|s,_,w,cx| {
+                    let enabled = s.settings.data.get("remote").is_some_and(|v|v["enabled"]==true);
+                    s.busy=true;s.request_result("POST","/api/native/remote",json!({"enabled":!enabled}),w,cx,|s,r,_,_|{s.busy=false;match r{Ok(v)=>{s.settings.data.insert("remote".into(),v);},Err(e)=>s.notice=e}});
+                })))
+                .child(Button::new("remote-account-logout").small().label("退出账号并撤销此电脑").disabled(self.busy).on_click(cx.listener(|s,_,w,cx| {
+                    s.busy=true;s.request_result("POST","/api/native/remote/logout",json!({}),w,cx,|s,r,_,_|{s.busy=false;match r{Ok(v)=>{s.settings.data.insert("remote".into(),v);},Err(e)=>s.notice=e}});
+                })));
+            return panel.into_any_element();
+        }
+        if let Some(url) = value["login"]["verification_url"].as_str() {
+            let url = url.to_owned();
+            panel = panel.child(muted(format!("登录验证码：{} · 请在浏览器核对后确认",value["login"]["code"].as_str().unwrap_or("")),cx))
+                .child(Button::new("remote-login-open").small().label("打开 Cloudflare 登录页面").on_click(cx.listener(move |_,_,_,cx|cx.open_url(&url))))
+                .child(Button::new("remote-login-cancel").small().label("取消登录").disabled(self.busy).on_click(cx.listener(|s,_,w,cx| {
+                    s.request_result("POST","/api/native/remote/login/cancel",json!({}),w,cx,|s,r,_,_|match r{Ok(v)=>{s.settings.data.insert("remote".into(),v);},Err(e)=>s.notice=e});
+                })));
+        } else {
+            panel = panel.child(Button::new("remote-login").outline().small().label("登录 Cloudflare 账号").disabled(self.busy).on_click(cx.listener(|s,_,w,cx| {
+                if s.busy {return;} s.busy=true;
+                let body=json!({"relay":s.settings_value("remote-relay",cx),"name":s.settings_value("remote-name",cx)});
+                s.request_result("POST","/api/native/remote/login/start",body,w,cx,|s,r,_,cx| {
+                    s.busy=false;match r{Ok(v)=>{if let Some(url)=v["login"]["verification_url"].as_str(){cx.open_url(url);}s.settings.data.insert("remote".into(),v);},Err(e)=>s.notice=e}
+                });
+            })));
+        }
+        // Existing installations can still use their explicit pairing path.
+        let token = self.settings_field("remote-token", "", "备用配对：服务连接令牌", true, w, cx);
+        panel = panel.child(token).child(Button::new("remote-enable").small().label(if value["enabled"]==true {"重新配对并撤销旧手机"} else {"使用一次性配对码"}).disabled(self.busy)
+            .on_click(cx.listener(|s,_,w,cx| {
+                if s.busy {return;} s.busy = true;
+                let body=json!({"enabled":true,"relay":s.settings_value("remote-relay",cx),"name":s.settings_value("remote-name",cx),"service_token":s.settings_value("remote-token",cx)});
+                s.request_result("POST","/api/native/remote",body,w,cx,|s,r,_,_|{s.busy=false;match r{Ok(v)=>{s.settings.data.insert("remote".into(),v);s.notice="配对码已生成，五分钟内在 iPhone 粘贴。".into();},Err(e)=>s.notice=e};s.fields.remove("settings-remote-token");s.settings.saved.remove("settings-remote-token");});
+            })));
+        if let Some(code)=value["pairing_code"].as_str(){let code=code.to_owned();panel=panel.child(Button::new("remote-copy-pairing").small().label("复制一次性配对码").on_click(cx.listener(move |_,_,_,cx|cx.write_to_clipboard(ClipboardItem::new_string(code.clone())))));}
+        if value["enabled"]==true {panel=panel.child(Button::new("remote-disable").small().label("关闭远程连接").disabled(self.busy).on_click(cx.listener(|s,_,w,cx|{s.busy=true;s.request_result("POST","/api/native/remote",json!({"enabled":false}),w,cx,|s,r,_,_|{s.busy=false;match r{Ok(v)=>{s.settings.data.insert("remote".into(),v);},Err(e)=>s.notice=e}});})))}
+        panel.into_any_element()
+    }
+    pub(crate) fn poll_remote_login_ui(&mut self, w: &mut Window, cx: &mut Context<Self>) {
+        if !self.settings.open || self.busy {return;}
+        let Some(remote) = self.settings.data.get("remote") else {return;};
+        let logging_in = remote["login"].is_object();
+        if !logging_in && remote["enabled"] != true {return;}
+        let (method, path) = if logging_in { ("POST", "/api/native/remote/login/poll") } else { ("GET", "/api/native/remote") };
+        self.busy=true;
+        self.request_result(method,path,json!({}),w,cx,|s,r,_,_|{
+            s.busy=false;
+            match r{Ok(v)=>{s.settings.data.insert("remote".into(),v);},Err(e)=>{s.notice=e; if let Some(v)=s.settings.data.get_mut("remote"){v["login"]=Value::Null;}}}
+        });
     }
     fn settings_dirty(&self, cx: &App) -> bool {
         self.settings
@@ -178,6 +248,11 @@ impl Potato {
                         if let Some(f) = s.fields.get(&field) {
                             f.update(cx, |v, cx| v.set_value(value.clone(), w, cx));
                         }
+                        if field == "settings-reviewer-provider"
+                            && let Some(f) = s.fields.get("settings-reviewer-model")
+                        {
+                            f.update(cx, |v, cx| v.set_value("", w, cx));
+                        }
                         s.settings.dropdown = None;
                         cx.notify();
                     })),
@@ -256,7 +331,13 @@ impl Potato {
         } else if path.ends_with("/models") && method == "POST" {
             vec!["new-model"]
         } else if path.ends_with("/config") && path.matches("/models/").count() > 1 {
-            vec!["name", "max_tokens", "max_input_length", "reasoning_effort"]
+            vec![
+                "name",
+                "max_tokens",
+                "max_input_length",
+                "reasoning_effort",
+                "reasoning_effort_options",
+            ]
         } else if path.ends_with("/config") {
             vec!["url", "protocol", "key"]
         } else {
@@ -266,7 +347,11 @@ impl Potato {
             .iter()
             .map(|k| (format!("settings-{k}"), self.settings_value(k, cx)))
             .collect();
-        let data_key = if path.ends_with("/doubao-settings") {
+        let data_key = if path == "/api/computer-use" || path == "/api/computer-use/check" {
+            Some("computer")
+        } else if path.ends_with("/permissions/rules") {
+            Some("permissions")
+        } else if path.ends_with("/doubao-settings") {
             Some("speech")
         } else if path.ends_with("/media-settings") {
             Some("media")
@@ -287,6 +372,94 @@ impl Potato {
             }
             s.refresh(w, cx);
         });
+    }
+    fn computer_settings(&self, cx: &mut Context<Self>) -> Div {
+        let computer = self
+            .settings
+            .data
+            .get("computer")
+            .cloned()
+            .unwrap_or_default();
+        let available = computer["driver_available"] == true;
+        let enabled = computer["enabled"] == true;
+        let permissions = &computer["permissions"];
+        let permission_label = |key: &str| match permissions[key].as_bool() {
+            Some(true) => "已授权",
+            Some(false) => "未授权",
+            None => "未检测",
+        };
+        let status = if available && computer["platform"] == "windows" {
+            format!(
+                "驱动 {} · UI 自动化：{} · 进程权限：{}",
+                string(&computer, "driver_version"),
+                if permissions["uia"] == true {
+                    "可用"
+                } else {
+                    "未检测"
+                },
+                permissions["integrity_level"].as_str().unwrap_or("未检测")
+            )
+        } else if available {
+            format!(
+                "驱动 {} · 辅助功能：{} · 屏幕录制：{}",
+                string(&computer, "driver_version"),
+                permission_label("accessibility"),
+                permission_label("screen_recording")
+            )
+        } else {
+            "未找到电脑操作驱动，请使用包含驱动的安装包。".into()
+        };
+        let mut panel = group("电脑操作", cx)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child("允许助手操作其他应用")
+                    .child(
+                        Switch::new("computer-enabled")
+                            .accessibility_label("允许助手操作其他应用")
+                            .checked(enabled)
+                            .disabled(self.busy || (!available && !enabled))
+                            .on_click(cx.listener(|s, on, w, cx| {
+                                s.save_setting(
+                                    "PUT",
+                                    "/api/computer-use",
+                                    json!({"enabled":on}),
+                                    w,
+                                    cx,
+                                );
+                            })),
+                    ),
+            )
+            .child(muted(status, cx))
+            .child(muted(
+                "通过无障碍树观察窗口并执行后台操作；每次操作仍经过当前审批策略。暂不提供截图。",
+                cx,
+            ))
+            .child(
+                Button::new("computer-check")
+                    .outline()
+                    .small()
+                    .label("检测权限")
+                    .disabled(self.busy || !available)
+                    .on_click(cx.listener(|s, _, w, cx| {
+                        s.save_setting("POST", "/api/computer-use/check", json!({}), w, cx);
+                    })),
+            );
+        if let Some(error) = self.settings.load_errors.get("computer") {
+            panel = panel.child(muted(format!("状态读取失败：{error}"), cx));
+        }
+        #[cfg(target_os = "macos")]
+        {
+            panel = panel.child(muted("请为 Potato 授予权限。修改权限后退出并重新打开 Potato，再检测。", cx))
+                .child(div().flex().gap_2()
+                    .child(Button::new("computer-ax").outline().small().label("辅助功能设置")
+                        .on_click(cx.listener(|_, _, _, cx| cx.open_url("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"))))
+                    .child(Button::new("computer-screen").outline().small().label("屏幕录制设置")
+                        .on_click(cx.listener(|_, _, _, cx| cx.open_url("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")))));
+        }
+        panel
     }
     pub fn settings_view(&mut self, w: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let body = self.settings_content(w, cx);
@@ -580,13 +753,17 @@ impl Potato {
                     cx,
                 );
                 div().flex().flex_col().gap_6()
-                    .child(group("外观",cx).child(div().flex().items_center().justify_between().child("深色模式")
-                        .child(Switch::new("dark-mode").accessibility_label("深色模式").checked(self.dark).on_click(cx.listener(|s,_,w,cx|s.toggle_theme(w,cx)))))
-                        .child(div().flex().items_center().justify_between().child("跟随系统外观").child(Switch::new("follow-system").accessibility_label("跟随系统外观").checked(self.preferences["follow_system"] == true).on_click(cx.listener(|s,on,w,cx|{
-                            s.preferences["follow_system"] = json!(*on);
-                            if *on { s.dark=matches!(w.appearance(), WindowAppearance::Dark | WindowAppearance::VibrantDark); design::apply(s.dark,Some(w),cx); }
-                            s.request("PUT","/api/native/preferences",s.preferences.clone(),w,cx,|_,_,_,_|{});
-                        })))))
+                    .child(group("外观",cx)
+                        .child(div().child("主题"))
+                        .child(div().flex().gap_2().children(
+                            ThemePreference::ALL.into_iter().map(|mode| {
+                                Button::new(mode.id()).outline().small().h(px(32.))
+                                    .label(mode.label())
+                                    .selected(ThemePreference::from_preferences(&self.preferences) == mode)
+                                    .on_click(cx.listener(move |s,_,w,cx| s.set_theme(mode,w,cx)))
+                            })
+                        ))
+                        .child(muted("自动模式会跟随系统的浅色或深色外观，选择后立即生效。",cx)))
                     .child(group("窗口",cx)
                         .child(div().flex().items_center().justify_between().child("记住窗口大小").child(Switch::new("remember-window").accessibility_label("记住窗口大小").checked(self.preferences["remember_window"] != false).on_click(cx.listener(|s,on,w,cx|{
                             s.preferences["remember_window"]=json!(*on); s.window_save_epoch+=1;
@@ -643,7 +820,9 @@ impl Potato {
                     w,
                     cx,
                 );
-                div().flex().flex_col().gap_6().child(group("语音输入",cx).child(app).child(key).child(resource)
+                let computer_panel = self.computer_settings(cx);
+                let remote_panel = self.remote_settings_panel(w, cx);
+                div().flex().flex_col().gap_6().child(remote_panel).child(computer_panel).child(group("语音输入",cx).child(app).child(key).child(resource)
                     .child(Button::new("save-speech").outline().small().h(px(32.)).self_start().label("保存并启用").disabled(self.busy).on_click(cx.listener(|s,_,w,cx|{
                         let mut b=json!({"enabled":true,"app_id":s.settings_value("speech-app",cx),"resource_id":s.settings_value("speech-resource",cx)});
                         let key=s.settings_value("speech-key",cx);if !key.is_empty(){b["api_key"]=json!(key);}s.save_setting("PUT","/api/native/doubao-settings",b,w,cx);
@@ -657,14 +836,22 @@ impl Potato {
             }
             3 => {
                 let mut box_ = group("访问权限", cx).child(muted(
-                    "控制助手能够访问的文件范围；需要确认的操作仍会单独询问。",
+                    "控制助手能够访问的文件范围；审批方式决定由谁判断需要额外授权的操作。",
                     cx,
                 ));
-                for (id, label) in [
-                    ("read-only", "只读"),
-                    ("workspace-write", "工作区读写"),
-                    ("full-access", "完全访问"),
-                ] {
+                let sandbox_label = if self.config["sandbox_mode"] == "danger-full-access" {
+                    "命令使用宿主权限执行；审批方式仍生效。"
+                } else if self.config["shell_sandbox"]["available"] == true {
+                    if self.config["shell_sandbox"]["backend"] == "windows-lpac" {
+                        "Windows 命令沙箱已就绪：项目只读、任务临时目录可写，默认禁止联网。Shell 写项目时自动申请单次宿主权限；文件编辑工具仍按所选规则执行。"
+                    } else {
+                        "命令沙箱已就绪，默认禁止联网。受限后自动申请权限，审批通过后继续；MCP 和电脑操作单独授权。"
+                    }
+                } else {
+                    "当前环境的命令沙箱不可用。必要命令将申请单次宿主权限，审批通过后执行。"
+                };
+                box_ = box_.child(muted(sandbox_label, cx));
+                for (_, id, label) in potato_core::permissions::FileMode::OPTIONS {
                     box_ = box_.child(
                         row_button(id, label)
                             .when(self.config["sandbox_mode"] == id, |b| {
@@ -682,7 +869,279 @@ impl Potato {
                             })),
                     );
                 }
-                box_.into_any_element()
+                box_ = box_.child(muted("「按规则确认」先复用已有授权，再交给所选审批方式；「每次确认」始终询问你，「禁止需确认的操作」直接阻止这类操作。",cx));
+                for (_, id, label) in potato_core::permissions::ApprovalPolicy::OPTIONS {
+                    box_ = box_.child(
+                        row_button(format!("policy-{id}"), label)
+                            .when(
+                                self.config["approval_level"].as_str().unwrap_or("AUTO") == id,
+                                |b| b.icon(IconName::Check),
+                            )
+                            .disabled(self.busy)
+                            .on_click(cx.listener(move |s, _, w, cx| {
+                                s.save_setting(
+                                    "PUT",
+                                    "/api/workspace/running-config",
+                                    json!({"approval_level":id}),
+                                    w,
+                                    cx,
+                                )
+                            })),
+                    );
+                }
+                let mut reviewer = group("审批方式", cx)
+                    .child(muted("模型自动审批使用独立请求，根据你的任务与当前操作判断；通过后继续执行，需要补充授权或审批服务故障时才询问你。", cx));
+                reviewer = reviewer.child(
+                    self.settings_choice(
+                        "reviewer",
+                        self.config["reviewer"]
+                            .as_str()
+                            .unwrap_or("model")
+                            .to_owned()
+                            .as_str(),
+                        "由谁审批",
+                        vec![
+                            ("user".into(), "手动审批".into()),
+                            ("model".into(), "模型自动审批".into()),
+                        ],
+                        w,
+                        cx,
+                    ),
+                );
+                if self.settings_value("reviewer", cx) == "model" {
+                    let mut providers = self.provider_options();
+                    providers[0].1 = "跟随当前对话模型".into();
+                    reviewer = reviewer.child(self.settings_choice(
+                        "reviewer-provider",
+                        &string(&self.config, "reviewer_provider_id"),
+                        "审批服务商",
+                        providers,
+                        w,
+                        cx,
+                    ));
+                    let provider = self.settings_value("reviewer-provider", cx);
+                    if !provider.is_empty() {
+                        reviewer = reviewer.child(self.settings_field(
+                            "reviewer-model",
+                            &string(&self.config, "reviewer_model"),
+                            "审批模型 ID",
+                            false,
+                            w,
+                            cx,
+                        ));
+                    } else {
+                        reviewer = reviewer.child(muted(
+                            format!(
+                                "当前模型：{}。切换对话模型后，审批模型随之切换。",
+                                self.model["model"]
+                                    .as_str()
+                                    .filter(|v| !v.is_empty())
+                                    .unwrap_or("尚未选择")
+                            ),
+                            cx,
+                        ));
+                    }
+                    reviewer = reviewer.child(muted("需要重新审批时会产生模型用量。相同的低风险文件读取可在本任务内复用 10 分钟；文件或授权改变后重新审批，重启后失效。可在任务的自动审批记录中清除复用。", cx));
+                }
+                reviewer = reviewer.child(Button::new("save-reviewer").outline().small().label("保存审批设置").disabled(self.busy)
+                    .on_click(cx.listener(|s, _, w, cx| {
+                        let reviewer = s.settings_value("reviewer", cx);
+                        let provider = if reviewer == "model" {s.settings_value("reviewer-provider", cx)} else {string(&s.config, "reviewer_provider_id")};
+                        let model = if provider.is_empty() {String::new()} else if reviewer == "model" {s.settings_value("reviewer-model", cx)} else {string(&s.config, "reviewer_model")};
+                        let mut body = json!({"reviewer":reviewer, "reviewer_provider_id":provider.trim(), "reviewer_model":model.trim()});
+                        if reviewer == "model" {body["approval_level"] = json!("AUTO");}
+                        let generation = s.settings.generation;
+                        s.busy = true;
+                        s.request_result("PUT", "/api/workspace/running-config", body, w, cx, move |s,result,_,_| {
+                            s.busy = false;
+                            if s.settings.generation != generation {return;}
+                            match result {
+                                Ok(config) => {
+                                    s.config = config;
+                                    for key in ["settings-reviewer", "settings-reviewer-provider", "settings-reviewer-model"] {
+                                        s.fields.remove(key); s.settings.saved.remove(key);
+                                    }
+                                    s.notice = "审批设置已保存".into();
+                                },
+                                Err(error) => s.notice = error,
+                            }
+                        });
+                    })));
+                let permissions = self
+                    .settings
+                    .data
+                    .get("permissions")
+                    .cloned()
+                    .unwrap_or_default();
+                let mut rules=group("额外目录权限",cx).child(muted("持久规则重启后仍有效；会话规则仅用于对应会话。拒绝优先。敏感文件、写入、命令和网络不在读取授权范围内。",cx));
+                if let Some(error) = self.settings.load_errors.get("permissions") {
+                    rules = rules.child(muted(format!("目录权限加载失败：{error}"), cx));
+                }
+                if self.settings.loading.contains("permissions") {
+                    rules = rules.child(muted("正在加载目录权限…", cx));
+                }
+                for (i, rule) in permissions["rules"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .chain(
+                        permissions["session_rules"]
+                            .as_array()
+                            .into_iter()
+                            .flatten(),
+                    )
+                    .enumerate()
+                {
+                    let rule = rule.clone();
+                    let delete_id = string(&rule, "id");
+                    let mut row = div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .child(string(&rule, "path"))
+                        .child(muted(
+                            format!(
+                                "{} · {} · {} · {}",
+                                if rule["decision"] == "deny" {
+                                    "拒绝"
+                                } else {
+                                    "允许"
+                                },
+                                if rule["recursive"] == true {
+                                    "包含子目录"
+                                } else {
+                                    "仅此目录（不含递归搜索）"
+                                },
+                                if rule["lifetime"] == "session" {
+                                    "会话授权"
+                                } else {
+                                    "永久授权"
+                                },
+                                rule["operations"]
+                                    .as_array()
+                                    .into_iter()
+                                    .flatten()
+                                    .map(|operation| match operation.as_str() {
+                                        Some("read") => "读取",
+                                        Some("list") => "列目录",
+                                        Some("search") => "搜索",
+                                        _ => "未知操作",
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(" / ")
+                            ),
+                            cx,
+                        ));
+                    let mut actions = div().flex().gap_2();
+                    if rule["lifetime"] != "session" {
+                        actions = actions.child(
+                            Button::new(("edit-permission", i))
+                                .small()
+                                .outline()
+                                .label("编辑")
+                                .disabled(self.busy)
+                                .on_click(cx.listener(move |s, _, _, cx| {
+                                    s.fields
+                                        .retain(|key, _| !key.starts_with("settings-permission-"));
+                                    s.settings
+                                        .saved
+                                        .retain(|key, _| !key.starts_with("settings-permission-"));
+                                    s.settings.permission_edit = Some(rule.clone());
+                                    cx.notify();
+                                })),
+                        );
+                    }
+                    actions = actions.child(
+                        Button::new(("delete-permission", i))
+                            .small()
+                            .outline()
+                            .label("撤销")
+                            .disabled(self.busy)
+                            .on_click(cx.listener(move |s, _, w, cx| {
+                                s.save_setting(
+                                    "DELETE",
+                                    "/api/permissions/rules",
+                                    json!({"id":delete_id}),
+                                    w,
+                                    cx,
+                                )
+                            })),
+                    );
+                    row = row.child(actions);
+                    rules = rules.child(row);
+                }
+                let edit = self.settings.permission_edit.clone().unwrap_or_default();
+                rules = rules.child(self.settings_field(
+                    "permission-path",
+                    &string(&edit, "path"),
+                    "目录绝对路径",
+                    false,
+                    w,
+                    cx,
+                ));
+                rules = rules.child(self.settings_choice(
+                    "permission-recursive",
+                    if edit["recursive"] == false {
+                        "false"
+                    } else {
+                        "true"
+                    },
+                    "目录范围",
+                    vec![
+                        ("true".into(), "包含子目录".into()),
+                        ("false".into(), "仅此目录（不授权递归搜索）".into()),
+                    ],
+                    w,
+                    cx,
+                ));
+                rules = rules.child(self.settings_choice(
+                    "permission-decision",
+                    edit["decision"].as_str().unwrap_or("allow"),
+                    "权限决定",
+                    vec![
+                        ("allow".into(), "允许读取 / 列目录 / 搜索".into()),
+                        ("deny".into(), "拒绝读取 / 列目录 / 搜索".into()),
+                    ],
+                    w,
+                    cx,
+                ));
+                rules=rules.child(Button::new("save-permission").small().outline().label(if self.settings.permission_edit.is_some(){"保存目录规则"}else{"添加永久目录规则"}).disabled(self.busy)
+                    .on_click(cx.listener(|s,_,w,cx|{
+                        if s.busy {return;}
+                        s.busy=true;
+                        let generation=s.settings.generation;
+                        let mut body=json!({"path":s.settings_value("permission-path",cx),"recursive":s.settings_value("permission-recursive",cx)=="true","decision":s.settings_value("permission-decision",cx)});
+                        let method=if let Some(rule)=s.settings.permission_edit.as_ref(){body["id"]=rule["id"].clone();"PUT"}else{"POST"};
+                        s.request_result(method,"/api/permissions/rules",body,w,cx,move |s,result,_,_|{s.busy=false;if s.settings.generation!=generation{return;} match result {
+                            Ok(v)=>{s.settings.data.insert("permissions".into(),v);s.settings.permission_edit=None;s.fields.retain(|k,_|!k.starts_with("settings-permission-"));s.settings.saved.retain(|k,_|!k.starts_with("settings-permission-"));s.notice="目录规则已保存".into();},
+                            Err(e)=>s.notice=e,
+                        }});
+                    })));
+                if self.settings.permission_edit.is_some() {
+                    rules = rules.child(
+                        Button::new("cancel-permission-edit")
+                            .small()
+                            .label("取消编辑")
+                            .disabled(self.busy)
+                            .on_click(cx.listener(|s, _, _, cx| {
+                                s.settings.permission_edit = None;
+                                s.fields
+                                    .retain(|k, _| !k.starts_with("settings-permission-"));
+                                s.settings
+                                    .saved
+                                    .retain(|k, _| !k.starts_with("settings-permission-"));
+                                cx.notify();
+                            })),
+                    );
+                }
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_6()
+                    .child(reviewer)
+                    .child(box_)
+                    .child(rules)
+                    .into_any_element()
             }
             4 => {
                 let legacy = self
@@ -776,8 +1235,10 @@ impl Potato {
         if self.settings.creating {
             return self.provider_settings(json!({}), w, cx);
         }
-        let mut list = group("服务商", cx).gap_1();
+        let cloud = self.cloud_settings_panel(cx);
+        let mut list = group("自定义服务商", cx).gap_1();
         for (i, p) in self.providers.iter().enumerate() {
+            if p["managed"] == true { continue; }
             let provider = p.clone();
             let n = p["models"].as_array().map_or(0, Vec::len)
                 + p["extra_models"].as_array().map_or(0, Vec::len);
@@ -794,7 +1255,7 @@ impl Potato {
                     })),
             );
         }
-        list.child(div().h(px(1.)).bg(cx.theme().border).my_2())
+        let list = list.child(div().h(px(1.)).bg(cx.theme().border).my_2())
             .child(
                 row_button("add-provider", "添加服务商")
                     .icon(IconName::Plus)
@@ -804,7 +1265,8 @@ impl Potato {
                         cx.notify();
                     })),
             )
-            .into_any_element()
+            .into_any_element();
+        v_flex().gap_4().child(cloud).child(list).into_any_element()
     }
     fn provider_settings(
         &mut self,
@@ -1112,9 +1574,24 @@ impl Potato {
             ("name", "显示名称"),
             ("max_tokens", "最大输出 token"),
             ("max_input_length", "上下文容量"),
-            ("reasoning_effort", "推理强度"),
+            ("reasoning_effort", "推理强度（留空使用默认）"),
+            (
+                "reasoning_effort_options",
+                "可选档位（从浅到深，逗号分隔；[] 表示不支持）",
+            ),
         ] {
-            let value = if model[key].is_number() {
+            let value = if key == "reasoning_effort_options" && model[key].is_array() {
+                let options = model[key].as_array().unwrap();
+                if options.is_empty() {
+                    "[]".into()
+                } else {
+                    options
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                }
+            } else if model[key].is_number() {
                 model[key].to_string()
             } else {
                 string(&model, key)
@@ -1123,6 +1600,8 @@ impl Potato {
         }
         panel.child(Button::new("save-model-config").primary().small().h(px(32.)).self_start().label("保存").on_click(cx.listener(|s,_,w,cx|{
             let mut body=json!({"name":s.settings_value("name",cx),"reasoning_effort":s.settings_value("reasoning_effort",cx)});
+            let options = s.settings_value("reasoning_effort_options",cx);
+            body["reasoning_effort_options"] = if options.trim().is_empty() { Value::Null } else if options.trim() == "[]" { json!([]) } else { json!(options.split([',','，']).map(str::trim).filter(|v| !v.is_empty()).collect::<Vec<_>>()) };
             for key in ["max_tokens","max_input_length"]{let text=s.settings_value(key,cx);body[key]=if text.is_empty(){Value::Null}else{match text.parse::<u64>(){Ok(n)=>json!(n),Err(_)=>{s.notice="Token 数量应为正整数".into();return;}}};}
             let p=s.settings.provider.as_ref().map(|p|string(p,"id")).unwrap_or_default();let m=s.settings.model.as_ref().map(|p|string(p,"id")).unwrap_or_default();
             s.save_setting("PUT",&format!("/api/models/{}/models/{}/config",segment(&p),segment(&m)),body,w,cx);

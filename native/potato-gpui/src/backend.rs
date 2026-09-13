@@ -5,9 +5,12 @@ use std::{path::PathBuf, sync::Arc};
 pub type Reply = Result<Value, String>;
 #[derive(Clone)]
 pub struct Backend {
+    #[cfg(test)]
+    synchronous_ui_requests: bool,
     pub core: Arc<potato_core::Runtime>,
     pub executor: Arc<tokio::runtime::Runtime>,
     pub data_dir: PathBuf,
+    background_sessions: Arc<std::sync::Mutex<std::collections::BTreeSet<String>>>,
 }
 impl Backend {
     pub fn open() -> anyhow::Result<Self> {
@@ -18,9 +21,13 @@ impl Backend {
                     .ok_or_else(|| anyhow::anyhow!("无法找到用户主目录"))?
                     .join(".potato/native-v1"),
             );
-        Self::open_at(data_dir)
+        Self::open_at_with_legacy(data_dir, std::env::var_os("POTATO_NATIVE_DATA_DIR").is_none())
     }
+    #[cfg(test)]
     pub(crate) fn open_at(data_dir: PathBuf) -> anyhow::Result<Self> {
+        Self::open_at_with_legacy(data_dir, false)
+    }
+    fn open_at_with_legacy(data_dir: PathBuf, restore_legacy: bool) -> anyhow::Result<Self> {
         let executor = Arc::new(
             tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(2)
@@ -28,15 +35,78 @@ impl Backend {
                 .build()?,
         );
         let core = potato_core::Runtime::open(&data_dir)?;
+        if restore_legacy { core.restore_local_model_settings()?; }
+        let background_sessions = Arc::new(std::sync::Mutex::new(std::collections::BTreeSet::new()));
+        let changes = background_sessions.clone();
+        core.set_background_listener(Arc::new(move |event| {
+            if let Some(session) = event["session_id"].as_str() {
+                changes.lock().map_err(|_| potato_core::Error::new(500, "Background queue lock failed"))?.insert(session.to_owned());
+            }
+            Ok(())
+        }))?;
+        let executable = std::env::current_exe()?;
+        let directory = executable
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("missing executable directory"))?;
+        let bundled = if cfg!(target_os = "macos") && directory.ends_with("Contents/MacOS") {
+            directory
+                .parent()
+                .unwrap()
+                .join("Resources/computer-driver")
+        } else {
+            directory.join("computer-driver")
+        };
+        let driver_dir = if cfg!(debug_assertions)
+            && directory.starts_with(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target"))
+            && !bundled.is_dir()
+        {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/computer-driver")
+        } else {
+            bundled
+        };
+        let host = if executable
+            .to_string_lossy()
+            .contains("Potato GPUI Review.app")
+        {
+            "dev.potato.gpui-review"
+        } else {
+            "dev.potato.gpui"
+        };
+        core.configure_computer_driver(
+            driver_dir.join(if cfg!(windows) {
+                "cua-driver.exe"
+            } else {
+                "cua-driver"
+            }),
+            host.into(),
+        )?;
         executor.spawn(core.clone().serve_scheduler());
+        executor.spawn(core.clone().serve_remote());
         Ok(Self {
+            #[cfg(test)]
+            synchronous_ui_requests: false,
             core,
             executor,
             data_dir,
+            background_sessions,
         })
+    }
+    pub fn take_background_sessions(&self) -> std::collections::BTreeSet<String> {
+        self.background_sessions.lock().map(|mut pending| std::mem::take(&mut *pending)).unwrap_or_default()
     }
     pub fn request(&self, method: &str, path: &str, body: Value) -> oneshot::Receiver<Reply> {
         let (tx, rx) = oneshot::channel();
+        // View tests use real core responses, but complete them before the
+        // deterministic GPUI scheduler registers a cross-thread waker.
+        #[cfg(test)]
+        if self.synchronous_ui_requests {
+            let result = self
+                .executor
+                .block_on(self.core.request(method, path, body))
+                .map_err(|e| e.message);
+            let _ = tx.send(result);
+            return rx;
+        }
         let (core, method, path) = (self.core.clone(), method.to_owned(), path.to_owned());
         self.executor.spawn(async move {
             let _ = tx.send(
@@ -46,6 +116,12 @@ impl Backend {
             );
         });
         rx
+    }
+    #[cfg(test)]
+    pub(crate) fn for_ui_test(data_dir: PathBuf) -> anyhow::Result<Self> {
+        let mut backend = Self::open_at(data_dir)?;
+        backend.synchronous_ui_requests = true;
+        Ok(backend)
     }
     pub fn stream(&self, body: Value) -> mpsc::Receiver<Reply> {
         let (tx, rx) = mpsc::channel(256);

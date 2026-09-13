@@ -4,14 +4,23 @@
 )]
 
 mod chat;
+mod cloud;
 mod conversations;
+mod effort;
 mod icons;
 mod interactions;
+mod media;
+mod outbox;
+mod process;
 #[cfg(debug_assertions)]
 mod review;
+mod side_panel;
+mod side_panel_data;
 #[cfg(test)]
 mod state_tests;
 mod window_preferences;
+mod theme_mode;
+use theme_mode::ThemePreference;
 use gpui_kit::component::input::InputEvent;
 use icons::IconName;
 mod backend;
@@ -30,7 +39,15 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 actions!(
     potato,
-    [NewChat, Search, Settings, ToggleSidebar, Dismiss, Quit]
+    [
+        NewChat,
+        Search,
+        Settings,
+        ToggleSidebar,
+        Dismiss,
+        Quit,
+        ShowSendOptions
+    ]
 );
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
@@ -44,10 +61,14 @@ enum Page {
 enum Menu {
     Project,
     Model,
+    Effort,
     Permission,
     Conversations,
 }
 struct Potato {
+    effort: effort::Effort,
+    files: side_panel::SidePanel,
+    outbox: outbox::Outbox,
     chat: chat::ChatState,
     conversations: conversations::Conversations,
     interactions: interactions::Interactions,
@@ -89,6 +110,8 @@ struct Potato {
     notice: String,
     busy: bool,
     epoch: u64,
+    // Separate from workspace loads; invalidates streams even on an A → B → A switch.
+    chat_epoch: u64,
     settings: settings::SettingsState,
     workspace: workspace::WorkspaceState,
 }
@@ -111,8 +134,12 @@ impl Potato {
         });
         let subscriptions = vec![
             cx.subscribe_in(&composer, window, |this, _, event, window, cx| {
-                if let InputEvent::PressEnter { shift: false, .. } = event {
-                    this.send(window, cx);
+                if let InputEvent::PressEnter {
+                    shift: false,
+                    secondary,
+                } = event
+                {
+                    this.send_mode(*secondary, window, cx);
                 }
                 cx.notify();
             }),
@@ -122,6 +149,8 @@ impl Potato {
             cx.observe(&editor, |_, _, cx| cx.notify()),
         ];
         let mut this = Self {
+            files: side_panel::SidePanel::default(),
+            outbox: outbox::Outbox::default(),
             chat: chat::ChatState::default(),
             conversations: conversations::Conversations::default(),
             interactions: interactions::Interactions::default(),
@@ -138,6 +167,7 @@ impl Potato {
             archive_search,
             editor,
             fields: BTreeMap::new(),
+            effort: effort::Effort::default(),
             subscriptions,
             chats: vec![],
             providers: vec![],
@@ -163,6 +193,7 @@ impl Potato {
             notice: String::new(),
             busy: false,
             epoch: 0,
+            chat_epoch: 0,
             settings: settings::SettingsState::default(),
             workspace: workspace::WorkspaceState::default(),
         };
@@ -174,6 +205,10 @@ impl Potato {
                 if this
                     .update_in(cx, |s, w, cx| {
                         s.poll_interactions(w, cx);
+                        s.poll_outbox(w, cx);
+                        s.poll_background_changes(w, cx);
+                        s.poll_cloud_login_ui(w, cx);
+                        s.poll_remote_login_ui(w, cx);
                         if s.streaming {
                             cx.notify();
                         }
@@ -187,7 +222,7 @@ impl Potato {
         .detach();
         this.subscriptions
             .push(cx.observe_window_appearance(window, |s, w, cx| {
-                if s.preferences["follow_system"] == true {
+                if ThemePreference::from_preferences(&s.preferences) == ThemePreference::System {
                     s.dark = matches!(
                         w.appearance(),
                         WindowAppearance::Dark | WindowAppearance::VibrantDark
@@ -228,6 +263,14 @@ impl Potato {
             }));
         this.focus.focus(window, cx);
         this.refresh(window, cx);
+        this.request_result("GET", "/api/native/cloud", Value::Null, window, cx, |s,r,w,cx| {
+            if s.settings.cloud_generation != 0 { return; }
+            if let Ok(v) = r {
+                let signed_in = v["signed_in"] == true;
+                s.settings.data.insert("cloud".into(), v);
+                if signed_in { s.cloud_action("refresh", w, cx); }
+            }
+        });
         this.request(
             "GET",
             "/api/native/preferences",
@@ -236,14 +279,8 @@ impl Potato {
             cx,
             |this, v, window, cx| {
                 this.preferences = v;
-                this.dark = if this.preferences["follow_system"] == true {
-                    matches!(
-                        window.appearance(),
-                        WindowAppearance::Dark | WindowAppearance::VibrantDark
-                    )
-                } else {
-                    this.preferences["dark"].as_bool().unwrap_or(false)
-                };
+                this.dark = ThemePreference::from_preferences(&this.preferences)
+                    .is_dark(window.appearance());
                 design::apply(this.dark, Some(window), cx);
             },
         );
@@ -302,6 +339,13 @@ impl Potato {
             window,
             cx,
             |s, v, _, _| {
+                #[cfg(debug_assertions)]
+                if s.session == "visual-review"
+                    && std::env::var_os("POTATO_GPUI_REVIEW_FIXTURE").is_some()
+                    && std::env::var_os("POTATO_NATIVE_DATA_DIR").is_some()
+                {
+                    return;
+                }
                 s.chats = array(v);
                 if s.selected.is_none() && !s.history.is_empty() {
                     s.selected = s
@@ -358,6 +402,27 @@ impl Potato {
             |s, v, _, _| s.projects = array(v),
         );
     }
+    fn poll_background_changes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let sessions = self.backend.take_background_sessions();
+        if sessions.is_empty() { return; }
+        self.request("GET", "/api/chats", Value::Null, window, cx, |s, v, _, _| s.chats = array(v));
+        // A remote start uses this same core. Attach its live replay when the
+        // desktop is already looking at that conversation, preserving drafts.
+        if !sessions.contains(&self.session) || self.streaming || self.chat.loading || self.conversations.editing.is_some() { return; }
+        let Some(id) = self.selected.clone() else { return; };
+        let epoch = self.chat_epoch;
+        self.request("GET", &format!("/api/chats/{}", segment(&id)), Value::Null, window, cx, move |s, v, w, cx| {
+            if s.chat_epoch != epoch || s.streaming { return; }
+            s.history = array(v["messages"].clone());
+            s.turn = stream::Turn::default();
+            if v["status"] == "running" {
+                s.streaming = true;
+                s.chat.run_started = Some(std::time::Instant::now());
+                let rx = s.backend.stream(json!({"session_id":s.session,"reconnect":true}));
+                s.listen_turn(rx, w, cx);
+            }
+        });
+    }
     fn field(
         &mut self,
         key: &str,
@@ -387,19 +452,23 @@ impl Potato {
     }
     fn new_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.settings.open
+            || self.outbox.sending
             || self.workspace.editing
             || self.conversations.editing.is_some()
             || self.conversations.archive_open
         {
             return;
         }
-        if self.streaming {
-            self.notice = "请先停止当前回复，再新建会话".into();
-            return;
-        }
         self.cancel_chat_edit(window, cx);
         self.chat.frozen_preview.clear();
+        self.chat.motion = process::ProcessMotion::default();
         self.chat.scroll_paused = false;
+        self.streaming = false;
+        self.chat.run_started = None;
+        self.outbox.menu = None;
+        self.outbox.editing = None;
+        self.outbox.editor = None;
+        self.outbox.send_hover = false;
         self.stash_draft(cx);
         let (draft, attachments) = self.drafts.remove(chat::NEW_DRAFT).unwrap_or_default();
         self.selected = None;
@@ -418,6 +487,7 @@ impl Potato {
         self.notice.clear();
         self.search_open = false;
         self.epoch += 1;
+        self.chat_epoch += 1;
         self.composer.update(cx, |s, cx| {
             s.set_value(draft, window, cx);
             s.focus(window, cx);
@@ -439,19 +509,29 @@ impl Potato {
     }
     fn select_chat(&mut self, chat: Value, window: &mut Window, cx: &mut Context<Self>) {
         if self.settings.open
+            || self.outbox.sending
             || self.workspace.editing
             || self.conversations.editing.is_some()
             || self.conversations.archive_open
         {
             return;
         }
-        if self.streaming {
-            self.notice = "请等待当前回复结束或先停止".into();
+        if self.session == string(&chat, "session_id") {
+            self.page = Page::Chat;
+            self.search_open = false;
+            cx.notify();
             return;
         }
         self.cancel_chat_edit(window, cx);
         self.chat.frozen_preview.clear();
+        self.chat.motion = process::ProcessMotion::default();
         self.chat.scroll_paused = false;
+        self.streaming = false;
+        self.chat.run_started = None;
+        self.outbox.menu = None;
+        self.outbox.editing = None;
+        self.outbox.editor = None;
+        self.outbox.send_hover = false;
         self.stash_draft(cx);
         self.selected = Some(string(&chat, "id"));
         self.session = string(&chat, "session_id");
@@ -470,7 +550,8 @@ impl Potato {
         self.composer
             .update(cx, |s, cx| s.set_value(draft, window, cx));
         self.epoch += 1;
-        let epoch = self.epoch;
+        self.chat_epoch += 1;
+        let epoch = self.chat_epoch;
         self.chat.loading = true;
         self.chat.load_error = false;
         self.request_result(
@@ -479,11 +560,21 @@ impl Potato {
             Value::Null,
             window,
             cx,
-            move |s, result, _, _| {
-                if s.epoch == epoch {
+            move |s, result, w, cx| {
+                if s.chat_epoch == epoch {
                     s.chat.loading = false;
                     match result {
-                        Ok(v) => s.history = array(v["messages"].clone()),
+                        Ok(v) => {
+                            s.history = array(v["messages"].clone());
+                            if v["status"] == "running" {
+                                s.streaming = true;
+                                s.chat.run_started = Some(std::time::Instant::now());
+                                let rx = s
+                                    .backend
+                                    .stream(json!({"session_id":s.session,"reconnect":true}));
+                                s.listen_turn(rx, w, cx);
+                            }
+                        }
                         Err(e) => {
                             s.chat.load_error = true;
                             s.notice = e;
@@ -495,6 +586,19 @@ impl Potato {
         cx.notify();
     }
     fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.send_mode(false, window, cx);
+    }
+    fn send_mode(&mut self, immediate: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.effort.saving {
+            self.notice = "思考深度正在保存，请稍后发送".into();
+            cx.notify();
+            return;
+        }
+        if self.composer.update(cx, |state, cx| {
+            state.marked_text_range(window, cx).is_some()
+        }) {
+            return;
+        }
         if self.busy
             || self.chat.loading
             || self.chat.load_error
@@ -524,30 +628,8 @@ impl Potato {
             self.open_settings(window, cx);
             return;
         }
-        if self.streaming {
-            if !self.attachments.is_empty() {
-                self.notice = "补充指令目前支持文字；附件请在下一轮发送".into();
-                return;
-            }
-            let session = self.session.clone();
-            self.busy = true;
-            self.request(
-                "POST",
-                "/api/agent/steer",
-                json!({"session_id":session,"text":text}),
-                window,
-                cx,
-                move |s, _, w, cx| {
-                    s.busy = false;
-                    if s.session == session {
-                        if s.composer.read(cx).value().as_ref() == text {
-                            s.composer
-                                .update(cx, |state, cx| state.set_value("", w, cx));
-                        }
-                        s.notice = "补充指令已送达，将在当前步骤结束后采用".into();
-                    }
-                },
-            );
+        if self.running() || !self.queue_items().is_empty() {
+            self.enqueue(immediate, window, cx);
             return;
         }
         if self.selected.is_none() && self.history.is_empty() {
@@ -575,13 +657,33 @@ impl Potato {
         self.chat.run_started = Some(std::time::Instant::now());
         self.streaming = true;
         self.page = Page::Chat;
-        let mut rx = self.backend.stream(body);
+        let rx = self.backend.stream(body);
+        self.listen_turn(rx, window, cx);
+    }
+    fn listen_turn(
+        &mut self,
+        mut rx: futures::channel::mpsc::Receiver<backend::Reply>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let session = self.session.clone();
+        let disconnected_session = session.clone();
+        let epoch = self.chat_epoch;
         cx.spawn_in(window, async move |this, cx| {
             while let Some(frame) = rx.next().await {
                 let terminal = this
                     .update_in(cx, |s, window, cx| {
+                        if s.session != session || s.chat_epoch != epoch {
+                            // Dropping this listener leaves the core run alive for replay.
+                            return true;
+                        }
                         match frame {
-                            Ok(v) => s.turn.apply(v),
+                            Ok(v) => {
+                                if v["object"] == "message" {
+                                    s.history.retain(|m| m["id"] != v["id"]);
+                                }
+                                s.turn.apply(v)
+                            }
                             Err(e) => {
                                 s.turn.error = Some(e);
                                 s.turn.status = "failed".into();
@@ -606,6 +708,9 @@ impl Potato {
                 }
             }
             let _ = this.update_in(cx, |s, _, cx| {
+                if s.session != disconnected_session || s.chat_epoch != epoch {
+                    return;
+                }
                 s.turn.status = "incomplete".into();
                 s.finish_process();
                 s.streaming = false;
@@ -617,6 +722,7 @@ impl Potato {
         .detach();
     }
     fn stop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.queue_action("pause", "", window, cx);
         let session = self.session.clone();
         self.request(
             "GET",
@@ -642,10 +748,13 @@ impl Potato {
         );
     }
     fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.dark = !self.dark;
+        self.set_theme(ThemePreference::from_preferences(&self.preferences).next(), window, cx);
+    }
+    fn set_theme(&mut self, mode: ThemePreference, window: &mut Window, cx: &mut Context<Self>) {
+        self.dark = mode.is_dark(window.appearance());
+        mode.save(&mut self.preferences);
         design::apply(self.dark, Some(window), cx);
-        self.preferences["dark"] = json!(self.dark);
-        self.preferences["follow_system"] = json!(false);
+        cx.notify();
         self.request(
             "PUT",
             "/api/native/preferences",
@@ -715,11 +824,17 @@ fn main() -> anyhow::Result<()> {
         })??;
         let preferences = preferences.map_err(anyhow::Error::msg)?;
         anyhow::ensure!(preferences.is_object(), "invalid initial preferences");
+        let computer = backend
+            .executor
+            .block_on(backend.request("GET", "/api/computer-use", Value::Null))?
+            .map_err(anyhow::Error::msg)?;
         std::fs::write(
             report,
             serde_json::to_vec(&json!({
                 "ok": true, "version": env!("CARGO_PKG_VERSION"),
                 "os": std::env::consts::OS, "arch": std::env::consts::ARCH,
+                "computer_driver_available": computer["driver_available"],
+                "computer_driver_version": computer["driver_version"],
             }))?,
         )?;
         return Ok(());
@@ -735,6 +850,17 @@ fn main() -> anyhow::Result<()> {
         .with_assets(icons::Assets)
         .run(move |cx| {
             gpui_kit::init(cx);
+            let cleanup = backend.clone();
+            cx.on_app_quit(move |_| {
+                let core = cleanup.core.clone();
+                let task = cleanup.executor.spawn(async move {
+                    core.cancel_computer().await;
+                });
+                async move {
+                    let _ = task.await;
+                }
+            })
+            .detach();
             design::apply(saved["dark"].as_bool().unwrap_or(false), None, cx);
             cx.bind_keys([
                 KeyBinding::new("cmd-n", NewChat, None),
@@ -746,6 +872,7 @@ fn main() -> anyhow::Result<()> {
                 KeyBinding::new("ctrl-,", Settings, None),
                 KeyBinding::new("ctrl-b", ToggleSidebar, None),
                 KeyBinding::new("escape", Dismiss, None),
+                KeyBinding::new("alt-down", ShowSendOptions, Some("Potato")),
                 KeyBinding::new("cmd-q", Quit, None),
             ]);
             cx.on_action(|_: &Quit, cx| cx.quit());
@@ -770,14 +897,7 @@ fn main() -> anyhow::Result<()> {
                     ..Default::default()
                 },
                 |window, cx| {
-                    let dark = if saved["follow_system"] == true {
-                        matches!(
-                            window.appearance(),
-                            WindowAppearance::Dark | WindowAppearance::VibrantDark
-                        )
-                    } else {
-                        saved["dark"].as_bool().unwrap_or(false)
-                    };
+                    let dark = ThemePreference::from_preferences(&saved).is_dark(window.appearance());
                     design::apply(dark, Some(window), cx);
                     let view = cx.new(|cx| Potato::new(backend, window, cx));
                     cx.new(|cx| Root::new(view, window, cx))

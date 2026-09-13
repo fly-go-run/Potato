@@ -20,6 +20,9 @@ dirs = "5"
 chrono = "0.4"
 rfd = "0.16"
 open = "5"
+markdown = "1.0"
+percent-encoding = "2"
+syntect = "5.3"
 
 [profile.release]
 lto = "thin"
@@ -28,3 +31,6 @@ strip = true
 
 [dev-dependencies]
 gpui-kit = { version = "=0.6.0", features = ["test-support"] }
+
+[patch.crates-io]
+gpui-base = { path = "vendor/gpui-base" }

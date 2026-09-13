@@ -5,8 +5,11 @@ use std::borrow::Cow;
 #[derive(Clone, Copy, IntoElement)]
 pub enum IconName {
     Ellipsis,
+    Trash,
+    ListEnd,
     Mic,
     ArrowUp,
+    ArrowDown,
     Blocks,
     Bot,
     Check,
@@ -29,6 +32,7 @@ pub enum IconName {
     Moon,
     Notebook,
     PanelLeft,
+    PanelRight,
     Paperclip,
     Play,
     Plus,
@@ -47,9 +51,12 @@ pub enum IconName {
 impl IconNamed for IconName {
     fn path(self) -> SharedString {
         match self {
+            Self::Trash => "potato/trash-2.svg".into(),
+            Self::ListEnd => "potato/list-end.svg".into(),
             Self::Ellipsis => "potato/ellipsis.svg".into(),
             Self::Mic => "potato/mic.svg".into(),
             Self::ArrowUp => "potato/arrow-up.svg".into(),
+            Self::ArrowDown => "potato/arrow-down.svg".into(),
             Self::Blocks => "potato/blocks.svg".into(),
             Self::Bot => "potato/bot.svg".into(),
             Self::Check => "potato/check.svg".into(),
@@ -71,6 +78,7 @@ impl IconNamed for IconName {
             Self::LayoutGrid => "potato/layout-grid.svg".into(),
             Self::Moon => "potato/moon.svg".into(),
             Self::Notebook => "potato/notebook.svg".into(),
+            Self::PanelRight => "potato/panel-right.svg".into(),
             Self::PanelLeft => "potato/panel-left.svg".into(),
             Self::Paperclip => "potato/paperclip.svg".into(),
             Self::Play => "potato/play.svg".into(),
@@ -98,6 +106,15 @@ pub struct Assets;
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
         match path {
+            "potato/panel-right.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/panel-right.svg"
+            )))),
+            "potato/trash-2.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/trash-2.svg"
+            )))),
+            "potato/list-end.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/list-end.svg"
+            )))),
             "potato/ellipsis.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/ellipsis.svg"
             )))),
@@ -106,6 +123,9 @@ impl AssetSource for Assets {
             )))),
             "potato/arrow-up.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/arrow-up.svg"
+            )))),
+            "potato/arrow-down.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/icons/arrow-down.svg"
             )))),
             "potato/blocks.svg" => Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/icons/blocks.svg"

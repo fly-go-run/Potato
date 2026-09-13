@@ -1,5 +1,4 @@
 use crate::*;
-use gpui_kit::component::spinner::Spinner;
 use gpui_kit::component::{button::*, popover::Popover};
 use gpui_kit::prelude::*;
 
@@ -96,7 +95,17 @@ impl Render for Potato {
             .bg(cx.theme().background)
             .text_color(cx.theme().foreground)
             .text_size(px(14.))
+            .on_mouse_move(cx.listener(|s, e, w, cx| s.resize_files(e, w, cx)))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|s, _, w, cx| s.finish_file_resize(w, cx)),
+            )
             .on_action(cx.listener(|s, _: &NewChat, w, cx| s.new_chat(w, cx)))
+            .on_action(cx.listener(|s, _: &ShowSendOptions, w, cx| {
+                if !s.settings.open && s.menu.is_none() {
+                    s.send_hover(true, w, cx);
+                }
+            }))
             .on_action(cx.listener(|s, _: &Settings, w, cx| s.open_settings(w, cx)))
             .on_action(cx.listener(|s, _: &ToggleSidebar, _, cx| {
                 if s.conversations.archive_open {
@@ -111,6 +120,23 @@ impl Render for Potato {
             .on_action(cx.listener(|s, _: &Dismiss, w, cx| {
                 if s.conversations.archive_open {
                     s.close_archive(w, cx);
+                    return;
+                }
+                if s.outbox.send_hover {
+                    s.outbox.send_hover = false;
+                    cx.notify();
+                    return;
+                }
+                if s.outbox.menu.take().is_some() {
+                    cx.notify();
+                    return;
+                }
+                if let Some(id) = s.outbox.editing.clone() {
+                    s.queue_action("cancel_edit", &id, w, cx);
+                    return;
+                }
+                if s.running() && s.menu.is_none() && !s.settings.open && !s.workspace.editing {
+                    s.stop(w, cx);
                     return;
                 }
                 s.menu = None;
@@ -179,28 +205,50 @@ impl Potato {
             let context_chat = chat.clone();
             chats = chats.child(
                 div()
+                    .id(("conversation-row", i))
                     .group("conversation-row")
                     .flex()
                     .items_center()
-                    .gap_1()
+                    .w_full()
+                    .rounded(px(8.))
+                    .pr_1()
+                    .hover(|d| d.bg(cx.theme().accent.opacity(if selected { 1. } else { 0.65 })))
+                    .when(selected, |d| d.bg(cx.theme().accent))
                     .child(
-                        row_button(format!("chat-{i}"), string(&chat, "name"))
-                            .w_auto()
+                        Button::new(("chat", i))
+                            .text()
+                            .small()
                             .flex_1()
                             .min_w_0()
-                            .when(selected, |b| b.bg(cx.theme().accent))
+                            .h(px(34.))
+                            .px_2()
+                            .font_weight(FontWeight::NORMAL)
+                            .accessibility_label(string(&chat, "name"))
+                            .child(
+                                div()
+                                    .w_full()
+                                    .min_w_0()
+                                    .text_left()
+                                    .text_ellipsis()
+                                    .child(string(&chat, "name")),
+                            )
                             .on_click(
                                 cx.listener(move |s, _, w, cx| s.select_chat(chat.clone(), w, cx)),
                             ),
                     )
                     .child(
                         Button::new(("chat-options", i))
-                            .opacity(0.)
+                            .opacity(if selected { 1. } else { 0. })
                             .group_hover("conversation-row", |b| b.opacity(1.))
                             .focus(|b| b.opacity(1.))
-                            .ghost()
+                            .text()
                             .small()
-                            .label("···")
+                            .w(px(28.))
+                            .h(px(28.))
+                            .flex_shrink_0()
+                            .icon(IconName::Ellipsis)
+                            .text_color(cx.theme().muted_foreground)
+                            .tooltip("会话设置")
                             .accessibility_label("会话设置")
                             .on_click(cx.listener(move |s, _, w, cx| {
                                 s.edit_conversation(context_chat.clone(), w, cx)
@@ -298,7 +346,9 @@ impl Potato {
                             } else {
                                 IconName::Moon
                             },
-                            "切换主题",
+                            format!("主题：{} · 点击切换为{}",
+                                ThemePreference::from_preferences(&self.preferences).label(),
+                                ThemePreference::from_preferences(&self.preferences).next().label()),
                         )
                         .size(px(32.))
                         .flex_shrink_0()
@@ -307,6 +357,7 @@ impl Potato {
             )
     }
     fn chat_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        self.sync_side_panel(window, cx);
         let empty = self.history.is_empty() && self.turn.messages.is_empty();
         let composer = self.composer_view(window, cx);
         let header = div()
@@ -336,7 +387,17 @@ impl Potato {
                     ),
                 )
             });
-        let mut body = div().flex().flex_col().size_full().child(header);
+        let header = header.when(empty, |d| d.child(div().flex_1())).child(
+            icon_button("toggle-files", IconName::PanelRight, "文件与改动")
+                .on_click(cx.listener(|s, _, w, cx| s.toggle_files(w, cx))),
+        );
+        let mut body = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .child(header);
         if empty {
             body = body.child(
                 div()
@@ -378,12 +439,14 @@ impl Potato {
                                 })),
                         )
                     })
-                    .child(div().w_full().max_w(px(760.)).child(composer)),
+                    .child(
+                        div()
+                            .w_full()
+                            .max_w(px(crate::design::CHAT_WIDTH))
+                            .child(composer),
+                    ),
             );
         } else {
-            if !self.chat.scroll_paused {
-                self.chat.scroll.scroll_to_bottom();
-            }
             let mut messages = div()
                 .id("messages")
                 .track_scroll(&self.chat.scroll)
@@ -413,6 +476,11 @@ impl Potato {
                 .chain(self.turn.messages.iter())
                 .cloned()
                 .collect();
+            // Follow changing layout through disclosure frames as well as text
+            // deltas. Reading or opening a detail pauses this behavior.
+            if !self.chat.scroll_paused {
+                self.chat.scroll.scroll_to_bottom();
+            }
             for (i, message) in all.iter_mut().enumerate() {
                 let identity = message["id"]
                     .as_str()
@@ -426,7 +494,38 @@ impl Potato {
                     message["_presentation"] = summary.clone();
                 }
             }
+            self.chat
+                .markdown
+                .sync(&self.session, &all, !self.streaming, cx);
             let blocks = crate::chat::chat_blocks(&all, self.streaming, &self.turn.status);
+            let has_active_process = blocks
+                .iter()
+                .any(|block| matches!(block, crate::chat::ChatBlock::Process { active: true, .. }));
+
+            if let Some(source) = self.files.locate.take() {
+                let index = blocks.iter().position(|block| match block {
+                    crate::chat::ChatBlock::Message { index, .. } => *index == source,
+                    crate::chat::ChatBlock::Process { rows, .. } => {
+                        rows.iter().any(|(i, _)| *i == source)
+                    }
+                });
+                if let Some(index) = index {
+                    self.chat.scroll.scroll_to_item(index);
+                }
+            }
+            let current_start = all
+                .iter()
+                .rposition(|m| {
+                    m["role"] == "user"
+                        && m["metadata"]["steering_state"].is_null()
+                        && m["metadata"]["question_request_id"].is_null()
+                })
+                .unwrap_or(0);
+            let has_terminal_process = blocks.iter().any(|b| {
+                matches!(b,
+                crate::chat::ChatBlock::Process {index, state, ..}
+                    if *index >= current_start && state == &self.turn.status)
+            });
             let last_answer = match blocks.last() {
                 Some(crate::chat::ChatBlock::Message {
                     index,
@@ -454,34 +553,43 @@ impl Potato {
                         finished,
                         state,
                         elapsed,
+                        answering,
                         ..
-                    } => self.process_view(index, &rows, &state, finished, elapsed, cx),
+                    } => self.process_view(index, &rows, &state, finished, elapsed, answering, cx),
                 });
             }
-            if self.streaming
-                && self
-                    .turn
-                    .messages
-                    .iter()
-                    .all(|m| message_text(m).trim().is_empty())
-            {
+            if self.streaming && !has_active_process {
                 messages = messages.child(
                     div()
                         .w_full()
-                        .max_w(px(760.))
+                        .max_w(px(crate::design::CHAT_WIDTH))
                         .flex()
                         .items_center()
                         .gap_2()
                         .text_color(cx.theme().muted_foreground)
-                        .child(Spinner::new().with_size(px(16.)))
-                        .child("正在回复…"),
+                        .child(crate::process::activity_spinner(
+                            "reply-wait",
+                            cx.theme().muted_foreground,
+                        ))
+                        .child(
+                            if all
+                                .iter()
+                                .rev()
+                                .take_while(|m| m["role"] != "user")
+                                .any(crate::chat::answer_text)
+                            {
+                                "正在回答"
+                            } else {
+                                "正在思考"
+                            },
+                        ),
                 );
-            } else if self.turn.messages.is_empty()
+            } else if !self.streaming
+                && !has_terminal_process
                 && matches!(
                     self.turn.status.as_str(),
                     "failed" | "cancelled" | "incomplete"
                 )
-                && all.last().is_some_and(|m| m["role"] == "user")
             {
                 messages = messages.child(muted(
                     if self.turn.status == "cancelled" {
@@ -499,53 +607,72 @@ impl Potato {
                         && self.chat.scroll.max_offset().y + self.chat.scroll.offset().y > px(48.),
                     |d| {
                         d.child(
-                            div().flex().justify_center().pb_2().child(
-                                Button::new("latest-message")
-                                    .ghost()
-                                    .small()
-                                    .label("回到最新消息")
-                                    .on_click(cx.listener(|s, _, _, cx| {
-                                        s.chat.scroll_paused = false;
-                                        cx.notify();
-                                    })),
-                            ),
+                            div()
+                                .relative()
+                                .h_0()
+                                .flex_shrink_0()
+                                .flex()
+                                .justify_center()
+                                .child(
+                                    icon_button(
+                                        "latest-message",
+                                        IconName::ArrowDown,
+                                        "回到最新消息",
+                                    )
+                                    .absolute()
+                                    .bottom(px(8.))
+                                    .size(px(32.))
+                                    .rounded_full()
+                                    .bg(cx.theme().background)
+                                    .border_1()
+                                    .border_color(cx.theme().border)
+                                    .shadow_sm()
+                                    .on_click(cx.listener(
+                                        |s, _, _, cx| {
+                                            s.chat.scroll_paused = false;
+                                            s.chat.scroll.scroll_to_bottom();
+                                            cx.notify();
+                                        },
+                                    )),
+                                ),
                         )
                     },
                 )
                 .child(
-                    div()
-                        .flex()
-                        .justify_center()
-                        .px_8()
-                        .pb_5()
-                        .child(div().w_full().max_w(px(760.)).child(composer)),
+                    div().flex().justify_center().px_8().pb_5().child(
+                        div()
+                            .w_full()
+                            .max_w(px(crate::design::CHAT_WIDTH))
+                            .child(composer),
+                    ),
                 );
         }
-        body.into_any_element()
+        div()
+            .flex()
+            .size_full()
+            .child(body)
+            .when(self.files.open, |d| {
+                d.child(self.file_side_view(window, cx))
+            })
+            .into_any_element()
     }
     pub(super) fn composer_view(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
+        let is_home = self.history.is_empty() && self.turn.messages.is_empty();
         let interactions = self.interaction_view(window, cx);
+        let queue = self.outbox_view(cx);
+        let send_control = self.send_control(cx);
         let project_label = if self.project["is_workspace_default"] == true {
             "默认".into()
         } else {
             self.project["name"].as_str().unwrap_or("默认").to_owned()
         };
         let model_label = self
-            .providers
-            .iter()
-            .flat_map(|p| {
-                p["models"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .chain(p["extra_models"].as_array().into_iter().flatten())
-            })
-            .find(|m| m["id"] == self.model["model"])
-            .map(|m| string(m, "name"))
+            .active_model_info()
+            .map(|(_, m)| string(m, "name"))
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| {
                 self.model["model"]
@@ -553,19 +680,31 @@ impl Potato {
                     .unwrap_or("选择模型")
                     .to_owned()
             });
+        let has_effort = !self.effort_options().is_empty();
+        let effort_label = self.effort_label();
+        let effort_menu = self.effort_view(window, cx);
         let mut files = div().flex().flex_wrap().gap_2();
         for (i, file) in self.attachments.iter().enumerate() {
             files = files.child(
-                Button::new(("attachment", i))
-                    .small()
-                    .outline()
-                    .icon(IconName::Paperclip)
-                    .label(file["file_name"].as_str().unwrap_or("附件").to_owned())
-                    .tooltip("点击移除附件")
-                    .on_click(cx.listener(move |s, _, _, cx| {
-                        s.attachments.remove(i);
-                        cx.notify();
-                    })),
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .when(file["type"] == "image", |d| {
+                        d.child(crate::media::image_view(file, true))
+                    })
+                    .child(
+                        Button::new(("attachment", i))
+                            .small()
+                            .outline()
+                            .icon(IconName::Paperclip)
+                            .label(file["file_name"].as_str().unwrap_or("附件").to_owned())
+                            .tooltip("点击移除附件")
+                            .on_click(cx.listener(move |s, _, _, cx| {
+                                s.attachments.remove(i);
+                                cx.notify();
+                            })),
+                    ),
             );
         }
         let project_menu = self.menu_view(Menu::Project, window, cx);
@@ -580,13 +719,20 @@ impl Potato {
             Popover::new(id)
                 .anchor(Anchor::BottomLeft)
                 .open(self.menu == Some(kind))
-                .trigger(trigger.on_click(cx.listener(move |s, _, _, cx| {
+                .trigger(trigger.on_click(cx.listener(move |s, _, w, cx| {
+                    if kind == Menu::Effort {
+                        s.prepare_effort(w, cx);
+                    }
                     s.menu = Some(kind);
                     cx.notify();
                 })))
                 .on_open_change(move |open, _, cx| {
                     owner.update(cx, |s, cx| {
-                        s.menu = if *open { Some(kind) } else { None };
+                        if *open {
+                            s.menu = Some(kind);
+                        } else if s.menu == Some(kind) {
+                            s.menu = None;
+                        }
                         cx.notify();
                     })
                 })
@@ -597,8 +743,8 @@ impl Potato {
         div()
             .flex()
             .flex_col()
-            .gap_2()
             .children(interactions)
+            .when(!self.queue_items().is_empty(), |d| d.child(queue))
             .when(self.chat.edit_backup.is_some(), |d| {
                 d.child(
                     div()
@@ -633,13 +779,13 @@ impl Potato {
                             .aria_label("描述任务")
                             .text_size(px(16.))
                             .line_height(px(24.))
+                            .when(is_home, |input| input.min_h(px(96.)))
                             .px_1()
                             .py_0(),
                     )
                     .child(
                         div()
                             .flex()
-                            .flex_wrap()
                             .items_center()
                             .gap_2()
                             .mt_1()
@@ -675,11 +821,9 @@ impl Potato {
                                             .ghost()
                                             .small()
                                             .icon(IconName::ShieldCheck)
-                                            .label(match self.config["sandbox_mode"].as_str() {
-                                                Some("read-only") => "只读",
-                                                Some("full-access") => "完全访问",
-                                                _ => "本机 · 自动",
-                                            }),
+                                            .label(crate::interactions::approval_mode_label(
+                                                &self.config,
+                                            )),
                                         permission_menu,
                                         cx,
                                     )),
@@ -699,12 +843,32 @@ impl Potato {
                                             .small()
                                             .max_w(px(180.))
                                             .min_w_0()
+                                            .disabled(self.streaming || self.effort.saving)
+                                            .when(self.menu == Some(Menu::Model), |b| {
+                                                b.bg(cx.theme().accent)
+                                            })
                                             .tooltip(model_label.clone())
-                                            .label(model_label)
-                                            .icon(IconName::ChevronDown),
+                                            .label(model_label),
                                         model_menu,
                                         cx,
                                     ))
+                                    .when(has_effort, |d| {
+                                        d.child(pop(
+                                            Menu::Effort,
+                                            "effort-menu",
+                                            Button::new("effort")
+                                                .ghost()
+                                                .small()
+                                                .label(effort_label)
+                                                .accessibility_label("选择思考深度")
+                                                .disabled(self.streaming || self.effort.saving)
+                                                .when(self.menu == Some(Menu::Effort), |b| {
+                                                    b.bg(cx.theme().accent)
+                                                }),
+                                            effort_menu,
+                                            cx,
+                                        ))
+                                    })
                                     .child(
                                         icon_button("voice", IconName::Mic, "语音输入")
                                             .when(self.voice.active, |b| {
@@ -715,66 +879,7 @@ impl Potato {
                                                 cx.listener(|s, _, w, cx| s.toggle_voice(w, cx)),
                                             ),
                                     )
-                                    .when(self.streaming, |row| {
-                                        row.child(
-                                            Button::new("steer")
-                                                .label("补充指令")
-                                                .disabled(
-                                                    self.busy
-                                                        || self
-                                                            .composer
-                                                            .read(cx)
-                                                            .value()
-                                                            .trim()
-                                                            .is_empty()
-                                                        || !self.attachments.is_empty(),
-                                                )
-                                                .tooltip("在当前步骤结束后采用补充指令")
-                                                .on_click(cx.listener(|s, _, w, cx| s.send(w, cx))),
-                                        )
-                                    })
-                                    .child(
-                                        Button::new("send")
-                                            .primary()
-                                            .rounded_full()
-                                            .size(px(34.))
-                                            .icon(if self.streaming {
-                                                IconName::Square
-                                            } else {
-                                                IconName::ArrowUp
-                                            })
-                                            .tooltip(if self.streaming {
-                                                "停止生成"
-                                            } else {
-                                                "发送"
-                                            })
-                                            .accessibility_label(if self.streaming {
-                                                "停止生成"
-                                            } else {
-                                                "发送消息"
-                                            })
-                                            .disabled(
-                                                !self.streaming
-                                                    && (self.busy
-                                                        || self.voice.active
-                                                        || self.chat.loading
-                                                        || self.chat.load_error
-                                                        || self
-                                                            .composer
-                                                            .read(cx)
-                                                            .value()
-                                                            .trim()
-                                                            .is_empty()
-                                                            && self.attachments.is_empty()),
-                                            )
-                                            .on_click(cx.listener(|s, _, w, cx| {
-                                                if s.streaming {
-                                                    s.stop(w, cx)
-                                                } else {
-                                                    s.send(w, cx)
-                                                }
-                                            })),
-                                    ),
+                                    .child(send_control),
                             ),
                     ),
             )
@@ -914,18 +1019,40 @@ impl Potato {
                         let provider = string(p, "id");
                         let model = string(m, "id");
                         menu = menu.child(
-                            row_button(
-                                format!("model-{pi}-{i}"),
-                                m["name"].as_str().unwrap_or(&model).to_owned(),
-                            )
-                            .when(
-                                m["id"] == self.model["model"]
-                                    && p["id"] == self.model["provider_id"],
-                                |b| b.icon(IconName::Check),
-                            )
-                            .disabled(self.streaming)
-                            .on_click(cx.listener(
-                                move |s, _, w, cx| {
+                            Button::new(ElementId::Name(format!("model-{pi}-{i}").into()))
+                                .ghost()
+                                .small()
+                                .w_full()
+                                .h(px(34.))
+                                .px_2()
+                                .accessibility_label(
+                                    m["name"].as_str().unwrap_or(&model).to_owned(),
+                                )
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .w_full()
+                                        .min_w_0()
+                                        .gap_2()
+                                        .child(
+                                            div()
+                                                .flex_1()
+                                                .min_w_0()
+                                                .text_left()
+                                                .text_ellipsis()
+                                                .child(
+                                                    m["name"].as_str().unwrap_or(&model).to_owned(),
+                                                ),
+                                        )
+                                        .when(
+                                            m["id"] == self.model["model"]
+                                                && p["id"] == self.model["provider_id"],
+                                            |d| d.child(Icon::new(IconName::Check).size(px(16.))),
+                                        ),
+                                )
+                                .disabled(self.streaming || self.effort.saving)
+                                .on_click(cx.listener(move |s, _, w, cx| {
                                     s.request(
                                         "PUT",
                                         "/api/models/active",
@@ -937,8 +1064,7 @@ impl Potato {
                                             s.menu = None;
                                         },
                                     );
-                                },
-                            )),
+                                })),
                         );
                     }
                 }
@@ -953,14 +1079,19 @@ impl Potato {
                             })),
                     );
             }
-            Menu::Conversations => {}
+            Menu::Conversations | Menu::Effort => {}
             Menu::Permission => {
-                menu = menu.child(muted("权限", cx));
-                for (id, label) in [
-                    ("read-only", "只读"),
-                    ("workspace-write", "工作区读写"),
-                    ("full-access", "完全访问"),
-                ] {
+                menu = menu.child(muted(
+                    format!(
+                        "文件访问 · {} 个永久目录规则",
+                        self.config["directory_rule_count"].as_u64().unwrap_or(0)
+                    ),
+                    cx,
+                ));
+                for (_, id, label) in potato_core::permissions::FileMode::OPTIONS
+                    .into_iter()
+                    .filter(|(_, id, _)| *id != "read-only")
+                {
                     menu = menu.child(
                         row_button(id, label)
                             .when(self.config["sandbox_mode"] == id, |b| {
@@ -982,6 +1113,54 @@ impl Potato {
                             })),
                     );
                 }
+                menu = menu.child(muted(
+                    format!(
+                        "审批方式 · {}",
+                        crate::interactions::approval_mode_label(&self.config)
+                    ),
+                    cx,
+                ));
+                for (reviewer, label) in [("model", "自动审批"), ("user", "手动审批")] {
+                    menu = menu.child(
+                        row_button(format!("reviewer-{reviewer}"), label)
+                            .when(
+                                self.config["reviewer"].as_str().unwrap_or("model") == reviewer
+                                    && self.config["approval_level"].as_str().unwrap_or("AUTO")
+                                        == "AUTO",
+                                |b| b.icon(IconName::Check),
+                            )
+                            .disabled(self.busy || self.streaming)
+                            .on_click(cx.listener(move |s, _, w, cx| {
+                                s.busy = true;
+                                s.request_result(
+                                    "PUT",
+                                    "/api/workspace/running-config",
+                                    json!({"reviewer":reviewer, "approval_level":"AUTO"}),
+                                    w,
+                                    cx,
+                                    |s, result, _, _| {
+                                        s.busy = false;
+                                        match result {
+                                            Ok(config) => {
+                                                s.config = config;
+                                                s.menu = None;
+                                            }
+                                            Err(error) => s.notice = error,
+                                        }
+                                    },
+                                );
+                            })),
+                    );
+                }
+                menu = menu.child(
+                    row_button("permission-settings", "管理目录授权与审批策略").on_click(
+                        cx.listener(|s, _, w, cx| {
+                            s.menu = None;
+                            s.open_settings(w, cx);
+                            s.settings.section = 3;
+                        }),
+                    ),
+                );
             }
         }
         div()

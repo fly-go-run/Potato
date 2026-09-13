@@ -229,50 +229,53 @@ impl Potato {
         }
         cx.notify();
     }
-    pub fn workspace_view(&mut self, _w: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub fn workspace_view(&mut self, w: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let mut title = div()
             .flex()
             .items_center()
             .justify_between()
             .gap_6()
             .child(heading(self.page.title(), self.page.subtitle(), cx));
-        title = title.child(
-            Button::new("new-item")
-                .primary()
-                .small()
-                .icon(IconName::Plus)
-                .label(if self.page == Page::Tasks {
-                    "新建任务"
-                } else if self.page == Page::Skills && self.workspace.tab == "plugins" {
-                    if self.workspace.list.iter().any(|p| p["id"] == "gpt-image2") {
-                        "已安装图片生成"
+        let empty_tasks = self.page == Page::Tasks && self.workspace.list.is_empty();
+        if !empty_tasks {
+            title = title.child(
+                Button::new("new-item")
+                    .primary()
+                    .small()
+                    .icon(IconName::Plus)
+                    .label(if self.page == Page::Tasks {
+                        "新建任务"
+                    } else if self.page == Page::Skills && self.workspace.tab == "plugins" {
+                        if self.workspace.list.iter().any(|p| p["id"] == "gpt-image2") {
+                            "已安装图片生成"
+                        } else {
+                            "安装图片生成"
+                        }
                     } else {
-                        "安装图片生成"
-                    }
-                } else {
-                    "添加"
-                })
-                .h(px(32.))
-                .disabled(
-                    self.page == Page::Skills
-                        && self.workspace.tab == "plugins"
-                        && self.workspace.list.iter().any(|p| p["id"] == "gpt-image2"),
-                )
-                .on_click(cx.listener(|s, _, w, cx| {
-                    if s.page == Page::Skills && s.workspace.tab == "plugins" {
-                        s.request(
-                            "POST",
-                            "/api/plugins/install",
-                            json!({"source":"builtin:gpt-image2"}),
-                            w,
-                            cx,
-                            |s, _, w, cx| s.load_page(w, cx),
-                        );
-                    } else {
-                        s.edit_item(None, w, cx);
-                    }
-                })),
-        );
+                        "添加"
+                    })
+                    .h(px(32.))
+                    .disabled(
+                        self.page == Page::Skills
+                            && self.workspace.tab == "plugins"
+                            && self.workspace.list.iter().any(|p| p["id"] == "gpt-image2"),
+                    )
+                    .on_click(cx.listener(|s, _, w, cx| {
+                        if s.page == Page::Skills && s.workspace.tab == "plugins" {
+                            s.request(
+                                "POST",
+                                "/api/plugins/install",
+                                json!({"source":"builtin:gpt-image2"}),
+                                w,
+                                cx,
+                                |s, _, w, cx| s.load_page(w, cx),
+                            );
+                        } else {
+                            s.edit_item(None, w, cx);
+                        }
+                    })),
+            );
+        }
         let mut tabs = div().flex().gap_2().items_center();
         if self.page == Page::Skills {
             for (id, label) in [("", "技能"), ("plugins", "插件")] {
@@ -493,7 +496,7 @@ impl Potato {
                     .items_center()
                     .justify_center()
                     .gap_4()
-                    .py(px(90.))
+                    .py(px(if self.page == Page::Tasks { 40. } else { 90. }))
                     .child(
                         Icon::new(if self.page == Page::Tasks {
                             IconName::Clock
@@ -514,36 +517,80 @@ impl Potato {
                     })
                     .child(muted(
                         if self.page == Page::Tasks {
-                            "从右侧选择模板，或新建一个任务。"
+                            "从下方选择模板，或新建一个任务。"
                         } else {
                             "添加内容后，它们会显示在这里。"
                         },
                         cx,
-                    )),
+                    ))
+                    .when(empty_tasks && !self.workspace.loading, |d| {
+                        d.child(
+                            Button::new("empty-new-task")
+                                .primary()
+                                .icon(IconName::Plus)
+                                .label("新建任务")
+                                .mt_2()
+                                .on_click(cx.listener(|s, _, w, cx| s.edit_item(None, w, cx))),
+                        )
+                    }),
             );
         }
-        let mut columns = div().flex().gap_8().child(list);
+        let mut columns = div().flex().flex_col().gap_7().child(list);
         if self.page == Page::Tasks {
+            let available =
+                (f32::from(w.viewport_size().width) - if self.sidebar { 236. } else { 0. } - 64.)
+                    .min(1040.);
+            let column_count = if available >= 840. {
+                3
+            } else if available >= 560. {
+                2
+            } else {
+                1
+            };
+            let card_width = (available - 12. * (column_count - 1) as f32) / column_count as f32;
             let mut templates = div()
-                .w(px(248.))
-                .flex_shrink_0()
                 .flex()
                 .flex_col()
-                .gap_2()
-                .child(
-                    div()
-                        .mb_2()
-                        .font_weight(FontWeight::MEDIUM)
-                        .child("从模板开始"),
-                );
-            for (i, (name, cron, prompt)) in TEMPLATES.iter().enumerate() {
-                templates=templates.child(Button::new(("template",i)).accessibility_label(*name).outline().w_full().h_auto().justify_start().p_3()
-                .child(div().flex().flex_col().items_start().gap_2().child(*name).child(muted(template_schedule(cron),cx))).child(div().flex_1())
-                .on_click(cx.listener(move|s,_,w,cx|{
-                    s.edit_item(None,w,cx);s.workspace.task=json!({"task_type":"agent","schedule":{"type":"cron","cron":cron,"timezone":"Asia/Shanghai"}});
-                    if let Some(f)=s.fields.get("document-name"){f.update(cx,|v,cx|v.set_value(*name,w,cx));}
-                    s.editor.update(cx,|v,cx|v.set_value(*prompt,w,cx));cx.notify();
-                })));
+                .gap_3()
+                .child(div().font_weight(FontWeight::SEMIBOLD).child("任务模板"))
+                .child(muted("选择模板后，可修改内容和时间。", cx));
+            let icons = [
+                IconName::FileText,
+                IconName::Clock,
+                IconName::Files,
+                IconName::Check,
+                IconName::Notebook,
+                IconName::Database,
+                IconName::Notebook,
+                IconName::Folder,
+            ];
+            for (row_index, chunk) in TEMPLATES.chunks(column_count).enumerate() {
+                let mut row = div().flex().gap_3().w_full();
+                for (offset, (name, cron, prompt)) in chunk.iter().enumerate() {
+                    let i = row_index * column_count + offset;
+                    row = row.child(Button::new(("template", i))
+                        .accessibility_label(*name).outline().w(px(card_width)).flex_shrink_0().min_w_0()
+                        .h(px(112.)).justify_start().p_4()
+                        .child(div().flex().items_start().gap_3().w_full().min_w_0()
+                            .child(Icon::new(icons[i]).size(px(18.)).flex_shrink_0().text_color(cx.theme().muted_foreground))
+                            .child(div().flex_1().min_w_0().flex().flex_col().items_start().gap_2()
+                                .child(div().font_weight(FontWeight::MEDIUM).child(*name))
+                                .child(div().w_full().text_ellipsis().text_sm().text_color(cx.theme().muted_foreground).child(*prompt))
+                                .child(muted(template_schedule(cron), cx))))
+                        .on_click(cx.listener(move |s, _, w, cx| {
+                            s.edit_item(None, w, cx);
+                            s.workspace.task = json!({"task_type":"agent","schedule":{"type":"cron","cron":cron,"timezone":"Asia/Shanghai"}});
+                            if let Some(f) = s.fields.get("document-name") {
+                                f.update(cx, |v, cx| v.set_value(*name, w, cx));
+                            }
+                            s.editor.update(cx, |v, cx| v.set_value(*prompt, w, cx));
+                            cx.notify();
+                        })));
+                }
+                for _ in chunk.len()..column_count {
+                    row = row.child(div().flex_1().min_w_0());
+                }
+                templates = templates.child(row);
             }
             columns = columns.child(templates);
         }
@@ -587,7 +634,7 @@ impl Potato {
                             .flex_col()
                             .gap_7()
                             .child(title)
-                            .child(tabs)
+                            .when(!empty_tasks, |d| d.child(tabs))
                             .child(columns)
                             .when(!self.notice.is_empty(), |d| {
                                 d.child(muted(self.notice.clone(), cx))
