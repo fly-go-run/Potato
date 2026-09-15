@@ -341,14 +341,12 @@ impl Potato {
                     .child(
                         icon_button(
                             "theme",
-                            if self.dark {
-                                IconName::Sun
-                            } else {
-                                IconName::Moon
+                            match ThemePreference::from_preferences(&self.preferences) {
+                                ThemePreference::Light => IconName::Sun,
+                                ThemePreference::Dark => IconName::Moon,
+                                ThemePreference::System => IconName::RefreshCw,
                             },
-                            format!("主题：{} · 点击切换为{}",
-                                ThemePreference::from_preferences(&self.preferences).label(),
-                                ThemePreference::from_preferences(&self.preferences).next().label()),
+                            ThemePreference::from_preferences(&self.preferences).shortcut_label(),
                         )
                         .size(px(32.))
                         .flex_shrink_0()
@@ -779,7 +777,8 @@ impl Potato {
                             .aria_label("描述任务")
                             .text_size(px(16.))
                             .line_height(px(24.))
-                            .when(is_home, |input| input.min_h(px(96.)))
+                            // Keep the first line at the top of the taller home input.
+                            .when(is_home, |input| input.min_h(px(96.)).items_start())
                             .px_1()
                             .py_0(),
                     )

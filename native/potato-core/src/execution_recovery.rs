@@ -146,6 +146,7 @@ impl Runtime {
         };
         builder.create(&scratch_path)?;
         let scratch = Scratch(scratch_path.clone());
+        let skill_digest = self.prepare_shell_skills(&args["skills"], &scratch_path)?;
         let mut plan = Plan::new(
             command,
             cwd.clone(),
@@ -155,6 +156,13 @@ impl Runtime {
             scratch_path,
         );
         plan.unsandboxed |= escalation;
+        if let Some(digest) = skill_digest {
+            plan.env.insert("POTATO_SKILLS_DIGEST".into(), digest);
+            plan.env.insert(
+                "POTATO_SKILLS_DIR".into(),
+                plan.scratch.join("skills").display().to_string(),
+            );
+        }
         plan.network = network;
         let rules = self.permission_rules_api("GET", &Value::Null)?;
         for kind in ["rules", "session_rules"] {

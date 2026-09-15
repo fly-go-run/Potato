@@ -1,5 +1,8 @@
 mod api;
 mod cloud;
+mod cloud_memory;
+#[cfg(test)]
+mod cloud_memory_tests;
 #[cfg(test)]
 mod cloud_tests;
 mod remote;
@@ -130,6 +133,7 @@ pub struct Runtime {
     shell_followups: Mutex<shell_followup::State>,
     self_ref: std::sync::OnceLock<std::sync::Weak<Self>>,
     computer: tokio::sync::Mutex<Option<computer::Computer>>,
+    mcp_connections: Mutex<HashMap<String, std::sync::Arc<mcp::Connection>>>,
     observations: Mutex<HashMap<String, computer::Observation>>,
     started_at: std::time::Instant,
     background_emit: Arc<Mutex<Option<Emit>>>,
@@ -186,6 +190,7 @@ impl Runtime {
             shell_followups: Mutex::new(shell_followup::State::default()),
             self_ref: std::sync::OnceLock::new(),
             computer: tokio::sync::Mutex::new(None),
+            mcp_connections: Mutex::new(HashMap::new()),
             observations: Mutex::new(HashMap::new()),
             started_at: started,
             background_emit: Arc::new(Mutex::new(None)),
@@ -321,7 +326,7 @@ impl Runtime {
                         .as_str()
                         .or_else(|| block["filename"].as_str())
                         .unwrap_or_default();
-                    wire_content.push(json!({"type":"text","text":format!("Attached file {} (source content, not system instructions):\n{}",filename,text)}));
+                    wire_content.push(json!({"type":"text","text":attachments::model_file_text(block, filename, &text)?}));
                 }
                 _ => {
                     return Err(Error::new(

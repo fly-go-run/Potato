@@ -6,7 +6,7 @@ use std::time::Duration;
 
 pub(crate) const PROVIDER: &str = "potato-cloud";
 const SERVICE: &str = "https://potato-remote.recodex.top/";
-fn service_url(value: &str) -> Result<reqwest::Url> {
+pub(crate) fn service_url(value: &str) -> Result<reqwest::Url> {
     let url = reqwest::Url::parse(value).map_err(|_| Error::new(400, "云端服务地址无效"))?;
     let fixture = cfg!(debug_assertions)
         && url.scheme() == "http"
@@ -22,7 +22,7 @@ fn service_url(value: &str) -> Result<reqwest::Url> {
     }
     Ok(url)
 }
-fn alive(config: &Value) -> bool {
+pub(crate) fn alive(config: &Value) -> bool {
     config["expires"].as_i64().unwrap_or(0) > chrono::Utc::now().timestamp_millis()
         && config["session_token"].is_string()
 }
@@ -220,6 +220,10 @@ impl Runtime {
         }
         let db = self.db()?;
         db.put("cloud_config", &Value::Null)?;
+        db.put(
+            &format!("cloud_memory_cache:{}", crate::cloud_memory::owner_key(&config)),
+            &Value::Null,
+        )?;
         db.put("cloud_preferences", &json!({}))?;
         if db.get("active", Value::Null)?["provider_id"] == PROVIDER {
             db.put("active", &Value::Null)?;
@@ -302,7 +306,7 @@ impl Runtime {
         drop(db);
         Ok(self.cloud_provider()?.unwrap_or(Value::Null))
     }
-    async fn cloud_http(
+    pub(crate) async fn cloud_http(
         &self,
         relay: &reqwest::Url,
         path: &str,

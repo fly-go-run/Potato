@@ -151,7 +151,7 @@ export async function chatWithSearch(body: Record<string, unknown>, upstreamURL:
           }
         }
       } catch { if (!cancelled) emit({ error: { message: 'Reply or tool execution was interrupted. Please retry.' } }); }
-      finally { signal.removeEventListener('abort', abort); await recall?.execute.close?.(); if (!cancelled) output.close(); }
+      finally { signal.removeEventListener('abort', abort); if (!cancelled) output.close(); }
     },
     cancel() { cancelled = true; controller.abort(); }
   });

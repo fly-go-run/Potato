@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { Sandbox } from '@e2b/code-interpreter';
 
 export type RecallMessage = { id: string; role: 'user' | 'assistant'; text: string; date: string; version?: string };
 export type RecallConversation = { id: string; title: string; excluded: boolean; messages: RecallMessage[] };
@@ -145,50 +144,7 @@ export const recallTools = [
   { name: 'forget_memory', description: 'Forget a memory ONLY on an explicit user request. Find its exact ID with search_memory first.', properties: { id: { type: 'string' } } }
 ].map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: { type: 'object', properties: t.properties, additionalProperties: false } } }));
 
-// Data-only input is written through the SDK, never interpolated into Python or a shell.
-export const RECALL_SEARCH_CODE = `import json, unicodedata
-from datetime import datetime
-p=json.load(open('/home/user/recall-input.json'))
-q=unicodedata.normalize('NFKC',p['query']).casefold().strip()
-terms=q.split()
-rows=[]
-for c in p['conversations']:
- for i,m in enumerate(c['messages']):
-  if p.get('start') and m['date'] < p['start']: continue
-  if p.get('end') and m['date'] >= p['end']: continue
-  text=unicodedata.normalize('NFKC',m['text']).casefold()
-  score=10 if q and q in text else sum(1 for t in terms if t in text)
-  if q and not score: continue
-  rows.append(dict(m,conversation=c['id'],title=c['title'],revision=c['revision'],score=score))
-rows.sort(key=lambda x:(x['score'],x['date']),reverse=True)
-o=p.get('offset',0)
-print(json.dumps({'sources':[{**m,'text':m['text'][:4000]} for m in rows[o:o+8]],'more':len(rows)>o+8},ensure_ascii=False))`;
-export type RecallExecutor = ((input: unknown, signal: AbortSignal) => Promise<{ sources: RecallSource[]; more: boolean }>) & { close?: () => Promise<void> };
-export function e2bRecallExecutor(apiKey: string, template?: string, create = (key: string, name: string) => Sandbox.create(name, { apiKey: key, timeoutMs: 240_000, allowInternetAccess: false })): RecallExecutor {
-  let pending: ReturnType<typeof create> | undefined;
-  const close = async () => { const current = pending; pending = undefined; if (current) { const sb = await current.catch(() => undefined); await sb?.kill().catch(() => {}); } };
-  const execute: RecallExecutor = async (input, signal) => {
-    signal.throwIfAborted();
-    pending ??= create(apiKey, template ?? 'chat-web-office-pdf');
-    let sb: Awaited<ReturnType<typeof create>>;
-    try { sb = await pending; } catch (error) { pending = undefined; throw error; }
-    const abort = () => { void close(); }; signal.addEventListener('abort', abort, { once: true });
-    try {
-      signal.throwIfAborted();
-      await sb.files.write('/home/user/recall-input.json', JSON.stringify(input));
-      const run = await sb.runCode(RECALL_SEARCH_CODE, { timeoutMs: 30_000 });
-      signal.throwIfAborted();
-      if (run.error) throw new Error('History search failed.');
-      const raw = run.logs.stdout.join(''); if (raw.length > 50000) throw new Error('Search output too large.');
-      const result = JSON.parse(raw);
-      if (!Array.isArray(result.sources) || result.sources.length > 8) throw new Error('Invalid search output.');
-      return result;
-    } catch (error) { await close(); throw error; }
-    finally { signal.removeEventListener('abort', abort); }
-  };
-  execute.close = close;
-  return execute;
-}
+export type RecallExecutor = (input: unknown, signal: AbortSignal) => Promise<{ sources: RecallSource[]; more: boolean }>;
 export class RecallSession {
   timezone = 'UTC';
   sources: RecallSource[] = [];

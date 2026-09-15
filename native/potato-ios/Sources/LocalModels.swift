@@ -32,6 +32,11 @@ struct LocalModelCatalog: Codable, Equatable {
     var defaultModel: String? = nil
     var source = "service"
     var fetchedAt = Date()
+    // Persisted catalogs stay usable offline; refresh capabilities every six hours.
+    func isFresh(at now: Date = Date()) -> Bool {
+        let age = now.timeIntervalSince(fetchedAt)
+        return age >= 0 && age < 6 * 60 * 60
+    }
 }
 struct LocalModelChoice: Codable, Equatable {
     let endpoint: String

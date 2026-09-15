@@ -35,6 +35,29 @@ final class LocalModelUITests: XCTestCase {
         app.buttons["connection-settings"].tap()
         XCTAssertTrue(app.buttons["local-model-deep"].waitForExistence(timeout: 5))
     }
+    private func dismissPicker(_ app: XCUIApplication) {
+        if app.buttons["local-model-done"].exists { app.buttons["local-model-done"].tap(); return }
+        let title = app.navigationBars.firstMatch
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: title)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 3), .completed)
+    }
+    func testCachedPickerReopensWithoutLoadingAndDismissesByDragging() {
+        let app = launch(curated: true)
+        app.buttons["connection-settings"].tap()
+        XCTAssertTrue(app.buttons["local-model-sub2api/gpt-5.6"].waitForExistence(timeout: 5))
+        dismissPicker(app)
+        for _ in 0..<3 {
+            app.buttons["connection-settings"].tap()
+            XCTAssertTrue(app.buttons["local-model-sub2api/gpt-5.6"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["local-model-done"].exists)
+            XCTAssertFalse(app.otherElements["local-model-loading"].exists)
+            capture(app, "cached-model-picker")
+            dismissPicker(app)
+        }
+        XCTAssertEqual(input(app).value as? String, "保留云端草稿")
+    }
     private func chooseDeep(_ app: XCUIApplication) {
         openPicker(app); reveal(app, "local-model-deep").tap(); reveal(app, "local-effort-high").tap()
         XCTAssertEqual(app.buttons["local-effort-high"].value as? String, "已选择")
@@ -73,7 +96,7 @@ final class LocalModelUITests: XCTestCase {
         app.buttons["local-effort-none"].tap()
         app.buttons["local-model-back"].tap(); app.buttons["local-more-models"].tap()
         XCTAssertFalse(app.textFields["local-manual-model"].exists)
-        app.buttons["local-model-done"].tap()
+        dismissPicker(app)
         XCTAssertEqual(input(app).value as? String, "保留云端草稿")
         app.buttons["send-message"].tap(); reply(app, "MODEL=sub2api/gpt-5.6;THINKING=default;EFFORT=none")
     }
@@ -100,16 +123,16 @@ final class LocalModelUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["没有找到模型"].exists)
         app.buttons["local-model-back"].tap()
         XCTAssertTrue(app.buttons["local-model-deep"].exists)
-        app.buttons["local-model-done"].tap()
+        dismissPicker(app)
         XCTAssertEqual(input(app).value as? String, "keep draft")
     }
     func testSelectionPersistsAndRegenerationKeepsOldVersion() {
         var app = launch(); chooseDeep(app); capture(app, "local-model-high-selected")
-        app.buttons["local-model-done"].tap(); app.terminate(); app = launch(reset: false)
+        dismissPicker(app); app.terminate(); app = launch(reset: false)
         openPicker(app); XCTAssertEqual(reveal(app, "local-effort-high").value as? String, "已选择")
-        app.buttons["local-model-done"].tap(); send(app)
+        dismissPicker(app); send(app)
         reply(app, "MODEL=deep;THINKING=enabled;EFFORT=high"); capture(app, "local-model-high-request")
-        openPicker(app); reveal(app, "local-model-quick").tap(); app.buttons["local-model-done"].tap()
+        openPicker(app); reveal(app, "local-model-quick").tap(); dismissPicker(app)
         app.buttons["retry-message"].tap(); reply(app, "MODEL=deep;THINKING=enabled;EFFORT=high")
         app.buttons["reply-more"].tap(); app.buttons["reply-change-model"].tap()
         XCTAssertTrue(app.buttons["local-model-quick"].waitForExistence(timeout: 5))
@@ -135,11 +158,11 @@ final class LocalModelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["local-model-deep"].waitForExistence(timeout: 5))
         app.buttons["local-model-deep"].tap(); reveal(app, "local-effort-high").tap()
         app.buttons["local-model-back"].tap(); capture(app, "compact-reply-change-model")
-        app.buttons["local-model-done"].tap()
+        dismissPicker(app)
         XCTAssertEqual(input(app).value as? String, "keep this draft")
         XCTAssertFalse(app.buttons["previous-reply"].exists)
         openPicker(app); XCTAssertEqual(app.buttons["local-model-quick"].value as? String, "已选择")
-        app.buttons["local-model-done"].tap()
+        dismissPicker(app)
     }
     func testLargeTextReplyActionsAndModelRegeneration() {
         let app = launch(large: true); send(app); reply(app, "MODEL=quick")
@@ -159,11 +182,11 @@ final class LocalModelUITests: XCTestCase {
         // The disabled option is above the selected effort row on compact screens.
         for _ in 0..<5 { if app.buttons["local-thinking-disabled"].isHittable { break }; app.swipeDown() }
         app.buttons["local-thinking-disabled"].tap(); capture(app, "local-model-disabled")
-        app.buttons["local-model-done"].tap(); send(app)
+        dismissPicker(app); send(app)
         reply(app, "MODEL=deep;THINKING=disabled;EFFORT=default")
     }
     func testServiceChangeRetainsDraftUntilModelIsReselected() {
-        let app = launch(); chooseDeep(app); app.buttons["local-model-done"].tap()
+        let app = launch(); chooseDeep(app); dismissPicker(app)
         let draft = "keep this unsent draft"
         input(app).tap(); input(app).typeText(draft)
         openPicker(app); reveal(app, "local-open-connection").tap()
@@ -175,12 +198,12 @@ final class LocalModelUITests: XCTestCase {
         XCTAssertTrue(app.alerts["Potato"].waitForExistence(timeout: 5)); capture(app, "local-model-service-changed-draft")
         app.alerts["Potato"].buttons["知道了"].tap(); XCTAssertEqual(input(app).value as? String, draft)
         openPicker(app); XCTAssertTrue(app.staticTexts["local-model-service-changed"].exists)
-        reveal(app, "local-model-quick").tap(); app.buttons["local-model-done"].tap(); app.buttons["send-message"].tap()
+        reveal(app, "local-model-quick").tap(); dismissPicker(app); app.buttons["send-message"].tap()
         reply(app, "MODEL=quick;THINKING=default;EFFORT=default")
     }
     func testLargeTextPickerAndKeyboardRemainUsable() {
         let app = launch(large: true); chooseDeep(app); capture(app, "local-model-accessibility-high")
-        XCTAssertTrue(app.buttons["local-model-done"].isHittable); app.buttons["local-model-done"].tap()
+        XCTAssertTrue(app.buttons["local-model-done"].isHittable); dismissPicker(app)
         input(app).tap(); input(app).typeText("large text model check"); capture(app, "local-model-accessibility-keyboard")
         XCTAssertTrue(app.buttons["send-message"].isHittable); XCTAssertTrue(app.buttons["connection-settings"].isHittable)
         app.buttons["send-message"].tap(); reply(app, "MODEL=deep;THINKING=enabled;EFFORT=high")

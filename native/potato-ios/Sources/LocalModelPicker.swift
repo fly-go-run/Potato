@@ -33,11 +33,11 @@ struct LocalModelPicker: View {
         return values
     }
     var body: some View {
-        ModelPickerSheet(page: $page, prefix: "local", compactHeight: min(660, (retryMessage == nil ? 300 : 430) + CGFloat(featured.count) * 64), rootTitle: retryMessage == nil ? nil : "换模型重新回答", close: { dismiss() }) {
+        ModelPickerSheet(page: $page, prefix: "local", compactHeight: min(660, (retryMessage == nil ? 300 : 430) + CGFloat(featured.count) * 64), rootTitle: retryMessage == nil ? nil : "换模型重新回答", showsRootClose: false, close: { dismiss() }) {
             if !sameService { Text("此会话属于之前的服务，请重新选择模型。草稿会保留。").font(.footnote).foregroundStyle(.red).accessibilityIdentifier("local-model-service-changed") }
             if sameService && !available { Text("原模型已不在云端列表中，请选择一个模型重新回答。").font(.footnote).foregroundStyle(.secondary) }
             if let issue { Text(issue).font(.footnote).foregroundStyle(.red).accessibilityIdentifier("local-model-issue") }
-            if fetching != nil { ProgressView("正在读取模型…") }
+            if fetching != nil && store.settings.currentCatalog == nil { ProgressView("正在读取模型…").accessibilityIdentifier("local-model-loading") }
             switch page {
             case .models:
                 Section {
@@ -64,7 +64,7 @@ struct LocalModelPicker: View {
                     }.disabled(manual.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("local-use-manual-model")
                 } }
                 Section {
-                    Button("刷新模型列表", systemImage: "arrow.clockwise", action: reload).disabled(fetching != nil).accessibilityIdentifier("local-model-refresh")
+                    Button("刷新模型列表", systemImage: "arrow.clockwise", action: { reload() }).disabled(fetching != nil).accessibilityIdentifier("local-model-refresh")
                     if retryMessage == nil { Button("连接设置", action: openConnection).accessibilityIdentifier("local-open-connection") }
                     if store.settings.demo { Text("本地体验模式，选择会保存但不调用模型。").font(.footnote).foregroundStyle(.secondary) }
                 }
@@ -80,7 +80,7 @@ struct LocalModelPicker: View {
                     .accessibilityIdentifier("reply-regenerate-confirm")
                 } footer: { Text("只重新回答这一条，保留旧回复；输入框的模型和草稿不变。") }
             }
-        }.onAppear { manual = choice.model; reload() }.onDisappear { fetching?.cancel(); fetching = nil }
+        }.onAppear { manual = choice.model; reload(force: false) }.onDisappear { fetching?.cancel(); fetching = nil }
     }
     private func modelRow(_ model: LocalModelEntry) -> some View {
         row(model.name, detail: cloud || model.name == model.id ? nil : model.id, selected: sameService && choice.model == model.id, id: "local-model-\(model.id)") {
@@ -114,10 +114,11 @@ struct LocalModelPicker: View {
             issue = nil
         } catch { issue = error.localizedDescription }
     }
-    private func reload() {
+    private func reload(force: Bool = true) {
         guard fetching == nil else { return }
+        if !force, store.settings.currentCatalog?.isFresh() == true { return }
         fetching = Task { @MainActor in
-            do { try await store.reloadLocalModels(); guard !Task.isCancelled else { return }; issue = nil }
+            do { try await store.reloadLocalModels(force: force); guard !Task.isCancelled else { return }; issue = nil }
             catch { guard !Task.isCancelled else { return }; issue = ChatService.failureDescription(error) }
             fetching = nil
         }
@@ -141,6 +142,7 @@ struct ModelPickerSheet<Content: View>: View {
     let prefix: String
     var compactHeight: CGFloat = 530
     var rootTitle: String? = nil
+    var showsRootClose = true
     let close: () -> Void
     @ViewBuilder let content: () -> Content
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -157,7 +159,7 @@ struct ModelPickerSheet<Content: View>: View {
                         if page != .models {
                             Button { page = .models } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
                                 .accessibilityLabel("返回模型").accessibilityIdentifier("\(prefix)-model-back")
-                        } else {
+                        } else if showsRootClose {
                             Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44).background(.white, in: Circle()) }
                                 .accessibilityLabel("完成").accessibilityIdentifier("\(prefix)-model-done")
                         }
@@ -167,6 +169,7 @@ struct ModelPickerSheet<Content: View>: View {
                     }
                 }
         }.tint(Palette.ink)
+            .accessibilityAction(.escape, close)
             .presentationDetents(typeSize.isAccessibilitySize || page != .models ? [.large] : [.height(compactHeight), .large])
             .presentationDragIndicator(.visible).presentationCornerRadius(32)
     }

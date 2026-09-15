@@ -73,8 +73,8 @@ iPhone没有联网开关。Worker向模型提供web_search，搜索完成后继�
 
 ## 跨对话检索与记忆
 
-`RECALL_BUCKET` 绑定 `potato-personal-recall` R2 Standard 桶；`E2B_API_KEY` 和 `E2B_TEMPLATE` 复用现有配置。部署新环境前创建该桶。iOS 在“更多 → 记忆与历史”启用后，文字历史按内容版本增量同步；Worker 将候选文件交给 E2B 进行关键词/日期检索，来源经验证后流式返回。
+`RECALL_BUCKET` 绑定 `potato-personal-recall` R2 Standard 桶；检索在 Worker 内执行，不再需要 E2B。部署新环境前创建该桶。iOS 在“更多 → 记忆与历史”启用后，文字历史按内容版本增量同步；Worker 在内存中对候选文件进行关键词/日期检索，来源经验证后流式返回。
 
-接口为 `GET /v1/recall/status`、`POST /v1/recall/sync`、`POST /v1/recall/memory`，都沿用账号认证。聊天请求可传 `recall: { enabled: true, auto_memory: false, timezone: "Asia/Shanghai" }`；这些参数不会转发给模型供应商。未配置 R2/E2B 时显式返回 503。旧客户端未开启时沿用现有聊天流程。
+接口为 `GET /v1/recall/status`、`POST /v1/recall/sync`、`POST /v1/recall/memory`，都沿用账号认证。聊天请求可传 `recall: { enabled: true, auto_memory: false, timezone: "Asia/Shanghai" }`；这些参数不会转发给模型供应商。未配置 R2 时显式返回 503。旧客户端未开启时沿用现有聊天流程。
 
 设计、容量、删除语义、测试和发布边界见 [实施记录](../../docs/design/iphone/cross-chat-recall/implementation.md)。此目录与 iOS 包需一同发布才能启用；创建 R2 桶不等于已发布。

@@ -18,6 +18,7 @@ final class WorkspaceStore: ObservableObject {
     private let streamConfiguration: URLSessionConfiguration
     private let tokenProvider: (() -> String)?
     private var task: Task<Void, Never>?
+    private var modelFetch: (id: UUID, endpoint: String?, token: String, task: Task<Void, Error>)?
     private var saveTask: Task<Void, Never>?
     private var loadFailed = false
     var demoDelay: Duration = .milliseconds(16)
@@ -143,12 +144,29 @@ final class WorkspaceStore: ObservableObject {
         try choice.validate(settings: settings)
         update { $0.modelChoice = choice }; persist()
     }
-    func reloadLocalModels() async throws {
+    func reloadLocalModels(force: Bool = true) async throws {
+        if !force, settings.currentCatalog?.isFresh() == true { return }
         let configuration = settings, token = connectionToken
-        let catalog = try await LocalModelService.catalog(settings: configuration, token: token, configuration: streamConfiguration)
-        try Task.checkCancellation()
-        guard configuration.serviceIdentity == settings.serviceIdentity, token == connectionToken else { throw LocalFailure.message("连接已改变，请重新读取模型列表。") }
-        installLocalModelCatalog(catalog); persist()
+        if let pending = modelFetch, pending.endpoint == configuration.serviceIdentity, pending.token == token {
+            try await pending.task.value
+            return
+        }
+        modelFetch?.task.cancel()
+        let id = UUID()
+        let request = Task { @MainActor in
+            defer { if self.modelFetch?.id == id { self.modelFetch = nil } }
+            let catalog = try await LocalModelService.catalog(settings: configuration, token: token, configuration: self.streamConfiguration)
+            try Task.checkCancellation()
+            guard configuration.serviceIdentity == self.settings.serviceIdentity, token == self.connectionToken else { throw LocalFailure.message("连接已改变，请重新读取模型列表。") }
+            self.installLocalModelCatalog(catalog); self.persist()
+        }
+        modelFetch = (id, configuration.serviceIdentity, token, request)
+        try await request.value
+    }
+    func refreshLocalModelsInBackground() async {
+        guard !settings.demo, settings.serviceIdentity != nil else { return }
+        // Offline startup keeps the saved catalog without interrupting the conversation.
+        try? await reloadLocalModels(force: false)
     }
     func installLocalModelCatalog(_ catalog: LocalModelCatalog) {
         settings.modelCatalog = catalog

@@ -251,7 +251,7 @@ impl Runtime {
         let global = self.memory_root()?;
         let project = self.project_memory_root(project, false)?;
         let mut guidance = format!(
-            "Memory locations: user-wide {}; project {} (created on first write).",
+            "Memory locations: Mac local notes {}; project {} (created on first write). Stable personal facts go to remember (cloud); Mac-only working notes go to memory_write global.",
             global.display(),
             project.display()
         );
@@ -262,12 +262,16 @@ impl Runtime {
             match read_note(&root,"MEMORY.md") {
                 Ok(index) if !index.trim().is_empty() => {
                     let preview = crate::context::head(&index,2000);
-                    guidance.push_str(&format!("\nMemory index reference ({}; {}):\n{}\nEnd memory index reference.\n",root.join("MEMORY.md").display(),if preview.len()<index.len(){"preview truncated; read_file can retrieve the rest"}else{"complete"},preview));
+                    guidance.push_str(&format!("\nMac local notes index reference ({}; {}):\n{}\nEnd memory index reference.\n",root.join("MEMORY.md").display(),if preview.len()<index.len(){"preview truncated; read_file can retrieve the rest"}else{"complete"},preview));
                 },
                 Ok(_) => {},
                 Err(e) if e.status == 404 => {},
                 Err(_) => guidance.push_str(&format!("\nMemory index at {} could not be read; other notes remain available through file tools.\n",root.join("MEMORY.md").display())),
             }
+        }
+        if let Some(cloud) = self.cloud_memory_guidance()? {
+            guidance.push('\n');
+            guidance.push_str(&cloud);
         }
         Ok(guidance)
     }

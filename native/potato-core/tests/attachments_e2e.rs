@@ -332,6 +332,17 @@ async fn roundtrip(
         .collect::<Vec<_>>()
         .join("\n");
     assert!(text.contains(expected), "{name} {protocol}: {text}");
+    if via_path {
+        let original_path = std::path::absolute(&path).unwrap();
+        assert_eq!(block["original_path"], original_path.to_str().unwrap());
+        assert_eq!(block["original_file_name"], name);
+        assert!(text.contains(&format!(
+            "original_path: {}",
+            serde_json::to_string(&original_path).unwrap()
+        )));
+    } else {
+        assert!(!text.contains("original_path:"));
+    }
     assert!(!text.contains("data:text/plain;base64,"));
     assert!(
         text.contains(block["file_name"].as_str().unwrap()),

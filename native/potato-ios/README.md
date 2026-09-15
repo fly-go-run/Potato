@@ -31,6 +31,8 @@
 
 ## 模型与 Worker 接入
 
+2026-09-14 工作树优化（尚未发布）：模型目录沿用本地持久化缓存，6 小时内打开面板不请求网络；启动和回到前台时检查缓存，过期后后台更新。启动与面板共用正在进行的请求，关闭面板不取消更新；刷新失败保留原目录，手动刷新仍可立即请求。模型面板首页移除叉号，使用系统下拉关闭，并提供 VoiceOver escape 操作；子页面保留返回和完成。
+
 2026-09-13 最新云端目录为 DeepSeek V4.1 Flash 与 GPT-5.6，按模型显示已验证的思考档位。云端模式不提供手填模型；刷新后自动迁移已退役的会话选择，保留历史与草稿。Worker 已部署，客户端代码通过 105 项单元测试及 8 项不同 UI 回归，0.2.2 (2026091303) 已上传 Apple，最新状态见 [分发记录](DISTRIBUTION.md)。图片生成待 sub2api 分组开通，见 [模型能力与截图](../../docs/design/iphone/model-capabilities-20260913/README.md)。下方包含此前版本的联调记录。
 
 2026-09-13 工作树修复（尚未发布）：远程草稿及待确认指令绑定具体电脑，首次发送后的追问可从历史会话恢复；旧版缺少目标的记录需核对后认领，保留原操作编号且不自动发送。59 项单元测试与 6 条页面回归通过，详情见 [草稿归属修复](../../docs/design/iphone/ios-redesign-20260913/draft-fix.md)。随后已修复侧栏跟手开关、短拖回弹与输入/代码/原生返回冲突，iPhone 17 的 65 项单元测试和 16 条页面回归通过，见 [侧栏修复](../../docs/design/iphone/ios-redesign-20260913/sidebar-fix.md)。随后接通本机公开思考流，支持折叠、搜索暂停、停止/失败与重启保留；iPhone 17 的 76 项单元测试和 7 条页面回归、SE 的 5 条页面回归及 Release 构建通过，见 [思考过程修复](../../docs/design/iphone/ios-redesign-20260913/reasoning-fix.md)。远程输入区现可选择电脑声明支持的模型与思考档位，每次发送固定配置、重试保持原值，见 [远程模型设置](../../docs/design/iphone/ios-redesign-20260913/remote-model-fix.md)。本机聊天已接入模型目录、会话选择、思考档位与请求参数，见 [本机模型设置](../../docs/design/iphone/ios-redesign-20260913/local-model-fix.md)。远程状态现会区分最近确认、断线和后台，见 [远程状态反馈](../../docs/design/iphone/ios-redesign-20260913/remote-process-fix.md)。远程停止已绑定确认时的运行，见 [停止竞态修复](../../docs/design/iphone/ios-redesign-20260913/exact-stop-fix.md)。[发送回执恢复与未知记录处理](../../docs/design/iphone/ios-redesign-20260913/receipt-recovery.md)也已接通。首页与模型弹层已按简洁参考重做，见 [简洁首页与模型选择](../../docs/design/iphone/simple-home-models/README.md)；完整 iOS 验收仍未完成。

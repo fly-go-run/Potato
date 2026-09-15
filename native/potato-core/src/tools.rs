@@ -4,7 +4,6 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
 
-pub(crate) use crate::tool_registry::definitions;
 use crate::tool_registry::{self, Access, Builtin};
 
 // Resolve existing ancestors too, so a new file beneath a redirected directory
@@ -26,6 +25,13 @@ fn resolve_write_path(path: &Path) -> Result<PathBuf> {
 }
 
 impl Runtime {
+    pub(crate) fn definitions(&self, images: bool) -> Result<Vec<Value>> {
+        let cloud = self.cloud_memory_active()?.is_some();
+        Ok(tool_registry::definitions(images).into_iter().filter(|d| {
+            cloud || !matches!(d["function"]["name"].as_str(), Some("remember" | "forget_memory"))
+        }).collect())
+    }
+
     pub(crate) fn check_history_write(&self, project: &Path, target: &Path) -> Result<()> {
         let history = self.root.canonicalize()?.join("workspace/history");
         let path = if target.is_absolute() {
@@ -104,13 +110,16 @@ impl Runtime {
                 _ => return Err(Error::new(400, "scope must be global or project")),
             };
             let query = required(args, "query")?.to_owned();
+            let cloud = self.search_cloud_memory(&query)?;
             let args = args.clone();
             let cancel = cancel.clone();
-            return tokio::task::spawn_blocking(move || {
-                crate::memory::search_notes(&root, &query, &args, &cancel).map(|v| v.to_string())
+            let mut result = tokio::task::spawn_blocking(move || {
+                crate::memory::search_notes(&root, &query, &args, &cancel)
             })
             .await
-            .map_err(|_| Error::new(500, "Memory search failed"))?;
+            .map_err(|_| Error::new(500, "Memory search failed"))??;
+            result["matches"].as_array_mut().unwrap().extend(cloud);
+            return Ok(result.to_string());
         }
         if builtin == Some(Builtin::AskUser) {
             if self.approval_level(body)? == "NEVER" {
@@ -299,7 +308,23 @@ impl Runtime {
         } else {
             None
         };
-        let target = if let Some((config, tool)) = &mcp {
+        let cloud_approval = if access == Access::CloudMemory {
+            let active = self.cloud_memory_active()?.ok_or_else(|| Error::new(401, "请先登录云端"))?;
+            args["email"] = self.db()?.get("cloud_config", Value::Null)?["email"].clone();
+            let row = if builtin == Some(Builtin::ForgetMemory) {
+                let row = self.cached_cloud_memory(required(&args, "id")?)?;
+                args["text"] = row["text"].clone();
+                Some(row)
+            } else {
+                required(&args, "text")?;
+                None
+            };
+            Some((active, row))
+        } else { None };
+        let target = if access == Access::CloudMemory {
+            format!("{} / cloud personal memory{}", string(&args, "email"),
+                if builtin == Some(Builtin::ForgetMemory) { format!(" / {}", required(&args, "id")?) } else { String::new() })
+        } else if let Some((config, tool)) = &mcp {
             format!("{} / {}", required(config, "name")?, tool)
         } else if computer {
             self.computer_target(session, name, &args)?
@@ -336,13 +361,16 @@ impl Runtime {
         // chosen project contains the runtime workspace.
         let global_memory_write =
             access == Access::WritePath && resolved.starts_with(self.memory_root()?);
-        let automatic = !computer
+        let automatic = access != Access::CloudMemory
+            && !computer
             && mcp.is_none()
             && !global_memory_write
             && ((matches!(access, Access::ReadPath | Access::WritePath) && in_project && ordinary)
                 || builtin == Some(Builtin::WebSearch)
                 || (builtin == Some(Builtin::MemoryWrite) && args["scope"] == "project"));
-        let reason = if computer || mcp.is_some() {
+        let reason = if access == Access::CloudMemory {
+            "Change persistent user-wide memory"
+        } else if computer || mcp.is_some() {
             "Interact with an external application or service"
         } else if access == Access::ReadPath && !in_project {
             "Read outside the conversation project"
@@ -394,6 +422,21 @@ impl Runtime {
         }
         if self.file_mode(body)? != initial_file_mode {
             return Err(Error::new(409, "File permissions changed before execution"));
+        }
+        if let Some((active, row)) = cloud_approval {
+            if self.cloud_memory_active()? != Some(active) {
+                return Err(Error::new(409, "云端账号已改变"));
+            }
+            if let Some(row) = row {
+                if self.cached_cloud_memory(required(&args, "id")?)? != row {
+                    return Err(Error::new(409, "记忆已在别处修改，请重试"));
+                }
+            }
+            return match builtin {
+                Some(Builtin::Remember) => Ok(self.cloud_remember(required(&args, "text")?).await?.to_string()),
+                Some(Builtin::ForgetMemory) => Ok(self.cloud_forget(required(&args, "id")?).await?.to_string()),
+                _ => unreachable!(),
+            };
         }
         if computer {
             let result = tokio::select! {

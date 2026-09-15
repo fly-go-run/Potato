@@ -12,6 +12,7 @@
       "UPSTREAM_API_KEY"
     ]
   },
+  "limits": { "cpu_ms": 30000 },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 0.1

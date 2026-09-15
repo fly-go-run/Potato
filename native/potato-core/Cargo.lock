@@ -1743,6 +1743,7 @@ dependencies = [
  "globset",
  "ironcalc_base",
  "libc",
+ "lopdf",
  "pdf-extract",
  "percent-encoding",
  "potato-windows-sandbox",
@@ -1764,7 +1765,9 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
+ "unicode-normalization",
  "uuid",
+ "yaml-rust",
  "zip 2.4.2",
 ]
 

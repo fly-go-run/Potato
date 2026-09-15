@@ -1,6 +1,7 @@
+import { searchConversations } from './recall-search.ts';
 import { codeTool, type CodeTool } from './code-tool.ts';
 import { validateDesktop } from './desktop-chat.ts';
-import { RecallError, RecallStore, RecallSession, e2bRecallExecutor } from './recall.ts';
+import { RecallError, RecallStore, RecallSession } from './recall.ts';
 import { timingSafeEqual } from 'node:crypto';
 import { executeSandbox, validateSandbox } from './sandbox.ts';
 import { connectSpeech } from './speech.ts';
@@ -144,15 +145,8 @@ export async function handle(request: Request, env: Env, fetcher: typeof fetch =
         catch { throw new APIError(env.E2B_API_KEY ? 400 : 503, 'Invalid or unavailable code execution configuration.'); }
       }
       if (!desktop && object(input) && object(input.recall) && input.recall.enabled === true) {
-        if (!env.RECALL_BUCKET || !env.E2B_API_KEY) throw new APIError(503, 'History retrieval is not configured.');
-        const engine = e2bRecallExecutor(env.E2B_API_KEY, env.E2B_TEMPLATE);
-        let charged = false;
-        const execute = Object.assign(async (data: unknown, signal: AbortSignal) => {
-          if (!charged && !(await env.SANDBOX_RATE_LIMIT.limit({ key: rateKey })).success) throw new RecallError(429, 'History search limit reached.');
-          charged = true;
-          return engine(data, signal);
-        }, { close: engine.close });
-        recall = new RecallSession(new RecallStore(env.RECALL_BUCKET, rateKey), execute, input.recall.auto_memory === true);
+        if (!env.RECALL_BUCKET) throw new APIError(503, 'History retrieval is not configured.');
+        recall = new RecallSession(new RecallStore(env.RECALL_BUCKET, rateKey), searchConversations, input.recall.auto_memory === true);
         const timezone = typeof input.recall.timezone === 'string' ? input.recall.timezone : 'UTC';
         try { new Intl.DateTimeFormat('en', { timeZone: timezone }).format(); } catch { throw new APIError(400, 'Invalid timezone.'); }
         recall.timezone = timezone;

@@ -1,0 +1,20 @@
+{
+  "CFBundleIdentifier": "com.potato.iphone.prototype",
+  "CFBundleShortVersionString": "0.2.2",
+  "CFBundleVersion": "2026091401",
+  "UIDeviceFamily": [
+    1
+  ],
+  "MinimumOSVersion": "17.0",
+  "ITSAppUsesNonExemptEncryption": false,
+  "codesign": "verified with --deep --strict",
+  "privacyManifest": true,
+  "unitTests": 129,
+  "modelUITests": 9,
+  "status": "testing",
+  "buildId": "c9defc18-3589-4e4c-99ff-cc45ab81cc2d",
+  "notesVerified": true,
+  "binarySHA256": "a244153d635797b272f6f14cded08c15dd2b26e78bf8e9eb65cc66b70eb363a9",
+  "uploadedAt": "2026-09-14T10:26:33+08:00",
+  "signing": "local Apple Distribution certificate; manual provisioning profile; Developer API upload"
+}

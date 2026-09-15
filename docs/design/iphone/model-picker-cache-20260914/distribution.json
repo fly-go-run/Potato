@@ -1,0 +1,17 @@
+{
+  "id": "c9defc18-3589-4e4c-99ff-cc45ab81cc2d",
+  "version": "0.2.2",
+  "build": "2026091401",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "优化模型选择体验：启动和回到前台时自动检查并后台更新模型列表，重复打开直接使用本地缓存；离线保留已有模型。移除模型面板首页关闭按钮，支持下拉关闭并保留草稿与选择。改善远程对话布局、任务状态及审批显示。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

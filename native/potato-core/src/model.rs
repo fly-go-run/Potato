@@ -97,6 +97,7 @@ impl Runtime {
             crate::approval::GUIDANCE,
             crate::prompts::SCHEDULING
         );
+        let _ = self.refresh_cloud_memory(false).await;
         let memory_snapshot = self.memory_guidance(&project)?;
         let memory_fingerprint = json!(crate::context::fingerprint(&memory_snapshot));
         let memory_key = format!("memory_context_fingerprint:{chat}");
@@ -114,7 +115,7 @@ impl Runtime {
                     string(&media, "image_model"),
                 )
                 .is_ok();
-        let mut definitions = crate::tools::definitions(image_ready);
+        let mut definitions = self.definitions(image_ready)?;
         definitions.extend(self.mcp_definitions()?);
         if self.db()?.get("computer_enabled", json!(false))? == true {
             definitions.extend(crate::computer::definitions());

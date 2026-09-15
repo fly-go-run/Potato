@@ -57,6 +57,45 @@ final class LocalModelFixture: URLProtocol {
         for _ in 0..<100 { if store.generatingID == nil { return }; try await Task.sleep(for: .milliseconds(20)) }
         XCTFail("Generation did not finish")
     }
+    func testCachedCatalogAvoidsRequestsAcrossReopeningAndRestartButRefreshCanBeForced() async throws {
+        let value = try store(); value.persist(); LocalModelFixture.reset()
+        for _ in 0..<3 { try await value.reloadLocalModels(force: false) }
+        let restored = WorkspaceStore(storage: value.storage, streamConfiguration: config, tokenProvider: { "synthetic" })
+        try await restored.reloadLocalModels(force: false)
+        XCTAssertTrue(LocalModelFixture.captured.isEmpty)
+        try await restored.reloadLocalModels()
+        XCTAssertEqual(LocalModelFixture.captured.count, 1)
+        restored.settings.modelCatalog?.fetchedAt = Date().addingTimeInterval(-6 * 60 * 60)
+        try await restored.reloadLocalModels(force: false)
+        XCTAssertEqual(LocalModelFixture.captured.count, 2)
+        restored.settings.endpoint = "https://model-tests.invalid/other/chat/completions"
+        try await restored.reloadLocalModels(force: false)
+        XCTAssertEqual(LocalModelFixture.captured.count, 3)
+    }
+    func testStartupAndPickerShareFetchAndDismissalDoesNotCancelCacheWarmup() async throws {
+        let value = try store(); value.settings.modelCatalog = nil
+        let started = expectation(description: "background started"); LocalModelFixture.reset(started)
+        let startup = Task { await value.refreshLocalModelsInBackground() }
+        await fulfillment(of: [started], timeout: 3)
+        let picker = Task { try await value.reloadLocalModels(force: false) }
+        await Task.yield()
+        picker.cancel()
+        await startup.value
+        _ = try? await picker.value
+        XCTAssertEqual(LocalModelFixture.captured.count, 1)
+        XCTAssertNotNil(value.settings.currentCatalog)
+        try await value.reloadLocalModels(force: false)
+        XCTAssertEqual(LocalModelFixture.captured.count, 1)
+    }
+    func testFailedRefreshKeepsCachedModelsAndChoice() async throws {
+        let value = try store()
+        value.settings.endpoint = "https://model-tests.invalid/missing/chat/completions"
+        value.settings.modelCatalog = LocalModelCatalog(endpoint: value.settings.serviceIdentity!, models: [LocalModelEntry(id: "known", name: "Known")], fetchedAt: .distantPast)
+        let before = value.settings.modelCatalog
+        do { try await value.reloadLocalModels(force: false); XCTFail("Expected refresh failure") } catch {}
+        XCTAssertEqual(value.settings.modelCatalog, before)
+        XCTAssertEqual(value.localModelChoice.model, "known")
+    }
     func testCatalogUsesSameOriginAuthenticationAndPreservesUnknownCapabilities() async throws {
         LocalModelFixture.reset()
         let settings = settings()

@@ -42,7 +42,11 @@ final class RemoteModelUITests: XCTestCase {
         app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", value)).firstMatch
     }
     func testChoiceAndEffortPersistThenReachSendPayload() {
-        var app = launch(); _ = open(app); picker(app)
+        var app = launch(); let initialInput = open(app)
+        XCTAssertTrue(app.staticTexts["让电脑帮你做点什么"].exists)
+        XCTAssertLessThan(initialInput.frame.maxY, app.buttons["remote-model-settings"].frame.minY)
+        capture(app, "remote-new-conversation-composer")
+        picker(app)
         app.buttons["remote-model-one"].tap(); reveal(app, "remote-effort-low").tap()
         XCTAssertEqual(app.buttons["remote-effort-low"].value as? String, "已选择")
         capture(app, "remote-model-low-selected"); app.buttons["remote-model-done"].tap()

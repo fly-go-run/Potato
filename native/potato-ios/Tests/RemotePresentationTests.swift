@@ -2,8 +2,38 @@ import XCTest
 @testable import PotatoMobile
 
 final class RemotePresentationTests: XCTestCase {
-    private func message(_ id: String, _ role: String, _ kind: String, text: String = "正文", status: String = "completed") -> RemoteMessage {
-        RemoteMessage(id: id, role: role, kind: kind, text: text, status: status)
+    func testApprovalDecodesReviewReasonAndOldDesktopPayload() throws {
+        let legacy = try JSONDecoder().decode(RemoteApproval.self, from: Data(#"{"request_id":"old"}"#.utf8))
+        XCTAssertNil(legacy.review_rationale)
+        XCTAssertTrue(legacy.reviewExplanation.contains("本次请求"))
+        let reviewed = try JSONDecoder().decode(RemoteApproval.self, from: Data(#"{"request_id":"new","review_rationale":"需要额外授权","review_outcome":"ask_user"}"#.utf8))
+        XCTAssertEqual(reviewed.reviewExplanation, "需要额外授权")
+        let failed = try JSONDecoder().decode(RemoteApproval.self, from: Data(#"{"request_id":"failed","review_failure":"timeout"}"#.utf8))
+        XCTAssertTrue(failed.reviewExplanation.contains("未能完成"))
+    }
+    private func message(_ id: String, _ role: String, _ kind: String, text: String = "正文", status: String = "completed", callID: String? = nil, name: String? = nil, arguments: String? = nil, output: String? = nil, state: String? = nil) -> RemoteMessage {
+        RemoteMessage(id: id, role: role, kind: kind, text: text, status: status, callID: callID, name: name, arguments: arguments, output: output, state: state)
+    }
+    func testProcessTitleUsesStructuredKnownName() {
+        XCTAssertEqual(message("c", "assistant", "function_call", text: "任意内容", name: "read_file").processTitle, "读取文件")
+    }
+    func testProcessTitleUsesStructuredUnknownName() {
+        XCTAssertEqual(message("c", "assistant", "function_call", text: "任意内容", name: "mcp_abc").processTitle, "调用 mcp_abc")
+    }
+    func testStructuredToolFieldsDecodeAndLegacyFieldsStayOptional() throws {
+        let data = #"{"id":"c","role":"assistant","kind":"function_call","text":"legacy","call_id":"c1","name":"read_file","arguments":"{\"path\":\"a.md\"}","output":"内容","state":"success"}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(RemoteMessage.self, from: data)
+        XCTAssertEqual(decoded.callID, "c1")
+        XCTAssertEqual(decoded.name, "read_file")
+        XCTAssertEqual(decoded.arguments, #"{"path":"a.md"}"#)
+        XCTAssertEqual(decoded.output, "内容")
+        XCTAssertEqual(decoded.state, "success")
+        let legacy = try JSONDecoder().decode(RemoteMessage.self, from: #"{"id":"a","text":"正文"}"#.data(using: .utf8)!)
+        XCTAssertNil(legacy.callID)
+        XCTAssertNil(legacy.name)
+        XCTAssertNil(legacy.arguments)
+        XCTAssertNil(legacy.output)
+        XCTAssertNil(legacy.state)
     }
     func testProcessGroupsNeverAbsorbUserAnswerOrNotice() {
         let frames = [message("u", "user", "message"), message("r", "assistant", "reasoning"), message("c", "assistant", "function_call"), message("o", "tool", "function_call_output"), message("a", "assistant", "message"), message("n", "system", "notice"), message("r2", "assistant", "reasoning"), message("u2", "user", "message")]

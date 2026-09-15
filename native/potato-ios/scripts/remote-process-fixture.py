@@ -24,7 +24,7 @@ def snapshot(mode, run_id='fixture-run', stop_protocol=1):
     elif mode == 'reply':
         messages += [message('answer', 'message', '已收到正文，思考提示应结束。', 'in_progress')]
     elif mode == 'approval':
-        approvals = [{'request_id': 'approval', 'tool_name': 'exec_command', 'findings_summary': '合成测试操作', 'action_detail': '{"command":"synthetic-only"}'}]
+        approvals = [{'request_id': 'approval', 'tool_name': 'exec_command', 'findings_summary': '合成测试操作', 'allow_directory': True, 'suggested_directory': '/tmp/potato-fixture', 'directory_recursive': True, 'action_detail': '{"command":"synthetic-only"}'}]
     elif mode == 'question':
         questions = [{'request_id': 'question', 'title': '选择合成方案', 'status': 'pending', 'multiple': False, 'options': [{'id': 'a', 'label': '方案 A'}]}]
     elif mode in ('complete', 'cancelled', 'failed'):
@@ -34,7 +34,7 @@ def snapshot(mode, run_id='fixture-run', stop_protocol=1):
         if mode == 'failed': outcome['error'] = {'message': '合成任务失败'}
     running = mode not in ('complete', 'cancelled', 'failed')
     return {'chat': chat, 'status': 'running' if running else 'idle', 'running_request_id': run_id if running else None, 'stop_protocol': stop_protocol,
-            'messages': messages, 'live': [], 'approvals': approvals, 'questions': questions, 'outcome': outcome}
+            'messages': messages, 'live': [], 'approval_scope_protocol': 1, 'approvals': approvals, 'questions': questions, 'outcome': outcome}
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):

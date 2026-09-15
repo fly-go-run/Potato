@@ -241,6 +241,11 @@ struct RemoteTaskView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var loading = false
+    @State private var presentedApproval: RemoteApproval?
+    @State private var seenApprovals: Set<String> = []
+    @State private var resolvedApprovals: Set<String> = []
+    @State private var approvalError: String?
+    @State private var approvalBusy = false
     @State private var stopConfirmation = false
     @State private var stopTarget: RemoteStopRequest?
     @State private var receiptNotice: String?
@@ -280,18 +285,79 @@ struct RemoteTaskView: View {
         let messages = snapshot.displayMessages
         return "\(messages.count)|\(messages.last?.text ?? "")|\(snapshot.approvals.map(\.id))|\(snapshot.questions.filter { $0.status == "pending" }.map(\.id))|\(snapshot.status)|\(snapshot.outcome?.status ?? "")"
     }
+    @ViewBuilder private var conversationStatus: some View {
+        if chat != nil {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    if activityVisible {
+                        if reduceMotion { Image(systemName: "ellipsis").accessibilityIdentifier("remote-static-activity") }
+                        else { ProgressView().controlSize(.small).accessibilityIdentifier("remote-activity-spinner") }
+                    } else if !confirmed { Image(systemName: observation.failure == nil ? "arrow.triangle.2.circlepath" : "wifi.exclamationmark").font(.system(size: 16)) }
+                    Text(observation.title(snapshot: snapshot, at: observedNow)).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-current-status")
+                    Spacer(minLength: 0)
+                    if !confirmed { Button("刷新") { Task { await refresh() } }.fixedSize().frame(minHeight: 44).disabled(loading).accessibilityIdentifier("remote-status-refresh") }
+                }
+                if !confirmed, let snapshot { Text("上次确认：\(snapshot.activityTitle)").fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-last-status") }
+            }.font(.footnote).foregroundStyle(Palette.secondary).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .contain)
+        }
+    }
+
+    private var hasPrompt: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    private var remoteComposer: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("问问 Potato", text: $draft.text, axis: .vertical)
+                .font(.body).dynamicTypeSize(dynamicTypeSize)
+                .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 6))
+                .padding(.horizontal, 6).padding(.top, 4).padding(.bottom, 6)
+                .accessibilityIdentifier("remote-prompt").focused($promptFocused)
+                .disabled(busy || dictation.active)
+            HStack(spacing: 4) {
+                Button { promptFocused = false; showModels = true; Task { await reloadModels() } } label: {
+                    HStack(spacing: 6) {
+                        Text(running ? "当前任务配置" : modelLabel).lineLimit(1)
+                        if !running { Image(systemName: "chevron.down").font(.system(size: 11)) }
+                    }.font(.subheadline).padding(.horizontal, 12).frame(minHeight: 44)
+                        .background(Palette.canvas, in: Capsule())
+                }.accessibilityIdentifier("remote-model-settings").accessibilityLabel("模型与思考，\(modelLabel)")
+                    .disabled(busy || pending != nil || running || !canAct)
+                Spacer(minLength: 0)
+                if !dictation.active {
+                    Button { startDictation() } label: {
+                        Image(systemName: "mic").font(.system(size: 20)).frame(width: 44, height: 44)
+                    }.accessibilityLabel("语音输入").disabled(busy)
+                }
+                if running, let target = snapshot.flatMap(RemoteStopRequest.init(snapshot:)) {
+                    Button { stopTarget = target; stopConfirmation = true } label: {
+                        Image(systemName: "stop.fill").font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(hasPrompt ? Palette.ink : .white).frame(width: 44, height: 44)
+                            .background(hasPrompt ? Palette.canvas : Palette.ink, in: Circle())
+                    }.disabled(busy || !confirmed).accessibilityLabel("停止任务").accessibilityIdentifier("remote-stop")
+                }
+                if hasPrompt || !running || snapshot.flatMap(RemoteStopRequest.init(snapshot:)) == nil {
+                    Button { send() } label: {
+                        if busy { ProgressView().frame(width: 44, height: 44) }
+                        else {
+                            Image(systemName: "arrow.up").font(.system(size: 23, weight: .medium))
+                                .foregroundStyle(.white).frame(width: 44, height: 44)
+                                .background(canSend ? Palette.ink : Palette.secondary.opacity(0.35), in: Circle())
+                        }
+                    }.disabled(!canSend).accessibilityLabel("发送到电脑").accessibilityIdentifier("remote-send")
+                }
+            }
+        }.padding(12).background(.white, in: RoundedRectangle(cornerRadius: 28))
+            .overlay { RoundedRectangle(cornerRadius: 28).stroke(Palette.line, lineWidth: 0.8) }
+            .shadow(color: .black.opacity(0.035), radius: 12, x: 0, y: 4)
+            .excludesSidebarGesture()
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            Group {
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label { Text(device.name) } icon: { Image(systemName: "desktopcomputer").font(.system(size: 18)) }
-                        Text("远程任务")
-                    }.frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-                } else {
-                    HStack { Label(device.name, systemImage: "desktopcomputer"); Spacer(); Text("远程任务") }
-                }
-            }.font(.caption).foregroundStyle(Palette.secondary).dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 20).padding(.vertical, 10)
+            Label(device.name, systemImage: "desktopcomputer")
+                .font(.caption).foregroundStyle(Palette.secondary).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .lineLimit(1).padding(.horizontal, 20).padding(.bottom, 8)
+                .accessibilityLabel("执行电脑，\(device.name)")
             ScrollViewReader { proxy in
             ScrollView {
                 // Snapshots are bounded to 120 messages. Eager layout avoids
@@ -304,25 +370,36 @@ struct RemoteTaskView: View {
                         ForEach(RemoteConversationRow.make(snapshot.displayMessages)) { row in
                             RemoteConversationRowView(row: row, running: running, confirmed: confirmed, activeProcessID: snapshot.activeProcessID, onExpand: { followBottom = false })
                         }
-                        ForEach(snapshot.approvals) { approval in
-                            VStack(alignment: .leading, spacing: 12) {
-                                Label("需要你的批准", systemImage: "hand.raised").font(.headline)
-                                Text(approval.findings_summary ?? approval.tool_name ?? "电脑操作").font(.subheadline)
-                                if let justification = approval.justification, !justification.isEmpty { Text(justification).font(.subheadline).foregroundStyle(Palette.secondary) }
-                                if let command = approval.command { Text(command).font(.body.monospaced()).textSelection(.enabled) }
-                                if let directory = approval.workingDirectory { Label(directory, systemImage: "folder").font(.caption).lineLimit(3).textSelection(.enabled) }
-                                if approval.unsandboxed { Label("这一次操作将在系统沙箱外执行", systemImage: "exclamationmark.shield").font(.footnote) }
-                                DisclosureGroup("查看完整操作详情") {
-                                    if let target = approval.exact_target { Text(target).font(.caption).textSelection(.enabled) }
-                                    if let details = approval.action_detail { Text(details).font(.caption.monospaced()).textSelection(.enabled) }
-                                }.font(.footnote).foregroundStyle(Palette.secondary)
-                                HStack { Button("拒绝", role: .destructive) { act("approval", ["request_id": approval.id, "allow": false]) }; Spacer(); Button("允许这一次") { act("approval", ["request_id": approval.id, "allow": true]) }.buttonStyle(.borderedProminent).tint(Palette.ink) }
-                            }.padding(16).background(Palette.muted, in: RoundedRectangle(cornerRadius: 18)).disabled(busy || !confirmed)
+                        ForEach(snapshot.approvals.filter { !resolvedApprovals.contains($0.id) }) { approval in
+                            Button {
+                                promptFocused = false; approvalError = nil
+                                seenApprovals.insert(approval.id); presentedApproval = approval
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "hand.raised.fill")
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("需要你的批准").font(.headline)
+                                        Text(approval.findings_summary ?? approval.tool_name ?? "电脑操作").font(.subheadline).lineLimit(2)
+                                    }
+                                    Spacer(); Image(systemName: "chevron.right")
+                                }.padding(16).frame(minHeight: 56)
+                                    .background(Palette.muted, in: RoundedRectangle(cornerRadius: 18))
+                            }.buttonStyle(.plain).accessibilityIdentifier("remote-open-approval")
                         }
                         ForEach(snapshot.questions.filter { $0.status == "pending" }) { question in RemoteQuestionCard(question: question, busy: busy || !confirmed) { args in act("answer", args) } }
                         if !running && snapshot.outcome?.status == "failed" { Label(snapshot.outcome?.error?.message ?? "本轮任务失败，请检查后重试。", systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.red) }
-                    } else if chat == nil { ContentUnavailableView("交给这台电脑", systemImage: "desktopcomputer", description: Text(project.map { "任务将在“\($0.name)”项目中执行。" } ?? "可以读取电脑上的项目、执行命令，并使用桌面已启用的能力。")) }
+                    } else if chat == nil { VStack(spacing: 10) {
+                        Text("让电脑帮你做点什么").font(.title2.weight(.semibold)).foregroundStyle(Palette.ink)
+                        Text(project.map { "在“\($0.name)”项目中开始对话" } ?? "发条消息，在电脑上继续完成。")
+                            .font(.subheadline).foregroundStyle(Palette.secondary)
+                    }.multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 64) }
                     else { Text("连接后会显示电脑上的会话内容。").font(.footnote).foregroundStyle(Palette.secondary) }
+                    if confirmed { conversationStatus }
+                    if running && snapshot.flatMap(RemoteStopRequest.init(snapshot:)) == nil {
+                        Text("请更新电脑端后使用远程停止；也可在电脑上停止任务。")
+                            .font(.footnote).foregroundStyle(Palette.secondary)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge).accessibilityIdentifier("remote-stop-update-required")
+                    }
                     Color.clear.frame(height: 1).id("remote-bottom")
                 }.padding(20).background(ScrollActivityObserver { followBottom = false })
             }.accessibilityIdentifier("remote-conversation")
@@ -337,20 +414,7 @@ struct RemoteTaskView: View {
                 }
             }
             VStack(spacing: 8) {
-                if chat != nil {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            if activityVisible {
-                                if reduceMotion { Image(systemName: "ellipsis").accessibilityIdentifier("remote-static-activity") }
-                                else { ProgressView().controlSize(.small).accessibilityIdentifier("remote-activity-spinner") }
-                            } else if !confirmed { Image(systemName: observation.failure == nil ? "arrow.triangle.2.circlepath" : "wifi.exclamationmark").font(.system(size: 16)) }
-                            Text(observation.title(snapshot: snapshot, at: observedNow)).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-current-status")
-                            Spacer(minLength: 0)
-                            if !confirmed { Button("刷新") { Task { await refresh() } }.fixedSize().frame(minHeight: 44).disabled(loading).accessibilityIdentifier("remote-status-refresh") }
-                        }
-                        if !confirmed, let snapshot { Text("上次确认：\(snapshot.activityTitle)").fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-last-status") }
-                    }.font(.footnote).foregroundStyle(Palette.secondary).frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .contain)
-                }
+                if !confirmed { conversationStatus }
                 if let issue = draft.storageError { Text(issue).font(.footnote).foregroundStyle(.red) }
                 if let issue = draft.legacyError { Text(issue).font(.footnote).foregroundStyle(Palette.secondary) }
                 if draft.legacy != nil { Button("恢复旧版草稿") { showLegacyRecovery = true }.frame(minHeight: 44).accessibilityIdentifier("remote-legacy-draft") }
@@ -369,28 +433,17 @@ struct RemoteTaskView: View {
                 if dictation.active {
                     HStack { Button("取消") { dictation.cancel(restore: true) }; Spacer(); Text(dictation.ready ? "正在听…" : "正在连接…").font(.subheadline); Spacer(); Button("完成") { dictation.finish() }.disabled(!dictation.ready) }.frame(minHeight: 44)
                 }
-                if running {
-                    if let target = snapshot.flatMap(RemoteStopRequest.init(snapshot:)) {
-                        Button("停止任务", role: .destructive) { stopTarget = target; stopConfirmation = true }.frame(minHeight: 44).disabled(busy || !confirmed).accessibilityIdentifier("remote-stop")
-                    } else {
-                        Text("请更新电脑端后使用远程停止；也可在电脑上停止任务。").font(.footnote).foregroundStyle(Palette.secondary).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-stop-update-required")
-                    }
-                }
-                HStack {
-                    Button { promptFocused = false; showModels = true; Task { await reloadModels() } } label: {
-                        HStack(spacing: 6) { Text(modelLabel).lineLimit(2).fixedSize(horizontal: false, vertical: true); if !running { Image(systemName: "chevron.down").font(.system(size: 11)) } }.font(.subheadline).frame(minHeight: 44)
-                    }.accessibilityIdentifier("remote-model-settings").accessibilityLabel("模型与思考，\(modelLabel)").disabled(busy || pending != nil || running || !canAct)
-                    Spacer(minLength: 0)
-                }
-                HStack(alignment: .bottom) {
-                    TextField("给电脑发指令…", text: $draft.text, axis: .vertical).dynamicTypeSize(dynamicTypeSize).lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 6)).padding(12).background(Palette.muted, in: RoundedRectangle(cornerRadius: 20)).accessibilityIdentifier("remote-prompt").focused($promptFocused).disabled(busy || dictation.active)
-                    if !dictation.active { Button { startDictation() } label: { Image(systemName: "waveform").font(.system(size: 20)).frame(width: 44, height: 44) }.accessibilityLabel("语音输入").disabled(busy) }
-                    Button { send() } label: { if busy { ProgressView().frame(width: 44, height: 44) } else { Image(systemName: "arrow.up").font(.system(size: 18, weight: .semibold)).foregroundStyle(.white).frame(width: 44, height: 44).background(Palette.ink, in: Circle()) } }.disabled(!canSend).opacity(canSend || busy ? 1 : 0.35).accessibilityLabel("发送到电脑").accessibilityIdentifier("remote-send")
-                }
-            }.dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 16).padding(.bottom, 12).padding(.top, 8).background(Color.white)
-        }.background(Color.white).navigationTitle(chat?.name ?? "新远程任务").navigationBarTitleDisplayMode(.inline)
+                remoteComposer
+            }.dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 10).padding(.bottom, 8).padding(.top, 6)
+        }.background(Palette.canvas).navigationTitle(chat?.name ?? "新对话").navigationBarTitleDisplayMode(.inline)
             .toolbar { if let chat { ToolbarItem(placement: .topBarTrailing) { Button { act("pin", ["pinned": !(chat.pinned ?? false)]) } label: { Image(systemName: chat.pinned == true ? "pin.fill" : "pin") }.accessibilityLabel(chat.pinned == true ? "取消置顶" : "置顶任务").disabled(busy || !confirmed) } } }
             .confirmationDialog("停止刚才查看的这一轮任务？", isPresented: $stopConfirmation, titleVisibility: .visible) { Button("停止任务", role: .destructive) { stop() } }
+            .sheet(item: $presentedApproval) { approval in
+                RemoteApprovalSheet(approval: approval,
+                    confirmed: confirmed, busy: approvalBusy, issue: approvalError, supportsScopes: snapshot?.approval_scope_protocol == 1,
+                    available: snapshot?.approvals.contains { $0.id == approval.id } == true && !resolvedApprovals.contains(approval.id),
+                    dismiss: { presentedApproval = nil }, respond: { scope in respondToApproval(approval, scope: scope) })
+            }
             .sheet(isPresented: $showModels) {
                 RemoteModelPicker(deviceName: device.name, catalog: modelCatalog, issue: modelIssue, loading: modelsLoading, selection: draft.modelChoice, choose: { choice in
                     do { try draft.chooseModel(choice); modelIssue = nil } catch { modelIssue = error.localizedDescription }
@@ -490,7 +543,7 @@ struct RemoteTaskView: View {
     }
     private func refresh() async {
         guard let chat, !loading, scenePhase == .active else { return }; loading = true; defer { loading = false }; let requestedAt = Date()
-        do { let value: RemoteSnapshot = try await RemoteService.rpc(device, op: "chat", args: ["chat_id": chat.id]); guard !Task.isCancelled, scenePhase == .active else {return}; snapshot = value; self.chat = value.chat; observation.received(requestedAt: requestedAt); observedNow = Date() }
+        do { let value: RemoteSnapshot = try await RemoteService.rpc(device, op: "chat", args: ["chat_id": chat.id]); guard !Task.isCancelled, scenePhase == .active else {return}; snapshot = value; self.chat = value.chat; observation.received(requestedAt: requestedAt); observedNow = Date(); presentNextApproval() }
         catch { if !Task.isCancelled { observation.failed(ChatService.failureDescription(error)); observedNow = Date() } }
     }
     private func startDictation() {
@@ -550,6 +603,33 @@ struct RemoteTaskView: View {
             } catch { self.error = error.localizedDescription; await refresh() }
         }
     }
+    private func presentNextApproval() {
+        guard confirmed, !busy, !approvalBusy, presentedApproval == nil,
+              !showModels, !showLegacyRecovery, !showOtherDrafts, !showUnconfirmedRecords,
+              reviewedPending == nil, !stopConfirmation, !dictation.active,
+              let approval = snapshot?.approvals.first(where: { !seenApprovals.contains($0.id) && !resolvedApprovals.contains($0.id) }) else { return }
+        promptFocused = false; approvalError = nil
+        seenApprovals.insert(approval.id); presentedApproval = approval
+    }
+
+    private func respondToApproval(_ approval: RemoteApproval, scope: String) {
+        guard let chat, !busy, !approvalBusy, observation.isCurrent(at: Date()), scenePhase == .active,
+              snapshot?.approvals.contains(where: { $0.id == approval.id }) == true,
+              !resolvedApprovals.contains(approval.id) else { return }
+        approvalBusy = true; busy = true; approvalError = nil
+        Task {
+            defer { approvalBusy = false; busy = false }
+            do {
+                let _: RemoteAck = try await RemoteService.rpc(device, op: "approval", args: ["chat_id": chat.id, "request_id": approval.id, "allow": scope != "deny", "scope": scope == "deny" ? "exact" : scope])
+                resolvedApprovals.insert(approval.id); presentedApproval = nil
+                await refresh()
+            } catch {
+                approvalError = error.localizedDescription
+                await refresh()
+            }
+        }
+    }
+
     private func act(_ op: String, _ arguments: [String: Any]) {
         guard let chat, !busy, observation.isCurrent(at: Date()), scenePhase == .active else {return}; busy = true; error = nil; followBottom = true
         var args = arguments; args["chat_id"] = chat.id
@@ -647,5 +727,124 @@ private struct RemoteQuestionCard: View {
     func cancel(restore: Bool) {
         if restore { update?(original) }
         generation = UUID(); recorder.cancel(); task?.cancel(); task = nil; active = false; ready = false; update = nil
+    }
+}
+
+private struct RemoteApprovalSheet: View {
+    let approval: RemoteApproval
+    let confirmed: Bool
+    let busy: Bool
+    let issue: String?
+    let supportsScopes: Bool
+    let available: Bool
+    let dismiss: () -> Void
+    let respond: (String) -> Void
+    @State private var scope = "exact"
+    @State private var detent: PresentationDetent = .height(360)
+    @State private var detailsExpanded = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var directory: String? { approval.supportsDirectoryGrant ? approval.suggested_directory : nil }
+    private func directoryText(_ path: String) -> Text {
+        guard let slash = path.lastIndex(of: "/"), slash < path.index(before: path.endIndex) else { return Text(path).bold() }
+        let start = path.index(after: slash)
+        return Text(String(path[..<start])).foregroundColor(Palette.secondary) + Text(String(path[start...])).bold()
+    }
+    private var scopeChoices: some View {
+        let choices = [("exact", "仅本次"), ("session_directory", "本会话"), ("persistent_directory", "始终允许")]
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                ForEach(choices, id: \.0) { value, label in scopeButton(value, label: label) }
+            }
+            VStack(spacing: 4) {
+                ForEach(choices, id: \.0) { value, label in scopeButton(value, label: label) }
+            }
+        }.padding(3).background(Palette.muted, in: RoundedRectangle(cornerRadius: 16))
+            .disabled(busy || !confirmed || !available)
+    }
+    private func scopeButton(_ value: String, label: String) -> some View {
+        Button { scope = value } label: {
+            Text(label).font(.subheadline).fixedSize(horizontal: true, vertical: false)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(scope == value ? Color.white : Palette.ink)
+                .background(scope == value ? Palette.ink : Color.clear, in: RoundedRectangle(cornerRadius: 13))
+        }.buttonStyle(.plain).accessibilityIdentifier("remote-approval-scope-" + value)
+            .accessibilityAddTraits(scope == value ? .isSelected : [])
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(directory == nil ? "需要你的批准" : "批准目录访问")
+                        .font(.title3.weight(.semibold)).accessibilityIdentifier("remote-approval-title")
+                }
+                Spacer(minLength: 0)
+                Button(action: dismiss) {
+                    Image(systemName: "xmark").font(.system(size: 20, weight: .regular)).frame(width: 44, height: 44)
+                }.buttonStyle(.plain).accessibilityLabel("稍后处理").disabled(busy)
+            }.dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    if let directory {
+                        HStack(alignment: .top, spacing: 14) {
+                            Image(systemName: "folder").font(.system(size: 26, weight: .light)).foregroundStyle(Palette.secondary)
+                            directoryText(directory).font(.footnote.monospaced()).textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }.padding(.top, 4)
+                        Text(approval.directory_recursive == false ? "只读 · 不含子目录" : "只读 · 含子目录")
+                            .font(.subheadline).foregroundStyle(Palette.secondary)
+                    } else {
+                        Text(approval.findings_summary ?? approval.tool_name ?? "电脑操作").font(.headline)
+                        if let command = approval.command { Text(command).font(.callout.monospaced()).textSelection(.enabled) }
+                        if let directory = approval.workingDirectory { Label(directory, systemImage: "folder").font(.footnote).textSelection(.enabled) }
+                        Text(approval.reviewExplanation).font(.subheadline).foregroundStyle(Palette.secondary)
+                    }
+                    if approval.unsandboxed { Label("这一次操作将在系统沙箱外执行", systemImage: "exclamationmark.shield").font(.footnote) }
+                    if supportsScopes && approval.supportsDirectoryGrant {
+                        scopeChoices
+                        if scope == "persistent_directory" {
+                            Text("后续会话生效，可在电脑权限设置中撤销。")
+                                .font(.footnote).foregroundStyle(Palette.secondary).accessibilityIdentifier("remote-approval-scope-note")
+                        }
+                    }
+                    Divider().overlay(Palette.line)
+                    DisclosureGroup("操作详情", isExpanded: $detailsExpanded) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            if directory != nil {
+                                Text("允许读取、列举和搜索此目录" + (approval.directory_recursive == false ? "。" : "及其子目录。" )).font(.subheadline)
+                            }
+                            Text(approval.reviewExplanation).font(.subheadline)
+                            if let reason = approval.justification, !reason.isEmpty { Text(reason).font(.subheadline) }
+                            if let summary = approval.findings_summary { Text(summary).font(.subheadline) }
+                            if let target = approval.exact_target { Text(target).textSelection(.enabled) }
+                            if let details = approval.action_detail { Text(details).font(.footnote.monospaced()).textSelection(.enabled) }
+                            if let failure = approval.review_failure { Text(failure).textSelection(.enabled) }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12)
+                    }.font(.subheadline).tint(Palette.ink).frame(minHeight: 44)
+                }.padding(.horizontal, 24).padding(.bottom, 12)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                if !available { Text("这项审批已处理或已过期，请关闭面板查看最新状态。").foregroundStyle(Palette.secondary) }
+                else if !confirmed { Label("连接尚未确认，恢复后可继续审批。", systemImage: "wifi.exclamationmark").foregroundStyle(Palette.secondary) }
+                if let issue { Text(issue).foregroundStyle(.red).accessibilityIdentifier("remote-approval-error") }
+                if busy { ProgressView("正在提交…") }
+                HStack(spacing: 20) {
+                    Button("拒绝", role: .destructive) { respond("deny") }
+                        .foregroundStyle(.red).frame(minWidth: 48, minHeight: 48).accessibilityIdentifier("remote-approval-deny")
+                    Button { respond(scope) } label: {
+                        Text("允许")
+                            .font(.body.weight(.medium)).multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, minHeight: 48).padding(.horizontal, 8)
+                            .foregroundStyle(.white).background(Palette.ink, in: Capsule())
+                    }.buttonStyle(.plain).accessibilityIdentifier("remote-approval-allow")
+                }.disabled(busy || !confirmed || !available)
+            }.font(.footnote).dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 12)
+                .background(Palette.canvas).overlay(alignment: .top) { Rectangle().fill(Palette.line).frame(height: 0.5) }
+        }.foregroundStyle(Palette.ink).background(Palette.canvas)
+            .presentationDetents(typeSize.isAccessibilitySize ? [.large] : [.height(360), .large], selection: $detent)
+            .presentationDragIndicator(.visible).interactiveDismissDisabled(busy)
+            .onChange(of: detailsExpanded) { _, expanded in if expanded { detent = .large } }
+            .onAppear { if typeSize.isAccessibilitySize { detent = .large } }
     }
 }

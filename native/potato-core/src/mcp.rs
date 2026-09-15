@@ -11,6 +11,30 @@ use rmcp::{
 use serde_json::{json, Value};
 use std::{collections::HashMap, time::Duration};
 
+type Client = rmcp::service::RunningService<rmcp::RoleClient, ClientInfo>;
+
+pub(crate) struct Connection {
+    config: Value,
+    client: tokio::sync::Mutex<Option<Client>>,
+    invalidated: tokio_util::sync::CancellationToken,
+}
+
+fn connection_config(config: &Value) -> Value {
+    let mut result = json!({});
+    for field in [
+        "transport",
+        "url",
+        "headers",
+        "command",
+        "args",
+        "env",
+        "cwd",
+    ] {
+        result[field] = config[field].clone();
+    }
+    result
+}
+
 fn public(mut config: Value) -> Value {
     if let Some(env) = config["env"].as_object_mut() {
         for value in env.values_mut() {
@@ -22,6 +46,13 @@ fn public(mut config: Value) -> Value {
             *value = json!("********");
         }
     }
+    config["tool_catalog"] = json!(config["catalog"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|tool| json!({"name":tool["name"], "description":tool["description"]}))
+        .collect::<Vec<_>>());
+    config["discovered_tools"] = json!(config["catalog"].as_array().map_or(0, Vec::len));
     config.as_object_mut().unwrap().remove("catalog");
     config["access_summary"] = json!({"default_effect":"ask","overrides_count":0});
     config
@@ -35,6 +66,26 @@ fn tool_enabled(config: &Value, name: &str) -> bool {
 }
 
 impl Runtime {
+    /// Close pooled transports at host shutdown, including stdio child processes.
+    pub async fn cancel_mcp(&self) {
+        let connections: Vec<_> = match crate::lock(&self.mcp_connections) {
+            Ok(mut connections) => connections
+                .drain()
+                .map(|(_, connection)| connection)
+                .collect(),
+            Err(_) => return,
+        };
+        for connection in &connections {
+            connection.invalidated.cancel();
+        }
+        futures_util::future::join_all(connections.into_iter().map(|connection| async move {
+            if let Some(client) = connection.client.lock().await.take() {
+                let _ = tokio::time::timeout(Duration::from_secs(3), client.cancel()).await;
+            }
+        }))
+        .await;
+    }
+
     pub(crate) fn mcp_definitions(&self) -> Result<Vec<Value>> {
         let clients = self.db()?.get("mcp_clients", json!({}))?;
         let mut definitions = Vec::new();
@@ -63,11 +114,7 @@ impl Runtime {
         ))
     }
 
-    pub(crate) async fn mcp_call(
-        &self,
-        config: &Value,
-        call: Option<(&str, &Value)>,
-    ) -> Result<Value> {
+    async fn mcp_connect(&self, config: &Value) -> Result<Client> {
         let client = if config["transport"] == "stdio" {
             use process_wrap_mcp::tokio::*;
             let mut command = CommandWrap::with_new(required(config, "command")?, |_| {});
@@ -146,6 +193,66 @@ impl Runtime {
             .map_err(|_| Error::new(502, "MCP initialization failed"))?;
             client
         };
+        Ok(client)
+    }
+
+    pub(crate) async fn mcp_call(
+        &self,
+        config: &Value,
+        call: Option<(&str, &Value)>,
+    ) -> Result<Value> {
+        let key = required(config, "key")?;
+        let identity = connection_config(config);
+        let connection = {
+            // Pair the saved configuration check with cache lookup. Mutations use
+            // the same lock order so an obsolete connection cannot be reinserted.
+            let db = self.db()?;
+            let saved = db.get("mcp_clients", json!({}))?;
+            if saved[key] != *config || config["enabled"] != true {
+                return Err(Error::new(409, "MCP settings changed before connection"));
+            }
+            let mut connections = crate::lock(&self.mcp_connections)?;
+            if connections.get(key).is_some_and(|c| c.config != identity) {
+                if let Some(old) = connections.remove(key) {
+                    old.invalidated.cancel();
+                }
+            }
+            connections
+                .entry(key.to_owned())
+                .or_insert_with(|| {
+                    std::sync::Arc::new(Connection {
+                        config: identity,
+                        client: tokio::sync::Mutex::new(None),
+                        invalidated: tokio_util::sync::CancellationToken::new(),
+                    })
+                })
+                .clone()
+        };
+        tokio::select! {
+            biased;
+            _ = connection.invalidated.cancelled() => Err(Error::new(409, "MCP connection invalidated by configuration change")),
+            result = self.mcp_use_connection(&connection, config, call) => result,
+        }
+    }
+
+    async fn mcp_use_connection(
+        &self,
+        connection: &Connection,
+        config: &Value,
+        call: Option<(&str, &Value)>,
+    ) -> Result<Value> {
+        let mut slot = connection.client.lock().await;
+        // Re-check after queuing: a tool may have been disabled while another
+        // request was using this server. Do not transparently replay tool calls.
+        if self.db()?.get("mcp_clients", json!({}))?[required(config, "key")?] != *config {
+            return Err(Error::new(409, "MCP settings changed while queued"));
+        }
+        let client = match slot.take().filter(|client| !client.is_closed()) {
+            Some(client) => client,
+            None => self.mcp_connect(config).await?,
+        };
+        // The client is owned by this future until success. Cancellation/errors
+        // drop it and close the transport instead of leaving a request running.
         let result = tokio::time::timeout(Duration::from_secs(90), async {
             if let Some((name, args)) = call {
                 let arguments = args
@@ -172,11 +279,11 @@ impl Runtime {
         })
         .await
         .unwrap_or_else(|_| Err(Error::new(504, "MCP operation timed out")));
-        let _ = tokio::time::timeout(Duration::from_secs(3), client.cancel()).await;
         let result = result?;
         if result.to_string().len() > 2_000_000 {
             return Err(Error::new(413, "MCP result exceeds 2 MB"));
         }
+        *slot = Some(client);
         Ok(result)
     }
 
@@ -200,15 +307,30 @@ impl Runtime {
                 return Err(Error::new(409, "MCP client is disabled"));
             }
             let mut catalog = self.mcp_call(&config, None).await?;
+            let mut names = std::collections::HashSet::new();
             for tool in catalog.as_array_mut().unwrap() {
-                required(tool, "name")?;
+                if !names.insert(required(tool, "name")?.to_owned()) {
+                    return Err(Error::new(502, "MCP server returned duplicate tool names"));
+                }
                 if !tool["inputSchema"].is_object() {
                     return Err(Error::new(502, "Invalid MCP tool schema"));
                 }
-                tool["native_name"] = json!(format!("mcp_{}", uuid::Uuid::new_v4().simple()));
                 if !tool["description"].is_string() {
                     tool["description"] = json!("");
                 }
+                let previous = config["catalog"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|old| {
+                        old["name"] == tool["name"]
+                            && old["inputSchema"] == tool["inputSchema"]
+                            && old["description"] == tool["description"]
+                    });
+                tool["native_name"] = previous
+                    .and_then(|old| old.get("native_name"))
+                    .cloned()
+                    .unwrap_or_else(|| json!(format!("mcp_{}", uuid::Uuid::new_v4().simple())));
             }
             let db = self.db()?;
             let mut clients = db.get("mcp_clients", json!({}))?;
@@ -248,6 +370,7 @@ impl Runtime {
         {
             return Err(Error::new(400, "Invalid MCP client key"));
         }
+        let previous = clients[key].clone();
         let exists = clients.get(key).is_some();
         if method == "POST" && exists {
             return Err(Error::new(409, "MCP client already exists"));
@@ -328,7 +451,14 @@ impl Runtime {
                 } else {
                     crate::api::validate_url(required(&config, "url")?)?;
                 }
+                if update.get("env").is_some_and(|v| !v.is_object())
+                    || update.get("headers").is_some_and(|v| !v.is_object())
+                {
+                    return Err(Error::new(400, "MCP env and headers must be objects"));
+                }
                 if let Some(env) = update["env"].as_object() {
+                    let old_env = config["env"].clone();
+                    config["env"] = json!({});
                     for (key, value) in env {
                         if key.is_empty() || key.len() > 128 || key.contains(['=', '\0']) {
                             return Err(Error::new(400, "Invalid MCP environment key"));
@@ -341,6 +471,10 @@ impl Runtime {
                         }
                         if value != "********" {
                             config["env"][key] = json!(db.seal(value)?);
+                        } else {
+                            config["env"][key] = old_env.get(key).cloned().ok_or_else(|| {
+                                Error::new(400, "Masked environment value has no saved credential")
+                            })?;
                         }
                     }
                 }
@@ -349,6 +483,8 @@ impl Runtime {
                     return Err(Error::new(400, "enabled must be boolean"));
                 }
                 if let Some(headers) = update["headers"].as_object() {
+                    let old_headers = config["headers"].clone();
+                    config["headers"] = json!({});
                     for (name, value) in headers {
                         let header = reqwest_mcp::header::HeaderName::from_bytes(name.as_bytes())
                             .map_err(|_| Error::new(400, "Invalid MCP header"))?;
@@ -366,6 +502,11 @@ impl Runtime {
                             reqwest_mcp::header::HeaderValue::from_str(value)
                                 .map_err(|_| Error::new(400, "Invalid MCP header value"))?;
                             config["headers"][header.as_str()] = json!(db.seal(value)?);
+                        } else {
+                            config["headers"][header.as_str()] =
+                                old_headers.get(header.as_str()).cloned().ok_or_else(|| {
+                                    Error::new(400, "Masked header has no saved credential")
+                                })?;
                         }
                     }
                 }
@@ -385,6 +526,13 @@ impl Runtime {
         };
         if method != "GET" {
             db.put("mcp_clients", &clients)?;
+            if clients[key]["enabled"] != true
+                || connection_config(&previous) != connection_config(&clients[key])
+            {
+                if let Some(connection) = crate::lock(&self.mcp_connections)?.remove(key) {
+                    connection.invalidated.cancel();
+                }
+            }
         }
         Ok(Some(result))
     }
@@ -444,6 +592,61 @@ done
             .await
             .unwrap();
         assert_eq!(result["content"][0]["text"], "stdio result");
+        runtime
+            .mcp_call(&config, Some(("echo", &json!({}))))
+            .await
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("started"))
+                .unwrap()
+                .lines()
+                .count(),
+            1
+        );
+        let rediscovered = runtime
+            .request("GET", "/api/mcp/tools/local", Value::Null)
+            .await
+            .unwrap();
+        assert_eq!(tools[0]["native_name"], rediscovered[0]["native_name"]);
+        runtime
+            .request("PUT", "/api/mcp/local", json!({"args":["new-config"]}))
+            .await
+            .unwrap();
+        assert_eq!(
+            runtime
+                .mcp_call(&config, Some(("echo", &json!({}))))
+                .await
+                .unwrap_err()
+                .status,
+            409
+        );
+        runtime
+            .request("GET", "/api/mcp/tools/local", Value::Null)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("started"))
+                .unwrap()
+                .lines()
+                .count(),
+            2
+        );
+        runtime
+            .request("PATCH", "/api/mcp/toggle/local", Value::Null)
+            .await
+            .unwrap();
+        assert!(crate::lock(&runtime.mcp_connections).unwrap().is_empty());
+        assert!(runtime.mcp_definitions().unwrap().is_empty());
+        runtime
+            .request("PUT", "/api/mcp/local", json!({"env":{}}))
+            .await
+            .unwrap();
+        let config = runtime
+            .db()
+            .unwrap()
+            .get("mcp_clients", Value::Null)
+            .unwrap();
+        assert_eq!(config["local"]["env"], json!({}));
     }
 
     #[tokio::test]

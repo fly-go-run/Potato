@@ -51,6 +51,10 @@ final class RemoteProcessUITests: XCTestCase {
     func testDisconnectStopsAnimationKeepsDraftAndReconnects() {
         control("thinking"); let app = launch(); status(app, "正在思考")
         input(app).tap(); input(app).typeText("keep draft")
+        // A running task must remain stoppable when the shared composer switches to send.
+        XCTAssertTrue(app.buttons["remote-stop"].isHittable)
+        XCTAssertTrue(app.buttons["remote-send"].isHittable)
+        XCTAssertLessThan(input(app).frame.maxY, app.buttons["remote-send"].frame.minY)
         control("offline"); status(app, "连接中断，任务状态未确认")
         XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-send"].isEnabled); XCTAssertFalse(app.buttons["remote-stop"].isEnabled)
         XCTAssertEqual(input(app).value as? String, "keep draft"); capture(app, "remote-offline-draft-keyboard")
@@ -67,8 +71,8 @@ final class RemoteProcessUITests: XCTestCase {
         control("complete"); status(app, "本轮任务已完成", timeout: 18)
     }
     func testApprovalQuestionStopAndFailureUseRealStates() {
-        control("approval"); let app = launch(); status(app, "等待你的批准")
-        XCTAssertFalse(spinner(app).exists); app.buttons["允许这一次"].tap(); status(app, "本轮任务已完成")
+        control("approval"); let app = launch(); XCTAssertTrue(app.staticTexts["remote-approval-title"].waitForExistence(timeout: 10))
+        XCTAssertFalse(spinner(app).exists); app.buttons["remote-approval-allow"].tap(); status(app, "本轮任务已完成")
         control("question"); status(app, "等待你的回答"); XCTAssertFalse(spinner(app).exists)
         app.buttons["方案 A"].tap(); app.buttons["提交回答"].tap(); status(app, "本轮任务已完成")
         control("thinking"); status(app, "正在思考"); app.buttons["remote-stop"].tap()
@@ -76,6 +80,42 @@ final class RemoteProcessUITests: XCTestCase {
         XCTAssertFalse(spinner(app).exists); capture(app, "remote-stopped")
         control("failed"); status(app, "本轮任务失败"); XCTAssertFalse(spinner(app).exists)
         capture(app, "remote-failed")
+    }
+    func testApprovalCanBeDeferredReopenedAndRejected() {
+        control("approval"); let app = launch()
+        XCTAssertTrue(app.staticTexts["remote-approval-title"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["remote-approval-scope-note"].exists)
+        XCTAssertEqual(app.buttons["remote-approval-allow"].label, "允许")
+        capture(app, "remote-approval-sheet")
+        app.buttons["稍后处理"].tap()
+        status(app, "等待你的批准")
+        app.buttons["remote-open-approval"].tap()
+        XCTAssertTrue(app.buttons["remote-approval-deny"].waitForExistence(timeout: 5))
+        app.buttons["remote-approval-deny"].tap()
+        status(app, "本轮任务已完成")
+    }
+    func testApprovalPersistentDirectorySelection() {
+        control("approval"); let app = launch()
+        XCTAssertTrue(app.staticTexts["remote-approval-title"].waitForExistence(timeout: 10))
+        app.buttons["remote-approval-scope-persistent_directory"].tap()
+        XCTAssertTrue(app.staticTexts["/tmp/potato-fixture"].exists)
+        XCTAssertTrue(app.staticTexts["remote-approval-scope-note"].exists)
+        XCTAssertEqual(app.buttons["remote-approval-allow"].label, "允许")
+        capture(app, "remote-approval-directory")
+        app.buttons["remote-approval-allow"].tap()
+        status(app, "本轮任务已完成")
+    }
+    func testApprovalDisconnectAndExpiryDisableDecisions() {
+        control("approval"); let app = launch(large: true)
+        let allow = app.buttons["remote-approval-allow"]
+        XCTAssertTrue(allow.waitForExistence(timeout: 10))
+        control("offline")
+        let disabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false"), object: allow)
+        XCTAssertEqual(XCTWaiter.wait(for: [disabled], timeout: 10), .completed)
+        control("complete")
+        XCTAssertTrue(app.staticTexts["这项审批已处理或已过期，请关闭面板查看最新状态。"].waitForExistence(timeout: 10))
+        XCTAssertFalse(allow.isEnabled)
+        capture(app, "remote-approval-expired-large")
     }
     func testBackgroundRequiresReconfirmationWithReducedMotion() {
         control("thinking"); let app = launch(reduceMotion: true); status(app, "正在思考")

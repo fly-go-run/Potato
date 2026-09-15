@@ -30,7 +30,22 @@ pub(crate) fn display_messages(frames: &[Value]) -> Value {
                 if let Some(output) = data["output"].as_str() {return Some(output.to_owned());}
                 data["name"].as_str().map(|name| format!("{}\n{}",name,data["arguments"].as_str().map(str::to_owned).unwrap_or_else(||data["arguments"].to_string())))
             }).collect::<Vec<_>>().join("\n")).unwrap_or_default()};
-            let row = json!({"id":id,"role":frame["role"],"kind":frame["type"],"text":text,"status":frame["metadata"]["activity"]["state"].as_str().map(|s|json!(s)).unwrap_or_else(||frame["status"].clone())});
+            let mut row = json!({"id":id,"role":frame["role"],"kind":frame["type"],"text":text,"status":frame["metadata"]["activity"]["state"].as_str().map(|s|json!(s)).unwrap_or_else(||frame["status"].clone())});
+            if matches!(frame["type"].as_str(), Some("function_call" | "function_call_output")) {
+                if let Some(data) = frame["content"].as_array().and_then(|blocks| blocks.iter().map(|block| &block["data"]).find(|data| data.get("call_id").is_some())) {
+                    let fields: &[&str] = if frame["type"] == "function_call" { &["call_id", "name", "arguments"] } else { &["call_id", "name", "output", "state"] };
+                    for &field in fields {
+                        if let Some(value) = data.get(field) {
+                            if matches!(field, "arguments" | "output") {
+                                let value = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
+                                row[field] = json!(if value.chars().count() > 4000 { format!("{}\n…", value.chars().take(4000).collect::<String>()) } else { value });
+                            } else if let Some(value) = value.as_str() {
+                                row[field] = json!(value);
+                            }
+                        }
+                    }
+                }
+            }
             if let Some(i) = rows.iter().position(|r|r["id"] == id) { if !text.is_empty() {rows[i] = row;} else {rows[i]["status"] = frame["status"].clone();} } else {rows.push(row);}
         } else if frame["object"] == "content" && frame["type"] == "text" {
             if let Some(row) = rows.iter_mut().find(|r|r["id"] == frame["msg_id"]) {
@@ -234,7 +249,8 @@ impl Runtime {
             value["messages"] = display_messages(value["messages"].as_array().map(Vec::as_slice).unwrap_or_default());
             value["chat"] = chat.clone();
             value["outcome"] = self.db()?.get(&format!("run_outcome:{session}"),Value::Null)?;
-            value["approvals"] = self.request("GET", &format!("/api/approval/list?session_id={}",segment(session)),Value::Null).await?["pending_approvals"].clone();
+            value["approval_scope_protocol"] = json!(1);
+                value["approvals"] = self.request("GET", &format!("/api/approval/list?session_id={}",segment(session)),Value::Null).await?["pending_approvals"].clone();
             value["questions"] = self.request("GET", &format!("/api/questions?session_id={}",segment(session)),Value::Null).await?["questions"].clone();
             let runs = lock(&self.runs)?;
             value["live"] = if let Some(run) = runs.get(session) { lock(&run.replay)?.remote_snapshot() } else {json!([])};
@@ -344,7 +360,14 @@ impl Runtime {
                 let approval = { let pending = lock(&self.approvals)?; pending.get(required(args,"request_id")?).map(|a|a.view.clone()).ok_or_else(||Error::new(409,"审批已过期"))? };
                 if approval["root_session_id"] != session {return Err(Error::new(403,"审批不属于当前会话"));}
                 let allow = args["allow"].as_bool().ok_or_else(||Error::new(400,"请选择允许或拒绝"))?;
-                self.request("POST",if allow {"/api/approval/approve"} else {"/api/approval/deny"},json!({"request_id":args["request_id"],"session_id":session,"user_id":approval["user_id"],"scope":"exact"})).await
+                let scope = args["scope"].as_str().unwrap_or("exact");
+                if !matches!(scope, "exact" | "session_directory" | "persistent_directory") || (!allow && scope != "exact") {
+                    return Err(Error::new(400,"不支持的远程审批范围"));
+                }
+                if scope != "exact" && (approval["allow_directory"] != true || approval["suggested_directory"].as_str().filter(|s| !s.is_empty()).is_none()) {
+                    return Err(Error::new(400,"此操作不支持目录授权"));
+                }
+                self.request("POST",if allow {"/api/approval/approve"} else {"/api/approval/deny"},json!({"request_id":args["request_id"],"session_id":session,"user_id":approval["user_id"],"scope":scope,"directory":approval["suggested_directory"],"recursive":approval["directory_recursive"].as_bool().unwrap_or(true)})).await
             },
             "answer" => {
                 let q = self.db()?.question(required(args,"request_id")?)?;

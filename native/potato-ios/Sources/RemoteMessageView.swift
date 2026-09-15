@@ -7,10 +7,10 @@ extension RemoteMessage {
     var processTitle: String {
         if kind == "reasoning" { return isStreaming ? "正在思考" : "思考过程" }
         if role == "tool" || kind?.contains("output") == true { return "执行结果" }
-        let name = String(text.split(separator: "\n", maxSplits: 1).first ?? "")
+        let name = self.name.flatMap { $0.isEmpty ? nil : $0 } ?? String(text.split(separator: "\n", maxSplits: 1).first ?? "")
         let titles = ["read_file": "读取文件", "write_file": "写入文件", "edit_file": "编辑文件", "exec_command": "执行命令", "shell": "执行命令", "list_directory": "查看目录", "web_search": "搜索网页"]
         if let title = titles[name] { return title }
-        // The legacy protocol carries the tool name as the first line. Only
+        // Prefer the structured name, falling back to the legacy first line. Only
         // surface an identifier, never use arbitrary log text as a title.
         if !name.isEmpty && name.count < 60 && name.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "." || $0 == "-") }) { return "调用 \(name)" }
         return "执行操作"
@@ -107,10 +107,31 @@ private struct RemoteProcessView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             } else {
                                 DisclosureGroup("查看详情") {
-                                    Text(message.text.isEmpty ? "暂无文字记录" : message.text)
-                                        .font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .fixedSize(horizontal: false, vertical: true)
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        if let arguments = message.arguments, !arguments.isEmpty {
+                                            Text("参数").font(.caption).foregroundStyle(.secondary)
+                                            Text(arguments)
+                                                .font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                        if let output = message.output, !output.isEmpty {
+                                            HStack {
+                                                Text("输出").foregroundStyle(.secondary)
+                                                if let state = message.state, state != "success" {
+                                                    Text("失败").foregroundStyle(.red)
+                                                }
+                                            }.font(.caption)
+                                            Text(output)
+                                                .font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                        if (message.arguments ?? "").isEmpty && (message.output ?? "").isEmpty {
+                                            Text(message.text.isEmpty ? "暂无文字记录" : message.text)
+                                                .font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                    }.frame(maxWidth: .infinity, alignment: .leading)
                                 }.font(.subheadline).tint(.secondary)
                             }
                         }

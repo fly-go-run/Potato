@@ -31,7 +31,7 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSMicrophoneUsageDescription: 用于语音输入，点发送后提交转写文字，也可以修改或取消。
         MARKETING_VERSION: '0.2.2'
-        CURRENT_PROJECT_VERSION: 2026091306
+        CURRENT_PROJECT_VERSION: 2026091401
   PotatoMobileTests:
     type: bundle.unit-test
     platform: iOS

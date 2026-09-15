@@ -3,6 +3,33 @@ use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 
+#[test]
+fn display_messages_keeps_tool_call_structure() {
+    use crate::protocol;
+    let frames = [
+        protocol::message("call", "function_call", "assistant", json!([
+            protocol::data("call", json!({"call_id":"c1","name":"read_file","arguments":{"path":"a.md"}}))
+        ]), "completed"),
+        protocol::message("output", "function_call_output", "tool", json!([
+            protocol::data("output", json!({"call_id":"c1","name":"read_file","output":"文".repeat(4001),"state":"success"}))
+        ]), "completed"),
+    ];
+    let rows = crate::remote::display_messages(&frames);
+    assert_eq!(rows.as_array().unwrap().len(), 2);
+    assert_eq!(rows[0]["call_id"], "c1");
+    assert_eq!(rows[1]["call_id"], "c1");
+    assert_eq!(rows[0]["name"], "read_file");
+    assert!(rows[0]["arguments"].as_str().unwrap().contains("a.md"));
+    assert!(rows[0]["text"].as_str().unwrap().starts_with("read_file\n"));
+    assert_eq!(rows[1]["output"].as_str().unwrap().chars().count(), 4002);
+    assert_eq!(rows[1]["output"], format!("{}\n…", "文".repeat(4000)));
+    assert_eq!(rows[1]["state"], "success");
+    assert_eq!(rows[1]["text"], "文".repeat(4001));
+    let plain = protocol::message("answer", "message", "assistant", json!([protocol::text("answer", "正文", false)]), "completed");
+    let rows = crate::remote::display_messages(&[plain]);
+    assert!(rows[0].get("call_id").is_none());
+}
+
 fn command(op: &str, args: Value) -> Value { json!({"id":uuid::Uuid::new_v4().to_string(),"op":op,"args":args}) }
 fn running(core: &Runtime, session: &str) -> Value {
     let chat = core.db().unwrap().ensure_chat(session,"原来的桌面任务").unwrap();
@@ -236,4 +263,33 @@ async fn remote_model_changes_cannot_steer_running_work_and_steering_binds_exact
     let ended = command("send",json!({"chat_id":chat["id"],"text":"After completion","expected_run_id":"desktop-request"}));
     assert_eq!(core.remote_command(&ended).await.unwrap_err().status,412);
     assert_eq!(core.db().unwrap().history(chat["id"].as_str().unwrap(),false).unwrap().len(),1);
+}
+
+#[tokio::test]
+async fn remote_directory_approval_uses_declared_scope_and_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let core = Runtime::open(dir.path()).unwrap();
+    let grant_dir = tempfile::tempdir().unwrap();
+    let chat = core.db().unwrap().ensure_chat("scope", "Scope").unwrap();
+    for scope in ["session_directory", "persistent_directory"] {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        lock(&core.approvals).unwrap().insert("scope".into(), Approval { view: json!({
+            "request_id":"scope", "root_session_id":"scope", "user_id":"default",
+            "created_at":chrono::Utc::now().timestamp(), "allow_directory":true,
+            "suggested_directory":grant_dir.path(), "exact_target":grant_dir.path().canonicalize().unwrap(), "tool_name":"list_dir", "directory_recursive":false
+        }), reply:tx });
+        core.remote_command(&command("approval", json!({"chat_id":chat["id"],"request_id":"scope","allow":true,"scope":scope,"directory":"/"}))).await.unwrap();
+        match rx.await.unwrap() {
+            crate::approval::Reply::Directory(rule) => {
+                assert_eq!(rule.path, grant_dir.path().canonicalize().unwrap());
+                assert!(!rule.recursive);
+                assert_eq!(rule.session_id.as_deref(), if scope == "session_directory" {Some("scope")} else {None});
+            }
+            _ => panic!("expected directory grant"),
+        }
+    }
+    let (tx, _rx) = tokio::sync::oneshot::channel();
+    lock(&core.approvals).unwrap().insert("once".into(), Approval {view:json!({"root_session_id":"scope","user_id":"default","allow_directory":false}),reply:tx});
+    assert_eq!(core.remote_command(&command("approval",json!({"chat_id":chat["id"],"request_id":"once","allow":true,"scope":"persistent_directory"}))).await.unwrap_err().status,400);
+    assert!(lock(&core.approvals).unwrap().contains_key("once"));
 }

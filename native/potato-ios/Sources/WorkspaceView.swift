@@ -140,6 +140,10 @@ struct WorkspaceView: View {
                 }))
             .environment(\.sidebarGestureRegistry, sidebarGestureRegistry)
             .onChange(of: scenePhase) { _, phase in if phase != .active { cancelSidebarDrag() } }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                await store.refreshLocalModelsInBackground()
+            }
             .onChange(of: geometry.size.width) { _, _ in cancelSidebarDrag() }
             .onChange(of: remoteRootActive) { _, active in if remoteVisible && !active { cancelSidebarDrag() } }
             .onAppear {

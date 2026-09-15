@@ -748,7 +748,11 @@ impl Potato {
         );
     }
     fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.set_theme(ThemePreference::from_preferences(&self.preferences).next(), window, cx);
+        self.set_theme(
+            ThemePreference::from_preferences(&self.preferences).next(),
+            window,
+            cx,
+        );
     }
     fn set_theme(&mut self, mode: ThemePreference, window: &mut Window, cx: &mut Context<Self>) {
         self.dark = mode.is_dark(window.appearance());
@@ -854,6 +858,7 @@ fn main() -> anyhow::Result<()> {
             cx.on_app_quit(move |_| {
                 let core = cleanup.core.clone();
                 let task = cleanup.executor.spawn(async move {
+                    core.cancel_mcp().await;
                     core.cancel_computer().await;
                 });
                 async move {

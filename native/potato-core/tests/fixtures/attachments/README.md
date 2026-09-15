@@ -12,6 +12,11 @@ and require no network access or office applications.
   Git blob: `18f68a6eb6e0596cc022aadfe2ff72cc91704b9e`; SHA-256: `4757c73be0ad3e0cb789dcf6c170df7ddf10160618986af41614278dc8ce6498`.
 
 PDF, DOCX, PPTX, XLSX, ODS and text samples are generated directly in Rust.
+The additional `pingfang.pdf` regression fixture was generated with CoreText
+and PingFang SC on macOS using `make-pingfang.swift` (2026-09-15). It contains
+two pages of synthetic Chinese text. Reproduce with
+`swift make-pingfang.swift pingfang.pdf` on macOS; normal tests embed the PDF
+and run on all platforms without Swift or installed PingFang fonts.
 The generated XLSM case exercises extension routing; issue221.xlsm supplies a
 real macro-enabled workbook container. Macros are never executed.
 

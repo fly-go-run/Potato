@@ -1,5 +1,8 @@
+#[path = "workspace_extensions.rs"]
+mod extensions;
 use crate::view::{heading, icon_button, muted};
 use crate::*;
+use extensions::mcp_editor_config;
 use gpui_kit::base::FocusTrapElement;
 use gpui_kit::component::{button::*, switch::Switch};
 use gpui_kit::prelude::*;
@@ -22,6 +25,7 @@ pub struct WorkspaceState {
     pub category: String,
     pub loading: bool,
     pub history: Vec<Value>,
+    pub mcp_busy: bool,
     pub schedule_baseline: BTreeMap<String, String>,
 }
 impl Page {
@@ -75,7 +79,9 @@ impl Potato {
         let epoch = self.epoch;
         self.workspace.loading = true;
         self.workspace.list.clear();
-        let path = if self.page == Page::Skills && self.workspace.tab == "plugins" {
+        let path = if self.is_mcp_page() {
+            "/api/mcp"
+        } else if self.page == Page::Skills && self.workspace.tab == "plugins" {
             "/api/plugins"
         } else {
             self.page.path()
@@ -112,6 +118,19 @@ impl Potato {
         self.workspace.editing = true;
         self.modal_focus.focus(w, cx);
         self.editor.update(cx, |v, cx| v.set_value("", w, cx));
+        if self.is_mcp_page() {
+            let key = item.as_ref().map(|v| string(v, "key")).unwrap_or_default();
+            let config = mcp_editor_config(item.as_ref());
+            let text = serde_json::to_string_pretty(&config).unwrap();
+            self.workspace.selected = item.as_ref().map(|_| key.clone());
+            self.workspace.editor_loading = false;
+            self.workspace.original_name = key.clone();
+            self.workspace.original = text.clone();
+            self.field("document-name", &key, "服务器标识，例如 local-tools", w, cx);
+            self.editor.update(cx, |v, cx| v.set_value(text, w, cx));
+            cx.notify();
+            return;
+        }
         if let Some(item) = item {
             let id = if self.page == Page::Tasks {
                 string(&item, "id")
@@ -236,14 +255,17 @@ impl Potato {
             .justify_between()
             .gap_6()
             .child(heading(self.page.title(), self.page.subtitle(), cx));
+        let mut actions = div().flex().items_center().gap_2();
         let empty_tasks = self.page == Page::Tasks && self.workspace.list.is_empty();
         if !empty_tasks {
-            title = title.child(
+            actions = actions.child(
                 Button::new("new-item")
                     .primary()
                     .small()
                     .icon(IconName::Plus)
-                    .label(if self.page == Page::Tasks {
+                    .label(if self.is_mcp_page() {
+                        "添加服务器"
+                    } else if self.page == Page::Tasks {
                         "新建任务"
                     } else if self.page == Page::Skills && self.workspace.tab == "plugins" {
                         if self.workspace.list.iter().any(|p| p["id"] == "gpt-image2") {
@@ -276,9 +298,19 @@ impl Potato {
                     })),
             );
         }
+        if self.page == Page::Skills && self.workspace.tab.is_empty() {
+            actions = actions.child(
+                Button::new("import-skill-zip")
+                    .outline()
+                    .small()
+                    .label("导入 ZIP")
+                    .on_click(cx.listener(|s, _, w, cx| s.import_skill_zip(w, cx))),
+            );
+        }
+        title = title.child(actions);
         let mut tabs = div().flex().gap_2().items_center();
         if self.page == Page::Skills {
-            for (id, label) in [("", "技能"), ("plugins", "插件")] {
+            for (id, label) in [("", "技能"), ("mcp", "MCP 服务"), ("plugins", "插件")] {
                 tabs = tabs.child(
                     Button::new(label)
                         .ghost()
@@ -287,6 +319,7 @@ impl Potato {
                         .when(self.workspace.tab == id, |b| b.bg(cx.theme().muted))
                         .on_click(cx.listener(move |s, _, w, cx| {
                             s.workspace.tab = id.into();
+                            s.notice.clear();
                             s.load_page(w, cx);
                         })),
                 );
@@ -346,6 +379,10 @@ impl Potato {
                 continue;
             }
             count += 1;
+            if self.is_mcp_page() {
+                list = list.child(self.mcp_row(i, item, cx));
+                continue;
+            }
             let selected = item.clone();
             let id = string(item, "id");
             let description = if self.page == Page::Tasks {
@@ -728,7 +765,40 @@ impl Potato {
                 );
             }
         }
-        body = body.child(Textarea::new(&self.editor).h(px(330.)).aria_label("内容"));
+        if self.is_mcp_page() {
+            body = body.child(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(
+                        Button::new("mcp-stdio-template")
+                            .outline()
+                            .small()
+                            .label("本地命令（stdio）")
+                            .on_click(
+                                cx.listener(|s, _, w, cx| s.set_mcp_transport("stdio", w, cx)),
+                            ),
+                    )
+                    .child(
+                        Button::new("mcp-http-template")
+                            .outline()
+                            .small()
+                            .label("HTTP 服务")
+                            .on_click(cx.listener(|s, _, w, cx| {
+                                s.set_mcp_transport("streamable_http", w, cx)
+                            })),
+                    ),
+            );
+            body = body.child(muted("填写 MCP 服务器配置 JSON。stdio 使用 command、args、env；streamable_http 使用 url、headers。保存后点击“发现工具”。", cx))
+                .child(muted("密钥显示为 ******** 时保留原值；从 env / headers 删除键会移除该凭据。连接本地服务会运行其启动命令。", cx));
+        }
+        body = body.child(Textarea::new(&self.editor).h(px(330.)).aria_label(
+            if self.is_mcp_page() {
+                "MCP 配置 JSON"
+            } else {
+                "内容"
+            },
+        ));
         if !self.notice.is_empty() {
             body = body.child(muted(self.notice.clone(), cx));
         }
@@ -793,7 +863,7 @@ impl Potato {
                                     let generation = s.workspace.editor_generation;
                                     s.request_result(
                                         "DELETE",
-                                        item_path(s.page, &id).trim_end_matches("/content"),
+                                        s.workspace_item_path(&id).trim_end_matches("/content"),
                                         Value::Null,
                                         w,
                                         cx,
@@ -917,7 +987,24 @@ impl Potato {
         let content = self.editor.read(cx).value().to_string();
         let selected = self.workspace.selected.clone();
         let page = self.page;
-        let (method, path, body) = if page == Page::Tasks {
+        let (method, path, body) = if self.is_mcp_page() {
+            let config = match serde_json::from_str::<Value>(&content) {
+                Ok(config) if config.is_object() => config,
+                _ => {
+                    self.notice = "请输入有效的 MCP 配置 JSON 对象".into();
+                    return;
+                }
+            };
+            if let Some(key) = selected.as_ref() {
+                ("PUT", format!("/api/mcp/{}", segment(key)), config)
+            } else {
+                (
+                    "POST",
+                    "/api/mcp".into(),
+                    json!({"client_key":name,"client":config}),
+                )
+            }
+        } else if page == Page::Tasks {
             let mut spec = if self.workspace.task.is_object() {
                 self.workspace.task.clone()
             } else {

@@ -20,10 +20,27 @@ struct RemoteProject: Codable, Identifiable, Hashable { let path: String; let na
 struct RemoteOverview: Decodable { let chats: [RemoteChat]; let projects: [RemoteProject] }
 struct RemoteMessage: Decodable, Identifiable {
     let id: String; let role: String?; let kind: String?; let text: String; let status: String?
+    let callID: String?; let name: String?; let arguments: String?; let output: String?; let state: String?
+    enum CodingKeys: String, CodingKey {
+        case id, role, kind, text, status, name, arguments, output, state
+        case callID = "call_id"
+    }
 }
 struct RemoteApproval: Decodable, Identifiable {
     let request_id: String; let tool_name: String?; let findings_summary: String?; let exact_target: String?; let action_detail: String?; let justification: String?
+    var allow_directory: Bool? = nil
+    var suggested_directory: String? = nil
+    var directory_recursive: Bool? = nil
+    var supportsDirectoryGrant: Bool { allow_directory == true && !(suggested_directory ?? "").isEmpty }
+    var review_outcome: String? = nil
+    var review_rationale: String? = nil
+    var review_failure: String? = nil
     var id: String { request_id }
+    var reviewExplanation: String {
+        if let failure = review_failure, !failure.isEmpty { return "自动审查未能完成，需要你确认这次操作。" }
+        if let rationale = review_rationale, !rationale.isEmpty { return rationale }
+        return "电脑正在等待你确认这次操作。允许仅对本次请求生效。"
+    }
     private var arguments: [String: Any] { (action_detail.flatMap { $0.data(using: .utf8) }.flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: Any] ?? [:] }
     var command: String? { arguments["command"] as? String }
     var workingDirectory: String? { arguments["cwd"] as? String }
@@ -37,6 +54,7 @@ struct RemoteQuestion: Decodable, Identifiable {
 struct RemoteSnapshot: Decodable {
     var running_request_id: String? = nil
     var stop_protocol: Int? = nil
+    var approval_scope_protocol: Int? = nil
     let chat: RemoteChat; let status: String; let messages: [RemoteMessage]; let live: [RemoteMessage]
     struct Outcome: Decodable {
         struct Failure: Decodable { let message: String }

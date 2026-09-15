@@ -1,12 +1,9 @@
+import { searchConversations } from '../src/recall-search.ts';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { RecallStore, RecallSession, RECALL_SEARCH_CODE, validateConversation } from '../src/recall.ts';
+import { RecallStore, RecallSession, validateConversation } from '../src/recall.ts';
 import { chatWithSearch } from '../src/search-chat.ts';
 import { handle } from '../src/index.ts';
 let mf: Miniflare, bucket: any;
@@ -49,7 +46,7 @@ test('memories survive appended turns, invalidate edited sources, and respect ex
 });
 test('source verification removes deleted data and failed/aborted answers do not commit memories', async () => {
   const store = new RecallStore(bucket, randomUUID()), chat = fixture(), receipt = await sync(store, chat);
-  const session = new RecallSession(store, async () => ({ sources: [source(chat, receipt.revision)], more: false }), true);
+  const session = new RecallSession(store, searchConversations, true);
   const signal = new AbortController().signal;
   await session.call('search_conversations', { query: '相机' }, signal);
   await session.call('remember', { text: '偏好轻便', source_ids: [chat.messages[0].id] }, signal);
@@ -59,21 +56,18 @@ test('source verification removes deleted data and failed/aborted answers do not
   assert.equal((await store.verify(session.sources)).length, 0);
   await assert.rejects(session.commit(signal));
 });
-test('Python searches Chinese safely, uses message timestamps and reports pagination', () => {
-  const directory = mkdtempSync(join(tmpdir(), 'potato-recall-'));
-  try {
-    const path = join(directory, 'input.json'), chat = fixture();
-    chat.messages.push({ ...chat.messages[0], id: randomUUID(), text: '助手之前推荐过富士', date: '2026-09-13T10:00:00.000Z' });
-    const run = (query: string) => { writeFileSync(path, JSON.stringify({ query, start: '2026-09-12T00:00:00.000Z', end: '2026-09-13T00:00:00.000Z', conversations: [{ ...chat, revision: "a".repeat(64) }] })); return JSON.parse(execFileSync('python3', ['-c', RECALL_SEARCH_CODE.replace('/home/user/recall-input.json', path)], { encoding: 'utf8' })); };
-    assert.equal(run('相机').sources.length, 1); assert.equal(run('').sources.length, 1);
-    assert.equal(run("'); __import__('os').system('false'); #").sources.length, 0);
-    assert.throws(() => validateConversation('{'), { status: 400 });
-  } finally { rmSync(directory, { recursive: true }); }
+test('Worker searches Chinese safely, uses message timestamps and reports pagination', async () => {
+  const chat = fixture();
+  chat.messages.push({ ...chat.messages[0], id: randomUUID(), text: '助手之前推荐过富士', date: '2026-09-13T10:00:00.000Z' });
+  const run = (query: string) => searchConversations({ query, start: '2026-09-12T00:00:00.000Z', end: '2026-09-13T00:00:00.000Z', conversations: [{ ...chat, revision: 'a'.repeat(64) }] }, new AbortController().signal);
+  assert.equal((await run('相机')).sources.length, 1); assert.equal((await run('')).sources.length, 1);
+  assert.equal((await run("'); __import__('os').system('false'); #")).sources.length, 0);
+  assert.throws(() => validateConversation('{'), { status: 400 });
 });
 const sse = (value: unknown) => new Response(`data: ${JSON.stringify(value)}\n\ndata: [DONE]\n\n`, { headers: { 'Content-Type': 'text/event-stream' } });
 test('recall works without Exa and emits verified source cards while hiding tool calls', async () => {
   const store = new RecallStore(bucket, randomUUID()), chat = fixture(), receipt = await sync(store, chat);
-  const session = new RecallSession(store, async () => ({ sources: [source(chat, receipt.revision)], more: false }));
+  const session = new RecallSession(store, searchConversations);
   let calls = 0;
   const fetcher: any = async (_: unknown, request: any) => {
     const body = JSON.parse(request.body); assert.ok(body.tools.some((t: any) => t.function.name === 'search_conversations')); assert.ok(!body.tools.some((t: any) => t.function.name === 'web_search'));
@@ -92,18 +86,8 @@ test('recall routes authenticate and ignore a caller-supplied owner', async () =
   assert.equal((await response.json() as any).scope, new RecallStore(bucket, 'personal-client').prefix);
 });
 
-test('a single answer reuses its sandbox and explicitly releases it', async () => {
-  const { e2bRecallExecutor } = await import('../src/recall.ts');
-  let creates = 0, kills = 0, writes = 0;
-  const create: any = async () => { creates++; return { files: { write: async () => { writes++; } }, runCode: async () => ({ logs: { stdout: ['{"sources":[],"more":false}'] } }), kill: async () => { kills++; } }; };
-  const execute = e2bRecallExecutor('fixture', 'fixture', create), signal = new AbortController().signal;
-  await execute({ query: 'camera' }, signal); await execute({ query: '相机' }, signal);
-  assert.equal(creates, 1); assert.equal(writes, 2); assert.equal(kills, 0);
-  await execute.close?.(); await execute.close?.(); assert.equal(kills, 1);
-});
-
 test('disabled automatic memory hides both memory update tools', async () => {
-  const session = new RecallSession(new RecallStore(bucket, randomUUID()), async () => ({ sources: [], more: false }), false);
+  const session = new RecallSession(new RecallStore(bucket, randomUUID()), searchConversations, false);
   const response = await chatWithSearch({ messages: [{ role: 'user', content: 'hello' }] }, new URL('https://model.invalid/chat'), {} as any, new AbortController().signal, async (_, init) => {
     const names = JSON.parse(init!.body as string).tools.map((tool: any) => tool.function.name);
     assert.ok(names.includes('search_memory'));
@@ -114,6 +98,61 @@ test('disabled automatic memory hides both memory update tools', async () => {
 });
 
 test('disabled automatic memory rejects direct forget_memory calls', async () => {
-  const session = new RecallSession(new RecallStore(bucket, randomUUID()), async () => ({ sources: [], more: false }), false);
+  const session = new RecallSession(new RecallStore(bucket, randomUUID()), searchConversations, false);
   await assert.rejects(session.call('forget_memory', { id: randomUUID() }, new AbortController().signal), /disabled/);
+});
+
+test('memories with empty sources remain valid independently of conversation state', async () => {
+  const store = new RecallStore(bucket, randomUUID()), chat = fixture();
+  const memory = await store.memory({ id: randomUUID(), text: '个人偏好', forget: false, base: null });
+  assert.deepEqual(memory.sources, []);
+  const valid = async () => assert.deepEqual(await store.validMemories((await store.load()).state), [memory]);
+  await valid();
+  let receipt = await sync(store, chat); await valid();
+  chat.messages[0].text = 'changed'; receipt = await sync(store, chat, receipt.revision); await valid();
+  await sync(store, { ...chat, excluded: true }, receipt.revision); await valid();
+  await store.mutate(state => { delete state.entries[chat.id]; }); await valid();
+  await store.memory({ id: memory.id, text: '', forget: true, base: memory.revision });
+  assert.deepEqual(await store.validMemories((await store.load()).state), []);
+});
+
+test('POST recall memory forget requires text, and accepts an empty string', async () => {
+  const limit = { limit: async () => ({ success: true }) };
+  const env: any = { CLIENT_TOKEN: 'x'.repeat(40), UPSTREAM_API_KEY: 'fake', RECALL_BUCKET: bucket, RECALL_RATE_LIMIT: limit };
+  const post = (body: unknown) => handle(new Request('https://fixture.invalid/v1/recall/memory', {
+    method: 'POST', headers: { Authorization: `Bearer ${env.CLIENT_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }), env);
+  const id = randomUUID();
+  const created = await post({ id, text: 'manual memory', forget: false, base: null });
+  assert.equal(created.status, 200);
+  const memory = await created.json() as any;
+  assert.equal((await post({ id, forget: true, base: memory.revision })).status, 400);
+  const forgotten = await post({ id, text: '', forget: true, base: memory.revision });
+  assert.equal(forgotten.status, 200); assert.equal((await forgotten.json() as any).forgotten, true);
+});
+
+test('chat recall needs only R2 and never charges sandbox rate limits', async () => {
+  const store = new RecallStore(bucket, 'personal-client'), chat = fixture();
+  await sync(store, chat);
+  let sandboxCharges = 0, calls = 0;
+  const env: any = {
+    CLIENT_TOKEN: 'x'.repeat(40), UPSTREAM_API_KEY: 'fake', RECALL_BUCKET: bucket,
+    UPSTREAM_URL: 'https://model.invalid/chat', ALLOWED_MODELS: 'fixture', MAX_OUTPUT_TOKENS: '1024',
+    CHAT_RATE_LIMIT: { limit: async () => ({ success: true }) },
+    SANDBOX_RATE_LIMIT: { limit: async () => { sandboxCharges++; return { success: false }; } },
+  };
+  const fetcher: any = async (_: unknown, init: any) => {
+    const body = JSON.parse(init.body);
+    if (!calls++) return sse({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'history', function: { name: 'search_conversations', arguments: '{"query":"相机"}' } }] }, finish_reason: 'tool_calls' }] });
+    assert.ok(body.messages.at(-1).content.includes('X100'));
+    return sse({ choices: [{ delta: { content: 'X100' }, finish_reason: 'stop' }] });
+  };
+  const response = await handle(new Request('https://fixture.invalid/v1/chat/completions', {
+    method: 'POST', headers: { Authorization: `Bearer ${env.CLIENT_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'fixture', messages: [{ role: 'user', content: '相机' }], stream: true, recall: { enabled: true } }),
+  }), env, fetcher);
+  assert.equal(response.status, 200);
+  const output = await response.text();
+  assert.ok(output.includes(chat.messages[0].id)); assert.ok(output.endsWith('data: [DONE]\n\n'));
+  assert.equal(calls, 2); assert.equal(sandboxCharges, 0);
 });

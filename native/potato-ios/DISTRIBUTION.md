@@ -1,5 +1,7 @@
 # iPhone 分发状态
 
+2026-09-14 **0.2.2 (2026091401)** 已通过命令行/API 上传并加入既有「个人内测」组，状态 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。优化模型目录缓存与后台刷新，移除模型面板首页关闭按钮，包含当前工作树远程对话布局、任务状态和审批改进。全量 iOS 单元测试 129 项与模型 UI 测试 9 项通过。见 [发布与验证](../../docs/design/iphone/model-picker-cache-20260914/README.md)。后续使用本机 `potato-ios-release` skill；Developer API 密钥、本机分发证书和描述文件已配置，普通发布无需浏览器。
+
 2026-09-13 **0.2.2 (2026091306)** 已于 20:41 上传 Apple，处理完成并加入既有「个人内测」组（1 位测试者），状态 **Testing**、有效期 90 天，中文说明已保存。TestFlight → Potato Remote → 更新。Python 已作为与联网搜索、历史检索平级的模型工具，自动执行并返回日志、图表和文件；历史检索仍遵守记忆开关。线上真实模型自主执行两次 Python、生成 PNG/PDF 验证通过。见 [代码工具发布与验证](../../docs/design/iphone/automatic-code-tool-20260913/README.md)。
 
 2026-09-13 **0.2.2 (2026091305)** 已于 20:03 通过 Xcode Organizer 上传 Apple，Apple 处理完成，已加入既有「个人内测」组（1 位测试者），状态 **Testing**、有效期 90 天，中文更新说明已保存。可在 TestFlight → Potato Remote → 更新。新增跨对话检索与长期记忆；对应 Worker 已上线，真实 R2/E2B/模型合成数据检索及记忆增改/忘记验证通过。首次安装仍显示本地「周末计划」示例，升级恢复原有数据。进度见 [记忆功能发布记录](../../docs/design/iphone/cross-chat-recall/release-2026091305/release.md)。
