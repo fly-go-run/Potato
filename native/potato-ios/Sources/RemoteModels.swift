@@ -19,11 +19,11 @@ struct RemoteModelCatalog: Decodable {
     let models: [RemoteModelEntry]
     let active: RemoteModelChoice?
     func resolve(_ preferred: RemoteModelChoice?) throws -> RemoteModelChoice {
-        guard version == 1 else { throw LocalFailure.message("请更新手机与电脑，以使用模型设置。") }
+        guard version == 1 else { throw LocalFailure.message(L10n.tr("请更新手机与电脑，以使用模型设置。")) }
         guard let choice = preferred ?? active,
-              let entry = models.first(where: { $0.matches(choice) }) else { throw LocalFailure.message("所选模型不可用，请重新选择或在电脑配置模型。") }
+              let entry = models.first(where: { $0.matches(choice) }) else { throw LocalFailure.message(L10n.tr("所选模型不可用，请重新选择或在电脑配置模型。")) }
         if let effort = choice.reasoning_effort, !entry.effort_options.contains(effort), entry.default_effort != effort {
-            throw LocalFailure.message("所选思考设置已改变，请重新选择。")
+            throw LocalFailure.message(L10n.tr("所选思考设置已改变，请重新选择。"))
         }
         return choice
     }
@@ -31,8 +31,8 @@ struct RemoteModelCatalog: Decodable {
 struct RemoteModelOverview: Decodable { let model_catalog: RemoteModelCatalog? }
 
 func remoteEffortName(_ value: String?) -> String {
-    guard let value else { return "服务默认" }
-    return ["none": "关闭", "minimal": "极低", "low": "低", "medium": "中", "high": "高", "xhigh": "更高", "max": "最高", "ultra": "超高"][value] ?? value
+    guard let value else { return L10n.tr("服务默认") }
+    return ["none": L10n.tr("关闭"), "minimal": L10n.tr("极低"), "low": L10n.tr("低"), "medium": L10n.tr("中"), "high": L10n.tr("高"), "xhigh": L10n.tr("更高"), "max": L10n.tr("最高"), "ultra": L10n.tr("超高")][value] ?? value
 }
 
 struct RemoteModelPicker: View {
@@ -57,41 +57,41 @@ struct RemoteModelPicker: View {
     }
     var body: some View {
         ModelPickerSheet(page: $page, prefix: "remote", compactHeight: min(530, 300 + CGFloat(featured.count + 1) * 64), close: { dismiss() }) {
-            if loading { ProgressView("正在读取电脑上的模型…") }
+            if loading { ProgressView(L10n.tr("正在读取电脑上的模型…")) }
             if let issue { Text(issue).font(.footnote).foregroundStyle(.red) }
             if let catalog, catalog.version == 1 {
                 switch page {
                 case .models:
                     Section {
-                        option("跟随电脑", detail: deviceName, selected: selection == nil, id: "remote-model-follow") { choose(nil) }
+                        option(L10n.tr("跟随电脑"), detail: deviceName, selected: selection == nil, id: "remote-model-follow") { choose(nil) }
                         ForEach(featured, id: \.identity) { model in modelRow(model) }
                     }
                     if let effective, entry != nil {
-                        Section { ModelPickerDisclosure(title: "思考", value: remoteEffortName(effective.reasoning_effort), id: "remote-thinking-open") { page = .thinking } }
+                        Section { ModelPickerDisclosure(title: L10n.tr("思考"), value: remoteEffortName(effective.reasoning_effort), id: "remote-thinking-open") { page = .thinking } }
                     }
-                    Section { ModelPickerDisclosure(title: "更多模型", id: "remote-more-models") { page = .more } }
+                    Section { ModelPickerDisclosure(title: L10n.tr("更多模型"), id: "remote-more-models") { page = .more } }
                 case .thinking:
                     if let entry, let effective {
                         Section {
-                            option("服务默认", selected: effective.reasoning_effort == nil, id: "remote-effort-default") { var value = effective; value.reasoning_effort = nil; choose(value) }
+                            option(L10n.tr("服务默认"), selected: effective.reasoning_effort == nil, id: "remote-effort-default") { var value = effective; value.reasoning_effort = nil; choose(value) }
                             ForEach(entry.efforts, id: \.self) { effort in
                                 option(remoteEffortName(effort), selected: effective.reasoning_effort == effort, id: "remote-effort-\(effort)") { var value = effective; value.reasoning_effort = effort; choose(value) }
                             }
-                            if let effort = effective.reasoning_effort, !entry.effort_options.contains(effort) { Label("电脑已配置：\(effort)", systemImage: "checkmark").font(.footnote) }
-                        } footer: { Text(entry.efforts.isEmpty ? "这台电脑未提供可选档位。使用服务默认，或保留电脑已有配置。" : "用于下一轮任务。已发送的任务保留原配置。") }
+                            if let effort = effective.reasoning_effort, !entry.effort_options.contains(effort) { Label(L10n.tr("电脑已配置：\(effort)"), systemImage: "checkmark").font(.footnote) }
+                        } footer: { Text(entry.efforts.isEmpty ? L10n.tr("这台电脑未提供可选档位。使用服务默认，或保留电脑已有配置。") : L10n.tr("用于下一轮任务。已发送的任务保留原配置。")) }
                     }
                 case .more:
                     Section {
-                        TextField("搜索模型", text: $query).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("remote-model-search")
+                        TextField(L10n.tr("搜索模型"), text: $query).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("remote-model-search")
                         ForEach(catalog.models.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || $0.id.localizedCaseInsensitiveContains(query) || $0.provider_name.localizedCaseInsensitiveContains(query) }, id: \.identity) { model in modelRow(model) }
                     }
-                    Section { Button("刷新模型列表", systemImage: "arrow.clockwise", action: reload).disabled(loading).accessibilityIdentifier("remote-model-refresh") }
+                    Section { Button(L10n.tr("刷新模型列表"), systemImage: "arrow.clockwise", action: reload).disabled(loading).accessibilityIdentifier("remote-model-refresh") }
                 }
             } else if !loading && issue == nil {
-                Text("这台电脑尚不支持手机选择模型，请更新电脑端。发送时仍跟随电脑设置。").font(.footnote).foregroundStyle(.secondary)
+                Text(L10n.tr("这台电脑尚不支持手机选择模型，请更新电脑端。发送时仍跟随电脑设置。")).font(.footnote).foregroundStyle(.secondary)
             }
             if page == .models && (issue != nil || catalog == nil) {
-                Button("重新读取", action: reload).disabled(loading).accessibilityIdentifier("remote-model-refresh")
+                Button(L10n.tr("重新读取"), action: reload).disabled(loading).accessibilityIdentifier("remote-model-refresh")
             }
         }
     }
@@ -108,6 +108,6 @@ struct RemoteModelPicker: View {
                 Spacer(minLength: 8)
                 if selected { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.blue).accessibilityHidden(true) }
             }.padding(.vertical, 5).frame(minHeight: 44).contentShape(Rectangle())
-        }.accessibilityIdentifier(id).accessibilityValue(selected ? "已选择" : "未选择")
+        }.accessibilityIdentifier(id).accessibilityValue(selected ? L10n.tr("已选择") : L10n.tr("未选择"))
     }
 }

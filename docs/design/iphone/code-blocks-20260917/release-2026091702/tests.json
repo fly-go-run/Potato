@@ -1,0 +1,12 @@
+{
+  "unitTests": 190,
+  "unitResult": "passed",
+  "uiTests": 5,
+  "uiResult": "passed",
+  "uiEvidence": [
+    "/tmp/potato-code-highlighting-tests.xcresult (CodeHighlightingUITests: 3 passed)",
+    "/tmp/potato-code-tool-regression.xcresult (CodeExecutionUITests: 2 passed)"
+  ],
+  "unitResultBundle": "/tmp/PotatoRelease2026091702Tests.xcresult",
+  "scope": "Full iOS unit suite; prior same-source native UI regression results reused. Build-number-only bump followed testing."
+}

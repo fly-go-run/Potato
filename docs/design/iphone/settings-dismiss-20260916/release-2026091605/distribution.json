@@ -1,0 +1,17 @@
+{
+  "id": "120829d0-bb13-4127-8399-1d5e54992b6e",
+  "version": "0.2.2",
+  "build": "2026091605",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "设置页面支持向下拖动关闭，并显示顶部拖动条。\n下拉关闭与“取消”一致，修改设置后仍需点击“保存”才会生效。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

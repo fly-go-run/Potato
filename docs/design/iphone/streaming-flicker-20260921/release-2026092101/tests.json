@@ -1,0 +1,16 @@
+{
+  "unitTests": {
+    "passed": 201,
+    "failed": 0,
+    "log": "/tmp/potato-release-2026092101-tests.log"
+  },
+  "uiTests": {
+    "passed": 3,
+    "failed": 0,
+    "source": "same app source; only build number changed",
+    "logs": [
+      "../verification/streaming-ui-tests.log",
+      "../verification/stop-tests.log"
+    ]
+  }
+}

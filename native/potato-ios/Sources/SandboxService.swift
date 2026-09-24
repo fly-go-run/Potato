@@ -18,15 +18,15 @@ private final class SandboxNoRedirect: NSObject, URLSessionTaskDelegate {
 }
 enum SandboxService {
     static func request(code: String, files: [Attachment], settings: ConnectionSettings, token: String, storage: LocalStorage) throws -> URLRequest {
-        guard !settings.demo, let endpoint = settings.validatedURL, endpoint.path.hasSuffix("/v1/chat/completions") else { throw LocalFailure.message("请先连接支持云端计算的 Potato 服务。") }
-        guard code.count <= 32_000, files.count <= 4 else { throw LocalFailure.message("代码过长或文件超过 4 个。") }
+        guard !settings.demo, let endpoint = settings.validatedURL, endpoint.path.hasSuffix("/v1/chat/completions") else { throw LocalFailure.message(L10n.tr("请先连接支持云端计算的 Potato 服务。")) }
+        guard code.count <= 32_000, files.count <= 4 else { throw LocalFailure.message(L10n.tr("代码过长或文件超过 4 个。")) }
         var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
         components.path = String(endpoint.path.dropLast("/v1/chat/completions".count)) + "/v1/sandbox/run"
         var input: [[String: String]] = []
         var total = 0
         for (index, file) in files.enumerated() {
             let data = try Data(contentsOf: storage.url(for: file)); total += data.count
-            guard total <= 2_000_000 else { throw LocalFailure.message("云端计算的输入文件合计最多 2 MB。") }
+            guard total <= 2_000_000 else { throw LocalFailure.message(L10n.tr("云端计算的输入文件合计最多 2 MB。")) }
             input.append(["name": filename(file, index: index), "base64": data.base64EncodedString()])
         }
         var request = URLRequest(url: components.url!)
@@ -44,16 +44,16 @@ enum SandboxService {
         let session = URLSession(configuration: configuration, delegate: SandboxNoRedirect(), delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         let (bytes, response) = try await session.bytes(for: request)
-        guard let response = response as? HTTPURLResponse else { throw LocalFailure.message("计算服务未响应。") }
+        guard let response = response as? HTTPURLResponse else { throw LocalFailure.message(L10n.tr("计算服务未响应。")) }
         switch response.statusCode {
         case 200: break
-        case 401: throw LocalFailure.message("连接令牌已失效，请检查设置。")
-        case 404, 503: throw LocalFailure.message("云端计算尚未配置。请在服务端配置 E2B 后再运行。")
-        case 429: throw LocalFailure.message("请求较多，请稍后再运行。")
-        default: throw LocalFailure.message("计算失败，可能已超过执行时间或输出大小限制。")
+        case 401: throw LocalFailure.message(L10n.tr("连接令牌已失效，请检查设置。"))
+        case 404, 503: throw LocalFailure.message(L10n.tr("云端代码运行暂不可用，请稍后再试。"))
+        case 429: throw LocalFailure.message(L10n.tr("请求较多，请稍后再运行。"))
+        default: throw LocalFailure.message(L10n.tr("计算失败，可能已超过执行时间或输出大小限制。"))
         }
         var data = Data()
-        for try await byte in bytes { try Task.checkCancellation(); data.append(byte); guard data.count <= 4_200_000 else { throw LocalFailure.message("计算结果过大，请减少输出。") } }
+        for try await byte in bytes { try Task.checkCancellation(); data.append(byte); guard data.count <= 4_200_000 else { throw LocalFailure.message(L10n.tr("计算结果过大，请减少输出。")) } }
         return try JSONDecoder().decode(SandboxExecution.self, from: data)
     }
 }

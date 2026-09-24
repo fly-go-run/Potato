@@ -1,0 +1,25 @@
+{
+  "worker": "potato-iphone-api",
+  "version": "51e229f1-6acf-4cf6-b620-98a831882d61",
+  "previousVersion": "0a601f87-f1b3-4a0c-a0dc-365aef1ac97a",
+  "deployment": {
+    "id": "5a818e91-19a5-4ba9-9408-724917d4c559",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "pal_xu@163.com",
+    "annotations": {
+      "workers/message": "iPhone resumable SSE subscriptions and smooth streaming",
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "51e229f1-6acf-4cf6-b620-98a831882d61",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-09-16T14:41:34.463709Z"
+  },
+  "keepVars": true,
+  "secretsChanged": false,
+  "migrationChange": false
+}

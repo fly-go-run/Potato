@@ -1,0 +1,18 @@
+{
+  "id": "73f5b7a9-944b-4090-8aeb-db4affdb428a",
+  "version": "0.2.2",
+  "build": "2026091603",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "本次更新优化思考过程、工具调用与文件结果展示：\n\n• 聊天中直接显示思考摘要和状态，轻点即可查看完整思考内容。\n• 工具步骤单独收起，展开后以半屏时间线查看各步及输入、输出。\n• 图片结果优先展示预览，原始代码与执行日志可分别展开。\n• 生成文件以简洁卡片呈现，支持原生预览与分享。\n• 优化步骤间距、详情导航、大字号显示及运行中/停止后的状态反馈。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true,
+  "verifiedAt": "2026-09-16 14:05 Asia/Shanghai"
+}

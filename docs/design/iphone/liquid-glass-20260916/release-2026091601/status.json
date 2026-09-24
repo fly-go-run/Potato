@@ -1,0 +1,17 @@
+{
+  "id": "8e51c492-178b-43e8-8e94-cad9fddb6bca",
+  "version": "0.2.2",
+  "build": "2026091601",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "本次更新优化 iPhone 对话界面：\n\n• iOS 26 及以上使用系统默认 Liquid Glass，应用于顶部按钮、输入框和回到最新消息按钮。\n• 正文可延伸至浮动输入框和导航按钮后方，增加阅读时的内容展示。\n• 修复展开侧栏时圆角外残留直角阴影，以及关闭侧栏后部分按钮响应异常的问题。\n• 优化当前会话选中状态、输入区间距和小屏大字号下的按钮布局。\n• 远程对话输入区同步采用玻璃材质与浮动布局。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

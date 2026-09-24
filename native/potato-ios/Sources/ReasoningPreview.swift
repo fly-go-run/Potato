@@ -32,6 +32,17 @@ final class ReasoningPreview: URLProtocol {
             do {
                 let mode = self.request.url!.lastPathComponent
                 self.client?.urlProtocol(self, didReceive: HTTPURLResponse(url: self.request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "text/event-stream"])!, cacheStoragePolicy: .notAllowed)
+                if mode == "streaming" {
+                    let history = (1...12).map { "第\($0)段：这是一段用于检查长回复追底的合成文字，逐步显示时不应忽然缩回。" }.joined(separator: "\n\n")
+                    self.emit(["choices": [["delta": ["content": history + "\n\n稳定正文锚点"]]]])
+                    try await Task.sleep(for: .seconds(2))
+                    for character in "\n```swift\nlet value = 42\n```\n\n回复末尾：中文与家庭👨‍👩‍👧‍👦完整保留。" {
+                        self.emit(["choices": [["delta": ["content": String(character)]]]])
+                        try await Task.sleep(for: .milliseconds(100))
+                    }
+                    try await Task.sleep(for: .seconds(2))
+                    self.done(); return
+                }
                 try await Task.sleep(for: .seconds(2))
                 self.emit(["choices": [["delta": ["reasoning_content": "先把小数位对齐，再比较相同数位。"]]]])
                 try await Task.sleep(for: .seconds(mode == "hold" ? 30 : 7))

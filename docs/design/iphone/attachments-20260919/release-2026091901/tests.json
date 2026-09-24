@@ -1,0 +1,19 @@
+{
+  "iosUnitTests": 196,
+  "iosUnitResult": "/tmp/potato-release-2026091901-unit.xcresult",
+  "workerTests": 92,
+  "workerLog": "/tmp/potato-attachments-worker-release-tests.log",
+  "workerTypecheck": true,
+  "workerDryRun": true,
+  "uiScenariosPassed": 4,
+  "uiResults": [
+    "/tmp/potato-20-ui.xcresult (recent photo case)",
+    "/tmp/potato-20-ui-final.xcresult (3 cases)"
+  ],
+  "archiveSucceeded": true,
+  "health": {
+    "service": "potato-iphone",
+    "status": "ok"
+  },
+  "authenticatedLiveModelProbe": "Not run: automatic approval rejected reading/decrypting the local QA session credential. No credential access or model request executed."
+}

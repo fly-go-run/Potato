@@ -1,0 +1,16 @@
+{
+  "id": "f7c5fbdc-189d-4725-b27d-09ad56a51f9e",
+  "version": "0.2.2",
+  "build": "2026091703",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "READY_FOR_BETA_TESTING",
+  "inGroup": false,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": null
+    }
+  ],
+  "testing": false
+}

@@ -1,0 +1,226 @@
+{
+  "native/potato-ios/PotatoMobile.xcodeproj/project.pbxproj": {
+    "previous": "0a79505708f28bb6688f62dc5203dbd520f257d75d44cc89415256f5ec7327a8",
+    "current": "5a77a9b73b36177fcc9452a04cf8f93189ac4e69d87c45737884d39452ba225e"
+  },
+  "native/potato-ios/Sources/ActivityPresentation.swift": {
+    "previous": "21eb9e7182e6d1bbc3f938aba434c0d7164743cf6c0165dd20538677664ad416",
+    "current": "ba3b426157d13733affa63d236146aff212b9337a6c25eef2d611efbc3456205"
+  },
+  "native/potato-ios/Sources/AppLanguage.swift": {
+    "previous": null,
+    "current": "24fe0926f49ef0f3b7804d87df3b5c500702e9f57784daf8afa0a4488043e1ad"
+  },
+  "native/potato-ios/Sources/AttachmentThumbnails.swift": {
+    "previous": "2166ee2cddc62dc440be345f0ca349217d4b6c0c174fddc15d8defc8715717ba",
+    "current": "ea3c286851be47856fe8a75f0c8e071a34dfacc5befb8e9027ffb0d1ad439fb7"
+  },
+  "native/potato-ios/Sources/ChatService.swift": {
+    "previous": "8565a9436b4064a397a0e3578a827f2e1087ca0bc6c5a538d5302bf4db288777",
+    "current": "6be0166c804fe34677559a957d925e10f84736eab9e9479c6784fa745d47aeda"
+  },
+  "native/potato-ios/Sources/CloudAccount.swift": {
+    "previous": "3de087fb2e9ba39e6269da2c1674e09a3ab91264282f5c74a44d2fa2ac49eb16",
+    "current": "a1055693619ae2d8a8db48ae482ac1421b0439d12e73b073a2b90adc0739001a"
+  },
+  "native/potato-ios/Sources/CloudReply.swift": {
+    "previous": "cefc8c62d15b1d8fdecdf4464b65fa197a421206eea897a7953bb0291e952634",
+    "current": "4ee835174f6cd1d2e11bf2f69e2311f09d858f5f8031402c6093ff780a0ec06a"
+  },
+  "native/potato-ios/Sources/CodeExecution.swift": {
+    "previous": "598dac8d15b26a69cf9d895b4af878acd70fd6dac5c0d1f890ce8d877cba9eb5",
+    "current": "ce214df123d3ac979f0fec299ebadbd4f3994be0f7a8b4a2190d2ed55f98e788"
+  },
+  "native/potato-ios/Sources/ComposerTextInput.swift": {
+    "previous": "6744d08b6985cc6c635b7adfd239a669aeac5b38c9304058babf4c260bebc143",
+    "current": "b5d33a48e27cbf5caf2d5562562705cda0047856ee52748336fee5858f7a5d0d"
+  },
+  "native/potato-ios/Sources/DocumentView.swift": {
+    "previous": "f56acc2fbed50c8c53a932d68861d49fb8bae5cb244103103130518b6a93a916",
+    "current": "507c9416529688a12e3513029c95bf749d20c2194e5e11ed090ef6a8bd75dad0"
+  },
+  "native/potato-ios/Sources/DraftHistoryView.swift": {
+    "previous": "b312b16840e66ea3cfa74ea8fa71f3dc2dad276d1dfe006baace863da5dbdc4b",
+    "current": "95e5968e93932389012937d10b62e821cb91f3f7eca5a3f1845ed64c7318f790"
+  },
+  "native/potato-ios/Sources/FileLibraryView.swift": {
+    "previous": "b332f066ad444f5b08db7725c073ee45f5250f94d9c423fded75d54a4d3d4323",
+    "current": "89699e8e419027b1b747fb23df250bbcfa82de61f643f257b27dc81c7007a926"
+  },
+  "native/potato-ios/Sources/ImageImport.swift": {
+    "previous": "d3cbcfeec1ec5a380f837ff8312fad4a399a861d9311dc278c7fc0e395e5bd4a",
+    "current": "d0d3faca1f3f9449504e26aea66b5abd043d82e66a7a088910e90b4199081e9c"
+  },
+  "native/potato-ios/Sources/LibraryFileDetail.swift": {
+    "previous": "59953222916ec5d7d0087d147f0c12b2dbb8b1086a7bbe3da5adb025b5941358",
+    "current": "2da83931b85f44e4b66a33e3f181a61756e226bd0b9e0b24e289eb2982ef2da9"
+  },
+  "native/potato-ios/Sources/LibraryStore.swift": {
+    "previous": "4952f70401cb242e771ee617b3d9fcc6e837d8910afddbf18e39bbaf2dc3fbaa",
+    "current": "574df0f961671058eeb2d8d5f2c75bc8d4c699bfbb36168e8ee7debbcf6df55b"
+  },
+  "native/potato-ios/Sources/LibraryView.swift": {
+    "previous": "41340df06b3df921c07302e7dfdb6e5e653fa281408443ebbd82c4fc61e802f6",
+    "current": "d085725241c8af3ef48ad83ad1d5b008906514970f37e8df81343350f53ea2da"
+  },
+  "native/potato-ios/Sources/LocalModelPicker.swift": {
+    "previous": "4bbf0a1d67b6c17a6b7691f7e85b5369610f742bce5cff42f2e9fbef2ed0d39c",
+    "current": "764ce6dcaac5b6f0914b5089f64bbedb50a4a13b5ad188e6f2195f9ac3c8832f"
+  },
+  "native/potato-ios/Sources/LocalModels.swift": {
+    "previous": "b01ae72a93432cd0e6094ec2138f347e970950b174c6b37c1bff2fe96045b35a",
+    "current": "a1ece8b9835628bfb76c3216c4a69deda3b5dce126961a34470dc26c6e097eea"
+  },
+  "native/potato-ios/Sources/LocalStorage.swift": {
+    "previous": "1f034bec4388041b1c4bea64baaad4fbc3766bec4c4410b4489cfc487c1e6782",
+    "current": "db3877366f57c4b1e91248a8767f9d30e1528ea41f0a59375c61b2ffad650567"
+  },
+  "native/potato-ios/Sources/Localization/en.lproj/InfoPlist.strings": {
+    "previous": null,
+    "current": "64f6ffe7209225b12a874d239aa3bab0924919985d5d2546885143dfab315997"
+  },
+  "native/potato-ios/Sources/Localization/en.lproj/Localizable.strings": {
+    "previous": null,
+    "current": "e5c50eb67fdcddde54b991d957d8713e7d9aea438e935fff904219e46d8f5625"
+  },
+  "native/potato-ios/Sources/Localization/zh-Hans.lproj/InfoPlist.strings": {
+    "previous": null,
+    "current": "161f3919c5bf6be391b390d6775f5ea45306559e4eb64ff006eb9e071930610e"
+  },
+  "native/potato-ios/Sources/Localization/zh-Hans.lproj/Localizable.strings": {
+    "previous": null,
+    "current": "41182b18d6f54d413bd2395647f4b25c813440fb7112810dcb00eaf68d244f52"
+  },
+  "native/potato-ios/Sources/Models.swift": {
+    "previous": "075f764b3b6731c22ed40768e582d22f85a22c69872f1b43627f5199eea18a52",
+    "current": "704913518f5e400ee67b8f68fdfdd775f677857905bdfe55985f569bae737481"
+  },
+  "native/potato-ios/Sources/PotatoMobileApp.swift": {
+    "previous": "b89a2fdebed3cbc1741108211f8d4ffe9ec76ebad2153d1ddcc388402f3ef1a0",
+    "current": "ea151a8846d6b0b1a20be8e70fc412759741fca3ca228e8f3076000ae4f2dd2e"
+  },
+  "native/potato-ios/Sources/Recall.swift": {
+    "previous": "50f7031599ae63c9c8e866fd27561fd9670ce94264900beb01918dbf85003f89",
+    "current": "6c0d3473beab72438c4130c586bdfb77e410ba95fd1f728ea7f41c8aaebebf32"
+  },
+  "native/potato-ios/Sources/RecallView.swift": {
+    "previous": "ee85ce0fd9950c4a01ff27a92b0745bfd8db234d7382ae699d09d870f3bf21cf",
+    "current": "f7217d37f30b435e357dba5ac289a79e3e42fd039ef2c7b836a6c14f699532ce"
+  },
+  "native/potato-ios/Sources/RemoteDrafts.swift": {
+    "previous": "f73fdd270c705eb18acca0e56dc85d1a1cb4d3b9fdecc84dd9a2605d32dae4e6",
+    "current": "ea0da9f8cc6aea5086ea5f26fbebc8ac719ba1aca59cb6f9586c0a9bd7dccdff"
+  },
+  "native/potato-ios/Sources/RemoteMessageView.swift": {
+    "previous": "6d21973cea1e5769ab5f365b45c927242854e55c49558389ba52035fb305d293",
+    "current": "5210ee2cc8b4872219d60e012079b890078e65c1b9cbca868af9ebced4f20447"
+  },
+  "native/potato-ios/Sources/RemoteModels.swift": {
+    "previous": "c711673fd547048fb884bd5f15d4ee51f2ba24c73912a6ae9f8c815bb51472d2",
+    "current": "86a5f91f7eb2687d1bd42fedb0ab88bf1322f3c1d711b2f1435fd3db725b9fbf"
+  },
+  "native/potato-ios/Sources/RemoteOutbox.swift": {
+    "previous": null,
+    "current": "c54da2dd0940f38a1a3f8c3b8ba147b42a4687807d412cd8fbcb7fb81c3663ce"
+  },
+  "native/potato-ios/Sources/RemoteService.swift": {
+    "previous": "869bf8706a76791e8892a87ecfb438d846b7e9fdbbcce1de4c1ee925f6c0faec",
+    "current": "0d74088f9e06490d1bddb9bde1562c592619e21450a05b9e88f3ef1d1addee77"
+  },
+  "native/potato-ios/Sources/RemoteTaskObservation.swift": {
+    "previous": "b8514680ab5b404640c35edb857c0fac76de365c7fe6a8f46aa85f95d69793f8",
+    "current": "4d9d717de851069115fd61ba69d899f4ff297f1f43a8de0d57961baf1b2aab8b"
+  },
+  "native/potato-ios/Sources/RemoteView.swift": {
+    "previous": "f68fdc971af31a9e16816af8bd6abf27300354afe5704b62acd8e45dc2edfb96",
+    "current": "cdf0ec6009b74df24796c3d93e4e7c31d8b746f8d42d0de4f4b4f4bebd17dd43"
+  },
+  "native/potato-ios/Sources/ReplyActions.swift": {
+    "previous": "9016c4080ed87bead93f89cfa3c7ac25edc9128adb1ba4f581b6ccc69c476d18",
+    "current": "2c6cc3f18c4dda0596e9f15254c4df803043e99b80de7e007f25f3e3199f8143"
+  },
+  "native/potato-ios/Sources/ReplyProcess.swift": {
+    "previous": "d6ee8538c62df2082c9dc99d31017bcaede526905413dfb22d38b41322ad3b65",
+    "current": "e5bc57168d33dcc75740b4784a627607230a03b39d10149ee0a695d7bed8c499"
+  },
+  "native/potato-ios/Sources/SandboxRunSheet.swift": {
+    "previous": "2c47c06fcb0de76c3df6335b25601f48dd797eb465d41056c61bf1d385965655",
+    "current": "6e388ce762b08f416f9555ce0ff176c398415ab2b43318a37f1a8194595d1a72"
+  },
+  "native/potato-ios/Sources/SandboxService.swift": {
+    "previous": "7f5ec625758aa80a2793933f807daed23601d7e675c59af44c6a8d6fde9138fa",
+    "current": "817773f7ce52c750d92546f4c95b2776e3efcd6784819e356b6cfc1de5ec4a00"
+  },
+  "native/potato-ios/Sources/SpeechService.swift": {
+    "previous": "a9601499e721fc2e5a2dd9682c3f2586cad5394f0f586e9ae6d2ec43aa593efe",
+    "current": "1309fb750546b0a83b61a38ceb4fd0716b8b3b2041d7a778b47beeb2a4fbe3a7"
+  },
+  "native/potato-ios/Sources/VoiceComposer.swift": {
+    "previous": "ecd38e1a589baa2bd059313e00f6d2c508475a33e329938938d98eecc4645da5",
+    "current": "2eda67f2a37ab2cd8137ccaed12bef292ba512b5f8763a37efd34c95b6d889a8"
+  },
+  "native/potato-ios/Sources/VoiceInput.swift": {
+    "previous": "5f70470070e0587445fbcd90f1faabe2344d2145934f0a23ab56889b3b54a9ae",
+    "current": "eda78df9c6cf8d2453e02b8f0233594d440b285c8a225d4cde9ae1aa7a6a2fb8"
+  },
+  "native/potato-ios/Sources/WebSearch.swift": {
+    "previous": "0693de1a948b40ba4c1ffa8785edce8fdc1f797fb86236aa09526dc5e9604b09",
+    "current": "571c29d0d3bb154d42048c6cf5024d784045ee2d3224509bb5c6a99296cfa950"
+  },
+  "native/potato-ios/Sources/WorkspaceStore.swift": {
+    "previous": "12db51dd58de42377cb5e5e47547f07148176417fd3e1c2215ee8fcdec0ae96c",
+    "current": "aab24173b9c83af9674872d5ddccc5feb571d2299b307502f545a7e080653c27"
+  },
+  "native/potato-ios/Sources/WorkspaceView.swift": {
+    "previous": "c2ad8db13cf1b2df184577db81f5d8fd9b7eca405769e80e141ce3a190f362cb",
+    "current": "f180b46b33c5cc361dca87d4a4d926f3960cf3799d9e5e81c4021a08b327b13c"
+  },
+  "native/potato-ios/Tests/LanguageTests.swift": {
+    "previous": null,
+    "current": "d989dac1b7a4d56f97b71dd0b6da77369a7250836ce39cbaf7cb879cfa1651e1"
+  },
+  "native/potato-ios/Tests/RemoteDirectoryTests.swift": {
+    "previous": null,
+    "current": "56ed9cb930ae28478ee8c7a4e13da70be4cae0bd94a983f94158cabafb457ec7"
+  },
+  "native/potato-ios/Tests/RemoteDraftTests.swift": {
+    "previous": "24faa45ef335222e836d82c4214475199a4c442c7ba7addcceae065aac9c2110",
+    "current": "5fc0cf1e71187c1087e29d4e0433f992ca3ba3b2dc6b0eb14aa207b123dac4e8"
+  },
+  "native/potato-ios/Tests/VoiceComposerTests.swift": {
+    "previous": "1feaf8c1f9d669716ccfd9fceebeaa326d1e8ca577cb7b93de44b3266d49dee9",
+    "current": "df7da210707ea2651ead6835310b91dd8aa360a7fface59b9663c92a709d2776"
+  },
+  "native/potato-ios/UITests/LanguageUITests.swift": {
+    "previous": null,
+    "current": "174237a150ba231a9b247179afd04fbbf457b3a873a31314cbcc44ba837ad545"
+  },
+  "native/potato-ios/UITests/PrototypeTests.swift": {
+    "previous": "99a51056927ba0212714a255934c428e7db899473cead82ec0a87dcd9c7c4915",
+    "current": "9ceb5e6b184a0aefd0e6ef76aafd8c9eea03cb723d5a303d6c574d561c5b2b35"
+  },
+  "native/potato-ios/UITests/ReasoningUITests.swift": {
+    "previous": "d15c9a2fc3e4aa745acd323b9d3b4547341de705f9034de6875086b228ee8a6a",
+    "current": "202d8bd4be330002bf0e3cb1b11d9ba576de1b40d6fa6702091b7a1ae013131b"
+  },
+  "native/potato-ios/UITests/RemoteProcessUITests.swift": {
+    "previous": "7ce4e593a33dabf3dcde7c3ccf42789e2382c499e0cf43c8beff0be62efc5916",
+    "current": "52f28da8da390f1d979bf406881d61169e7928d025ad3b34feb25783578c1963"
+  },
+  "native/potato-ios/UITests/RemoteQueueUITests.swift": {
+    "previous": null,
+    "current": "844d82544184f99fc533f3cf188116861d20b507f09946c2c70a265c2696e5e0"
+  },
+  "native/potato-ios/UITests/RemoteUITests.swift": {
+    "previous": "785037e8867990b794f9dd747c2d8ce5eae27b39ad4d24ede26cf8675edc201b",
+    "current": "3510f3d2bdd9b415c67d78beccb275919639b2d0110b6c93a77e71c5c4d00941"
+  },
+  "native/potato-ios/UITests/VoiceInteractionTests.swift": {
+    "previous": "8b1843879705550dea31cf9ddda375f3da3e1da3d63fc7990bcc17501e4208d0",
+    "current": "6a6ead0c464986d0b6a0896a16d9e550243395be77ca87efbfaec3982d7604fe"
+  },
+  "native/potato-ios/project.yml": {
+    "previous": "9f9210284aa1875c03af5967546101d21e750f97130825157dfc55562d25c647",
+    "current": "058a96904798e5e7df49b4cb085b4e56d1c25ec4ef88d835cedeebb031c0cc8a"
+  }
+}

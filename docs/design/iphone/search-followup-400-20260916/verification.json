@@ -1,0 +1,11 @@
+{
+  "versions": [
+    {
+      "version_id": "1475115f-7a87-414f-b90c-0ea611047332",
+      "percentage": 100
+    }
+  ],
+  "readback_sha256": "2fc465ed4b3b08914529eb2101e70c2d847dcda245c2ee3d54e2212ad4c6a653",
+  "bindings_unchanged": true,
+  "settings_unchanged": true
+}

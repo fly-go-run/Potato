@@ -1,0 +1,78 @@
+{
+  "job_id": "01dc94db-ade2-43ef-a732-e490a899ce81",
+  "started": "2026-09-16T11:08:51.329Z",
+  "checks": [
+    {
+      "name": "catalog",
+      "ok": true
+    },
+    {
+      "name": "accepted",
+      "ok": true,
+      "status": 202,
+      "state": "queued"
+    },
+    {
+      "name": "duplicate_submission",
+      "ok": true,
+      "state": "running"
+    },
+    {
+      "name": "different_body_rejected",
+      "ok": true
+    },
+    {
+      "name": "catalog",
+      "ok": true
+    },
+    {
+      "name": "resumed_same_job",
+      "ok": true,
+      "status": 200,
+      "state": "complete"
+    },
+    {
+      "name": "duplicate_submission",
+      "ok": true,
+      "state": "complete"
+    },
+    {
+      "name": "different_body_rejected",
+      "ok": true
+    },
+    {
+      "name": "page_0",
+      "ok": true,
+      "state": "complete",
+      "events": 26
+    },
+    {
+      "name": "completed",
+      "ok": true,
+      "first_state_after_no_reader": "complete",
+      "events": 26,
+      "answer": "POTATO_ASYNC_OK"
+    },
+    {
+      "name": "finished_within_deadline",
+      "ok": true
+    },
+    {
+      "name": "cursor_has_no_duplicate_events",
+      "ok": true
+    },
+    {
+      "name": "cancel_before_submission",
+      "ok": true
+    },
+    {
+      "name": "late_submission_stays_stopped",
+      "ok": true
+    },
+    {
+      "name": "authentication_required",
+      "ok": true
+    }
+  ],
+  "finished": "2026-09-16T11:10:15.915Z"
+}

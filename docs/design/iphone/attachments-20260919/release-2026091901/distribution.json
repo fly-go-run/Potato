@@ -1,0 +1,17 @@
+{
+  "id": "ac8eea2a-1380-4114-8f61-82161ee4e1e1",
+  "version": "0.2.2",
+  "build": "2026091901",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "新增快捷附件面板：点击“＋”即可浏览最近照片，轻点直接添加，再点可移除。\n每条消息最多添加 20 张照片，照片与文件共用 20 个附件名额。\n保留拍照、所有照片、文件和资料库入口，关闭面板后可继续编辑；精简底部提示文案。\n优化连续导入、权限回退和草稿保留体验。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

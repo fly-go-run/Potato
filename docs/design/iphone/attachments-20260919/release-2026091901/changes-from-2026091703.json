@@ -1,0 +1,92 @@
+[
+  {
+    "path": "native/potato-ios/Info.plist",
+    "before": null,
+    "after": "71d15aeadba262d5ec3b97ff4b4f7e3308e260ccec1e2f458b792ed83f3c14c6"
+  },
+  {
+    "path": "native/potato-ios/PotatoMobile.xcodeproj/project.pbxproj",
+    "before": "a223fc1c2a8f4cb277256dbf510ca39452b866a272b33147926583b76a3f85b3",
+    "after": "21362d6be520fa14e87cbfe2f67173433449ddce9f5ac1657b7dadd186d172f1"
+  },
+  {
+    "path": "native/potato-ios/Sources/AttachmentSheet.swift",
+    "before": null,
+    "after": "0e398e9c578bda76889fea11648ea349f29de5af71c0c3619e5a60efaf8def70"
+  },
+  {
+    "path": "native/potato-ios/Sources/ComposerAttachments.swift",
+    "before": null,
+    "after": "bc09eef61737cfd1e71e6776eab7c59cbfee497597d6f1ba9cb7bfb3cd3f185e"
+  },
+  {
+    "path": "native/potato-ios/Sources/LibraryStore.swift",
+    "before": "574df0f961671058eeb2d8d5f2c75bc8d4c699bfbb36168e8ee7debbcf6df55b",
+    "after": "5e87a5553354471e455509ff7a6c67770001962219c0d818e3b483b24cc07a48"
+  },
+  {
+    "path": "native/potato-ios/Sources/Localization/en.lproj/InfoPlist.strings",
+    "before": "64f6ffe7209225b12a874d239aa3bab0924919985d5d2546885143dfab315997",
+    "after": "312669ea5e528c15c0284ddac007be66345a2f4d1ab60b94307271c6be78e686"
+  },
+  {
+    "path": "native/potato-ios/Sources/Localization/en.lproj/Localizable.strings",
+    "before": "e5c50eb67fdcddde54b991d957d8713e7d9aea438e935fff904219e46d8f5625",
+    "after": "454868a87154cc53c0e47e3a221a519382432d58de1a45be9176c94d538f1654"
+  },
+  {
+    "path": "native/potato-ios/Sources/Localization/zh-Hans.lproj/InfoPlist.strings",
+    "before": "161f3919c5bf6be391b390d6775f5ea45306559e4eb64ff006eb9e071930610e",
+    "after": "5d6f838f1e87056bb0048433f887ce038fe1754b2dc3e53ec2c13641f9a5d076"
+  },
+  {
+    "path": "native/potato-ios/Sources/Localization/zh-Hans.lproj/Localizable.strings",
+    "before": "41182b18d6f54d413bd2395647f4b25c813440fb7112810dcb00eaf68d244f52",
+    "after": "a1a0f36005d0ef3c721c9334b5d5cece3668762f6d1d05a7487eecdb1795883f"
+  },
+  {
+    "path": "native/potato-ios/Sources/Models.swift",
+    "before": "704913518f5e400ee67b8f68fdfdd775f677857905bdfe55985f569bae737481",
+    "after": "75dbc2da61df88898509cec2e184bb07f1d62ef2767d9326410a141345337e82"
+  },
+  {
+    "path": "native/potato-ios/Sources/RecentPhotos.swift",
+    "before": null,
+    "after": "89f7d1f53c837eabf3ac522545faccade50322e827df5a16e2579a7dfae93464"
+  },
+  {
+    "path": "native/potato-ios/Sources/WorkspaceStore.swift",
+    "before": "aab24173b9c83af9674872d5ddccc5feb571d2299b307502f545a7e080653c27",
+    "after": "dd6ccc0311f9e7dd16319a49a034fcedc1ed1bb495076643ccdde41f857b332e"
+  },
+  {
+    "path": "native/potato-ios/Sources/WorkspaceView.swift",
+    "before": "a628c0dd4d4864e9d4b8049d0b3e8b114594487a04937807a7fc1fafa9caa83d",
+    "after": "46dc521c091b07093346ced210d1e28be91d2bc9bc9857c5ad68642e166ad9d0"
+  },
+  {
+    "path": "native/potato-ios/Tests/ComposerAttachmentTests.swift",
+    "before": null,
+    "after": "d8642c1c3e6be8b52dec6a125a5410e1477a28daf099e799cb5311eb970fe64e"
+  },
+  {
+    "path": "native/potato-ios/Tests/LibraryTests.swift",
+    "before": "aa221f00da6e95c05d6cc50adee5f4264f44b6eabffb4acbabe73940f25c1131",
+    "after": "50b513ae65d4420947c44ca37ec2e5e6d8daad4f04b4bfc5fd8a6d1f2a2449a0"
+  },
+  {
+    "path": "native/potato-ios/UITests/AttachmentSheetUITests.swift",
+    "before": null,
+    "after": "7bd937e4509b683b7aa1ea25ee63efbb2e01dc7254b30ccf8dbb3a6bb4e9b5d3"
+  },
+  {
+    "path": "native/potato-ios/UITests/PrototypeTests.swift",
+    "before": "9ceb5e6b184a0aefd0e6ef76aafd8c9eea03cb723d5a303d6c574d561c5b2b35",
+    "after": "2914f4dab78d99a7321b637c790293c83f5628cb5f04c91b0bb9ae0b329018b4"
+  },
+  {
+    "path": "native/potato-ios/project.yml",
+    "before": "39a21dc986aa4906996655b9a6ca65e12421f0930d8c0343da0ec033e4724af3",
+    "after": "2f9690d45aff6e8ac10cd742245aa160dab6be3814043c921f953e559e44177e"
+  }
+]

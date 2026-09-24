@@ -13,9 +13,9 @@ final class CloudAccountUITests: XCTestCase {
         XCTAssertTrue(app.buttons["cloud-sign-in"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.textFields["endpoint"].isHittable)
         let login = XCTAttachment(screenshot: app.screenshot()); login.name = "cloud-account-login"; login.lifetime = .keepAlways; add(login)
-        app.navigationBars["云端模型"].buttons["完成"].tap()
+        app.navigationBars["Potato 账号"].buttons["完成"].tap()
         XCTAssertTrue(app.buttons["cloud-model-login"].waitForExistence(timeout: 5))
-        app.navigationBars["设置"].buttons["取消"].tap()
+        app.buttons["save-settings"].tap()
         XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 5))
     }
 }

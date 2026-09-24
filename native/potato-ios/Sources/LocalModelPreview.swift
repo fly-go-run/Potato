@@ -11,6 +11,9 @@ final class LocalModelPreview: URLProtocol {
         guard enabled, ProcessInfo.processInfo.arguments.contains("--reset") else { return }
         store.settings.demo = false; store.settings.endpoint = "https://local-model-preview.invalid/v1/chat/completions"; store.settings.model = "quick"; store.settings.modelCatalog = nil
         store.newChat(); store.update { $0.title = "模型选择验证" }; store.persist()
+        if ProcessInfo.processInfo.arguments.contains("--unavailable-model-preview") {
+            store.settings.model = "retired"; store.persist()
+        }
         if ProcessInfo.processInfo.arguments.contains("--curated-cloud-preview") {
             store.settings.cloudAccount = RemoteAccountProfile(owner: "curated-cloud-fixture", email: "fixture@example.test", relay: URL(string: "https://local-model-preview.invalid")!, scope: "cloud")
             store.settings.model = "deepseek/deepseek-v4-pro"
@@ -30,6 +33,10 @@ final class LocalModelPreview: URLProtocol {
         let catalog = request.httpMethod == "GET"
         work = Task {
             try? await Task.sleep(for: .milliseconds(100)); guard !Task.isCancelled else { return }
+            if !catalog, ProcessInfo.processInfo.arguments.contains("--unavailable-model-preview"), body["model"] as? String == "retired" {
+                client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: "HTTP/1.1", headerFields: [:])!, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocolDidFinishLoading(self); return
+            }
             let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": catalog ? "application/json" : "text/event-stream"])!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             let payload: String

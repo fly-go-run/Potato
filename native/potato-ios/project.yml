@@ -1,5 +1,6 @@
 name: PotatoMobile
 options:
+  developmentLanguage: en
   bundleIdPrefix: com.potato
   deploymentTarget:
     iOS: '17.0'
@@ -23,15 +24,17 @@ targets:
         TARGETED_DEVICE_FAMILY: '1'
         CODE_SIGNING_ENTITLEMENTS: PotatoMobile.entitlements
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Potato
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-        INFOPLIST_KEY_UIUserInterfaceStyle: Light
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSMicrophoneUsageDescription: 用于语音输入，点发送后提交转写文字，也可以修改或取消。
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: 用于显示最近照片，轻点即可添加到当前消息。仅处理你选择的照片。
+        INFOPLIST_KEY_NSCameraUsageDescription: 用于拍摄照片并添加到当前消息。
         MARKETING_VERSION: '0.2.2'
-        CURRENT_PROJECT_VERSION: 2026091401
+        CURRENT_PROJECT_VERSION: 2026092101
   PotatoMobileTests:
     type: bundle.unit-test
     platform: iOS

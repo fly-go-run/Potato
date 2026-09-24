@@ -81,9 +81,9 @@ struct RemoteDraftRepository {
         guard FileManager.default.fileExists(atPath: file.path) else { return Database() }
         do {
             let value = try JSONDecoder().decode(Database.self, from: Data(contentsOf: file))
-            guard value.version == 1 else { throw LocalFailure.message("版本不支持") }
+            guard value.version == 1 else { throw LocalFailure.message(L10n.tr("版本不支持")) }
             return value
-        } catch { throw LocalFailure.message("远程草稿暂时无法读取，原记录已保留。请勿卸载应用。") }
+        } catch { throw LocalFailure.message(L10n.tr("远程草稿暂时无法读取，原记录已保留。请勿卸载应用。")) }
     }
     private func write(_ database: Database) throws {
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -92,7 +92,7 @@ struct RemoteDraftRepository {
     func load(_ address: RemoteDraftAddress) throws -> RemoteDraftRecord {
         let record = try read().drafts[address.key] ?? RemoteDraftRecord()
         if let request = record.pending, request.target != address.target || request.chatID != (address.kind == "chat" ? address.value : nil) {
-            throw LocalFailure.message("待确认指令的目标与这台电脑不一致，原记录已保留。")
+            throw LocalFailure.message(L10n.tr("待确认指令的目标与这台电脑不一致，原记录已保留。"))
         }
         return record
     }
@@ -110,26 +110,26 @@ struct RemoteDraftRepository {
     func reserve(_ request: RemotePendingSend, at address: RemoteDraftAddress, text: String) throws {
         guard request.target == address.target,
               request.chatID == (address.kind == "chat" ? address.value : nil) else {
-            throw LocalFailure.message("指令目标已改变，请重新打开对应会话。")
+            throw LocalFailure.message(L10n.tr("指令目标已改变，请重新打开对应会话。"))
         }
         var database = try read()
         var record = try load(address)
         guard record.pending == nil || record.pending == request else {
-            throw LocalFailure.message("此会话已有待确认的指令，请先确认发送结果。")
+            throw LocalFailure.message(L10n.tr("此会话已有待确认的指令，请先确认发送结果。"))
         }
         record.text = text; record.pending = request
         database.drafts[address.key] = record
         try write(database)
     }
     func acknowledge(_ request: RemotePendingSend, at address: RemoteDraftAddress, chatID: String) throws -> RemoteDraftAddress {
-        guard request.target == address.target else { throw LocalFailure.message("指令不属于这台电脑。") }
-        guard !chatID.isEmpty, request.chatID == nil || request.chatID == chatID else { throw LocalFailure.message("发送回执返回了其他会话，原指令已保留。") }
+        guard request.target == address.target else { throw LocalFailure.message(L10n.tr("指令不属于这台电脑。")) }
+        guard !chatID.isEmpty, request.chatID == nil || request.chatID == chatID else { throw LocalFailure.message(L10n.tr("发送回执返回了其他会话，原指令已保留。")) }
         var database = try read()
         let destination = address.conversation(chatID)
         guard var source = database.drafts[address.key], source.pending?.id == request.id else {
             // Another view may already have consumed the same immutable receipt.
             if database.drafts[destination.key] != nil { return destination }
-            throw LocalFailure.message("发送回执与本地记录不一致，草稿已保留。")
+            throw LocalFailure.message(L10n.tr("发送回执与本地记录不一致，草稿已保留。"))
         }
         source.pending = nil
         if source.text == request.text { source.text = "" }
@@ -153,7 +153,7 @@ struct RemoteDraftRepository {
     }
     func archived(for target: RemoteTargetIdentity) throws -> [RemotePendingSend] {
         let requests = try read().unconfirmed?[target.key] ?? []
-        guard requests.allSatisfy({ $0.target == target }) else { throw LocalFailure.message("待确认记录的电脑信息不一致，原文件已保留。") }
+        guard requests.allSatisfy({ $0.target == target }) else { throw LocalFailure.message(L10n.tr("待确认记录的电脑信息不一致，原文件已保留。")) }
         return requests
     }
     /// Explicit user review only: this is neither an acknowledgment nor a retry.
@@ -161,10 +161,10 @@ struct RemoteDraftRepository {
     func archiveUnconfirmed(_ request: RemotePendingSend, at address: RemoteDraftAddress) throws {
         var database = try read()
         guard request.target == address.target, var record = database.drafts[address.key], record.pending == request else {
-            throw LocalFailure.message("待确认指令已改变，请重新核对。")
+            throw LocalFailure.message(L10n.tr("待确认指令已改变，请重新核对。"))
         }
         var archive = try archived(for: address.target)
-        if let old = archive.first(where: { $0.id == request.id }), old != request { throw LocalFailure.message("原编号对应的记录不一致，未结束等待。") }
+        if let old = archive.first(where: { $0.id == request.id }), old != request { throw LocalFailure.message(L10n.tr("原编号对应的记录不一致，未结束等待。")) }
         if !archive.contains(request) { archive.append(request) }
         if database.unconfirmed == nil { database.unconfirmed = [:] }
         database.unconfirmed?[address.target.key] = archive
@@ -188,20 +188,20 @@ struct RemoteDraftRepository {
         let data = legacyDefaults.data(forKey: key + "-pending")
         let pending: RemotePendingSend?
         do { pending = try data.map { try JSONDecoder().decode(RemotePendingSend.self, from: $0) } }
-        catch { throw LocalFailure.message("旧版待确认指令无法读取，原记录已保留，未重新发送。") }
+        catch { throw LocalFailure.message(L10n.tr("旧版待确认指令无法读取，原记录已保留，未重新发送。")) }
         guard !text.isEmpty || pending != nil else { return nil }
         return RemoteLegacyDraft(key: key, text: text, pending: pending)
     }
     func claimLegacy(_ legacy: RemoteLegacyDraft, device: RemoteDevice, at address: RemoteDraftAddress) throws -> RemoteDraftAddress {
         var database = try read()
-        guard database.claimedLegacy[legacy.key] == nil else { throw LocalFailure.message("这份旧草稿已在另一处恢复，请重新打开会话。") }
-        guard address.target == RemoteTargetIdentity(device), legacy.pending?.target == nil || legacy.pending?.target == address.target else { throw LocalFailure.message("旧指令已属于其他电脑，不能重新分配。") }
+        guard database.claimedLegacy[legacy.key] == nil else { throw LocalFailure.message(L10n.tr("这份旧草稿已在另一处恢复，请重新打开会话。")) }
+        guard address.target == RemoteTargetIdentity(device), legacy.pending?.target == nil || legacy.pending?.target == address.target else { throw LocalFailure.message(L10n.tr("旧指令已属于其他电脑，不能重新分配。")) }
         // The user confirms the missing target; retain the original operation ID
         // and payload. A first conversation's old slot may contain a follow-up.
         let pending = legacy.pending.map { $0.bound(to: device) }
         let destination = pending?.chatID.map { address.conversation($0) } ?? address
         var record = try load(destination)
-        guard record.pending == nil else { throw LocalFailure.message("此会话已有待确认指令，请先处理后再恢复旧稿。") }
+        guard record.pending == nil else { throw LocalFailure.message(L10n.tr("此会话已有待确认指令，请先处理后再恢复旧稿。")) }
         if !record.text.isEmpty && record.text != legacy.text && !record.otherDrafts.contains(record.text) { record.otherDrafts.append(record.text) }
         record.text = legacy.text; record.pending = pending
         database.drafts[destination.key] = record
@@ -273,10 +273,10 @@ struct RemoteDraftRepository {
         if let storageError { throw LocalFailure.message(storageError) }
         try repository.saveModelChoice(choice, at: address); modelChoice = choice
     }
-    func prepareSend(modelChoice: RemoteModelChoice? = nil, expectedRunID: String? = nil) throws -> RemotePendingSend {
+    func prepareSend(modelChoice: RemoteModelChoice? = nil, expectedRunID: String? = nil, deliveryMode: RemoteDeliveryMode? = nil) throws -> RemotePendingSend {
         guard storageError == nil else { throw LocalFailure.message(storageError!) }
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LocalFailure.message("请先输入要发送的指令。") }
-        let request = RemotePendingSend(modelChoice: modelChoice, expectedRunID: expectedRunID, id: UUID().uuidString, text: text, chatID: address.kind == "chat" ? address.value : nil, projectPath: projectPath, target: address.target)
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LocalFailure.message(L10n.tr("请先输入要发送的指令。")) }
+        let request = RemotePendingSend(deliveryMode: deliveryMode, modelChoice: modelChoice, expectedRunID: expectedRunID, id: UUID().uuidString, text: text, chatID: address.kind == "chat" ? address.value : nil, projectPath: projectPath, target: address.target)
         try repository.reserve(request, at: address, text: text)
         saveTask?.cancel(); dirty = false; pending = request
         return request

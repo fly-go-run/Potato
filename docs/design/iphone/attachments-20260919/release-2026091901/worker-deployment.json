@@ -1,0 +1,17 @@
+{
+  "id": "0cfa947d-b81d-4bcb-a3f6-70f2cd3fa498",
+  "source": "wrangler",
+  "strategy": "percentage",
+  "author_email": "pal_xu@163.com",
+  "annotations": {
+    "workers/message": "iPhone attachment picker: accept up to 20 inline images per message",
+    "workers/triggered_by": "deployment"
+  },
+  "versions": [
+    {
+      "version_id": "9e1a65a0-89d2-4c81-baaf-16e718fbc780",
+      "percentage": 100
+    }
+  ],
+  "created_on": "2026-09-19T14:10:36.681942Z"
+}

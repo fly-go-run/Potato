@@ -46,10 +46,13 @@ import XCTest
         let saved = try XCTUnwrap(persistedStore.selected.messages.last?.codeRuns?.first)
         XCTAssertEqual(saved.result?.artifacts, [SandboxArtifact(name: "report.md", mime: "text/markdown", base64: "")])
         XCTAssertNoThrow(try saved.validate())
+        XCTAssertEqual(saved.attachmentIDs, persistedStore.selected.messages.last?.attachments.map(\.id))
+        XCTAssertEqual(persistedStore.selected.messages.last?.activityOrder, ["code:code-1"])
         persistedStore.update { $0.messages[$0.messages.count - 1].finishReply(.complete) }
         persistedStore.retry(); persistedStore.stop(); persistedStore.chooseReplyVersion(persistedStore.selected.messages.last!.id, offset: -1); persistedStore.persist()
         let restored = WorkspaceStore(storage: disk), message = restored.selected.messages.last!
         XCTAssertEqual(message.displayCodeRuns.first?.result?.stdout, "323")
+        XCTAssertEqual(message.activitySteps.first?.attachments.first?.id, message.displayAttachments.first?.id)
         let file = try XCTUnwrap(message.displayAttachments.first)
         XCTAssertEqual(try Data(contentsOf: disk.url(for: file)), Data("# 323".utf8))
     }

@@ -25,7 +25,7 @@ struct AttachmentPreview: View {
         }
     }
 }
-private struct PreviewController: UIViewControllerRepresentable {
+struct PreviewController: UIViewControllerRepresentable {
     let attachments: [Attachment]
     let storage: LocalStorage
     @Binding var index: Int

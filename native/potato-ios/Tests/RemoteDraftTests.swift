@@ -22,6 +22,31 @@ import XCTest
         let value = RemoteDraftSession(device: device ?? first, chatID: chatID, repository: repository)
         value.load(); return value
     }
+    func testQueuedIntentSurvivesRestartAndAcknowledgementPreservesNewDraft() throws {
+        let value = session(chatID: "chat")
+        value.text = "next task"
+        let request = try value.prepareSend(deliveryMode: .queue)
+        let restored = session(chatID: "chat")
+        XCTAssertEqual(restored.pending?.deliveryMode, .queue)
+        XCTAssertEqual(restored.pending?.id, request.id)
+        XCTAssertEqual(try request.arguments(for: first)["delivery_mode"] as? String, "queue")
+        XCTAssertNil(try request.arguments(for: first)["expected_run_id"])
+        restored.text = "another draft"
+        try restored.acknowledge(request, chatID: "chat")
+        XCTAssertEqual(restored.text, "another draft")
+        XCTAssertNil(restored.pending)
+    }
+    func testInterruptRetryKeepsExactRunAndIdlePrecondition() throws {
+        let value = session(chatID: "chat"); value.text = "urgent"
+        let request = try value.prepareSend(expectedRunID: "observed-run", deliveryMode: .interrupt)
+        XCTAssertEqual(session(chatID: "chat").pending, request)
+        XCTAssertEqual(try request.arguments(for: first)["expected_run_id"] as? String, "observed-run")
+        XCTAssertEqual(try request.arguments(for: first)["delivery_mode"] as? String, "interrupt")
+        XCTAssertThrowsError(try request.arguments(for: second))
+        try value.reject(request)
+        let idle = try value.prepareSend(deliveryMode: .interrupt)
+        XCTAssertTrue(try idle.arguments(for: first)["expected_run_id"] is NSNull)
+    }
     func testExplicitUnconfirmedArchivePreservesIdentityAndSurvivesNextConversation() throws {
         let model = session(); model.text = "Possibly executed"
         let request = try model.prepareSend()
@@ -207,4 +232,22 @@ import XCTest
         XCTAssertNil(model.pending)
         XCTAssertEqual(defaults.data(forKey: key), bytes)
     }
+    func testQueuedBubbleAppearsImmediatelyAndDeduplicatesByOperation() throws {
+        let model = session(chatID: "chat"); model.text = "Same text"
+        let request = try model.prepareSend(deliveryMode: .queue)
+        let immediate = RemoteOutbox.visibleItems(queue: nil, pending: request, sending: true, delivered: [])
+        XCTAssertEqual(immediate.map(\.id), [request.id])
+        XCTAssertEqual(immediate.first?.state, "sending")
+        let queue = RemoteOutbox(items: [
+            .init(id: request.id, text: request.text, state: "pending", attachments: 0),
+            .init(id: "another", text: request.text, state: "pending", attachments: 0)
+        ], paused: false, reason: "", interrupt: false)
+        let acknowledged = RemoteOutbox.visibleItems(queue: queue, pending: request, sending: false, delivered: [])
+        XCTAssertEqual(acknowledged.map(\.id), [request.id, "another"])
+        let delivered = RemoteOutbox.visibleItems(queue: queue, pending: request, sending: false, delivered: [request.id])
+        XCTAssertEqual(delivered.map(\.id), ["another"])
+        let unconfirmed = RemoteOutbox.visibleItems(queue: nil, pending: request, sending: false, delivered: [])
+        XCTAssertEqual(unconfirmed.first?.state, "unconfirmed")
+    }
+
 }

@@ -123,6 +123,12 @@ final class ReasoningTests: XCTestCase {
         let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
         XCTAssertFalse((body["messages"] as! [[String: Any]]).contains { $0["reasoning_content"] != nil })
     }
+    func testAcceptedReplyClearsExpiredSignInBanner() async throws {
+        let store = store(path: "success"); store.authorizationExpired = true
+        store.send(); try await finish(store)
+        XCTAssertEqual(store.selected.messages.last?.state, .complete)
+        XCTAssertFalse(store.authorizationExpired)
+    }
     func testOnlyReasoningAndInterruptedReasoningPreserveContentWithoutFalseSuccess() async throws {
         for path in ["only", "interrupted"] {
             let store = store(path: path); store.send(); try await finish(store)

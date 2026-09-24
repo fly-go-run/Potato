@@ -58,13 +58,11 @@ final class LiveConnectionTests: XCTestCase {
         input.tap(); input.typeText("Return only one fenced python block, no explanation. Use matplotlib Agg to save a small bar chart of [10,20,30] to /home/user/output/chart.png, close the figure. Use reportlab canvas to make /home/user/output/report.pdf containing the text Total: 60. Use python-docx to make /home/user/output/report.docx containing Total: 60. Use openpyxl to make /home/user/output/analysis.xlsx with rows Jan 10, Feb 20, Mar 30. The output folder already exists. Print POTATO_SANDBOX_OK and nothing else. Do not execute the code yourself.")
         app.buttons["send-message"].tap()
         XCTAssertTrue(app.buttons["retry-message"].waitForExistence(timeout: 90))
-        let open = app.buttons["open-sandbox"]
-        XCTAssertTrue(open.waitForExistence(timeout: 5))
-        for _ in 0..<5 { if open.isHittable { break }; app.swipeUp() }
-        open.tap(); XCTAssertTrue(app.buttons["run-sandbox"].waitForExistence(timeout: 5)); app.buttons["run-sandbox"].tap()
-        let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["run-sandbox"])
-        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 110), .completed)
-        XCTAssertFalse(app.staticTexts["sandbox-error"].exists)
+        XCTAssertFalse(app.buttons["open-sandbox"].exists)
+        input.tap(); input.typeText("Now execute that code in your Python sandbox and return the generated files and result. Use the run_python tool; do not just describe the expected result.")
+        app.buttons["send-message"].tap()
+        XCTAssertTrue(app.buttons["activity-summary"].firstMatch.waitForExistence(timeout: 120))
+        XCTAssertTrue(app.buttons["deliverable-card"].firstMatch.waitForExistence(timeout: 120))
         app.swipeUp()
         XCTAssertTrue(app.buttons["message-image-0"].exists)
         XCTAssertFalse(app.buttons["message-image-1"].exists)
@@ -106,18 +104,18 @@ final class LiveConnectionTests: XCTestCase {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "31-live-four-images"; shot.lifetime = .keepAlways; add(shot)
     }
 
-    func testPythonCodeOpensCloudExecutionSetup() throws {
+    func testPythonSnippetHasNoManualExecutionControls() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["POTATO_LIVE_SANDBOX_SETUP"] == "1")
         let app = XCUIApplication(); app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
         app.launch(); XCTAssertTrue(app.buttons["new-chat"].waitForExistence(timeout: 10)); app.buttons["new-chat"].tap()
         let input = app.descendants(matching: .any).matching(identifier: "composer-input").firstMatch
         input.tap(); input.typeText("Reply only with a fenced python code block containing print(1 + 2). Do not execute it.")
         app.buttons["send-message"].tap()
-        XCTAssertTrue(app.buttons["retry-message"].waitForExistence(timeout: 60)); XCTAssertTrue(app.buttons["open-sandbox"].exists)
-        app.buttons["open-sandbox"].tap(); XCTAssertTrue(app.buttons["run-sandbox"].waitForExistence(timeout: 5)); app.buttons["run-sandbox"].tap()
-        XCTAssertTrue(app.staticTexts["sandbox-error"].waitForExistence(timeout: 30))
-        XCTAssertTrue(app.staticTexts["sandbox-error"].label.contains("尚未配置"))
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "32-sandbox-setup-required"; shot.lifetime = .keepAlways; add(shot)
+        XCTAssertTrue(app.buttons["retry-message"].waitForExistence(timeout: 60))
+        XCTAssertTrue(app.buttons["copy-code"].exists)
+        XCTAssertFalse(app.buttons["open-sandbox"].exists)
+        XCTAssertFalse(app.buttons["run-sandbox"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "32-python-snippet"; shot.lifetime = .keepAlways; add(shot)
     }
     // Explicit opt-in on a disposable simulator whose first photo is Apple's flower sample.
     // Never enable this against a personal photo library.

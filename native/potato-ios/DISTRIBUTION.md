@@ -1,5 +1,33 @@
 # iPhone 分发状态
 
+2026-09-21 **0.2.2（2026092101）** 已发布至既有 TestFlight「个人内测」组，确认 **Testing**，中文说明读回一致。修复手机直接聊天的流式正文重建、长回复追底与分段 Markdown 标记造成的布局跳变。201 项全量单元测试、3 项相关 UI 回归及 Release 签名归档通过。Apple 构建 ID `741e5c49-6075-472a-97b0-bdfb3e442b1d`。见 [发布记录](../../docs/design/iphone/streaming-flicker-20260921/release-2026092101/README.md)。
+
+2026-09-20 **0.2.2（2026092001）** 已发布至既有 TestFlight「个人内测」组，确认 **Testing**，中文说明读回一致。本机与远程聊天最小编辑区增至 40 pt，增加文字与底部按钮之间的留白。196 项 iOS 单元测试、4 项输入与键盘 UI 回归及 Release 签名归档通过。Apple 构建 ID `755388c7-93be-4d03-bab6-afe3eb737d43`。见 [发布记录](../../docs/design/iphone/composer-height-20260920/release-2026092001/README.md)。
+
+2026-09-19 **0.2.2（2026091901）** 已发布至既有 TestFlight「个人内测」组，确认 **Testing**，中文说明读回一致。新增最近照片快捷附件面板，轻点直接添加，每条消息最多 20 个附件，并移除底部操作说明。配套 Worker 已部署 100% 流量；196 项 iOS 单元测试、4 项附件 UI 场景、92 项隔离 Worker 回归及 Release 签名归档通过。Apple 构建 ID `ac8eea2a-1380-4114-8f61-82161ee4e1e1`。见 [发布记录](../../docs/design/iphone/attachments-20260919/release-2026091901/README.md)。
+
+2026-09-17 **0.2.2（2026091703）** 已发布至既有 TestFlight「个人内测」组，确认 **Testing**，中文说明读回一致。本机及远程聊天输入框四周留白、按钮间隙可唤起键盘，按钮（含禁用发送）不误触。190 项原生单元测试、2 项输入触控 UI 回归及 Release 真机签名归档通过。Apple 构建 ID `f7c5fbdc-189d-4725-b27d-09ad56a51f9e`。见 [发布记录](../../docs/design/iphone/composer-focus-20260917/release-2026091703/README.md)。
+
+2026-09-17 **0.2.2（2026091702）** 已发布至既有 TestFlight「个人内测」组，确认 **Testing**，中文说明读回一致。新增多语言代码高亮及深浅色适配，移除手动运行按钮与中间页，保留通过对话调用沙箱；改善 Markdown 嵌套围栏展示。全量 190 项原生单元测试、5 项相关 UI 回归与 Release 真机签名归档通过。Apple 构建 ID `f79fbb0f-faeb-456b-809e-2a40b9172678`。见 [发布记录](../../docs/design/iphone/code-blocks-20260917/release-2026091702/README.md)。
+
+2026-09-17 **0.2.2（2026091701）** 已发布至既有 TestFlight「个人内测」组，确认 **Testing**，中文说明读回一致。新增“跟随系统 / English / 简体中文”，支持保存恢复；包含对话内排队消息、远程目录缓存、语音统一及精简加载提示。远程排队需配套电脑端与中继支持，本次仅发布 iPhone。185 项原生单元测试和 3 条 UI 流程全部通过，Release 真机签名归档成功。Apple 构建 ID `9c705c96-33cf-4436-9e3d-2e2f3c50f879`。见 [发布记录](../../docs/design/iphone/language-20260917/release-2026091701/README.md)。
+
+2026-09-16 **0.2.2 (2026091608)** 已上传并分发至既有「个人内测」组，确认 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。本版将远程页面统一为对话体验：按轮合并回复与过程入口、精简操作、统一顶部和输入组件，移除多余完成提示，改善键盘及大字号断线状态。全量 167 项 iOS 单元测试、相关亮暗色 UI 回归和 Release 真机签名归档通过。Apple 构建 ID `0dec6f88-dec8-47a7-b723-10ba80a525b8`。见 [发布记录](../../docs/design/iphone/remote-conversation-20260916/release-2026091608/README.md)。
+
+2026-09-16 **0.2.2 (2026091607)** 已上传并分发至既有「个人内测」组，确认 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。本版优化流式输出：云端持续推送、手机平滑显示、减少重复保存与 Markdown 解析，保留断线续接与停止恢复。配套 Worker 已部署 100% 流量，真实模型订阅和主动断开后续接通过；原生及 Worker 回归、Release 真机签名归档通过。Apple 构建 ID `8f689613-fde0-4435-816f-9f2cd4176e6d`。见 [发布记录](../../docs/design/iphone/streaming-20260916/release-2026091607/README.md)。
+
+2026-09-16 **0.2.2 (2026091606)** 已上传并分发至既有「个人内测」组，确认 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。新增设置 → 外观 → 亮色 / 暗色 / 自动，保存选择并支持系统跟随，适配主要页面明暗配色。157 项 iOS 单元测试、暗色下 4 项与亮色下 2 项 UI 回归以及 Release 真机签名归档通过。Apple 构建 ID `5b051e6e-bdcc-4ab0-a905-22f4d2000d7c`。见 [发布记录](../../docs/design/iphone/appearance-20260916/release-2026091606/README.md)。
+
+2026-09-16 **0.2.2 (2026091605)** 已上传并分发至既有「个人内测」组，确认 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。设置页支持下拉关闭，顶部显示拖动条；下拉等同取消，修改仍需保存。155 项 iOS 单元测试、3 项设置 UI 回归及 Release 真机签名归档通过。Apple 构建 ID `120829d0-bb13-4127-8399-1d5e54992b6e`。见 [发布记录](../../docs/design/iphone/settings-dismiss-20260916/release-2026091605/README.md)。
+
+2026-09-16 **0.2.2 (2026091604)** 已上传并分发至既有「个人内测」组，确认 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。包含云端异步回复及断网/退出恢复、发送去重和停止恢复，并包含当前资料库改版。配套 Worker 已部署 100% 流量，真实云端断连后同任务完整回复及补读验证通过；155 项 iOS 单元测试、4 条聊天 UI 回归与真机签名归档通过。Apple 构建 ID `1135e5c3-a4ac-40bc-bef0-b71082240886`。见 [发布记录](../../docs/design/iphone/async-replies-20260916/release-2026091604/README.md)。
+
+2026-09-16 **0.2.2 (2026091603)** 已上传并分发至既有「个人内测」组，14:05 确认 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。聊天主线恢复独立思考摘要，轻点查看完整内容；工具步骤采用半屏过程概览与输入/输出详情，图片优先预览、文件卡片交付。全量 136 项 iOS 单元测试和 9 条 UI 回归通过，真机签名归档成功。Apple 构建 ID `73f5b7a9-944b-4090-8aeb-db4affdb428a`。本次仅发布 iPhone 客户端，配套 Worker 改动未部署。见 [发布记录](../../docs/design/iphone/activity-20260916/release-2026091603/README.md)。
+
+2026-09-16 **0.2.2 (2026091602)** 已上传并分发至既有「个人内测」组，12:26 确认 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。本版支持聊天区空白处轻点及上下拖动收起键盘，保留草稿与原有编辑/侧栏手势。129 项 iOS 单元测试及 6 项 UI 回归通过，真机签名归档成功。Apple 构建 ID `4e49149a-407e-4a4e-9dbd-43aaf0bda0d1`。见 [键盘修复发布记录](../../docs/design/iphone/keyboard-dismiss-20260916/release-2026091602/README.md)。
+
+2026-09-16 **0.2.2 (2026091601)** 已通过命令行/API 上传并加入既有「个人内测」组，11:20 确认状态 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。包含系统默认 Liquid Glass、正文延伸至浮动输入区后方、侧栏连续圆角与关闭后点击恢复、当前会话选中及大字号布局优化。发布前全量 iOS 单元测试 129 项通过，原生玻璃界面回归 5 项通过，真机签名归档成功。Apple 构建 ID `8e51c492-178b-43e8-8e94-cad9fddb6bca`。见 [本次发布记录](../../docs/design/iphone/liquid-glass-20260916/release-2026091601/README.md)。
+
 2026-09-14 **0.2.2 (2026091401)** 已通过命令行/API 上传并加入既有「个人内测」组，状态 **Testing**，中文说明读回一致。TestFlight → Potato Remote → 更新。优化模型目录缓存与后台刷新，移除模型面板首页关闭按钮，包含当前工作树远程对话布局、任务状态和审批改进。全量 iOS 单元测试 129 项与模型 UI 测试 9 项通过。见 [发布与验证](../../docs/design/iphone/model-picker-cache-20260914/README.md)。后续使用本机 `potato-ios-release` skill；Developer API 密钥、本机分发证书和描述文件已配置，普通发布无需浏览器。
 
 2026-09-13 **0.2.2 (2026091306)** 已于 20:41 上传 Apple，处理完成并加入既有「个人内测」组（1 位测试者），状态 **Testing**、有效期 90 天，中文说明已保存。TestFlight → Potato Remote → 更新。Python 已作为与联网搜索、历史检索平级的模型工具，自动执行并返回日志、图表和文件；历史检索仍遵守记忆开关。线上真实模型自主执行两次 Python、生成 PNG/PDF 验证通过。见 [代码工具发布与验证](../../docs/design/iphone/automatic-code-tool-20260913/README.md)。

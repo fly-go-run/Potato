@@ -1,0 +1,45 @@
+初版（4 张上限）场景分批验证摘要（21 单元 + 8 UI）；不是一次全量测试执行。
+
+/tmp/potato-attachments-final.log
+Test Case '-[PotatoMobileUITests.AttachmentSheetUITests testContinuousSelectionLimitAndRemoveToFreeSlot]' passed (21.286 seconds).
+Test Case '-[PotatoMobileUITests.AttachmentSheetUITests testDarkPanelAndCloseWhileImporting]' passed (20.067 seconds).
+Test Case '-[PotatoMobileUITests.AttachmentSheetUITests testLargeTextPanelRemainsScrollable]' passed (9.619 seconds).
+Test Case '-[PotatoMobileUITests.AttachmentSheetUITests testRecentTapAddsImmediatelyAndClosePreservesDraft]' passed (21.549 seconds).
+Test Case '-[PotatoMobileUITests.LibraryUITests testReplyCanBeSavedAndLibraryCanOpenFromComposer]' passed (14.921 seconds).
+Test Case '-[PotatoMobileTests.ComposerAttachmentTests testDeletedChatReleasesQueuedResourcesWithoutImporting]' passed (0.004 seconds).
+Test Case '-[PotatoMobileTests.ComposerAttachmentTests testFailureReleasesSlotAndRetriesWithoutDroppingOtherFiles]' passed (0.013 seconds).
+Test Case '-[PotatoMobileTests.ComposerAttachmentTests testLibraryFillingDraftDuringImportCannotExceedLimit]' passed (0.004 seconds).
+Test Case '-[PotatoMobileTests.ComposerAttachmentTests testRapidTapsReserveCapacityDeduplicateAndKeepOrder]' passed (0.028 seconds).
+Test Case '-[PotatoMobileTests.ComposerAttachmentTests testSwitchingChatsDoesNotRedirectAnImport]' passed (0.023 seconds).
+Test Case '-[PotatoMobileTests.LanguageTests testBundledLanguagesHaveMatchingKeysAndPlaceholders]' passed (0.008 seconds).
+Test Case '-[PotatoMobileTests.LanguageTests testLanguageChangeInvalidatesComputedLabels]' passed (0.001 seconds).
+Test Case '-[PotatoMobileTests.LanguageTests testLegacySettingsAndRoundTripPreservePrompt]' passed (0.002 seconds).
+Test Case '-[PotatoMobileTests.LanguageTests testSystemLanguageResolutionAndFallback]' passed (0.000 seconds).
+Test Case '-[PotatoMobileTests.LanguageTests testTranslationsKeepInterpolatedContentLiteral]' passed (0.001 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testAppearanceColorsMaintainReadableContrast]' passed (0.001 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testAppearanceMigrationAndPersistence]' passed (0.005 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testAttachments]' passed (0.002 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testCorruptStoreNotOverwritten]' passed (0.002 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testDeleteRestore]' passed (0.002 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testEditKeepsOriginalBranch]' passed (0.004 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testPersistenceAndIsolation]' passed (0.002 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testRequestAndURLValidation]' passed (0.001 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testSSEUnicodeDoneAndError]' passed (0.001 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testStopPreservesPartialReply]' passed (0.222 seconds).
+Test Case '-[PotatoMobileTests.WorkspaceTests testStreamRecovery]' passed (0.006 seconds).
+/tmp/potato-attachments-routing.log
+Test Case '-[PotatoMobileUITests.AttachmentSheetUITests testZDeniedPhotoAccessStillOffersSystemPicker]' passed (18.686 seconds).
+Test Case '-[PotatoMobileUITests.PrototypeTests testPhotoImportPreviewRemoval]' passed (20.376 seconds).
+/tmp/potato-attachments-camera-return.log
+Test Case '-[PotatoMobileUITests.AttachmentSheetUITests testAllPhotosAndFilesCancelReturnToPanel]' passed (23.687 seconds).
+
+20 张上限与提示文案调整（2026-09-19）
+/tmp/potato-20-unit.xcresult：22 项 iOS 单元测试通过（ComposerAttachmentTests 6、LanguageTests 5、LibraryTests 11）。
+/tmp/potato-20-worker-tests.log：node --test test/api.test.ts test/cloud.test.ts，22 项通过。
+native/potato-worker：npm run check / tsc --noEmit 通过。
+/tmp/potato-20-ui.xcresult：立即添加及草稿保留通过；连续选择测试最初因快速滑动跳过缩略图失败，改为短距离拖动后重新验证。
+未部署 Worker，未发布 TestFlight。
+/tmp/potato-20-ui-final.xcresult：连续添加 20 张并删除恢复名额、深色关闭和重启保留、大字号，共 3 项通过。
+本轮合计 22 项 iOS 单元测试、22 项 Worker 测试和 4 项 UI 场景分批通过。
+
+后续发布：2026-09-19 云端已上线、TestFlight 0.2.2（2026091901）Testing，说明读回一致。发布新增全量 iOS 196 项、隔离 Worker 92 项回归通过，见 release-2026091901/README.md。

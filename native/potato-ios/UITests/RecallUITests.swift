@@ -8,7 +8,7 @@ final class RecallUITests: XCTestCase {
         app.buttons["more"].tap(); app.buttons["记忆与历史"].tap()
         let toggle = app.switches["跨对话检索"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5)); XCTAssertEqual(toggle.value as? String, "0")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "E2B")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "同步到你的账号")).firstMatch.exists)
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap(); XCTAssertEqual(toggle.value as? String, "1")
         let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "recall-settings"; capture.lifetime = .keepAlways; add(capture)
         app.buttons["完成"].tap(); app.terminate()

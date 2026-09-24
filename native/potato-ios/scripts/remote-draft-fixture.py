@@ -45,7 +45,7 @@ class Handler(BaseHTTPRequestHandler):
                 latest[self.path] = body["args"]["text"]
                 return self.reply(200, {"result": result})
             text = body["args"]["text"]
-            if text not in ("fixture-first", "fixture-timeout", "fixture-recovered", "fixture-uncertain", "fixture-model", "fixture-model-timeout", "fixture-running", "fixture-followup"):
+            if text not in ("fixture-first", "fixture-timeout", "fixture-recovered", "fixture-uncertain", "fixture-model", "fixture-model-timeout", "fixture-running", "fixture-followup", "先把项目方案整理好，下午再和团队讨论一下。"):
                 return self.reply(422, {"error": "Only synthetic fixture instructions are accepted"})
             if text == "fixture-running":
                 running.add(self.path)

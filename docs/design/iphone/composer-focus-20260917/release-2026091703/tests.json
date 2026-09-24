@@ -1,0 +1,9 @@
+{
+  "unitTests": 190,
+  "unitResult": "passed",
+  "unitResultBundle": "/tmp/PotatoRelease2026091703Tests.xcresult",
+  "uiTests": 2,
+  "uiResult": "passed",
+  "uiResultBundle": "native/potato-ios/build/Logs/Test/Test-PotatoMobile-2026.09.17_18-46-50-+0800.xcresult",
+  "sourceHashesVerifiedBeforeUpload": true
+}

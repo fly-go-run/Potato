@@ -1,0 +1,14 @@
+{
+  "CFBundleShortVersionString": "0.2.2",
+  "CFBundleVersion": "2026091901",
+  "CFBundleIdentifier": "com.potato.iphone.prototype",
+  "UIDeviceFamily": [
+    1
+  ],
+  "MinimumOSVersion": "17.0",
+  "ITSAppUsesNonExemptEncryption": false,
+  "NSCameraUsageDescription": "用于拍摄照片并添加到当前消息。",
+  "NSPhotoLibraryUsageDescription": "用于显示最近照片，轻点即可添加到当前消息。仅处理你选择的照片。",
+  "PHPhotoLibraryPreventAutomaticLimitedAccessAlert": true,
+  "privacyManifest": true
+}

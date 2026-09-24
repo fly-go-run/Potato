@@ -8,7 +8,7 @@ struct WebSource: Codable, Equatable, Identifiable {
     var publishedDate: String?
     var id: String { url }
     var safeURL: URL? { guard let value = URL(string: url), value.scheme == "https", value.host != nil, value.user == nil, value.password == nil else { return nil }; return value }
-    var displayTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? (safeURL?.lastPathComponent.isEmpty == false ? safeURL!.lastPathComponent : safeURL?.host ?? "网页来源") : title }
+    var displayTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? (safeURL?.lastPathComponent.isEmpty == false ? safeURL!.lastPathComponent : safeURL?.host ?? L10n.tr("网页来源")) : title }
 }
 struct WebSearchRun: Codable, Equatable, Identifiable {
     var id: String
@@ -18,6 +18,7 @@ struct WebSearchRun: Codable, Equatable, Identifiable {
 }
 struct SearchSourcesButton: View {
     let runs: [WebSearchRun]
+    var showsActivity = true
     @State private var showing = false
     private var sources: [WebSource] {
         var seen = Set<String>()
@@ -25,15 +26,15 @@ struct SearchSourcesButton: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let active = runs.last, active.state == "searching" {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("正在搜索网页").font(.subheadline) }.accessibilityIdentifier("web-search-progress")
+            if let active = runs.last, active.state == "searching", showsActivity {
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L10n.tr("正在搜索网页")).font(.subheadline) }.accessibilityIdentifier("web-search-progress")
                 Text(active.query).font(.caption).foregroundStyle(Palette.secondary).lineLimit(2)
             }
-            if runs.last?.state == "failed" { Label("搜索未成功", systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(Palette.secondary) }
-            if runs.last?.state == "stopped" { Text("搜索已停止").font(.caption).foregroundStyle(Palette.secondary) }
+            if showsActivity && runs.last?.state == "failed" { Label(L10n.tr("搜索未成功"), systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(Palette.secondary) }
+            if showsActivity && runs.last?.state == "stopped" { Text(L10n.tr("搜索已停止")).font(.caption).foregroundStyle(Palette.secondary) }
             if !sources.isEmpty {
-                Button { showing = true } label: { Label("查看 \(sources.count) 个来源", systemImage: "globe").font(.subheadline).frame(minHeight: 44) }.accessibilityIdentifier("search-sources")
-            } else if runs.last?.state == "complete" { Text("未找到可用的网页来源").font(.caption).foregroundStyle(Palette.secondary) }
+                Button { showing = true } label: { Label(L10n.tr("查看 \(sources.count) 个来源"), systemImage: "globe").font(.subheadline).frame(minHeight: 44) }.accessibilityIdentifier("search-sources")
+            } else if showsActivity && runs.last?.state == "complete" { Text(L10n.tr("未找到可用的网页来源")).font(.caption).foregroundStyle(Palette.secondary) }
         }.sheet(isPresented: $showing) { SearchSourcesSheet(runs: runs, sources: sources) }
     }
 }
@@ -45,8 +46,8 @@ private struct SearchSourcesSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("搜索记录 · Exa") { ForEach(runs) { run in Text(run.query).font(.subheadline) } }
-                Section("网页来源") {
+                Section(L10n.tr("搜索记录")) { ForEach(runs) { run in Text(run.query).font(.subheadline) } }
+                Section(L10n.tr("网页来源")) {
                     ForEach(sources) { source in
                         Button { selected = source } label: {
                             VStack(alignment: .leading, spacing: 8) {
@@ -57,8 +58,8 @@ private struct SearchSourcesSheet: View {
                         }.accessibilityIdentifier("search-source-link")
                     }
                 }
-            }.navigationTitle("网页来源").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() }.accessibilityIdentifier("close-search-sources") } }
+            }.navigationTitle(L10n.tr("网页来源")).navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { dismiss() }.accessibilityIdentifier("close-search-sources") } }
                 .sheet(item: $selected) { source in if let url = source.safeURL { SourceBrowser(url: url).ignoresSafeArea() } }
         }
     }

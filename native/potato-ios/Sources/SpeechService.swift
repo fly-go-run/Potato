@@ -7,7 +7,7 @@ private final class SpeechNoRedirect: NSObject, URLSessionTaskDelegate {
 }
 enum SpeechService {
     static func request(settings: ConnectionSettings, token: String) throws -> URLRequest {
-        guard !settings.demo, let endpoint = settings.validatedURL, endpoint.path.hasSuffix("/v1/chat/completions"), !token.isEmpty else { throw LocalFailure.message("请先连接支持豆包语音的 Potato 服务。") }
+        guard !settings.demo, let endpoint = settings.validatedURL, endpoint.path.hasSuffix("/v1/chat/completions"), !token.isEmpty else { throw LocalFailure.message(L10n.tr("请先连接支持豆包语音的 Potato 服务。")) }
         var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
         components.scheme = "wss"; components.path = String(endpoint.path.dropLast("/v1/chat/completions".count)) + "/v1/audio/transcriptions"
         var request = URLRequest(url: components.url!); request.timeoutInterval = 20
@@ -39,7 +39,7 @@ final class SpeechAudioBuffer: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         guard !ended, !data.isEmpty else { return }
         guard data.count <= maximumBytes - pendingBytes else {
-            throw LocalFailure.message("语音连接较慢，录音缓存已满，请重新录音。")
+            throw LocalFailure.message(L10n.tr("语音连接较慢，录音缓存已满，请重新录音。"))
         }
         pendingBytes += data.count; continuation.yield(data)
     }
@@ -80,17 +80,17 @@ final class SpeechConnection: SpeechTransport, @unchecked Sendable {
         }
         defer { deadline.cancel() }
         socket.resume(); let event = try await receive()
-        guard event.type == "ready" else { throw LocalFailure.message("豆包语音连接未就绪，请稍后重试。") }
+        guard event.type == "ready" else { throw LocalFailure.message(L10n.tr("豆包语音连接未就绪，请稍后重试。")) }
     }
     func send(_ data: Data) async throws { try await socket.send(.data(data)) }
     func finish() async throws { try await socket.send(.string("{\"type\":\"stop\"}")) }
     func receive() async throws -> SpeechEvent {
         let message = try await socket.receive()
         let data: Data
-        switch message { case .string(let value): data = Data(value.utf8); case .data(let value): data = value; @unknown default: throw LocalFailure.message("语音服务响应无效。") }
+        switch message { case .string(let value): data = Data(value.utf8); case .data(let value): data = value; @unknown default: throw LocalFailure.message(L10n.tr("语音服务响应无效。")) }
         let event = try JSONDecoder().decode(SpeechEvent.self, from: data)
-        if event.type == "error" { throw LocalFailure.message(event.message ?? "豆包语音识别失败，请稍后重试。") }
-        guard ["ready", "partial", "final"].contains(event.type), (event.text?.count ?? 0) <= 30000 else { throw LocalFailure.message("语音服务响应无效。") }
+        if event.type == "error" { throw LocalFailure.message(event.message ?? L10n.tr("豆包语音识别失败，请稍后重试。")) }
+        guard ["ready", "partial", "final"].contains(event.type), (event.text?.count ?? 0) <= 30000 else { throw LocalFailure.message(L10n.tr("语音服务响应无效。")) }
         return event
     }
     func cancel() { socket.cancel(with: .goingAway, reason: nil); session.invalidateAndCancel() }
@@ -101,27 +101,27 @@ final class VoicePCMConverter {
     init(input: AVAudioFormat) throws {
         guard input.sampleRate > 0, input.channelCount > 0,
               let output = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true),
-              let converter = AVAudioConverter(from: input, to: output) else { throw LocalFailure.message("未检测到可用麦克风。") }
+              let converter = AVAudioConverter(from: input, to: output) else { throw LocalFailure.message(L10n.tr("未检测到可用麦克风。")) }
         converter.primeMethod = .none
         self.output = output; self.converter = converter
     }
     func convert(_ input: AVAudioPCMBuffer) throws -> Data {
         let capacity = AVAudioFrameCount(ceil(Double(input.frameLength) * 16000 / input.format.sampleRate)) + 16
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: output, frameCapacity: capacity) else { throw LocalFailure.message("录音转换失败。") }
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: output, frameCapacity: capacity) else { throw LocalFailure.message(L10n.tr("录音转换失败。")) }
         var supplied = false, error: NSError?
         let status = converter.convert(to: buffer, error: &error) { _, state in
             if supplied { state.pointee = .noDataNow; return nil }; supplied = true; state.pointee = .haveData; return input
         }
-        guard status != .error, error == nil, let samples = buffer.int16ChannelData?[0] else { throw LocalFailure.message("录音转换失败。") }
+        guard status != .error, error == nil, let samples = buffer.int16ChannelData?[0] else { throw LocalFailure.message(L10n.tr("录音转换失败。")) }
         return Data(bytes: samples, count: Int(buffer.frameLength) * 2)
     }
     func finish() throws -> Data {
         var result = Data()
         for _ in 0..<8 {
-            guard let buffer = AVAudioPCMBuffer(pcmFormat: output, frameCapacity: 1024) else { throw LocalFailure.message("录音转换失败。") }
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: output, frameCapacity: 1024) else { throw LocalFailure.message(L10n.tr("录音转换失败。")) }
             var error: NSError?
             let status = converter.convert(to: buffer, error: &error) { _, state in state.pointee = .endOfStream; return nil }
-            guard status != .error, error == nil else { throw LocalFailure.message("录音转换失败。") }
+            guard status != .error, error == nil else { throw LocalFailure.message(L10n.tr("录音转换失败。")) }
             if buffer.frameLength > 0, let samples = buffer.int16ChannelData?[0] { result.append(Data(bytes: samples, count: Int(buffer.frameLength) * 2)) }
             if status == .endOfStream || buffer.frameLength == 0 { break }
         }

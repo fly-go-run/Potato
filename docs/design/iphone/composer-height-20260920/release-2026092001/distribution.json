@@ -1,0 +1,17 @@
+{
+  "id": "755388c7-93be-4d03-bab6-afe3eb737d43",
+  "version": "0.2.2",
+  "build": "2026092001",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "优化聊天输入框：增加文字区与底部按钮之间的留白，让空白和单行输入更舒展。本机聊天与远程聊天同步调整，保留长文自动增高和键盘交互。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

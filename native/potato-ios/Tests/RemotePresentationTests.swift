@@ -35,14 +35,28 @@ final class RemotePresentationTests: XCTestCase {
         XCTAssertNil(legacy.output)
         XCTAssertNil(legacy.state)
     }
-    func testProcessGroupsNeverAbsorbUserAnswerOrNotice() {
+    func testReplyGroupsInterleavedFramesWithoutCrossingUserOrNotice() {
         let frames = [message("u", "user", "message"), message("r", "assistant", "reasoning"), message("c", "assistant", "function_call"), message("o", "tool", "function_call_output"), message("a", "assistant", "message"), message("n", "system", "notice"), message("r2", "assistant", "reasoning"), message("u2", "user", "message")]
         let rows = RemoteConversationRow.make(frames)
-        XCTAssertEqual(rows.map(\.id), ["u", "r", "a", "n", "r2", "u2"])
-        XCTAssertEqual(rows[1].messages.map(\.id), ["r", "c", "o"])
-        XCTAssertTrue(rows[3].messages[0].isNotice)
-        XCTAssertFalse(rows[2].isProcess)
+        XCTAssertEqual(rows.map(\.id), ["u", "r", "n", "r2", "u2"])
+        XCTAssertEqual(rows[1].messages.map(\.id), ["r", "c", "o", "a"])
+        XCTAssertEqual(rows[1].processMessages.map(\.id), ["r", "c", "o"])
+        XCTAssertEqual(rows[1].answerMessages.map(\.id), ["a"])
+        XCTAssertTrue(rows[2].messages[0].isNotice)
+        XCTAssertFalse(rows[2].isAssistantTurn)
         XCTAssertFalse(message("user-code", "user", "function_call").isProcess)
+    }
+    func testOneReplyRetainsAllCommentaryAndProcessAcrossPolling() {
+        let initial = [message("u", "user", "message"), message("r", "assistant", "reasoning"), message("a", "assistant", "message", text: "我先看看。")]
+        let appended = initial + [message("c", "assistant", "function_call"), message("o", "tool", "function_call_output"), message("r2", "assistant", "reasoning"), message("a2", "assistant", "message", text: "检查完成。")]
+        let rows = RemoteConversationRow.make(appended)
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows.last?.id, RemoteConversationRow.make(initial).last?.id)
+        XCTAssertEqual(rows.last?.replyText, "我先看看。\n\n检查完成。")
+        XCTAssertEqual(rows.last?.processMessages.map(\.id), ["r", "c", "o", "r2"])
+        let nextTurn = RemoteConversationRow.make(appended + [message("u2", "user", "message"), message("a3", "assistant", "message", text: "第二轮")])
+        XCTAssertEqual(nextTurn.map(\.id), ["u", "r", "u2", "a3"])
+        XCTAssertEqual(nextTurn.last?.replyText, "第二轮")
     }
     func testProcessIdentitySurvivesStreamingAppendAndDoesNotUseLogAsTitle() {
         let initial = message("r", "assistant", "reasoning", text: "", status: "in_progress")

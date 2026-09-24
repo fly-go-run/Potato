@@ -1,0 +1,17 @@
+{
+  "id": "5b051e6e-bdcc-4ab0-a905-22f4d2000d7c",
+  "version": "0.2.2",
+  "build": "2026091606",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "新增外观设置：亮色、暗色、自动。自动模式跟随系统外观。\n支持切换预览，保存后记住选择；取消或下拉关闭恢复原设置。\n适配聊天、文稿、资料库、远程和模型面板的暗色配色，改善文字与按钮对比度。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

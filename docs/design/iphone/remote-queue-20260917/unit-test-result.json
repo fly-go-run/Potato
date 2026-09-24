@@ -1,0 +1,46 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "DDB45779-75BB-4554-A825-92E4FED7D199",
+        "deviceName" : "PotatoQueueVerification",
+        "modelName" : "iPhone 17",
+        "osBuildNumber" : "23D8133",
+        "osVersion" : "26.3.1",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 179,
+      "skippedTests" : 1,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "PotatoMobile · Built with macOS 26.6.2",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1789601945.939,
+  "passedTests" : 179,
+  "result" : "Passed",
+  "skippedTests" : 1,
+  "startTime" : 1789601839.904,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - PotatoMobile",
+  "topInsights" : [
+    {
+      "category" : "Longest Test Runs",
+      "impact" : "73% of duration",
+      "text" : "3 longest test runs with outlier durations exceeding 1.45s (three standard deviations)"
+    }
+  ],
+  "totalTestCount" : 180
+}

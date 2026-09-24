@@ -11,7 +11,8 @@ final class CodeExecutionPreview: URLProtocol {
     @MainActor static func prepare(_ store: WorkspaceStore) {
         guard requested, ProcessInfo.processInfo.arguments.contains("--reset") else { return }
         store.settings.demo = false; store.settings.endpoint = "https://code-preview.invalid/v1/chat/completions"; store.settings.model = "code-fixture"
-        store.settings.cloudAccount = RemoteAccountProfile(owner: "fixture", email: "fixture@example.test", relay: URL(string: "https://code-preview.invalid")!, scope: "cloud")
+        // This UI fixture emits tool events over SSE. Cloud job replay is covered by CloudReplyTests.
+        store.settings.cloudAccount = nil
         store.newChat(); store.update { chat in chat.draft = nil; chat.messages = []; chat.title = "代码工具验证"; chat.input = "计算 17×19 并生成报告。" }; store.persist()
     }
     override class func canInit(with request: URLRequest) -> Bool { requested && request.url?.host == "code-preview.invalid" }

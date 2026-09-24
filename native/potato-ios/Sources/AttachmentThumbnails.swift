@@ -32,7 +32,7 @@ struct MessageImageGrid: View {
                     AttachmentThumbnail(url: storage.url(for: attachment))
                         .frame(height: attachments.count == 1 ? 200 : 126)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                }.buttonStyle(.plain).accessibilityLabel("预览 \(attachment.name)，第 \(index + 1) 张，共 \(attachments.count) 张")
+                }.buttonStyle(.plain).accessibilityLabel(L10n.tr("预览 \(attachment.name)，第 \(index + 1) 张，共 \(attachments.count) 张"))
                     .accessibilityIdentifier("message-image-\(index)")
             }
         }.frame(maxWidth: 300)

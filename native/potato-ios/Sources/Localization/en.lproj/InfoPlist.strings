@@ -1,0 +1,4 @@
+"NSMicrophoneUsageDescription" = "Used for voice input. Review the transcript, then send, edit, or cancel it.";
+
+"NSPhotoLibraryUsageDescription" = "Show recent photos so you can tap to add them to your message. Only photos you select are processed.";
+"NSCameraUsageDescription" = "Take a photo to attach to your message.";

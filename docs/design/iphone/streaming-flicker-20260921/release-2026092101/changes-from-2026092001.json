@@ -1,0 +1,38 @@
+{
+  "native/potato-ios/PotatoMobile.xcodeproj/project.pbxproj": [
+    "20ca70d5821561ff7acbe7bb478996e41834c9ff42ddb518ddca1c28f1940910",
+    "b29d22f47dd843a2852cbf4a5349bf35c61b01eef0589f7f3ddc9540cfa546f6"
+  ],
+  "native/potato-ios/Sources/DocumentView.swift": [
+    "e1ee3cf7794a4c0a9a030abc97abc3f04cb8c2de158a016139c21b4991b9ae57",
+    "82352c99428c87a1c3cedc7b20fa417475407daf611eca06272cc373bd9e46bc"
+  ],
+  "native/potato-ios/Sources/MarkdownBlock.swift": [
+    "31eb142ffe6be21263cd6250ee172e65834deaa7e8c19813ad3612eb820fced4",
+    "2497be1984604019e33e6605550b305312d7139b29b86628005821154843f872"
+  ],
+  "native/potato-ios/Sources/ReasoningPreview.swift": [
+    "e892360909498b26852c3edc114c07241815e764eef6ce008d39e4dd54cca185",
+    "3e428c4199df4e659c5dcad9c18b74ce0fb6eac7f864b830ad2f48aced404f09"
+  ],
+  "native/potato-ios/Sources/StreamingMarkdown.swift": [
+    "8276086e0d904e6dc0311ffdf1d5ce7250a0b68dc1738bde1d2c0e2a8a22978a",
+    "14e3ea98da8fe6f9dc3d4f39acf5c245e7dd718a2dec98a8b329be75ae3d808f"
+  ],
+  "native/potato-ios/Sources/WorkspaceView.swift": [
+    "039b9cffcc9dc9ae3a45dd1dd7beb270cb6750f94bea4fde09434dfe96b4701c",
+    "7ecdf065b74c6d6345c277574ec7b4f92262a002af96c19e9255add0735c86ee"
+  ],
+  "native/potato-ios/Tests/StreamingTests.swift": [
+    "aa64eca19e12961a9bbc8ccb4147df95ae93dde5c91e1bf192ac4805d6043fad",
+    "97c3ccb5793fac621863cdd6c5928e245ac6722e3b7051411e1f884a2a7ccfae"
+  ],
+  "native/potato-ios/UITests/ReasoningUITests.swift": [
+    "202d8bd4be330002bf0e3cb1b11d9ba576de1b40d6fa6702091b7a1ae013131b",
+    "d8a26860447602c975b5fc7ea8638b3378fe7ee54ecb7e471e076448277e771b"
+  ],
+  "native/potato-ios/project.yml": [
+    "b322c72fae3e84e730f9a7908fb63b3896088893f389c169067ce6254c35d1ee",
+    "f2729317e5005fb771cf32d8413fc69b2a21505902392ec05e4de48cbfccf3a6"
+  ]
+}

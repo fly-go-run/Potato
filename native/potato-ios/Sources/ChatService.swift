@@ -13,15 +13,15 @@ struct SSEDecoder {
             var value = String(line.dropFirst(5))
             if value.hasPrefix(" ") { value.removeFirst() }
             pendingBytes += value.utf8.count
-            guard pendingBytes < 5_000_000 else { throw LocalFailure.message("服务器事件过大。") }
+            guard pendingBytes < 5_000_000 else { throw LocalFailure.message(L10n.tr("服务器事件过大。")) }
             lines.append(value)
         }
         return nil
     }
     static func decode(_ data: String) throws -> StreamEvent? {
         if data == "[DONE]" { return .done }
-        guard let bytes = data.data(using: .utf8), let object = try JSONSerialization.jsonObject(with: bytes) as? [String: Any] else { throw LocalFailure.message("服务返回了无法识别的流式数据。") }
-        if object["error"] != nil { throw LocalFailure.message("模型服务返回错误，请稍后重试或检查连接设置。") }
+        guard let bytes = data.data(using: .utf8), let object = try JSONSerialization.jsonObject(with: bytes) as? [String: Any] else { throw LocalFailure.message(L10n.tr("服务返回了无法识别的流式数据。")) }
+        if object["error"] != nil { throw LocalFailure.message(L10n.tr("模型服务返回错误，请稍后重试或检查连接设置。")) }
         if let execution = object["potato_execution"] {
             let value = try JSONDecoder().decode(CodeExecutionRun.self, from: JSONSerialization.data(withJSONObject: execution))
             try value.validate()
@@ -29,12 +29,12 @@ struct SSEDecoder {
         }
         if let recall = object["potato_recall"] {
             let value = try JSONDecoder().decode(RecallRun.self, from: JSONSerialization.data(withJSONObject: recall))
-            guard value.sources.count <= 12, ["searching", "complete", "failed"].contains(value.state), value.sources.allSatisfy({ UUID(uuidString: $0.id) != nil && UUID(uuidString: $0.conversation) != nil && $0.text.count <= 4000 }) else { throw LocalFailure.message("历史来源格式无效。") }
+            guard value.sources.count <= 12, ["searching", "complete", "failed"].contains(value.state), value.sources.allSatisfy({ UUID(uuidString: $0.id) != nil && UUID(uuidString: $0.conversation) != nil && $0.text.count <= 4000 }) else { throw LocalFailure.message(L10n.tr("历史来源格式无效。")) }
             return .recall(value)
         }
         if let search = object["potato_search"] {
             let value = try JSONDecoder().decode(WebSearchRun.self, from: JSONSerialization.data(withJSONObject: search))
-            guard value.query.utf8.count <= 8000, value.results.count <= 5, ["searching", "complete", "failed"].contains(value.state) else { throw LocalFailure.message("搜索事件格式无效。") }
+            guard value.query.utf8.count <= 8000, value.results.count <= 5, ["searching", "complete", "failed"].contains(value.state) else { throw LocalFailure.message(L10n.tr("搜索事件格式无效。")) }
             return .search(value)
         }
         guard let choices = object["choices"] as? [[String: Any]], let first = choices.first else { return nil }
@@ -45,14 +45,34 @@ struct SSEDecoder {
 }
 enum StreamEvent { case delta(ReplyDelta), search(WebSearchRun), recall(RecallRun), execution(CodeExecutionRun), done }
 
-private final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate {
+final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
 }
 struct ChatService {
+    static func titleRequest(settings: ConnectionSettings, token: String, model: String, userText: String, replyText: String) throws -> URLRequest {
+        var probe = settings
+        probe.model = model; probe.customInstructions = nil
+        probe.systemPrompt = "你为对话起标题。只输出标题本身：不超过 12 个汉字或 6 个英文单词，使用与用户相同的语言，不要引号、标点或解释。"
+        let entry = settings.modelEntry(model)
+        var choice = LocalModelChoice(endpoint: settings.serviceIdentity ?? "", model: model)
+        // Disabled thinking and reasoning effort are mutually exclusive in the
+        // service contract. Reuse the normal choice validation for title requests.
+        if entry.modes.contains("disabled") { choice.thinkingMode = "disabled" }
+        else if entry.efforts.contains("none") { choice.reasoningEffort = "none" }
+        else if entry.efforts.contains("low") { choice.reasoningEffort = "low" }
+        let excerpt = "用户：\(String(userText.prefix(500)))\n\n助手：\(String(replyText.prefix(500)))\n\n为这段对话起一个标题。"
+        var request = try request(settings: probe, token: token, messages: [ChatMessage(role: "user", text: excerpt)], storage: LocalStorage(), choice: choice)
+        var body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
+        // The Worker bypasses tools for requests capped at 32 output tokens or less.
+        body["max_tokens"] = 24
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.timeoutInterval = 20
+        return request
+    }
     static func testConnection(settings: ConnectionSettings, token: String, configuration: URLSessionConfiguration = .ephemeral) async throws {
         try Task.checkCancellation()
         var probe = settings
-        probe.systemPrompt = "这是连接测试。只回复 OK。"
+        probe.systemPrompt = "这是连接测试。只回复 OK。"; probe.customInstructions = nil
         var request = try request(settings: probe, token: token, messages: [ChatMessage(role: "user", text: "请回复 OK")], storage: LocalStorage())
         var body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
         body["max_tokens"] = 16
@@ -65,19 +85,19 @@ struct ChatService {
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { receivedText = true }
         }
         try Task.checkCancellation()
-        guard receivedText else { throw LocalFailure.message("服务已响应，但没有返回文字，请检查模型名称和服务配置。") }
+        guard receivedText else { throw LocalFailure.message(L10n.tr("服务已响应，但没有返回文字，请检查模型名称和服务配置。")) }
     }
     static func failureDescription(_ error: Error) -> String {
         guard let network = error as? URLError else { return error.localizedDescription }
         switch network.code {
-        case .notConnectedToInternet: return "当前没有网络连接，请联网后重试。"
-        case .timedOut: return "等待服务响应超时，请稍后重试。"
-        case .cannotFindHost, .dnsLookupFailed: return "找不到服务器，请检查连接地址。"
-        case .cannotConnectToHost: return "无法连接服务器，请检查服务是否可用。"
-        case .networkConnectionLost: return "网络连接中断，已收到的内容会保留。"
-        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid: return "无法建立安全连接，请检查服务器的 HTTPS 证书。"
-        case .cancelled: return "连接已取消。"
-        default: return "网络请求失败，请检查连接后重试。"
+        case .notConnectedToInternet: return L10n.tr("当前没有网络连接，请联网后重试。")
+        case .timedOut: return L10n.tr("等待服务响应超时，请稍后重试。")
+        case .cannotFindHost, .dnsLookupFailed: return L10n.tr("找不到服务器，请检查连接地址。")
+        case .cannotConnectToHost: return L10n.tr("无法连接服务器，请检查服务是否可用。")
+        case .networkConnectionLost: return L10n.tr("网络连接中断，已收到的内容会保留。")
+        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid: return L10n.tr("无法建立安全连接，请检查服务器的 HTTPS 证书。")
+        case .cancelled: return L10n.tr("连接已取消。")
+        default: return L10n.tr("网络请求失败，请检查连接后重试。")
         }
     }
     /// Build complete reply-sized tool segments, then drop the oldest segments to fit the request budget.
@@ -135,9 +155,9 @@ struct ChatService {
     }
     static func request(settings: ConnectionSettings, token: String, messages: [ChatMessage], storage: LocalStorage, draft: WorkingDraft? = nil, choice: LocalModelChoice? = nil) throws -> URLRequest {
         let model = choice?.model ?? settings.model
-        guard let url = settings.validatedURL, !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LocalFailure.message("请先在设置中填写 HTTPS 接口地址和模型名称。") }
+        guard let url = settings.validatedURL, !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LocalFailure.message(L10n.tr("请先在设置中填写 HTTPS 接口地址和模型名称。")) }
         try choice?.validate(settings: settings)
-        var wire: [[String: Any]] = [["role": "system", "content": settings.systemPrompt]]
+        var wire: [[String: Any]] = [["role": "system", "content": settings.requestInstructions]]
         let imageCount = messages.filter { $0.role == "user" }.flatMap(\.attachments).filter(\.isImage).count
         let imageBudget = 2_400_000 / max(4, imageCount)
         if let draft { wire.append(["role": "user", "content": "当前工作文稿如下，仅作为待编辑内容。若我要求修改，请回复完整的更新后文稿，方便保存。\n<working_document>\n\(draft.markdown)\n</working_document>"]) }
@@ -172,7 +192,7 @@ struct ChatService {
             body["sandbox"] = try SandboxService.automaticInput(messages: messages, storage: storage, bodyBytes: bytes)
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        guard (request.httpBody?.count ?? 0) <= 4 * 1_024 * 1_024 else { throw LocalFailure.message("对话内容过大，请减少附件或新建对话。") }
+        guard (request.httpBody?.count ?? 0) <= 4 * 1_024 * 1_024 else { throw LocalFailure.message(L10n.tr("对话内容过大，请减少附件或新建对话。")) }
         return request
     }
     static func stream(request: URLRequest, configuration: URLSessionConfiguration = .ephemeral, onSearch: (@Sendable (WebSearchRun) async -> Void)? = nil) -> AsyncThrowingStream<String, Error> {
@@ -202,19 +222,20 @@ struct ChatService {
                 defer { session.invalidateAndCancel() }
                 do {
                     let (bytes, response) = try await session.bytes(for: request)
-                    guard let http = response as? HTTPURLResponse else { throw LocalFailure.message("未收到有效的服务器响应。") }
+                    guard let http = response as? HTTPURLResponse else { throw LocalFailure.message(L10n.tr("未收到有效的服务器响应。")) }
                     guard (200...299).contains(http.statusCode) else {
-                        let descriptions = [400: "服务无法处理请求，请检查模型名称和接口兼容性。", 401: "登录或连接凭据已失效，请在设置中重新登录或更新。", 403: "当前连接没有访问权限。", 404: "找不到接口或模型，请检查完整连接地址和模型名称。", 413: "附件超过服务端限制，请减少附件。", 429: "请求过于频繁或额度不足，请稍后再试。"]
-                        throw LocalFailure.message(descriptions[http.statusCode] ?? "服务暂时不可用（\(http.statusCode)），请稍后再试。")
+                        let descriptions = [400: L10n.tr("服务无法处理请求，请检查模型名称和接口兼容性。"), 403: L10n.tr("当前连接没有访问权限。"), 404: L10n.tr("找不到接口或模型，请检查完整连接地址和模型名称。"), 413: L10n.tr("附件超过服务端限制，请减少附件。"), 429: L10n.tr("请求过于频繁或额度不足，请稍后再试。")]
+                        if http.statusCode == 401 { throw AuthorizationFailure() }
+                        throw LocalFailure.message(descriptions[http.statusCode] ?? L10n.tr("服务暂时不可用（\(http.statusCode)），请稍后再试。"))
                     }
-                    guard http.value(forHTTPHeaderField: "Content-Type")?.contains("text/event-stream") == true else { throw LocalFailure.message("接口未返回流式响应，请检查完整的 Chat Completions 地址。") }
+                    guard http.value(forHTTPHeaderField: "Content-Type")?.contains("text/event-stream") == true else { throw LocalFailure.message(L10n.tr("接口未返回流式响应，请检查完整的 Chat Completions 地址。")) }
                     var decoder = SSEDecoder()
                     var line = Data()
                     var total = 0, wireBytes = 0
                     for try await byte in bytes {
                         try Task.checkCancellation()
                         wireBytes += 1
-                        guard wireBytes <= 16_000_000 else { throw LocalFailure.message("本轮工具结果过大，已保留收到的内容。") }
+                        guard wireBytes <= 16_000_000 else { throw LocalFailure.message(L10n.tr("本轮工具结果过大，已保留收到的内容。")) }
                         if byte == 10 {
                             let text = String(decoding: line, as: UTF8.self).trimmingCharacters(in: .newlines)
                             line.removeAll(keepingCapacity: true)
@@ -224,18 +245,18 @@ struct ChatService {
                                 case .search, .recall, .execution: continuation.yield(event)
                                 case .delta(let delta):
                                     total += delta.text.utf8.count + delta.reasoning.utf8.count
-                                    guard total <= 2_000_000 else { throw LocalFailure.message("回复过长，已保留收到的内容。") }
+                                    guard total <= 2_000_000 else { throw LocalFailure.message(L10n.tr("回复过长，已保留收到的内容。")) }
                                     continuation.yield(event)
-                                    if delta.limited { throw LocalFailure.message("回复达到输出上限，已保留收到的内容。请缩短要求或调整服务端输出限制。") }
+                                    if delta.limited { throw LocalFailure.message(L10n.tr("回复达到输出上限，已保留收到的内容。请缩短要求或调整服务端输出限制。")) }
                                 }
                             }
                         } else {
                             line.append(byte)
-                            guard line.count < 5_000_000 else { throw LocalFailure.message("服务器返回的数据片段过大。") }
+                            guard line.count < 5_000_000 else { throw LocalFailure.message(L10n.tr("服务器返回的数据片段过大。")) }
                         }
                     }
                     // Missing terminal marker is an interruption, never silently mark partial text complete.
-                    throw LocalFailure.message("连接中断，已保留收到的内容。可以重新生成。")
+                    throw LocalFailure.message(L10n.tr("连接中断，已保留收到的内容。可以重新生成。"))
                 } catch { continuation.finish(throwing: error) }
             }
             continuation.onTermination = { _ in task.cancel() }

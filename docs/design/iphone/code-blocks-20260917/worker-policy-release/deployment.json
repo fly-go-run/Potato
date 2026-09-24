@@ -1,0 +1,26 @@
+{
+  "worker": "potato-iphone-api",
+  "version": "8d8d69b8-6452-4c49-9ae9-4173cea1c8c0",
+  "previousVersion": "51e229f1-6acf-4cf6-b620-98a831882d61",
+  "deployment": {
+    "id": "0c67f652-a2bf-4e9d-af93-07d48ba454af",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "author_email": "pal_xu@163.com",
+    "annotations": {
+      "workers/message": "Only execute Python when the task requires it; code before output",
+      "workers/triggered_by": "deployment"
+    },
+    "versions": [
+      {
+        "version_id": "8d8d69b8-6452-4c49-9ae9-4173cea1c8c0",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-09-17T01:31:46.106746Z"
+  },
+  "keepVars": true,
+  "secretsChanged": false,
+  "migrationChange": false,
+  "unrelatedRemoteOutboxChangeIncluded": false
+}

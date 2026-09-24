@@ -7,6 +7,7 @@ struct ComposerTextInput: UIViewRepresentable {
     @Binding var selection: NSRange?
     var focused: Binding<Bool>
     let placeholder: String
+    var minimumHeight: CGFloat = 0
     var maximumHeight: CGFloat = 180
     var fillsAvailableHeight = false
     var readOnly = false
@@ -46,7 +47,7 @@ struct ComposerTextInput: UIViewRepresentable {
             }
         }
         view.isEditable = !readOnly
-        if readOnly { view.font = UIFont.preferredFont(forTextStyle: .body); view.textColor = UIColor(Palette.ink); view.accessibilityHint = "轻点结束录音并修改文字" }
+        if readOnly { view.font = UIFont.preferredFont(forTextStyle: .body); view.textColor = UIColor(Palette.ink); view.accessibilityHint = L10n.tr("轻点结束录音并修改文字") }
         view.accessibilityIdentifier = identifier; view.accessibilityLabel = placeholder
         if !readOnly, (changedText || !view.isFirstResponder), let selection, Range(selection, in: text) != nil, view.selectedRange != selection {
             view.selectedRange = selection
@@ -67,7 +68,8 @@ struct ComposerTextInput: UIViewRepresentable {
         let natural = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
         let line = (uiView.font?.lineHeight ?? 22) + 4
         let maximum = fillsAvailableHeight ? max(line, proposal.height ?? maximumHeight) : max(line, maximumHeight)
-        let height = fillsAvailableHeight ? maximum : max(line, min(maximum, natural))
+        let minimum = min(maximum, max(line, minimumHeight))
+        let height = fillsAvailableHeight ? maximum : max(minimum, min(maximum, natural))
         uiView.isScrollEnabled = natural > height + 0.5 || fillsAvailableHeight
         let overflow = natural > height + 0.5
         if context.coordinator.lastOverflow != overflow {
@@ -128,15 +130,44 @@ struct ExpandedComposer: View {
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
-                ComposerTextInput(text: $text, selection: $selection, focused: $focused, placeholder: "编辑消息", maximumHeight: geometry.size.height, fillsAvailableHeight: true, identifier: "expanded-input")
+                ComposerTextInput(text: $text, selection: $selection, focused: $focused, placeholder: L10n.tr("编辑消息"), maximumHeight: geometry.size.height, fillsAvailableHeight: true, identifier: "expanded-input")
                     .padding(.horizontal, 20)
             }.background(Palette.canvas)
-                .navigationTitle("编辑消息").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(L10n.tr("编辑消息")).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { Button("收起", systemImage: "arrow.down.right.and.arrow.up.left", action: collapse).accessibilityIdentifier("collapse-input") }
-                    ToolbarItem(placement: .topBarTrailing) { Button("发送", systemImage: "arrow.up", action: send).bold().disabled(!canSend).accessibilityIdentifier("send-expanded-input") }
-                    ToolbarItem(placement: .bottomBar) { Text("\(text.count) 字" + (attachmentCount > 0 ? " · \(attachmentCount) 个附件" : "")).font(.caption).foregroundStyle(Palette.secondary).accessibilityIdentifier("expanded-input-count") }
+                    ToolbarItem(placement: .topBarLeading) { Button(L10n.tr("收起"), systemImage: "arrow.down.right.and.arrow.up.left", action: collapse).accessibilityIdentifier("collapse-input") }
+                    ToolbarItem(placement: .topBarTrailing) { Button(L10n.tr("发送"), systemImage: "arrow.up", action: send).bold().disabled(!canSend).accessibilityIdentifier("send-expanded-input") }
+                    ToolbarItem(placement: .bottomBar) { Text(L10n.tr("\(text.count) 字") + (attachmentCount > 0 ? L10n.tr(" · \(attachmentCount) 个附件") : "")).font(.caption).foregroundStyle(Palette.secondary).accessibilityIdentifier("expanded-input-count") }
                 }
         }.interactiveDismissDisabled()
+    }
+}
+
+// Resolve exclusions in the composer's coordinates, including disabled controls.
+// The gesture lives behind the content so UITextView keeps native selection gestures.
+private struct ComposerControlBounds: PreferenceKey {
+    static var defaultValue: [Anchor<CGRect>] = []
+    static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) {
+        value += nextValue()
+    }
+}
+
+extension View {
+    func composerControl() -> some View {
+        anchorPreference(key: ComposerControlBounds.self, value: .bounds) { [$0] }
+    }
+
+    func composerWhitespaceFocus(enabled: Bool, focus: @escaping () -> Void) -> some View {
+        backgroundPreferenceValue(ComposerControlBounds.self) { controls in
+            GeometryReader { geometry in
+                Color.clear
+                    .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    .onTapGesture { point in
+                        guard enabled, !controls.contains(where: { geometry[$0].contains(point) }) else { return }
+                        focus()
+                    }
+                    .accessibilityHidden(true)
+            }
+        }
     }
 }

@@ -3,6 +3,8 @@ import Foundation
 struct LocalModelEntry: Codable, Equatable, Identifiable {
     let id: String
     var name: String
+    var displayName: String { ModelNaming.displayName(id: id, name: name) }
+    var isExpired: Bool { ModelNaming.isExpired(id) }
     var reasoning_effort_options: [String]? = nil
     var thinking_modes: [String]? = nil
     var thinking_param_style: String? = nil
@@ -44,26 +46,26 @@ struct LocalModelChoice: Codable, Equatable {
     var thinkingMode: String? = nil
     var reasoningEffort: String? = nil
     var thinkingLabel: String {
-        if thinkingMode == "disabled" { return "思考关闭" }
-        if let reasoningEffort { return "思考 · \(remoteEffortName(reasoningEffort))" }
-        return thinkingMode == "enabled" ? "思考开启" : "服务默认"
+        if thinkingMode == "disabled" { return L10n.tr("思考关闭") }
+        if let reasoningEffort { return L10n.tr("思考 · \(remoteEffortName(reasoningEffort))") }
+        return thinkingMode == "enabled" ? L10n.tr("思考开启") : L10n.tr("服务默认")
     }
     var compactThinkingLabel: String {
-        if thinkingMode == "disabled" { return "关闭" }
+        if thinkingMode == "disabled" { return L10n.tr("关闭") }
         if let reasoningEffort { return remoteEffortName(reasoningEffort) }
-        return thinkingMode == "enabled" ? "开启" : "默认"
+        return thinkingMode == "enabled" ? L10n.tr("开启") : L10n.tr("默认")
     }
     func validate(settings: ConnectionSettings) throws {
-        guard settings.serviceIdentity != nil else { throw LocalFailure.message("请先在连接设置中填写有效的 HTTPS 地址。草稿已保留。") }
-        guard endpoint == settings.serviceIdentity else { throw LocalFailure.message("此会话的模型属于之前的服务，请重新选择当前服务的模型。草稿已保留。") }
-        guard !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, model.utf8.count <= 256 else { throw LocalFailure.message("请填写有效的模型名称。") }
+        guard settings.serviceIdentity != nil else { throw LocalFailure.message(L10n.tr("请先在连接设置中填写有效的 HTTPS 地址。草稿已保留。")) }
+        guard endpoint == settings.serviceIdentity else { throw LocalFailure.message(L10n.tr("此会话的模型属于之前的服务，请重新选择当前服务的模型。草稿已保留。")) }
+        guard !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, model.utf8.count <= 256 else { throw LocalFailure.message(L10n.tr("请填写有效的模型名称。")) }
         if settings.cloudAccount != nil, let catalog = settings.currentCatalog, !catalog.models.contains(where: { $0.id == model }) {
-            throw LocalFailure.message("此模型已不在云端列表中，请选择当前可用模型。旧回复与草稿已保留。")
+            throw LocalFailure.message(L10n.tr("此模型已不在云端列表中，请选择当前可用模型。旧回复与草稿已保留。"))
         }
         let entry = settings.modelEntry(model)
-        if let thinkingMode, !entry.modes.contains(thinkingMode) { throw LocalFailure.message("当前服务未声明这个思考模式，请刷新模型列表或使用服务默认。") }
-        if let reasoningEffort, !entry.efforts.contains(reasoningEffort) { throw LocalFailure.message("当前模型未声明这个思考档位，请重新选择。") }
-        if thinkingMode == "disabled" && reasoningEffort != nil { throw LocalFailure.message("关闭思考时不能设置思考档位。") }
+        if let thinkingMode, !entry.modes.contains(thinkingMode) { throw LocalFailure.message(L10n.tr("当前服务未声明这个思考模式，请刷新模型列表或使用服务默认。")) }
+        if let reasoningEffort, !entry.efforts.contains(reasoningEffort) { throw LocalFailure.message(L10n.tr("当前模型未声明这个思考档位，请重新选择。")) }
+        if thinkingMode == "disabled" && reasoningEffort != nil { throw LocalFailure.message(L10n.tr("关闭思考时不能设置思考档位。")) }
     }
 }
 extension ConnectionSettings {
@@ -76,7 +78,7 @@ extension ConnectionSettings {
 
 enum LocalModelService {
     static func catalogRequest(settings: ConnectionSettings, token: String) throws -> URLRequest {
-        guard var url = settings.validatedURL, url.path.hasSuffix("/chat/completions") else { throw LocalFailure.message("此地址无法自动读取模型列表，可手动填写服务提供的模型名称。") }
+        guard var url = settings.validatedURL, url.path.hasSuffix("/chat/completions") else { throw LocalFailure.message(L10n.tr("此地址无法自动读取模型列表，可手动填写服务提供的模型名称。")) }
         url.deleteLastPathComponent(); url.deleteLastPathComponent(); url.appendPathComponent("models")
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -88,24 +90,24 @@ enum LocalModelService {
         let session = URLSession(configuration: configuration, delegate: ModelRedirectPolicy(), delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         let (bytes, response) = try await session.bytes(for: request)
-        guard let http = response as? HTTPURLResponse else { throw LocalFailure.message("模型列表响应无效。") }
+        guard let http = response as? HTTPURLResponse else { throw LocalFailure.message(L10n.tr("模型列表响应无效。")) }
         guard http.statusCode == 200 else {
-            if [404, 405].contains(http.statusCode) { throw LocalFailure.message("服务未提供模型列表，可手动填写模型名称。") }
-            if [401, 403].contains(http.statusCode) { throw LocalFailure.message("读取模型列表未获授权。云端账号请重新登录或联系所有者授权；手动连接请检查令牌。") }
-            throw LocalFailure.message("暂时无法读取模型列表（\(http.statusCode)），已保留当前选择。")
+            if [404, 405].contains(http.statusCode) { throw LocalFailure.message(L10n.tr("服务未提供模型列表，可手动填写模型名称。")) }
+            if [401, 403].contains(http.statusCode) { throw AuthorizationFailure() }
+            throw LocalFailure.message(L10n.tr("暂时无法读取模型列表（\(http.statusCode)），已保留当前选择。"))
         }
-        guard http.value(forHTTPHeaderField: "Content-Type")?.lowercased().contains("application/json") == true else { throw LocalFailure.message("模型列表格式不兼容，可手动填写模型名称。") }
+        guard http.value(forHTTPHeaderField: "Content-Type")?.lowercased().contains("application/json") == true else { throw LocalFailure.message(L10n.tr("模型列表格式不兼容，可手动填写模型名称。")) }
         var data = Data()
         for try await byte in bytes {
             try Task.checkCancellation(); data.append(byte)
-            guard data.count <= 1_000_000 else { throw LocalFailure.message("模型列表过大，已保留当前选择。") }
+            guard data.count <= 1_000_000 else { throw LocalFailure.message(L10n.tr("模型列表过大，已保留当前选择。")) }
         }
         return try decode(data, settings: settings)
     }
     static func decode(_ data: Data, settings: ConnectionSettings) throws -> LocalModelCatalog {
         guard data.count <= 1_000_000,
               let json = try JSONSerialization.jsonObject(with: data) as? [String: Any], let entries = json["data"] as? [[String: Any]], entries.count <= 500,
-              let endpoint = settings.serviceIdentity else { throw LocalFailure.message("模型列表格式无效。") }
+              let endpoint = settings.serviceIdentity else { throw LocalFailure.message(L10n.tr("模型列表格式无效。")) }
         var models: [LocalModelEntry] = [], seen = Set<String>()
         for entry in entries {
             guard let id = entry["id"] as? String, !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, id.utf8.count <= 256, seen.insert(id).inserted else { continue }

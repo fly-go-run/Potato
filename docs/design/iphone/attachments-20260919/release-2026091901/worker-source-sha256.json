@@ -1,0 +1,23 @@
+{
+  "native/potato-worker/package-lock.json": "23b1a186c4d6a9c96a2e9753c9a7bfbdcf7e7bbe0731d6f4bb28a99bbb9947ef",
+  "native/potato-worker/package.json": "8a3e4481b44b3d9903d8d64d827682c34e52cb17cd048c4bfe2691021b1b8b23",
+  "native/potato-worker/src/chat-job-api.ts": "95d39def05ae45c6cba02592c88ecaab9ef982c9b379c9bb8766bdfdd6e8cc54",
+  "native/potato-worker/src/chat-job.ts": "3ab1471366d27e7bdab4bc35c39ca9a1d09f9a45ba850c8a96649896e30b2d20",
+  "native/potato-worker/src/cloud.ts": "34342d618ed402fa717fd8e4dd81b662a9d713a88edc310db293a56ec544e904",
+  "native/potato-worker/src/code-tool.ts": "9c1fc9775761b7253cdd70fd7deeb0d5f6e9b987813ba116a7a5bd9ed4417806",
+  "native/potato-worker/src/desktop-chat.ts": "0710e950a7b09ca79a9b3d5759ccebbe8b3cb770ddfe226532c35851dcb03bd1",
+  "native/potato-worker/src/entry.ts": "bea180c3c265fbf6af37ee2ee1e862f4bcc8727e5540e9f62e245b625d862e8a",
+  "native/potato-worker/src/index.ts": "68691a7bb4732f5ac4512b63fa8d27b4727be8724f43141534c735e7e5106fd9",
+  "native/potato-worker/src/models.ts": "d0467170e43ee5fc6c221f593ad989d5009de959c18105201f8e4147b2ccd240",
+  "native/potato-worker/src/recall-search.ts": "daa1341ca533341aef619443ebdb7aca0a30f14ca0a7804d1a09bf9afd367f61",
+  "native/potato-worker/src/recall.ts": "325e674999ca56d9e0bd883c58219d835220b7d967173d138baf10d978112dbb",
+  "native/potato-worker/src/remote-auth.ts": "9f2e5f909f9f9210e7b16603dc4dcd785575ad099a758661c635a85973efde99",
+  "native/potato-worker/src/remote.ts": "b72db7521cda54443cfe05238c419457f7d8b209da293b043f2ac7c74f5570bb",
+  "native/potato-worker/src/sandbox.ts": "d4af58ec7bffbc5d48e746fe6dae796b9e5d6bcafb85a6d55701235a23683bae",
+  "native/potato-worker/src/search-chat.ts": "e23e942964434cda0cb4d748f1240e794340e4d44df963b6a108d28e9b2e4982",
+  "native/potato-worker/src/search.ts": "2e72695dd5c45efd75ec6d42494852c3067d5e8623fdbdaf2f4bfb99f7c2b4c3",
+  "native/potato-worker/src/speech.ts": "23409358b0ef0f1323946e09754164755a48d827a0cfa86d4572d79cf4d34322",
+  "native/potato-worker/tsconfig.json": "4fb10c5eca5963cd4edfb958a40cf8823eb0891233952988f79ba0867041870d",
+  "native/potato-worker/worker-configuration.d.ts": "d897de3d9a90a89b038446df75ece62f7295704fd01481e7b4262f1a4f4a48d4",
+  "native/potato-worker/wrangler.jsonc": "9ab1f9841cef56390b4abc89f3c33647c401b6c6d4868bddb86bbe54d444ab33"
+}

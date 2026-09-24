@@ -1,0 +1,17 @@
+{
+  "id": "9c705c96-33cf-4436-9e3d-2e2f3c50f879",
+  "version": "0.2.2",
+  "build": "2026091701",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "新增界面语言设置：跟随系统、English、简体中文，支持预览、保存与重启恢复。\n远程消息支持发送后直接显示在对话中，默认排队，也可从单条消息菜单选择打断并发送、编辑或删除；需配套电脑端与中继支持。\n重新打开远程页面时优先显示缓存的项目与会话，减少加载跳动。\n统一远程与普通对话的语音输入体验，精简常规加载提示。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

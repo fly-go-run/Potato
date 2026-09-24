@@ -29,6 +29,7 @@ struct ReplyActions: View {
     let save: () -> Void
     let share: () -> Void
     @State private var copied = false
+    @State private var librarySaved = false
     @State private var panel: Panel?
     @State private var afterDismiss: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -39,13 +40,14 @@ struct ReplyActions: View {
     private var empty: Bool { message.displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var body: some View {
         HStack(spacing: 0) {
-            action(symbol: copied ? "checkmark" : "square.on.square", label: copied ? "已复制回复" : "复制回复", id: "copy-reply") {
+            action(symbol: copied ? "checkmark" : "square.on.square", label: copied ? L10n.tr("已复制回复") : L10n.tr("复制回复"), id: "copy-reply") {
                 UIPasteboard.general.string = message.displayText; copied = true
             }.disabled(empty)
-            if isLast { action(symbol: "arrow.clockwise", label: "重新生成", id: "retry-message", perform: retry).disabled(busy) }
-            action(symbol: "ellipsis", label: "回复更多操作", id: "reply-more") { panel = .more }
+            if isLast { action(symbol: "arrow.clockwise", label: L10n.tr("重新生成"), id: "retry-message", perform: retry).disabled(busy) }
+            action(symbol: "ellipsis", label: L10n.tr("回复更多操作"), id: "reply-more") { panel = .more }
             Spacer(minLength: 0)
         }.foregroundStyle(Palette.secondary)
+            .alert(L10n.tr("已保存到资料库"), isPresented: $librarySaved) { Button(L10n.tr("好"), role: .cancel) {} }
             .onChange(of: message.displayText) { _, _ in copied = false }
             .task(id: copied) { if copied { try? await Task.sleep(for: .seconds(2)); if !Task.isCancelled { copied = false } } }
             .sheet(item: $panel, onDismiss: {
@@ -76,7 +78,7 @@ struct ReplyActions: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 20)).frame(width: 22).accessibilityHidden(true)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("换模型重新回答")
+                                    Text(L10n.tr("换模型重新回答"))
                                     if let choice = message.displayModelChoice {
                                         Text("\(store.settings.modelEntry(choice.model).name) · \(choice.thinkingLabel)")
                                             .font(.caption).foregroundStyle(.secondary)
@@ -87,28 +89,36 @@ struct ReplyActions: View {
                             }.frame(minHeight: 44)
                         }.disabled(busy).accessibilityIdentifier("reply-change-model")
                     }
-                    .listRowBackground(Color.white)
+                    .listRowBackground(Palette.surface)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
                 Section {
-                    row("分享回复", symbol: "square.and.arrow.up", id: "share-reply") { finishPanel(share) }
-                    row(speech.messageID == message.id ? "停止朗读" : "朗读回复", symbol: speech.messageID == message.id ? "stop.circle" : "speaker.wave.2", id: "read-reply") { finishPanel { speech.toggle(message) } }
-                    row("选择文字", symbol: "text.cursor", id: "select-reply-text") { panel = .selection }
-                    row("存为工作文稿", symbol: "doc.badge.plus", id: "save-reply-document") { finishPanel(save) }
+                    row(L10n.tr("分享回复"), symbol: "square.and.arrow.up", id: "share-reply") { finishPanel(share) }
+                    row(speech.messageID == message.id ? L10n.tr("停止朗读") : L10n.tr("朗读回复"), symbol: speech.messageID == message.id ? "stop.circle" : "speaker.wave.2", id: "read-reply") { finishPanel { speech.toggle(message) } }
+                    row(L10n.tr("选择文字"), symbol: "text.cursor", id: "select-reply-text") { panel = .selection }
+                    row(L10n.tr("保存到资料库"), symbol: "books.vertical", id: "save-reply-library") {
+                        finishPanel {
+                            do {
+                                _ = try store.saveLibraryText(message.displayText, source: LibrarySource(conversationID: store.selectedID, messageID: message.id))
+                                librarySaved = true
+                            } catch { store.error = error.localizedDescription }
+                        }
+                    }
+                    row(L10n.tr("存为工作文稿"), symbol: "doc.badge.plus", id: "save-reply-document") { finishPanel(save) }
                 }.disabled(empty)
-                    .listRowBackground(Color.white)
+                    .listRowBackground(Palette.surface)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             .contentMargins(.top, 16, for: .scrollContent)
             .listStyle(.insetGrouped).listSectionSpacing(16)
-            .scrollContentBackground(.hidden).background(Color(white: 0.97))
-            .navigationTitle("回复操作").navigationBarTitleDisplayMode(.inline)
+            .scrollContentBackground(.hidden).background(Palette.grouped)
+            .navigationTitle(L10n.tr("回复操作")).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) {
-                Button("完成") { panel = nil }.accessibilityIdentifier("reply-actions-done")
+                Button(L10n.tr("完成")) { panel = nil }.accessibilityIdentifier("reply-actions-done")
             } }
         }
         .tint(Palette.ink)
-        .presentationDetents(typeSize.isAccessibilitySize ? [.large] : [.height(isLast ? 460 : 360), .large])
+        .presentationDetents(typeSize.isAccessibilitySize ? [.large] : [.height(isLast ? 524 : 424), .large])
         .presentationDragIndicator(.visible).presentationCornerRadius(32)
     }
     private func row(_ title: String, symbol: String, id: String, perform: @escaping () -> Void) -> some View {
@@ -125,8 +135,8 @@ struct ReplyTextSelection: View {
     var body: some View {
         NavigationStack {
             SelectableReply(text: text).padding(.horizontal, 12)
-                .navigationTitle("选择文字").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() }.accessibilityIdentifier("close-text-selection") } }
+                .navigationTitle(L10n.tr("选择文字")).navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { dismiss() }.accessibilityIdentifier("close-text-selection") } }
         }
     }
 }

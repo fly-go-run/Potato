@@ -1,0 +1,15 @@
+{
+  "CFBundleIdentifier": "com.potato.iphone.prototype",
+  "CFBundleShortVersionString": "0.2.2",
+  "CFBundleVersion": "2026091601",
+  "UIDeviceFamily": [
+    1
+  ],
+  "MinimumOSVersion": "17.0",
+  "DTSDKName": "iphoneos26.2",
+  "DTXcode": "2630",
+  "ITSAppUsesNonExemptEncryption": false,
+  "archive": "/Users/liuxu/lifeProjects/Potato/native/potato-ios/build/distribution/PotatoMobile-0.2.2-2026091601.xcarchive",
+  "privacyManifestSHA256": "be04bc5e65b86c30cb12526604e1c526635ca513d03dfb148e2d2e70483ddc92",
+  "executableSHA256": "21b731752cdfe1c525ebe5d7a13a6be186e125f7c3201ffcd76ca917f5f41e9c"
+}

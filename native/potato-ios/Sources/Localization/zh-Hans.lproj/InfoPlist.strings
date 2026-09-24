@@ -1,0 +1,4 @@
+"NSMicrophoneUsageDescription" = "用于语音输入，点发送后提交转写文字，也可以修改或取消。";
+
+"NSPhotoLibraryUsageDescription" = "用于显示最近照片，轻点即可添加到当前消息。仅处理你选择的照片。";
+"NSCameraUsageDescription" = "用于拍摄照片并添加到当前消息。";

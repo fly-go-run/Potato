@@ -51,6 +51,43 @@ final class PrototypeTests: XCTestCase {
         XCTAssertTrue(app.buttons["connection-settings"].isHittable)
         capture(app, "11-accessibility-text")
     }
+    func testAppearancePreviewSaveCancelAndRelaunch() {
+        let app = launch()
+        func openSettings() {
+            app.buttons["connection-settings"].tap()
+            XCTAssertTrue(app.segmentedControls["appearance-picker"].waitForExistence(timeout: 3))
+        }
+        func select(_ title: String) {
+            app.segmentedControls["appearance-picker"].buttons[title].tap()
+            XCTAssertTrue(app.segmentedControls["appearance-picker"].buttons[title].isSelected)
+        }
+        openSettings()
+        select("亮色"); capture(app, "appearance-01-light-settings")
+        select("暗色"); capture(app, "appearance-02-dark-settings")
+        app.buttons["save-settings"].tap()
+        XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 3))
+        capture(app, "appearance-03-dark-workspace")
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--reset" }
+        app.launch()
+        XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 10))
+        openSettings()
+        XCTAssertTrue(app.segmentedControls["appearance-picker"].buttons["暗色"].isSelected)
+        // Appearance applies immediately; closing the sheet keeps the choice.
+        select("亮色")
+        app.buttons["save-settings"].tap()
+        openSettings()
+        XCTAssertTrue(app.segmentedControls["appearance-picker"].buttons["亮色"].isSelected)
+        select("自动"); capture(app, "appearance-04-automatic-settings")
+        app.buttons["save-settings"].tap()
+        XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 3))
+        capture(app, "appearance-05-automatic-workspace")
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 10))
+        openSettings()
+        XCTAssertTrue(app.segmentedControls["appearance-picker"].buttons["自动"].isSelected)
+    }
+
     func testSettingsValidationAndLargeText() {
         let app = launch()
         XCTAssertTrue(app.buttons["close-document"].waitForExistence(timeout: 10)); app.buttons["close-document"].tap(); capture(app, "09-accessibility-text")
@@ -66,14 +103,15 @@ final class PrototypeTests: XCTestCase {
         let app = launch()
         XCTAssertTrue(app.buttons["add-attachment"].waitForExistence(timeout: 10))
         app.buttons["add-attachment"].tap()
-        XCTAssertTrue(app.buttons["照片图库"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["attachment-all-photos"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["选择文件"].exists)
         capture(app, "12-attachment-menu")
-        app.buttons["照片图库"].tap()
+        app.buttons["attachment-all-photos"].tap()
         capture(app, "13-photo-picker")
         let cancel = app.buttons["取消"].firstMatch
         if cancel.waitForExistence(timeout: 3) { cancel.tap() }
         else if app.buttons["Cancel"].waitForExistence(timeout: 3) { app.buttons["Cancel"].tap() }
+        app.buttons["attachment-close"].tap()
         XCTAssertTrue(app.buttons["voice-input"].waitForExistence(timeout: 3))
         app.buttons["voice-input"].tap()
         XCTAssertTrue(app.staticTexts["voice-notice"].waitForExistence(timeout: 5))
@@ -85,13 +123,14 @@ final class PrototypeTests: XCTestCase {
     func testPhotoImportPreviewRemoval() {
         let app = launch()
         XCTAssertTrue(app.buttons["add-attachment"].waitForExistence(timeout: 10))
-        app.buttons["add-attachment"].tap(); app.buttons["照片图库"].tap()
+        app.buttons["add-attachment"].tap(); app.buttons["attachment-all-photos"].tap()
         let photo = app.images.matching(identifier: "PXGGridLayout-Info").firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 5))
         photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         
         let done = app.buttons["Add"]
         XCTAssertTrue(done.waitForExistence(timeout: 3)); done.tap()
+        XCTAssertTrue(app.buttons["attachment-close"].waitForExistence(timeout: 3)); app.buttons["attachment-close"].tap()
         let preview = app.buttons["预览 照片.jpg"]
         XCTAssertTrue(preview.waitForExistence(timeout: 8)); capture(app, "15-photo-imported")
         preview.tap(); XCTAssertTrue(app.buttons["close-preview"].waitForExistence(timeout: 5)); capture(app, "16-photo-preview")
@@ -111,18 +150,20 @@ final class PrototypeTests: XCTestCase {
         XCTAssertTrue(app.textViews["selectable-reply"].waitForExistence(timeout: 3)); capture(app, "26-select-text")
         app.buttons["close-text-selection"].tap()
         app.buttons["new-chat"].tap()
-        app.buttons["add-attachment"].tap(); app.buttons["照片图库"].tap()
+        app.buttons["add-attachment"].tap(); app.buttons["attachment-all-photos"].tap()
         let photos = app.images.matching(identifier: "PXGGridLayout-Info")
         XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 5)); XCTAssertGreaterThanOrEqual(photos.count, 4)
         for i in 0..<4 { photos.element(boundBy: i).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         app.buttons["Add"].tap()
+        XCTAssertTrue(app.buttons["attachment-close"].waitForExistence(timeout: 3)); app.buttons["attachment-close"].tap()
         let pending = app.buttons.matching(NSPredicate(format: "label == %@", "预览 照片.jpg"))
         let imported = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 4"), object: pending)
         XCTAssertEqual(XCTWaiter.wait(for: [imported], timeout: 15), .completed)
         capture(app, "27-four-pending-images")
         app.buttons["send-message"].tap()
         XCTAssertTrue(app.buttons["stop-generation"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.otherElements["streaming-status"].waitForExistence(timeout: 3) || app.staticTexts["正在回复"].exists)
+        XCTAssertFalse(app.otherElements["streaming-status"].exists)
+        XCTAssertFalse(app.staticTexts["正在回复"].exists)
         capture(app, "28-streaming-images")
         app.buttons["stop-generation"].tap()
         XCTAssertTrue(app.buttons["message-image-3"].waitForExistence(timeout: 3))
@@ -161,6 +202,13 @@ final class PrototypeTests: XCTestCase {
         let app = launch()
         XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 10)); app.buttons["connection-settings"].tap()
         let probe = app.buttons["test-connection"]
+        func revealProbe() {
+            for _ in 0..<4 where !probe.exists {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).press(forDuration: 0.05,
+                    thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+            }
+        }
+        revealProbe()
         XCTAssertTrue(probe.waitForExistence(timeout: 3)); XCTAssertFalse(probe.isEnabled)
         let endpoint = app.textFields["endpoint"]
         endpoint.tap(); endpoint.typeText("https://fixture.invalid/v1/chat/completions\n")
@@ -174,6 +222,7 @@ final class PrototypeTests: XCTestCase {
         app.buttons["取消"].tap()
         XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 3)); app.buttons["connection-settings"].tap()
         XCTAssertEqual(app.textFields["endpoint"].value as? String, "完整接口地址（HTTPS）")
+        revealProbe()
         XCTAssertFalse(app.buttons["test-connection"].isEnabled)
     }
 

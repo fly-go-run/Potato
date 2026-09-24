@@ -30,9 +30,9 @@ final class VoiceComposerTests: XCTestCase {
         voice.cancel(); XCTAssertEqual(store.selected.input, "前🙂后")
         XCTAssertEqual(DictationInsertion(text: "🙂", selection: NSRange(location: 99, length: 2)).replacing(with: "好"), "🙂好")
     }
-    func testSendWaitsForFinalIncludesTailAndSendsExactlyOnceWithAttachments() async {
+    func testSendWaitsForFinalIncludesTailAndSendsExactlyOnceWithAttachments() async throws {
         let (store, capture, voice) = setup("原稿：")
-        let file = Attachment(name: "input.txt", filename: "fixture", type: "text/plain", size: 1)
+        let file = try store.storage.importLibraryData(Data("附件内容".utf8), name: "input.txt", type: .plainText)
         store.addAttachment(file)
         await started(voice, store)
         capture.emit(.text("今天", final: false)); voice.finish(send: true); voice.finish(send: true)
@@ -99,6 +99,47 @@ final class VoiceComposerTests: XCTestCase {
         XCTAssertTrue(voice.levels.allSatisfy { $0 == 0 })
         voice.cancel(); capture.emit(.level(1))
         XCTAssertTrue(voice.levels.allSatisfy { $0 == 0 })
+    }
+
+    func testRemoteDraftWaitsForFinalPersistsBeforeDispatchAndIgnoresLateResults() async {
+        let capture = CaptureStub()
+        // Use the callback entry point used by the remote draft, without a local conversation.
+        let remote = VoiceComposer(capture: capture)
+        var text = "前🙂后", saved = "", sent: [String] = []
+        remote.start(settings: ConnectionSettings(), original: text, selection: NSRange(location: 1, length: 2),
+                     update: { text = $0 }, persist: { saved = text }, send: {
+            XCTAssertFalse(remote.active); XCTAssertEqual(saved, text); sent.append(text)
+        })
+        for _ in 0..<10 { if remote.phase == .recording { break }; await Task.yield() }
+        capture.emit(.level(0.8)); XCTAssertEqual(remote.levels.last, 0.8)
+        capture.emit(.text("今天", final: false)); remote.finish(send: true); remote.finish(send: true)
+        XCTAssertTrue(sent.isEmpty); XCTAssertEqual(capture.finishes, 1)
+        capture.emit(.text("今天完成", final: true)); capture.emit(.text("过期结果", final: true))
+        XCTAssertEqual(sent, ["前今天完成后"]); XCTAssertEqual(text, saved)
+    }
+
+    func testRemoteCancelInterruptAndEmptyFinalNeverDispatch() async {
+        for action in ["cancel", "interrupt", "empty", "background", "failure", "limit"] {
+            let capture = CaptureStub(), voice = VoiceComposer(capture: capture)
+            var text = "原稿", saved = "", sends = 0
+            voice.start(settings: ConnectionSettings(), original: text, selection: nil,
+                        update: { text = $0 }, persist: { saved = text }, send: { sends += 1 })
+            for _ in 0..<10 { if voice.phase == .recording { break }; await Task.yield() }
+            capture.emit(.text("部分", final: false))
+            if action == "limit" { capture.emit(.limit) } else { voice.finish(send: true) }
+            switch action {
+            case "cancel": voice.cancel()
+            case "interrupt": voice.interrupt()
+            case "empty": capture.emit(.text("", final: true))
+            case "background": voice.foreground = false
+            case "failure": capture.emit(.failed("断线"))
+            default: break
+            }
+            capture.emit(.text("最终", final: true))
+            XCTAssertEqual(sends, 0, action); XCTAssertFalse(voice.active, action)
+            XCTAssertEqual(text, saved, action)
+            XCTAssertEqual(text, action == "cancel" ? "原稿" : ["background", "limit"].contains(action) ? "原稿最终" : "原稿部分", action)
+        }
     }
 
 }

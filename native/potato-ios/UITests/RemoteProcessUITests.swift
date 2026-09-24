@@ -24,6 +24,22 @@ final class RemoteProcessUITests: XCTestCase {
     }
     private func status(_ app: XCUIApplication, _ value: String, timeout: Double = 10) {
         let item = app.staticTexts["remote-current-status"]
+        if ["正在思考", "执行命令", "正在回复"].contains(value) {
+            let indicator = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@ AND label == %@", ["remote-activity-spinner", "remote-static-activity"], value)).firstMatch
+            XCTAssertTrue(indicator.waitForExistence(timeout: timeout))
+            XCTAssertFalse(item.exists)
+            return
+        }
+        if value == "本轮任务已完成" {
+            // Completion restores the composer without inserting a redundant
+            // receipt into the conversation. Wait for the running controls to go.
+            XCTAssertTrue(app.buttons["remote-copy-reply"].waitForExistence(timeout: timeout))
+            XCTAssertTrue(app.buttons["remote-stop"].waitForNonExistence(timeout: timeout))
+            XCTAssertTrue(item.waitForNonExistence(timeout: timeout))
+            XCTAssertTrue(app.buttons["remote-send"].exists)
+            XCTAssertFalse(app.staticTexts["本轮任务已完成"].exists)
+            return
+        }
         XCTAssertTrue(item.waitForExistence(timeout: timeout))
         let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", value), object: item)
         XCTAssertEqual(XCTWaiter.wait(for: [expected], timeout: timeout), .completed, "Actual status: \(item.label)")
@@ -31,16 +47,64 @@ final class RemoteProcessUITests: XCTestCase {
     private func spinner(_ app: XCUIApplication) -> XCUIElement { app.descendants(matching: .any).matching(identifier: "remote-activity-spinner").firstMatch }
     private func input(_ app: XCUIApplication) -> XCUIElement { app.descendants(matching: .any).matching(identifier: "remote-prompt").firstMatch }
     private func capture(_ app: XCUIApplication, _ name: String) { let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot) }
+    func testConversationGroupsProcessAndSharesWholeReply() {
+        control("conversation"); let app = launch(); status(app, "本轮任务已完成")
+        XCTAssertEqual(app.buttons.matching(identifier: "remote-process-toggle").count, 1)
+        XCTAssertEqual(app.buttons.matching(identifier: "remote-copy-reply").count, 1)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "The user asks")).firstMatch.exists)
+        capture(app, "remote-conversation-unified")
+        app.buttons["remote-reply-more"].tap(); app.buttons["remote-select-reply"].tap()
+        let selection = app.textViews["selectable-reply"]
+        XCTAssertTrue(selection.waitForExistence(timeout: 5))
+        let text = selection.value as? String ?? ""
+        XCTAssertTrue(text.contains("我来看看桌面上的内容。"))
+        XCTAssertTrue(text.contains("我再确认一下名称。"))
+        XCTAssertTrue(text.contains("你想先打开哪一个？"))
+        app.buttons["close-text-selection"].tap()
+        let process = app.buttons["remote-process-toggle"]
+        if !process.isHittable { app.scrollViews["remote-conversation"].swipeDown() }
+        process.tap()
+        XCTAssertTrue(app.buttons["activity-step-reasoning2"].waitForExistence(timeout: 5))
+        capture(app, "remote-conversation-process")
+        app.buttons["activity-step-reasoning"].tap()
+        XCTAssertTrue(app.staticTexts["activity-reasoning"].label.contains("The user asks"))
+        app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
+        app.buttons["remote-conversation-options"].tap()
+        XCTAssertTrue(app.buttons["置顶对话"].waitForExistence(timeout: 3))
+    }
+
+    func testConversationKeyboardDismissesWithoutLosingDraft() {
+        control("conversation"); let app = launch(); status(app, "本轮任务已完成")
+        input(app).tap(); input(app).typeText("keep this draft")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        // The scroll view extends under the composer/keyboard. Drag on its
+        // visible reading surface, rather than its full accessibility frame.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.44)))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(input(app).value as? String, "keep this draft")
+        input(app).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.25)).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(input(app).value as? String, "keep this draft")
+        capture(app, "remote-conversation-draft")
+    }
+
     func testThinkingToolReplyCompletionAndDisclosure() {
         control("thinking"); let app = launch(); status(app, "正在思考")
         XCTAssertTrue(spinner(app).exists)
         // A ScrollView's offscreen pull-to-refresh spinner remains in the AX tree.
         XCTAssertEqual(app.activityIndicators.allElementsBoundByIndex.filter { !$0.frame.isEmpty && app.frame.contains($0.frame) && $0.isHittable }.count, 1)
-        app.buttons["remote-process-toggle"].tap(); XCTAssertTrue(app.buttons["remote-scroll-latest"].exists)
-        XCTAssertTrue(app.staticTexts["正在比较两个合成方案。"].exists); capture(app, "remote-thinking-expanded")
+        app.buttons["remote-process-toggle"].tap()
+        app.buttons["activity-step-reasoning"].tap()
+        XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 5)); capture(app, "remote-thinking-expanded")
+        app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
         control("tool"); status(app, "执行命令")
-        XCTAssertEqual(app.buttons["remote-process-toggle"].value as? String, "已展开"); capture(app, "remote-tool-active")
-        control("reply"); status(app, "正在回复"); capture(app, "remote-body-active")
+        app.buttons["remote-process-toggle"].tap(); capture(app, "remote-tool-active"); app.buttons["activity-close"].tap()
+        control("reply"); status(app, "正在回复")
+        XCTAssertFalse(app.buttons["remote-copy-reply"].exists)
+        capture(app, "remote-body-active")
         control("complete"); status(app, "本轮任务已完成")
         XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-stop"].exists)
         XCTAssertTrue(app.buttons["remote-copy-reply"].exists); capture(app, "remote-completed")

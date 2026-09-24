@@ -1,0 +1,17 @@
+{
+  "id": "741e5c49-6075-472a-97b0-bdfb3e442b1d",
+  "version": "0.2.2",
+  "build": "2026092101",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "修复手机聊天生成回复时偶发的闪动与跳动。\n改善长回复自动跟随末尾的稳定性，回看历史后仍可手动回到最新。\n改善代码块、标题和列表标记逐步输出时的显示，返回正在生成的对话时保留已有正文。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

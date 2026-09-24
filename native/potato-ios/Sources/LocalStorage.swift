@@ -13,7 +13,7 @@ struct LocalStorage {
     func load() throws -> SavedWorkspace? {
         guard FileManager.default.fileExists(atPath: stateURL.path) else { return nil }
         let saved = try JSONDecoder().decode(SavedWorkspace.self, from: Data(contentsOf: stateURL))
-        guard saved.version == 1 else { throw LocalFailure.message("本地记录来自更新版本，请先更新应用。") }
+        guard (1...2).contains(saved.version) else { throw LocalFailure.message(L10n.tr("本地记录来自更新版本，请先更新应用。")) }
         return saved
     }
     func save(_ workspace: SavedWorkspace) throws {
@@ -24,6 +24,7 @@ struct LocalStorage {
     func url(for attachment: Attachment) -> URL { root.appendingPathComponent("Attachments").appendingPathComponent(attachment.filename) }
     func pruneUnreferencedAttachments(in workspace: SavedWorkspace) throws {
         var referenced = Set<String>()
+        referenced.formUnion((workspace.library ?? []).map { $0.attachment.filename })
         for chat in workspace.conversations {
             referenced.formUnion(chat.pendingAttachments.map(\.filename))
             for message in chat.messages {
@@ -44,14 +45,14 @@ struct LocalStorage {
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
         let resources = try source.resourceValues(forKeys: [.fileSizeKey, .contentTypeKey, .isRegularFileKey])
-        guard resources.isRegularFile == true else { throw LocalFailure.message("请选择普通文件。") }
-        guard (resources.fileSize ?? Int.max) <= 10 * 1_024 * 1_024 else { throw LocalFailure.message("单个附件最多 10 MB，请选择较小的文件。") }
+        guard resources.isRegularFile == true else { throw LocalFailure.message(L10n.tr("请选择普通文件。")) }
+        guard (resources.fileSize ?? Int.max) <= 10 * 1_024 * 1_024 else { throw LocalFailure.message(L10n.tr("单个附件最多 10 MB，请选择较小的文件。")) }
         let data = try Data(contentsOf: source)
         return try importData(data, name: source.lastPathComponent, type: resources.contentType ?? .data)
     }
     func importData(_ data: Data, name: String, type: UTType) throws -> Attachment {
-        guard data.count <= 10 * 1_024 * 1_024 else { throw LocalFailure.message("单个附件最多 10 MB。") }
-        guard type.conforms(to: .image) || type.conforms(to: .text) || type == .pdf else { throw LocalFailure.message("支持图片、PDF 和文本文件。") }
+        guard data.count <= 10 * 1_024 * 1_024 else { throw LocalFailure.message(L10n.tr("单个附件最多 10 MB。")) }
+        guard type.conforms(to: .image) || type.conforms(to: .text) || type == .pdf else { throw LocalFailure.message(L10n.tr("支持图片、PDF 和文本文件。")) }
         var data = data, name = name, type = type
         if type.conforms(to: .image) {
             data = try ImageImport.jpeg(from: data); type = .jpeg
@@ -65,20 +66,20 @@ struct LocalStorage {
         if type == .pdf { attachment.extractedText = PDFDocument(data: data)?.string }
         if let text = attachment.extractedText, text.count > 60_000 {
             try? FileManager.default.removeItem(at: destination)
-            throw LocalFailure.message("\(name) 的文字超过 60,000 字，请拆分后导入。")
+            throw LocalFailure.message(L10n.tr("\(name) 的文字超过 60,000 字，请拆分后导入。"))
         }
         if !attachment.isImage && (attachment.extractedText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
             try? FileManager.default.removeItem(at: destination)
-            throw LocalFailure.message("无法提取 \(name) 的文字。扫描版 PDF 请先转换成文字或图片。")
+            throw LocalFailure.message(L10n.tr("无法提取 \(name) 的文字。扫描版 PDF 请先转换成文字或图片。"))
         }
         return attachment
     }
     func importArtifact(_ artifact: SandboxArtifact) throws -> Attachment {
         let suffix = URL(fileURLWithPath: artifact.name).pathExtension.lowercased()
-        guard ["png", "jpg", "jpeg", "pdf", "csv", "txt", "md", "docx", "xlsx"].contains(suffix),
+        guard ["png", "jpg", "jpeg", "pdf", "csv", "txt", "md", "docx", "xlsx", "pptx"].contains(suffix),
               artifact.name == URL(fileURLWithPath: artifact.name).lastPathComponent,
               let data = Data(base64Encoded: artifact.base64), data.count <= 2_000_000,
-              let type = UTType(filenameExtension: suffix) else { throw LocalFailure.message("计算产物格式或大小不支持。") }
+              let type = UTType(filenameExtension: suffix) else { throw LocalFailure.message(L10n.tr("计算产物格式或大小不支持。")) }
         let file = Attachment(name: artifact.name, filename: UUID().uuidString + "." + suffix, type: type.preferredMIMEType ?? "application/octet-stream", size: data.count)
         let destination = url(for: file)
         try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -108,8 +109,8 @@ enum SecureToken {
             status = SecItemAdd(insert as CFDictionary, nil)
         }
         guard status == errSecSuccess else {
-            if status == errSecMissingEntitlement { throw LocalFailure.message("当前应用缺少 Keychain 签名权限，请安装正确签名的构建。") }
-            throw LocalFailure.message("无法保存连接凭据（\(status)），请解锁设备后重试。")
+            if status == errSecMissingEntitlement { throw LocalFailure.message(L10n.tr("当前应用缺少 Keychain 签名权限，请安装正确签名的构建。")) }
+            throw LocalFailure.message(L10n.tr("无法保存连接凭据（\(status)），请解锁设备后重试。"))
         }
     }
 }

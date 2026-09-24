@@ -93,7 +93,7 @@ final class VoiceRecorder: VoiceCapture {
             #endif
             let allowed = await withCheckedContinuation { continuation in AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) } }
             guard identity == id, !Task.isCancelled else { return }
-            guard allowed else { throw LocalFailure.message("麦克风权限未开启，请在系统设置中允许访问。") }
+            guard allowed else { throw LocalFailure.message(L10n.tr("麦克风权限未开启，请在系统设置中允许访问。")) }
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.record, mode: .measurement, options: .duckOthers); try session.setActive(true)
             let node = engine.inputNode, format = node.outputFormat(forBus: 0)
@@ -186,7 +186,7 @@ final class VoiceRecorder: VoiceCapture {
         finalTimer?.cancel()
         finalTimer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(uploadPending ? 30 : 10))
-            if !Task.isCancelled { self?.fail(LocalFailure.message(uploadPending ? "语音上传超时，请重试。" : "等待最终转写超时。"), id: id) }
+            if !Task.isCancelled { self?.fail(LocalFailure.message(uploadPending ? L10n.tr("语音上传超时，请重试。") : L10n.tr("等待最终转写超时。")), id: id) }
         }
     }
     func cancel() {

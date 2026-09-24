@@ -1,0 +1,17 @@
+{
+  "id": "f79fbb0f-faeb-456b-809e-2a40b9172678",
+  "version": "0.2.2",
+  "build": "2026091702",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "代码阅读体验优化：\n• Python、Markdown、JSON、Shell 等常见语言新增语法高亮，支持浅色与暗色外观。\n• 移除代码块中的“运行 Python”按钮和手动运行中间页，保留复制。需要执行时，直接继续对话，让模型在沙箱中运行并返回结果。\n• 改善 Markdown 源码中嵌套代码块的展示，保留原始缩进和复制内容。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

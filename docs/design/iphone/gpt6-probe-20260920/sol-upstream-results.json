@@ -1,0 +1,56 @@
+[
+  {
+    "test": "upstream_catalog",
+    "http": 200,
+    "matching_models": [
+      "gpt-5.6",
+      "gpt-5.6-luna",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-6",
+      "gpt-6-astra"
+    ],
+    "iphone_curated_models": [
+      "gpt-5.6-sol",
+      "gpt-6"
+    ]
+  },
+  {
+    "test": "chat_stream",
+    "requested_model": "gpt-5.6-sol",
+    "setting": "default",
+    "http": 200,
+    "content_type": "text/event-stream",
+    "done": true,
+    "chunks": 1,
+    "returned_models": [
+      "gpt-5.6-sol"
+    ],
+    "answer": "323",
+    "correct": true,
+    "finish_reasons": [
+      "stop"
+    ],
+    "reasoning_chars": 0,
+    "elapsed_ms": 3176
+  },
+  {
+    "test": "chat_stream",
+    "requested_model": "gpt-5.6-sol",
+    "setting": "low",
+    "http": 200,
+    "content_type": "text/event-stream",
+    "done": true,
+    "chunks": 1,
+    "returned_models": [
+      "gpt-5.6-sol"
+    ],
+    "answer": "323",
+    "correct": true,
+    "finish_reasons": [
+      "stop"
+    ],
+    "reasoning_chars": 0,
+    "elapsed_ms": 1641
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "CFBundleIdentifier": "com.potato.iphone.prototype",
+  "CFBundleShortVersionString": "0.2.2",
+  "CFBundleVersion": "2026091701",
+  "UIDeviceFamily": [
+    1
+  ],
+  "MinimumOSVersion": "17.0",
+  "ITSAppUsesNonExemptEncryption": false,
+  "languages": {
+    "en": true,
+    "zh-Hans": true
+  },
+  "privacyManifest": true,
+  "executableSHA256": "8aac68ddc6628b3523844992ede790a85142725eb3bd9cffba3e6d78263506d6"
+}

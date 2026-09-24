@@ -1,0 +1,17 @@
+{
+  "id": "8f689613-fde0-4435-816f-9f2cd4176e6d",
+  "version": "0.2.2",
+  "build": "2026091607",
+  "processingState": "VALID",
+  "expired": false,
+  "internalBuildState": "IN_BETA_TESTING",
+  "inGroup": true,
+  "notes": [
+    {
+      "locale": "zh-Hans",
+      "whatsNew": "优化回复流畅度：云端持续推送新内容，减少等待后一块块出现的情况；文字平滑显示，较长内容自动加速追赶。\n降低重复保存和 Markdown 解析开销，滚动跟随可见文字。保留断线续接、停止生成和退出后恢复，兼容中文与组合 emoji。"
+    }
+  ],
+  "testing": true,
+  "notesVerified": true
+}

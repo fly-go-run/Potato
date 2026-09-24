@@ -1,0 +1,11 @@
+{
+  "CFBundleIdentifier": "com.potato.iphone.prototype",
+  "CFBundleShortVersionString": "0.2.2",
+  "CFBundleVersion": "2026092001",
+  "UIDeviceFamily": [
+    1
+  ],
+  "ITSAppUsesNonExemptEncryption": false,
+  "privacyManifest": true,
+  "sourceHashesVerified": true
+}

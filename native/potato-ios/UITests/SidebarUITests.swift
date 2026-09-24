@@ -59,6 +59,51 @@ final class SidebarUITests: XCTestCase {
         XCTAssertEqual(input.value as? String, "Keep this unsent draft")
         capture(app, "sidebar-local-draft-preserved")
     }
+    func testWelcomeTapDismissesKeyboardAndKeepsEditingDraft() {
+        let app = launch(remote: false)
+        app.buttons["new-chat"].tap()
+        let input = app.textViews["composer-input"]
+        input.tap(); input.typeText("Keep this draft")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        // Blank space away from the welcome title and the input controls.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.25)).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+        XCTAssertEqual(input.value as? String, "Keep this draft")
+        input.tap(); input.typeText("!")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        let edited = input.value as? String ?? ""
+        XCTAssertTrue(edited.contains("!"))
+        XCTAssertEqual(edited.replacingOccurrences(of: "!", with: ""), "Keep this draft")
+    }
+    func testWelcomeVerticalDragsDismissKeyboardInBothDirections() {
+        let app = launch(remote: false)
+        app.buttons["new-chat"].tap()
+        let input = app.textViews["composer-input"]
+        input.tap(); input.typeText("Unsent draft")
+        for endY in [0.20, 0.45] {
+            input.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+            drag(app, from: CGVector(dx: 0.5, dy: 0.32), to: CGVector(dx: 0.5, dy: endY))
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+            XCTAssertFalse(app.buttons["close-sidebar"].exists)
+            XCTAssertEqual(input.value as? String, "Unsent draft")
+        }
+    }
+    func testConversationTapAndDragDismissKeyboardWithoutLosingDraft() {
+        let app = launch(remote: false, extra: ["--sidebar-long-chat-preview"])
+        let input = app.textViews["composer-input"]
+        input.tap(); input.typeText("Follow-up draft")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.25)).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+        input.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        drag(app, from: CGVector(dx: 0.5, dy: 0.25), to: CGVector(dx: 0.5, dy: 0.45))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+        XCTAssertEqual(input.value as? String, "Follow-up draft")
+        XCTAssertFalse(app.buttons["close-sidebar"].exists)
+        XCTAssertTrue(app.buttons["scroll-latest"].waitForExistence(timeout: 3))
+    }
     func testSidebarSearchKeyboardDismissesOnClose() {
         let app = launch()
         app.buttons["remote-sidebar"].tap(); app.buttons["搜索会话"].tap()
@@ -132,7 +177,7 @@ final class SidebarUITests: XCTestCase {
         XCTAssertTrue(project.exists); project.tap()
         app.buttons["在此项目新建任务"].tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "remote-prompt").firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.navigationBars["新远程任务"].buttons.firstMatch.isHittable)
+        XCTAssertTrue(app.navigationBars["新对话"].buttons.firstMatch.isHittable)
         capture(app, "remote-task-native-back-entry")
         drag(app, from: CGVector(dx: 0.015, dy: 0.5), to: CGVector(dx: 0.88, dy: 0.5))
         XCTAssertTrue(app.buttons["在此项目新建任务"].waitForExistence(timeout: 3))

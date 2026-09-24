@@ -1,0 +1,15 @@
+{
+  "version": "0a601f87-f1b3-4a0c-a0dc-365aef1ac97a",
+  "previousVersion": "1475115f-7a87-414f-b90c-0ea611047332",
+  "worker": "potato-iphone-api",
+  "urls": [
+    "https://potato-iphone-api.pal-xu.workers.dev",
+    "https://potato-remote.recodex.top"
+  ],
+  "keepVars": true,
+  "secretsChanged": false,
+  "newDurableObject": "ChatJob",
+  "migration": "chat-job-v1",
+  "configurationChange": "Remove unsupported custom CPU limit; keep free-plan default",
+  "deploymentLog": "/tmp/potato-release-2026091604-worker-deploy.log"
+}

@@ -1,0 +1,7 @@
+[
+  "native/potato-ios/PotatoMobile.xcodeproj/project.pbxproj",
+  "native/potato-ios/Sources/ComposerTextInput.swift",
+  "native/potato-ios/Sources/RemoteView.swift",
+  "native/potato-ios/Sources/WorkspaceView.swift",
+  "native/potato-ios/project.yml"
+]

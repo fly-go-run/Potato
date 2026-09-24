@@ -29,20 +29,20 @@ enum ImageImport {
     }
 
     static func jpeg(from data: Data, maxBytes: Int = 600_000) throws -> Data {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { throw LocalFailure.message("照片无法读取，请重新选择。") }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { throw LocalFailure.message(L10n.tr("照片无法读取，请重新选择。")) }
         for dimension in [1600, 1280, 960, 640, 480, 320] {
           guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceThumbnailMaxPixelSize: dimension,
                 kCGImageSourceShouldCacheImmediately: true
-              ] as CFDictionary) else { throw LocalFailure.message("照片无法读取，请重新选择。") }
+              ] as CFDictionary) else { throw LocalFailure.message(L10n.tr("照片无法读取，请重新选择。")) }
         let result = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(result, UTType.jpeg.identifier as CFString, 1, nil) else { throw LocalFailure.message("照片无法转换。") }
+        guard let destination = CGImageDestinationCreateWithData(result, UTType.jpeg.identifier as CFString, 1, nil) else { throw LocalFailure.message(L10n.tr("照片无法转换。")) }
         CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.75] as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else { throw LocalFailure.message("照片转换失败。") }
+        guard CGImageDestinationFinalize(destination) else { throw LocalFailure.message(L10n.tr("照片转换失败。")) }
           if result.length <= maxBytes { return result as Data }
         }
-        throw LocalFailure.message("图片无法压缩到发送限制内，请裁剪后重试。")
+        throw LocalFailure.message(L10n.tr("图片无法压缩到发送限制内，请裁剪后重试。"))
     }
 }

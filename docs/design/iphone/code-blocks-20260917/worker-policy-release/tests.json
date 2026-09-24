@@ -1,0 +1,9 @@
+{
+  "unitTests": 91,
+  "passed": 91,
+  "failed": 0,
+  "typecheck": "passed",
+  "dryRun": "passed",
+  "log": "/tmp/potato-policy-release-tests.log",
+  "source": "Isolated deployed baseline with code-tool.ts and search-chat.ts prompt changes only"
+}

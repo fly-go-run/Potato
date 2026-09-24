@@ -127,7 +127,7 @@ final class RemoteUITests: XCTestCase {
         app.buttons["remote-review-pending"].tap()
         let finish = app.buttons["remote-archive-unconfirmed"]
         XCTAssertTrue(finish.waitForExistence(timeout: 5)); XCTAssertFalse(finish.isEnabled)
-        let operation = app.staticTexts["remote-unconfirmed-id"].label
+        let operation = (app.staticTexts["remote-unconfirmed-text"].value as? String)
         app.buttons["取消"].tap()
         XCTAssertTrue(app.buttons["重试确认发送结果"].exists)
         app.buttons["remote-review-pending"].tap()
@@ -145,7 +145,7 @@ final class RemoteUITests: XCTestCase {
         XCTAssertFalse((input.value as? String ?? "").contains("fixture-uncertain"))
         app.terminate(); app = launchDraftFixture(reset: false); input = openDraft(app)
         app.buttons["remote-unconfirmed-records"].tap()
-        XCTAssertEqual(app.staticTexts["remote-unconfirmed-id"].label, operation)
+        XCTAssertEqual((app.staticTexts["remote-unconfirmed-text"].value as? String), operation)
         XCTAssertEqual(app.staticTexts["remote-unconfirmed-text"].label, "fixture-uncertain")
         capture(app, "draft-unconfirmed-record-after-relaunch")
         app.buttons["关闭"].tap(); backToRemoteHome(app)
@@ -223,7 +223,7 @@ final class RemoteUITests: XCTestCase {
         XCTAssertTrue(app.buttons["history"].waitForExistence(timeout: 10)); app.buttons["history"].tap(); app.buttons["sidebar-remote"].tap()
         if account && !reuse {
             app.buttons["remote-sign-in"].tap()
-            app.buttons["继续使用 Cloudflare"].tap()
+            app.buttons["继续登录"].tap()
             // A human/browser verifies the displayed code using the real IdP.
             app.activate()
             XCTAssertTrue(app.buttons["我已登录，刷新"].waitForExistence(timeout: 15))
@@ -299,12 +299,13 @@ final class RemoteUITests: XCTestCase {
                 let reasoning = app.staticTexts["我先查看项目目录，再读取配置文件，最后整理检查结果。"]
                 XCTAssertFalse(reasoning.exists)
                 app.buttons["remote-process-toggle"].tap()
-                XCTAssertTrue(reasoning.waitForExistence(timeout: 3))
-                XCTAssertTrue(app.staticTexts["读取文件"].exists)
-                app.buttons["查看详情"].firstMatch.tap()
-                RunLoop.current.run(until: Date().addingTimeInterval(1))
-                capture(app, "04-remote-reply-tool-expanded")
-                app.buttons["remote-process-toggle"].tap()
+                let reasoningStep = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "activity-step-", "思考")).firstMatch
+                XCTAssertTrue(reasoningStep.waitForExistence(timeout: 3)); reasoningStep.tap()
+                XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 3))
+                app.buttons["activity-back"].tap()
+                let tool = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "activity-step-", "读取文件")).firstMatch
+                tool.tap(); capture(app, "04-remote-reply-tool-detail")
+                app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
                 XCTAssertFalse(reasoning.exists)
             }
             if name == "01-remote-reply-text" {
@@ -313,12 +314,14 @@ final class RemoteUITests: XCTestCase {
                 XCTAssertGreaterThan(bubble.frame.midX, app.frame.midX)
                 app.buttons["remote-copy-reply"].tap()
                 XCTAssertEqual(app.buttons["remote-copy-reply"].label, "已复制回复")
+                app.buttons["remote-reply-more"].tap()
                 app.buttons["remote-select-reply"].tap()
                 let selection = app.textViews["selectable-reply"]
                 XCTAssertTrue(selection.waitForExistence(timeout: 3))
                 XCTAssertTrue((selection.value as? String ?? "").contains(marker))
                 capture(app, "05-remote-reply-selection")
                 app.buttons["close-text-selection"].tap()
+                app.buttons["remote-reply-more"].tap()
                 app.buttons["remote-share-reply"].tap()
                 XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: 5) || app.buttons["拷贝"].exists)
                 capture(app, "06-remote-reply-share")
@@ -326,4 +329,76 @@ final class RemoteUITests: XCTestCase {
         }
     }
 
+}
+
+final class RemoteDirectoryUITests: XCTestCase {
+    private func launch(reset: Bool, flags: [String] = []) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--remote-preview", "--remote-directory-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"] + flags
+        if reset { app.launchArguments.append("--reset") }
+        app.launch()
+        XCTAssertTrue(app.buttons["remote-sidebar"].waitForExistence(timeout: 10))
+        return app
+    }
+    private func capture(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+    private func waitOnline(_ app: XCUIApplication) {
+        let chip = app.buttons["remote-device-directory-mac"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "在线"), object: chip)], timeout: 15), .completed)
+        XCTAssertTrue(app.buttons["remote-chat-directory-mac-cached-chat-1"].waitForExistence(timeout: 5))
+    }
+    func testColdLoadNeverShowsSetupOrFalseOffline() {
+        let app = launch(reset: true, flags: ["--remote-directory-slow"])
+        XCTAssertTrue(app.descendants(matching: .any)["remote-directory-loading"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["remote-pair-empty"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "离线")).firstMatch.exists)
+        XCTAssertFalse(app.buttons["remote-new-task"].isEnabled)
+        capture(app, "01-first-load")
+        waitOnline(app)
+        XCTAssertFalse(app.buttons["remote-pair-empty"].exists)
+        capture(app, "02-connected-list")
+    }
+    func testRelaunchShowsCachedListBeforeGreenStatusWithoutLayoutJump() {
+        var app = launch(reset: true); waitOnline(app); app.terminate()
+        app = launch(reset: false, flags: ["--remote-directory-slow"])
+        let row = app.buttons["remote-chat-directory-mac-cached-chat-1"], chip = app.buttons["remote-device-directory-mac"]
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        XCTAssertNotEqual(chip.value as? String, "在线")
+        XCTAssertNotEqual(chip.value as? String, "离线")
+        XCTAssertFalse(app.staticTexts["remote-directory-status"].exists)
+        XCTAssertFalse(app.staticTexts["正在更新…"].exists)
+        XCTAssertFalse(app.buttons["remote-new-task"].isEnabled)
+        XCTAssertFalse(app.buttons["remote-pair-empty"].exists)
+        let origin = row.frame.minY
+        capture(app, "03-relaunch-cached-connecting")
+        waitOnline(app)
+        XCTAssertEqual(row.frame.minY, origin, accuracy: 1)
+        XCTAssertTrue(app.buttons["remote-new-task"].isEnabled)
+        capture(app, "04-relaunch-connected")
+        app.textFields["remote-search"].tap(); app.textFields["remote-search"].typeText("桌面")
+        XCTAssertTrue(row.exists); XCTAssertFalse(app.buttons["remote-chat-directory-mac-cached-chat-2"].exists)
+    }
+    func testOfflineAndNetworkFailureKeepCachedSessions() {
+        var app = launch(reset: true); waitOnline(app); app.terminate()
+        app = launch(reset: false, flags: ["--remote-directory-offline"])
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "离线"), object: app.buttons["remote-device-directory-mac"])], timeout: 8), .completed)
+        XCTAssertTrue(app.buttons["remote-chat-directory-mac-cached-chat-1"].exists)
+        XCTAssertFalse(app.buttons["remote-new-task"].isEnabled)
+        XCTAssertFalse(app.buttons["remote-pair-empty"].exists)
+        capture(app, "05-offline-keeps-list")
+        app.terminate(); app = launch(reset: false, flags: ["--remote-directory-failure"])
+        XCTAssertTrue(app.buttons["remote-chat-directory-mac-cached-chat-1"].waitForExistence(timeout: 3))
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "连接未确认"), object: app.buttons["remote-device-directory-mac"])], timeout: 8), .completed)
+        XCTAssertFalse(app.buttons["remote-pair-empty"].exists)
+        capture(app, "06-network-error-keeps-list")
+    }
+    func testSetupAppearsOnlyAfterConfirmedEmptyDirectory() {
+        let app = launch(reset: true, flags: ["--remote-directory-slow", "--remote-directory-empty"])
+        XCTAssertFalse(app.buttons["remote-pair-empty"].exists)
+        XCTAssertTrue(app.buttons["remote-pair-empty"].waitForExistence(timeout: 12))
+        XCTAssertFalse(app.descendants(matching: .any)["remote-directory-loading"].exists)
+        capture(app, "07-confirmed-empty")
+    }
 }

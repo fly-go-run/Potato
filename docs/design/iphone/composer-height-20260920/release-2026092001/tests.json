@@ -1,0 +1,24 @@
+{
+  "unitTests": {
+    "passed": 196,
+    "failed": 0,
+    "resultBundle": "/tmp/potato-release-2026092001-tests.xcresult"
+  },
+  "uiTests": {
+    "passed": 4,
+    "failed": 0,
+    "resultBundle": "/tmp/potato-composer-height-20260920.xcresult",
+    "coverage": [
+      "keyboard and new chat controls",
+      "long input shrink",
+      "local whitespace focus and controls",
+      "remote whitespace focus and controls"
+    ]
+  },
+  "screenshotsReviewed": [
+    "../welcome.png",
+    "../keyboard.png",
+    "../remote-keyboard.png"
+  ],
+  "physicalDeviceVerification": false
+}

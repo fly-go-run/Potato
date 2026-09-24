@@ -17,19 +17,20 @@ extension ConnectionSettings {
 }
 extension WorkspaceStore {
     func connectCloud(_ account: RemoteAccountProfile, configuration: URLSessionConfiguration = .ephemeral) async throws {
-        guard let endpoint = account.cloudEndpoint else { throw LocalFailure.message("云端服务地址无效。") }
+        guard let endpoint = account.cloudEndpoint else { throw LocalFailure.message(L10n.tr("云端账号配置无效，请重新登录。")) }
         let previous = settings
         var next = settings
         next.cloudAccount = account; next.endpoint = endpoint.absoluteString; next.modelCatalog = nil
         let credential = next.connectionToken
-        guard !credential.isEmpty else { throw LocalFailure.message("请先登录 Cloudflare。") }
+        guard !credential.isEmpty else { throw LocalFailure.message(L10n.tr("请先登录 Potato 账号。")) }
         let catalog = try await LocalModelService.catalog(settings: next, token: credential, configuration: configuration)
         try Task.checkCancellation()
-        guard settings == previous, credential == next.connectionToken else { throw LocalFailure.message("连接已改变，请重新连接云端模型。") }
-        guard let model = catalog.models.first(where: { $0.id == catalog.defaultModel }) ?? catalog.models.first else { throw LocalFailure.message("账号已登录，云端尚未配置可用模型。") }
+        guard settings == previous, credential == next.connectionToken else { throw LocalFailure.message(L10n.tr("连接已改变，请重新连接云端模型。")) }
+        guard let model = catalog.models.first(where: { $0.id == catalog.defaultModel }) ?? catalog.models.first else { throw LocalFailure.message(L10n.tr("账号已登录，云端尚未配置可用模型。")) }
         next.modelCatalog = catalog; next.model = model.id; next.demo = false
         settings = next
         installLocalModelCatalog(catalog)
+        authorizationExpired = false
         // A conversation's explicit choice is retained only if still part of this service.
         for i in conversations.indices {
             if let choice = conversations[i].modelChoice,
@@ -55,15 +56,17 @@ struct CloudAccountView: View {
         NavigationStack {
             Form {
                 Section {
-                    Label("Cloudflare 账号", systemImage: "person.crop.circle").font(.headline)
-                    Text("登录获准的账号后，自动加载云端模型。模型密钥保存在服务器，电脑无需在线。").font(.subheadline).foregroundStyle(Palette.secondary)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Image("PotatoMark").resizable().frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 13)).accessibilityHidden(true)
+                        Text(L10n.tr("登录 Potato")).font(.title2.weight(.semibold))
+                    }.padding(.vertical, 6)
                 }
                 if let account = remote.profile {
                     Section {
                         Text(account.email).textSelection(.enabled)
-                        Button { connect(account) } label: { HStack { if connecting { ProgressView() }; Text("使用此账号的云端模型") } }
+                        Button { connect(account) } label: { HStack { if connecting { ProgressView() }; Text(L10n.tr("使用此账号继续")) } }
                             .disabled(connecting).accessibilityIdentifier("cloud-connect-account")
-                        Button("退出 Cloudflare", role: .destructive) {
+                        Button(L10n.tr("退出登录"), role: .destructive) {
                             Task {
                                 await remote.logout()
                                 if remote.profile == nil { store.settings.modelCatalog = nil; store.persist() }
@@ -71,12 +74,12 @@ struct CloudAccountView: View {
                         }.disabled(connecting)
                     }
                 } else if let login = remote.login {
-                    Section("核对登录验证码") {
+                    Section(L10n.tr("核对登录验证码")) {
                         Text(login.code).font(.title.monospaced()).textSelection(.enabled)
-                        Text("在浏览器中完成登录，核对验证码并确认，然后返回 Potato。")
-                        Button("打开登录页面") { UIApplication.shared.open(login.verification_url) }
-                        Button("我已登录，刷新") { Task { await finishLogin() } }
-                        Button("重新开始") { remote.cancelLogin() }
+                        Text(L10n.tr("在浏览器中确认验证码一致后返回。"))
+                        Button(L10n.tr("打开登录页面")) { UIApplication.shared.open(login.verification_url) }
+                        Button(L10n.tr("我已登录，刷新")) { Task { await finishLogin() } }
+                        Button(L10n.tr("重新开始")) { remote.cancelLogin() }
                     }
                 } else {
                     Section {
@@ -85,14 +88,14 @@ struct CloudAccountView: View {
                                 issue = nil
                                 if let url = await remote.beginLogin(relay: store.settings.cloudAccount?.relay.absoluteString ?? defaultRelay) { await UIApplication.shared.open(url) }
                             }
-                        } label: { HStack { if remote.signingIn { ProgressView() }; Text("继续使用 Cloudflare") } }
+                        } label: { HStack { if remote.signingIn { ProgressView() }; Text(L10n.tr("在浏览器中登录")).fontWeight(.semibold) } }
                             .disabled(remote.signingIn).accessibilityIdentifier("cloud-sign-in")
                     }
                 }
                 if let issue = issue ?? remote.error { Section { Text(issue).foregroundStyle(.red).accessibilityIdentifier("cloud-connection-error") } }
-                Section { Text("仅限所有者授权的邮箱。登录不会自动开启电脑远程访问，对话与附件仍保存在 iPhone。").font(.footnote).foregroundStyle(Palette.secondary) }
-            }.navigationTitle("云端模型").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("完成") { dismiss() }.disabled(connecting || remote.signingIn) } }
+                Section { Text(L10n.tr("目前仅限受邀邮箱。")).font(.footnote).foregroundStyle(Palette.secondary) }
+            }.navigationTitle(L10n.tr("Potato 账号")).navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("完成")) { dismiss() }.disabled(connecting || remote.signingIn) } }
         }
         .task(id: phase == .active && remote.login != nil) {
             while phase == .active && remote.login != nil && !Task.isCancelled {

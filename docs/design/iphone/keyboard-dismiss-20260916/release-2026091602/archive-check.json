@@ -1,0 +1,13 @@
+{
+  "CFBundleIdentifier": "com.potato.iphone.prototype",
+  "CFBundleShortVersionString": "0.2.2",
+  "CFBundleVersion": "2026091602",
+  "UIDeviceFamily": [
+    1
+  ],
+  "MinimumOSVersion": "17.0",
+  "ITSAppUsesNonExemptEncryption": false,
+  "DTSDKName": "iphoneos26.2",
+  "privacyManifest": true,
+  "sourceManifestMatches": true
+}

@@ -1,17 +1,20 @@
 import Foundation
 
 struct Attachment: Identifiable, Codable, Equatable {
+    static let maximumPerMessage = 20
     var id = UUID()
     var name: String
     var filename: String
     var type: String
     var size: Int
     var extractedText: String?
+    var libraryID: UUID? = nil
     var isImage: Bool { type.hasPrefix("image/") }
 }
 
 enum MessageState: String, Codable { case complete, streaming, stopped, failed }
 struct ReplyVersion: Identifiable, Codable, Equatable {
+    var activityOrder: [String]? = nil
     var modelChoice: LocalModelChoice? = nil
     var reasoning: ReasoningTrace? = nil
     var recalls: [RecallRun]? = nil
@@ -26,6 +29,8 @@ struct ReplyVersion: Identifiable, Codable, Equatable {
     var date = Date()
 }
 struct ChatMessage: Identifiable, Codable, Equatable {
+    var cloudReply: CloudReply? = nil
+    var activityOrder: [String]? = nil
     var modelChoice: LocalModelChoice? = nil
     var displayModelChoice: LocalModelChoice? { if let selectedVersion { return selectedVersion.modelChoice }; return modelChoice }
     var reasoning: ReasoningTrace? = nil
@@ -56,10 +61,12 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     var createdAt = Date()
 }
 struct Conversation: Identifiable, Codable {
+    /// True while the title was derived by Potato; a rename by the person turns it off.
+    var automaticTitle: Bool? = nil
     var recallExcluded: Bool? = nil
     var modelChoice: LocalModelChoice? = nil
     var id = UUID()
-    var title = "新对话"
+    var title = L10n.tr("新对话")
     var messages: [ChatMessage] = []
     var draft: WorkingDraft?
     var input = ""
@@ -78,7 +85,25 @@ struct Conversation: Identifiable, Codable {
         return value
     }
 }
+enum AppAppearance: String, Codable, CaseIterable {
+    case light, dark, automatic
+    var title: String {
+        switch self { case .light: L10n.tr("亮色"); case .dark: L10n.tr("暗色"); case .automatic: L10n.tr("自动") }
+    }
+}
+
 struct ConnectionSettings: Codable, Equatable {
+    var language: AppLanguage? = nil
+    var languageMode: AppLanguage {
+        get { language ?? .system }
+        set { language = newValue }
+    }
+    // Optional on disk so workspaces saved before appearance selection still decode.
+    var appearance: AppAppearance? = nil
+    var appearanceMode: AppAppearance {
+        get { appearance ?? .automatic }
+        set { appearance = newValue }
+    }
     var recallEnabled: Bool? = nil
     var automaticMemory: Bool? = nil
     var cloudAccount: RemoteAccountProfile? = nil
@@ -90,7 +115,16 @@ struct ConnectionSettings: Codable, Equatable {
         modelEntry(model).name
     }
     var haptics = true
-    var systemPrompt = "你是 Potato，一位清晰、周到的中文助手。使用 Markdown，回答简洁且有帮助。"
+    /// Developer-only connection controls (manual endpoint, sample replies) are hidden until unlocked.
+    var developerMode: Bool? = nil
+    /// Written by the person in Settings; appended to the base instructions on every request.
+    var customInstructions: String? = nil
+    static let defaultSystemPrompt = "你是 Potato，一位清晰、周到的中文助手。使用 Markdown，回答简洁且有帮助。"
+    var systemPrompt = ConnectionSettings.defaultSystemPrompt
+    var requestInstructions: String {
+        let extra = customInstructions?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return extra.isEmpty ? systemPrompt : systemPrompt + "\n\n用户希望你注意：\n" + extra
+    }
     var validatedURL: URL? {
         guard let url = URL(string: endpoint.trimmingCharacters(in: .whitespacesAndNewlines)),
               url.scheme == "https", let host = url.host, !host.isEmpty,
@@ -99,8 +133,9 @@ struct ConnectionSettings: Codable, Equatable {
     }
 }
 struct SavedWorkspace: Codable {
-    var version = 1
+    var version = 2
     var conversations: [Conversation]
     var selectedID: UUID
     var settings = ConnectionSettings()
+    var library: [LibraryItem]? = nil
 }

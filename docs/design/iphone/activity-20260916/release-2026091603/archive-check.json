@@ -1,0 +1,11 @@
+{
+  "version": "0.2.2",
+  "build": "2026091603",
+  "bundleId": "com.potato.iphone.prototype",
+  "deviceFamily": [
+    1
+  ],
+  "debugActivityFixtureAbsent": true,
+  "executableSha256": "d92eac323cb4d36278626c25c8bf34acff2724eebc469d65d94df6c75c22c81f",
+  "privacyManifest": true
+}

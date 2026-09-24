@@ -32,7 +32,20 @@ def snapshot(mode, run_id='fixture-run', stop_protocol=1):
         if mode == 'complete': messages += [message('answer', 'message', '远程任务已完成，内容仍可阅读。')]
         outcome = {'status': 'completed' if mode == 'complete' else mode}
         if mode == 'failed': outcome['error'] = {'message': '合成任务失败'}
-    running = mode not in ('complete', 'cancelled', 'failed')
+    elif mode == 'conversation':
+        messages = [
+            message('user', 'message', '看下桌面上的软件', role='user'),
+            message('reasoning', 'reasoning', 'The user asks to inspect applications on the desktop.'),
+            message('intro', 'message', '我来看看桌面上的内容。'),
+            message('call1', 'function_call', 'list_directory\n{"path":"~/Desktop"}'),
+            message('output1', 'function_call_output', 'synthetic desktop entries', role='tool'),
+            message('reasoning2', 'reasoning', 'Checking the application folders in this synthetic example.'),
+            message('progress', 'message', '桌面上有几个应用快捷方式，我再确认一下名称。'),
+            message('call2', 'function_call', 'read_file\n{"path":"/tmp/example.txt"}'),
+            message('answer', 'message', '桌面上的软件整理好了：\n\n- **Potato**：对话与远程任务\n- **浏览器**：网页浏览\n- **备忘录**：记录日常事项\n\n你想先打开哪一个？'),
+        ]
+        outcome = {'status': 'completed'}
+    running = mode not in ('complete', 'cancelled', 'failed', 'conversation')
     return {'chat': chat, 'status': 'running' if running else 'idle', 'running_request_id': run_id if running else None, 'stop_protocol': stop_protocol,
             'messages': messages, 'live': [], 'approval_scope_protocol': 1, 'approvals': approvals, 'questions': questions, 'outcome': outcome}
 
@@ -40,7 +53,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', '0'))))
         if self.path == '/fixture/control':
-            assert body.get('mode', 'thinking') in ('thinking', 'tool', 'reply', 'approval', 'question', 'complete', 'cancelled', 'failed', 'offline')
+            assert body.get('mode', 'thinking') in ('thinking', 'tool', 'reply', 'approval', 'question', 'complete', 'cancelled', 'failed', 'offline', 'conversation')
             with lock:
                 state.update(mode=body.get('mode', 'thinking'), delay=min(float(body.get('delay', 0)), 15), overview_delay=min(float(body.get('overview_delay', 0)), 15), run_id=body.get('run_id', 'fixture-run'), stop_protocol=body.get('stop_protocol', 1))
             return self.reply(200, {'ok': True})

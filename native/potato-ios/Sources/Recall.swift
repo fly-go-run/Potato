@@ -47,7 +47,7 @@ struct RecallPayload: Encodable {
     func content() throws -> String {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let data = try encoder.encode(self)
-        guard data.count <= 512_000, messages.count <= 2000 else { throw LocalFailure.message("“\(title)”超过历史同步上限（512 KB / 2000 条消息），请排除此对话后重试。") }
+        guard data.count <= 512_000, messages.count <= 2000 else { throw LocalFailure.message(L10n.tr("“\(title)”超过历史同步上限（512 KB / 2000 条消息），请排除此对话后重试。")) }
         return String(decoding: data, as: UTF8.self)
     }
 }
@@ -60,7 +60,7 @@ struct RecallService {
     var configuration: URLSessionConfiguration = .ephemeral
     static func digest(_ value: String) -> String { SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined() }
     func request(_ action: String, body: [String: Any]? = nil) throws -> URLRequest {
-        guard let endpoint = settings.validatedURL, endpoint.path.hasSuffix("/chat/completions"), !token.isEmpty else { throw LocalFailure.message("请先连接 Potato 服务，再开启记忆与历史。") }
+        guard let endpoint = settings.validatedURL, endpoint.path.hasSuffix("/chat/completions"), !token.isEmpty else { throw LocalFailure.message(L10n.tr("登录 Potato 账号后才能使用记忆与历史。")) }
         let url = endpoint.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("recall").appendingPathComponent(action)
         var request = URLRequest(url: url); request.httpMethod = body == nil ? "GET" : "POST"; request.timeoutInterval = 45
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -73,12 +73,12 @@ struct RecallService {
         defer { session.invalidateAndCancel() }
         let (data, response) = try await session.data(for: request)
         try Task.checkCancellation()
-        guard let http = response as? HTTPURLResponse else { throw LocalFailure.message("历史服务没有响应。") }
+        guard let http = response as? HTTPURLResponse else { throw LocalFailure.message(L10n.tr("历史服务没有响应。")) }
         guard (200...299).contains(http.statusCode) else {
-            let errors = [401: "登录已失效，请重新登录后同步历史。", 409: "云端记录已改变，为避免覆盖，已停止同步。请保留本地记录并检查其他设备。", 429: "历史请求过于频繁，请稍后重试。", 503: "服务端尚未配置历史存储或 E2B。", 507: "历史或记忆容量已达上限。"]
-            throw LocalFailure.message(errors[http.statusCode] ?? "历史操作失败（\(http.statusCode)）。")
+            let errors = [401: L10n.tr("登录已失效，请重新登录后同步历史。"), 409: L10n.tr("云端记录已改变，为避免覆盖，已停止同步。请保留本地记录并检查其他设备。"), 429: L10n.tr("历史请求过于频繁，请稍后重试。"), 503: L10n.tr("云端历史暂不可用，请稍后再试。"), 507: L10n.tr("历史或记忆容量已达上限。")]
+            throw LocalFailure.message(errors[http.statusCode] ?? L10n.tr("历史操作失败（\(http.statusCode)）。"))
         }
-        guard data.count <= 1_100_000 else { throw LocalFailure.message("历史服务返回内容过大。") }
+        guard data.count <= 1_100_000 else { throw LocalFailure.message(L10n.tr("历史服务返回内容过大。")) }
         return data
     }
     func status() async throws -> RecallStatus { try await JSONDecoder().decode(RecallStatus.self, from: send(request("status"))) }

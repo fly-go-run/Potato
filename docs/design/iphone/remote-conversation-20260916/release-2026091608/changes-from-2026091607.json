@@ -1,0 +1,7 @@
+[
+  "native/potato-ios/Sources/RemoteMessageView.swift",
+  "native/potato-ios/Sources/RemoteView.swift",
+  "native/potato-ios/Tests/RemotePresentationTests.swift",
+  "native/potato-ios/UITests/RemoteProcessUITests.swift",
+  "native/potato-ios/UITests/RemoteUITests.swift"
+]

@@ -1,0 +1,7 @@
+{
+  "base_version": "1a91e9e5-9a5f-4659-9cc4-01e2f9925eb2",
+  "original_sha256": "ed504893179939c6a7de55036682be052f8d0f3267c38f6ee41b096afabe6978",
+  "patched_sha256": "2fc465ed4b3b08914529eb2101e70c2d847dcda245c2ee3d54e2212ad4c6a653",
+  "change": "Only validate() replaced from current TypeScript source. Prefix and suffix exactly unchanged.",
+  "vars_preserved": true
+}

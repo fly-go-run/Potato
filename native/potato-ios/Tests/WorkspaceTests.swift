@@ -1,9 +1,45 @@
 import XCTest
+import UIKit
 @testable import PotatoMobile
 import UniformTypeIdentifiers
 
 @MainActor final class WorkspaceTests: XCTestCase {
     func storage() -> LocalStorage { LocalStorage(root: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)) }
+    func testAppearanceMigrationAndPersistence() throws {
+        let legacy = Data(#"{"demo":true,"endpoint":"","model":"","haptics":true,"systemPrompt":"test"}"#.utf8)
+        let decoded = try JSONDecoder().decode(ConnectionSettings.self, from: legacy)
+        XCTAssertEqual(decoded.appearanceMode, .automatic)
+        XCTAssertEqual(decoded.appearanceMode.interfaceStyle, .unspecified)
+        let disk = storage(), store = WorkspaceStore(storage: disk)
+        for mode in AppAppearance.allCases {
+            store.settings.appearanceMode = mode
+            store.persist()
+            XCTAssertEqual(WorkspaceStore(storage: disk).settings.appearanceMode, mode)
+        }
+    }
+
+    func testAppearanceColorsMaintainReadableContrast() {
+        func luminance(_ color: UIColor) -> Double {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            func linear(_ value: CGFloat) -> Double {
+                let v = Double(value)
+                return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+            }
+            return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+        }
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            for (foreground, background) in [(Palette.ink, Palette.canvas), (Palette.secondary, Palette.canvas),
+                                             (Palette.ink, Palette.surface), (Palette.secondary, Palette.surface),
+                                             (Palette.onInk, Palette.ink)] {
+                let a = luminance(UIColor(foreground).resolvedColor(with: traits))
+                let b = luminance(UIColor(background).resolvedColor(with: traits))
+                XCTAssertGreaterThanOrEqual((max(a, b) + 0.05) / (min(a, b) + 0.05), 4.5)
+            }
+        }
+    }
+
     func testPersistenceAndIsolation() throws {
         let disk = storage(), store = WorkspaceStore(storage: storage())
         store.update { $0.input = "未发送"; $0.draft?.sections[0].items[0].isDone = true }

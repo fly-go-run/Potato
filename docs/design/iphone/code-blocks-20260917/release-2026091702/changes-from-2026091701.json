@@ -1,0 +1,52 @@
+[
+  {
+    "path": "native/potato-ios/PotatoMobile.xcodeproj/project.pbxproj",
+    "before": "5a77a9b73b36177fcc9452a04cf8f93189ac4e69d87c45737884d39452ba225e",
+    "after": "6735dc2a67f5ee6d8855f175634035db52f22b015d70c6ea55fb050d42df4706"
+  },
+  {
+    "path": "native/potato-ios/Sources/ActivityPresentation.swift",
+    "before": "ba3b426157d13733affa63d236146aff212b9337a6c25eef2d611efbc3456205",
+    "after": "25a4abbe4ad3cd533ce1d2c5cf250fe507b108924bd6d4eb1f7bd03ff8da58f8"
+  },
+  {
+    "path": "native/potato-ios/Sources/CodeExecutionPreview.swift",
+    "before": "2dbcd3b32b25ee8a21286666026d59672160e894d703fdefcebdbdeeb57be8a0",
+    "after": "a2866e37f07a26609467e9b001ce96f5315b9498300f17f0c48201f7b5dfa53f"
+  },
+  {
+    "path": "native/potato-ios/Sources/CodeHighlighting.swift",
+    "before": null,
+    "after": "aaef992bb7bd9fbdfc244d7d47192a863f7c2c45ffa7418742125181d53eb607"
+  },
+  {
+    "path": "native/potato-ios/Sources/DocumentView.swift",
+    "before": "507c9416529688a12e3513029c95bf749d20c2194e5e11ed090ef6a8bd75dad0",
+    "after": "e1ee3cf7794a4c0a9a030abc97abc3f04cb8c2de158a016139c21b4991b9ae57"
+  },
+  {
+    "path": "native/potato-ios/Sources/MarkdownBlock.swift",
+    "before": "0de198230ab699f3abaac606937800047508496bc22d38e7c3fd3a63523c0d6d",
+    "after": "31eb142ffe6be21263cd6250ee172e65834deaa7e8c19813ad3612eb820fced4"
+  },
+  {
+    "path": "native/potato-ios/Sources/SandboxRunSheet.swift",
+    "before": "6e388ce762b08f416f9555ce0ff176c398415ab2b43318a37f1a8194595d1a72",
+    "after": null
+  },
+  {
+    "path": "native/potato-ios/Sources/StreamingMarkdown.swift",
+    "before": "d626b4c56a349249cb1116bedc3f3aa60d9f5b3412072f943c85a28d21de17c7",
+    "after": "8276086e0d904e6dc0311ffdf1d5ce7250a0b68dc1738bde1d2c0e2a8a22978a"
+  },
+  {
+    "path": "native/potato-ios/Sources/WorkspaceView.swift",
+    "before": "f180b46b33c5cc361dca87d4a4d926f3960cf3799d9e5e81c4021a08b327b13c",
+    "after": "08d100a84d5685ff1183d93a714172074d1075e310fd151030ae852395bfc951"
+  },
+  {
+    "path": "native/potato-ios/project.yml",
+    "before": "058a96904798e5e7df49b4cb085b4e56d1c25ec4ef88d835cedeebb031c0cc8a",
+    "after": "d1b30bde5f617baa5b50fd02c55762b68ce2b835377d6c16a851995cbf7509c2"
+  }
+]
