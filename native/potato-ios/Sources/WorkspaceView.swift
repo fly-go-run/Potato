@@ -409,14 +409,6 @@ struct WorkspaceView: View {
                 } label: { Image(systemName: "ellipsis").font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44).contentShape(Circle()) }.accessibilityLabel(L10n.tr("更多")).accessibilityIdentifier("more")
             }.padding(.horizontal, 3).chatGlass(in: Capsule())
         }.padding(.horizontal, 16).padding(.vertical, 8)
-            .overlay {
-                // Centred between the buttons, whatever their widths.
-                if !chat.messages.isEmpty {
-                    Text(chat.displayTitle).font(.headline).lineLimit(1).padding(.horizontal, 120).allowsHitTesting(false)
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                        .accessibilityAddTraits(.isHeader).accessibilityIdentifier("chat-title")
-                }
-            }
     }
     private var contextPreview: some View {
         VStack(alignment: .leading, spacing: 12) {

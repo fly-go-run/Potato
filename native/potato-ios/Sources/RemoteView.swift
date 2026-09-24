@@ -557,10 +557,13 @@ struct RemoteTaskView: View {
                     if let notice = dictation.notice { Text(notice).font(.footnote).foregroundStyle(Palette.secondary).accessibilityIdentifier("voice-notice") }
                     remoteComposer
                 }.dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 16).padding(.bottom, 8).padding(.top, dictation.active ? 24 : 6)
-            }.chatScrollEdges()
+            }.chatScrollEdges(solidTop: true)
+                .overlay(alignment: .top) { Rectangle().fill(Palette.line).frame(height: 0.5).accessibilityHidden(true) }
         }.foregroundStyle(Palette.ink).background(Palette.canvas.ignoresSafeArea())
             .navigationTitle(chat?.name ?? L10n.tr("新对话")).navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            // A remote task names its computer and project, so its bar stays readable over scrolling text.
+            .toolbarBackground(Palette.canvas.opacity(0.94), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 3) {
