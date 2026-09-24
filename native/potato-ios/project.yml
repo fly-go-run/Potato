@@ -34,7 +34,7 @@ targets:
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: 用于显示最近照片，轻点即可添加到当前消息。仅处理你选择的照片。
         INFOPLIST_KEY_NSCameraUsageDescription: 用于拍摄照片并添加到当前消息。
         MARKETING_VERSION: '0.2.2'
-        CURRENT_PROJECT_VERSION: 2026092401
+        CURRENT_PROJECT_VERSION: 2026092402
   PotatoMobileTests:
     type: bundle.unit-test
     platform: iOS
