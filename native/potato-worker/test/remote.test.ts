@@ -93,6 +93,13 @@ test('real relay routes commands and results to the scoped desktop and reports o
   assert.equal(command.id, id); assert.notEqual(command.transport_id, 'untrusted-id');
   ws.send(JSON.stringify({ transport_id: command.transport_id, result: { chats: [], projects: [] } }));
   assert.deepEqual(await (await reply).json(), { result: { chats: [], projects: [] } });
+  const queued = nextMessage(ws);
+  const queueReply = request(`${d.id}/rpc`, d.phone, { id: randomUUID(), op: 'outbox', args: { chat_id: 'chat', action: 'promote', item_id: 'item', expected_run_id: 'run' } });
+  const queueCommand = await queued;
+  assert.equal(queueCommand.op, 'outbox');
+  assert.equal(queueCommand.args.expected_run_id, 'run');
+  ws.send(JSON.stringify({ transport_id: queueCommand.transport_id, result: { items: [] } }));
+  assert.deepEqual(await (await queueReply).json(), { result: { items: [] } });
   assert.equal((await request(`${d.id}/rpc`, d.phone, { id: randomUUID(), op: '/api/models', args: {} })).status, 400);
   assert.equal((await request(`${d.id}/rpc`, d.phone, { id: randomUUID(), op: 'send', args: { text: 'x'.repeat(132000) } })).status, 400);
   ws.close();

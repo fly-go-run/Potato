@@ -47,3 +47,11 @@ test('sandbox endpoint requires device auth and fails explicitly when E2B is unc
   const response = await handle(request(env.CLIENT_TOKEN), env);
   assert.equal(response.status, 503); assert.match(await response.text(), /not configured/);
 });
+
+test('PPTX files are returned with presentation MIME type', async () => {
+  const f = fixture();
+  f.sandbox.files.list = async () => [{ name: 'deck.pptx', type: 'file' }];
+  const result = await executeSandbox({ code: 'pass', files: [] }, 'test-key', new AbortController().signal, async () => f.sandbox);
+  assert.equal(result.artifacts[1].name, 'deck.pptx');
+  assert.equal(result.artifacts[1].mime, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+});

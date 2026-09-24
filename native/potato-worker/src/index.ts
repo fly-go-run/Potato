@@ -1,3 +1,4 @@
+import { handleChatJob } from './chat-job-api.ts';
 import { searchConversations } from './recall-search.ts';
 import { codeTool, type CodeTool } from './code-tool.ts';
 import { validateDesktop } from './desktop-chat.ts';
@@ -7,7 +8,8 @@ import { executeSandbox, validateSandbox } from './sandbox.ts';
 import { connectSpeech } from './speech.ts';
 import { chatWithSearch } from './search-chat.ts';
 import { modelCatalog } from './models.ts';
-import { CloudError, cloudConfiguration, cloudCatalog, cloudRoute, cloudIdentity, validateCloudThinking } from './cloud.ts';
+import { CloudError, cloudCatalog, cloudRoute, cloudAccount, validateCloudThinking } from './cloud.ts';
+import { availableModels, isModelAdmin, loadCloudModels, saveModels } from './cloud-models.ts';
 
 const MAX_BODY = 4 * 1024 * 1024;
 class APIError extends Error {
@@ -66,7 +68,8 @@ export function validate(body: unknown, models: string[], maxOutput: number): Re
     }
     let content: unknown = message.content;
     if (typeof content !== 'string') {
-      if (message.role !== 'user' || !Array.isArray(content) || content.length < 1 || content.length > 5) throw new APIError(400, 'Invalid message content.');
+      if (message.role !== 'user' || !Array.isArray(content) || content.length < 1 || content.length > 21) throw new APIError(400, 'Invalid message content.');
+      if (content.filter((part: unknown) => object(part) && part.type === 'image_url').length > 20) throw new APIError(400, 'Up to 20 images per message.');
       content = content.map((part: unknown) => {
         if (!object(part)) throw new APIError(400, 'Invalid content part.');
         if (part.type === 'text' && typeof part.text === 'string') return { type: 'text', text: part.text };
@@ -91,27 +94,36 @@ export function validate(body: unknown, models: string[], maxOutput: number): Re
   }
   return result;
 }
-export async function handle(request: Request, env: Env, fetcher: typeof fetch = fetch): Promise<Response> {
+export async function handle(request: Request, env: Env, fetcher: typeof fetch = fetch, acceptedOwner?: string): Promise<Response> {
   const requestID = crypto.randomUUID(), path = new URL(request.url).pathname;
   if (path === '/health' && request.method === 'GET') return Response.json({ service: 'potato-iphone', status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
   const recallRoute = ['/v1/recall/status', '/v1/recall/sync', '/v1/recall/memory'].includes(path);
+  const jobRoute = path.startsWith('/v1/chat/jobs/');
   const desktop = path === '/v1/desktop/chat/completions';
   const voice = path === '/v1/audio/transcriptions';
   const catalog = path === '/v1/models';
-  if (!desktop && path !== '/v1/chat/completions' && path !== '/v1/sandbox/run' && !voice && !catalog && !recallRoute) return errorResponse(404, 'Not found.', requestID);
-  if (request.method !== (voice || catalog || path === '/v1/recall/status' ? 'GET' : 'POST')) return errorResponse(405, 'Invalid method.', requestID);
+  const modelsAvailable = path === '/v1/models/available', modelsEnabled = path === '/v1/models/enabled';
+  if (!jobRoute && !desktop && path !== '/v1/chat/completions' && path !== '/v1/sandbox/run' && !voice && !catalog && !modelsAvailable && !modelsEnabled && !recallRoute) return errorResponse(404, 'Not found.', requestID);
+  if (!jobRoute && request.method !== (modelsEnabled ? 'PUT' : voice || catalog || modelsAvailable || path === '/v1/recall/status' ? 'GET' : 'POST')) return errorResponse(405, 'Invalid method.', requestID);
   try {
     const cloud = desktop || env.CLOUD_AUTH_REQUIRED === 'true' || !!env.CLOUD_PROVIDERS;
-    let rateKey = 'personal-client';
+    let rateKey = 'personal-client', email = '';
     if (cloud) {
-      rateKey = await cloudIdentity(request, env);
+      if (acceptedOwner) rateKey = acceptedOwner;
+      else ({ owner: rateKey, email } = await cloudAccount(request, env));
     } else {
+      if (modelsAvailable || modelsEnabled) return errorResponse(404, 'Not found.', requestID);
       if (!env.CLIENT_TOKEN || env.CLIENT_TOKEN.length < 32 || !env.UPSTREAM_API_KEY) throw new APIError(503, 'Service is not configured.');
       const authorization = request.headers.get('authorization') ?? '';
       const actual = new TextEncoder().encode(authorization), expected = new TextEncoder().encode(`Bearer ${env.CLIENT_TOKEN}`);
       if (actual.byteLength !== expected.byteLength || !timingSafeEqual(actual, expected)) throw new APIError(401, 'Invalid connection token.');
     }
-    const { success } = await (recallRoute ? env.RECALL_RATE_LIMIT : env.CHAT_RATE_LIMIT).limit({ key: rateKey });
+    if (jobRoute) {
+      if (!cloud) return errorResponse(403, 'Cloud account required.', requestID);
+      if (!(await env.REMOTE_RATE_LIMIT.limit({ key: 'chat-jobs:' + rateKey })).success) return errorResponse(429, 'Please wait before trying again.', requestID);
+      return await handleChatJob(request, env, rateKey);
+    }
+    const { success } = acceptedOwner ? { success: true } : await (recallRoute ? env.RECALL_RATE_LIMIT : env.CHAT_RATE_LIMIT).limit({ key: rateKey });
     if (!success) throw new APIError(429, 'Please wait before trying again.');
     if (recallRoute) {
       if (!env.RECALL_BUCKET) throw new APIError(503, 'History storage is not configured.');
@@ -154,8 +166,13 @@ export async function handle(request: Request, env: Env, fetcher: typeof fetch =
       return input;
     };
     if (cloud) {
-      const config = cloudConfiguration(env.CLOUD_PROVIDERS ?? '');
-      if (catalog) return Response.json(cloudCatalog(config), { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestID } });
+      if (modelsAvailable || modelsEnabled) {
+        if (!isModelAdmin(env, email)) throw new CloudError(403, 'Only an administrator can change cloud models.');
+        if (modelsEnabled) await saveModels(env, await boundedJSON(request), request.signal, fetcher);
+        else return Response.json(await availableModels(env, request.signal, fetcher), { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestID } });
+      }
+      const { config, revision } = await loadCloudModels(env);
+      if (catalog || modelsEnabled) return Response.json({ ...cloudCatalog(config), revision, can_edit: isModelAdmin(env, email) }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestID } });
       const input = await readInput();
       const { provider, model } = cloudRoute(config, object(input) ? input.model : undefined);
       body = desktop ? validateDesktop(input, `${provider.id}/${model.id}`, maxOutput) : validate(input, [`${provider.id}/${model.id}`], maxOutput);

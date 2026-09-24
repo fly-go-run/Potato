@@ -815,3 +815,11 @@
 "以下指令可能已执行，请先在电脑上确认。" = "These commands may have already run. Check on the computer first.";
 "这条指令可能已执行，请先在电脑上确认。" = "This command may have already run. Check on the computer first.";
 "这项审批已处理或已过期。" = "This approval was already handled or has expired.";
+"添加模型" = "Add Model";
+"已启用" = "Enabled";
+"未能修改模型" = "Couldn't Change Models";
+"只有管理员可以修改云端模型。" = "Only an administrator can change cloud models.";
+"模型列表已在其他设备上修改，请重试。" = "The model list changed on another device. Try again.";
+"这个模型当前不可用。" = "This model is not available right now.";
+"暂时无法修改模型（%@）" = "Couldn't change models right now (%@)";
+"暂时无法读取这个服务的模型。" = "Couldn't read this service's models right now.";

@@ -30,6 +30,9 @@ final class LocalModelPreview: URLProtocol {
             while stream.hasBytesAvailable { let count = stream.read(&buffer, maxLength: buffer.count); if count <= 0 { break }; data.append(contentsOf: buffer.prefix(count)) }
         }
         let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        if ProcessInfo.processInfo.arguments.contains("--cloud-models-preview"), let path = request.url?.path, path.hasPrefix("/v1/models") {
+            answerCloudModels(path: path, body: body); return
+        }
         let catalog = request.httpMethod == "GET"
         work = Task {
             try? await Task.sleep(for: .milliseconds(100)); guard !Task.isCancelled else { return }
@@ -55,5 +58,24 @@ final class LocalModelPreview: URLProtocol {
         }
     }
     override func stopLoading() { work?.cancel() }
+    // Synthetic admin-editable cloud list for the settings screens.
+    nonisolated(unsafe) private static var cloudModels = (ids: ["deepseek/deepseek-flash", "sub2api/gpt-6"], defaultModel: "deepseek/deepseek-flash", revision: 1)
+    private static let cloudNames = ["deepseek/deepseek-flash": "DeepSeek V4.1 Flash", "sub2api/gpt-6": "GPT-6", "sub2api/gpt-5.6-sol": "GPT-5.6 Sol", "sub2api/claude-sonnet-5": "claude-sonnet-5", "sub2api/gemini-3-pro": "gemini-3-pro"]
+    private func answerCloudModels(path: String, body: [String: Any]) {
+        if path.hasSuffix("/enabled"), let ids = body["models"] as? [String], let defaultModel = body["default_model"] as? String {
+            Self.cloudModels = (ids, defaultModel, Self.cloudModels.revision + 1)
+        }
+        let value: [String: Any]
+        if path.hasSuffix("/available") {
+            let providers = [("deepseek", "DeepSeek", ["deepseek/deepseek-flash"]), ("sub2api", "sub2api", ["sub2api/gpt-6", "sub2api/gpt-5.6-sol", "sub2api/claude-sonnet-5", "sub2api/gemini-3-pro"])]
+            value = ["revision": Self.cloudModels.revision, "providers": providers.map { id, name, models in
+                ["id": id, "name": name, "models": models.map { ["id": $0, "name": Self.cloudNames[$0] ?? $0, "enabled": Self.cloudModels.ids.contains($0)] }] as [String: Any] }]
+        } else {
+            value = ["object": "list", "catalog_source": "configured", "default_model": Self.cloudModels.defaultModel, "revision": Self.cloudModels.revision, "can_edit": true,
+                     "data": Self.cloudModels.ids.map { ["id": $0, "name": Self.cloudNames[$0] ?? $0] }]
+        }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: value)); client?.urlProtocolDidFinishLoading(self)
+    }
 }
 #endif

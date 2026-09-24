@@ -5,7 +5,7 @@ export class CloudError extends Error {
   status: number;
   constructor(status: number, message: string) { super(message); this.status = status; }
 }
-type Model = { id: string; name: string; reasoning_effort_options?: string[]; thinking_modes?: string[] };
+export type Model = { id: string; name: string; reasoning_effort_options?: string[]; thinking_modes?: string[] };
 export type CloudProvider = { id: string; name: string; endpoint: string; api_key: string; models: Model[] };
 export type CloudConfiguration = { providers: CloudProvider[]; default_model: string };
 const validString = (v: unknown, max: number): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
@@ -60,6 +60,9 @@ export function cloudRoute(config: CloudConfiguration, id: unknown) {
   throw new CloudError(400, 'Model is not enabled. Refresh the cloud model list.');
 }
 export async function cloudIdentity(request: Request, env: Env): Promise<string> {
+  return (await cloudAccount(request, env)).owner;
+}
+export async function cloudAccount(request: Request, env: Env): Promise<{ owner: string; email: string }> {
   const allowed = (env.CLOUD_ALLOWED_EMAILS ?? '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   if (!allowed.length) throw new CloudError(503, 'Cloud access has not been configured.');
   const parts = (request.headers.get('authorization') ?? '').match(/^Bearer ([a-f0-9]{64})\.([a-f0-9-]{36})\.([a-f0-9]{64})$/);
@@ -67,5 +70,5 @@ export async function cloudIdentity(request: Request, env: Env): Promise<string>
   const identity = await env.REMOTE_ACCOUNTS.getByName(parts[1]).cloudIdentity(parts[2], parts[3]);
   if (!identity) throw new CloudError(401, 'Cloud session expired. Please sign in again.');
   if (!allowed.includes(identity.email.trim().toLowerCase())) throw new CloudError(403, 'This account is not authorized to use cloud models.');
-  return parts[1];
+  return { owner: parts[1], email: identity.email };
 }

@@ -34,6 +34,9 @@ struct LocalModelCatalog: Codable, Equatable {
     var defaultModel: String? = nil
     var source = "service"
     var fetchedAt = Date()
+    /// Cloud catalogs only: the admin-edited list version and whether this account may edit it.
+    var revision: Int? = nil
+    var canEdit: Bool? = nil
     // Persisted catalogs stay usable offline; refresh capabilities every six hours.
     func isFresh(at now: Date = Date()) -> Bool {
         let age = now.timeIntervalSince(fetchedAt)
@@ -118,9 +121,10 @@ enum LocalModelService {
             let model = LocalModelEntry(id: id, name: String((entry["name"] as? String ?? id).prefix(256)), reasoning_effort_options: options("reasoning_effort_options"), thinking_modes: options("thinking_modes"), thinking_param_style: entry["thinking_param_style"] as? String)
             models.append(model.documented(for: settings.validatedURL))
         }
-        return LocalModelCatalog(endpoint: endpoint, models: models, defaultModel: json["default_model"] as? String, source: json["catalog_source"] as? String == "configured" ? "configured" : "service")
+        return LocalModelCatalog(endpoint: endpoint, models: models, defaultModel: json["default_model"] as? String, source: json["catalog_source"] as? String == "configured" ? "configured" : "service",
+                                 revision: json["revision"] as? Int, canEdit: json["can_edit"] as? Bool)
     }
 }
-private final class ModelRedirectPolicy: NSObject, URLSessionTaskDelegate {
+final class ModelRedirectPolicy: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
 }

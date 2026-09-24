@@ -98,7 +98,7 @@ export class RemoteDevice extends DurableObject<Env> {
       socket = this.ctx.getWebSockets('host').find(ws => ws.readyState === WebSocket.OPEN);
       if (!socket) return response({ error: '电脑连接已断开' }, 503);
       if (this.pending.size >= 8) return response({ error: '请求过多，请稍后再试' }, 429);
-      if (typeof body.id !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(body.id) || typeof body.op !== 'string' || !['overview', 'chat', 'send', 'stop', 'approval', 'answer', 'pin'].includes(body.op) || !body.args || typeof body.args !== 'object' || Array.isArray(body.args)) return response({ error: 'Invalid command' }, 400);
+      if (typeof body.id !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(body.id) || typeof body.op !== 'string' || !['overview', 'chat', 'send', 'stop', 'approval', 'answer', 'pin', 'outbox'].includes(body.op) || !body.args || typeof body.args !== 'object' || Array.isArray(body.args)) return response({ error: 'Invalid command' }, 400);
       const transportID = crypto.randomUUID();
       const target = socket;
       return await new Promise<Response>(resolve => {

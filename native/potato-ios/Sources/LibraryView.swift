@@ -164,6 +164,9 @@ struct SettingsView: View {
                     }
                 }.padding(.vertical, 4)
                 Button(store.authorizationExpired ? L10n.tr("重新登录") : L10n.tr("管理账号")) { showCloud = true }.accessibilityIdentifier("cloud-model-login")
+                if store.settings.currentCatalog?.canEdit == true && !store.authorizationExpired {
+                    NavigationLink(L10n.tr("云端模型")) { CloudModelsView(store: store) }.accessibilityIdentifier("cloud-models-open")
+                }
             } else {
                 HStack(spacing: 14) {
                     Image("PotatoMark").resizable().frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 13)).accessibilityHidden(true)

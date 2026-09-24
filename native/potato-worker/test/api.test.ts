@@ -29,6 +29,20 @@ test('untrusted remote image URLs are rejected', async () => {
   const body = { model: 'test-model', stream: true, messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'http://internal.example/secret' } }] }] };
   assert.equal((await handle(request(body), env, noFetch)).status, 400);
 });
+test('twenty inline images are forwarded intact but a twenty-first is rejected', async () => {
+  const images = Array.from({ length: 20 }, (_, index) => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${Buffer.from(`image-${index}`).toString('base64')}` } }));
+  const content = [{ type: 'text', text: 'Compare all twenty photos' }, ...images];
+  const body = { model: 'test-model', stream: true, messages: [{ role: 'user', content }] };
+  const response = await handle(request(body), env, async (_, init) => {
+    assert.deepEqual(JSON.parse(init.body).messages[0].content, content);
+    return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+  });
+  assert.equal(response.status, 200);
+  await response.text();
+  for (const excess of [[...content, images[0]], [...images, images[0]]]) {
+    assert.equal((await handle(request({ ...body, messages: [{ role: 'user', content: excess }] }), env, noFetch)).status, 400);
+  }
+});
 test('stream forwards content, replaces auth, drops extra options', async () => {
   let captured;
   const response = await handle(request({ model: 'test-model', stream: true, messages: [{ role: 'user', content: '你好' }], tools: [{ type: 'dangerous' }], max_tokens: 999999 }), env, async (url, init) => {

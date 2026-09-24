@@ -12,7 +12,6 @@
       "UPSTREAM_API_KEY"
     ]
   },
-  "limits": { "cpu_ms": 30000 },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 0.1
@@ -81,6 +80,8 @@
   ],
   "durable_objects": {
     "bindings": [
+      { "name": "CHAT_JOBS", "class_name": "ChatJob" },
+      { "name": "CLOUD_MODELS", "class_name": "CloudModelSettings" },
       {
         "name": "REMOTE_DEVICES",
         "class_name": "RemoteDevice"
@@ -108,7 +109,9 @@
         "RemoteAccount",
         "RemoteLogin"
       ]
-    }
+    },
+    { "tag": "chat-job-v1", "new_sqlite_classes": ["ChatJob"] },
+    { "tag": "cloud-models-v1", "new_sqlite_classes": ["CloudModelSettings"] }
   ],
   "routes": [
     {

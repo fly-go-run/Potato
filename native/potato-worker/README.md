@@ -1,5 +1,11 @@
 # Potato iPhone · Cloudflare Worker
 
+2026-09-19 **20 张聊天图片支持已部署**，版本 `9e1a65a0-89d2-4c81-baaf-16e718fbc780`，回读确认 100% 流量且健康接口正常。基于上一线上版本隔离发布，仅调整 `src/index.ts` 图片数量校验；92 项回归、类型检查和 dry run 通过。每条消息最多 20 张内联图片（含文字最多 21 个内容段），仍保留 4 MiB 请求上限；代码执行工具输入文件限制独立。配套 iOS 构建 2026091901 已发布至 TestFlight 个人内测组，见 [发布记录](../../docs/design/iphone/attachments-20260919/release-2026091901/README.md)。
+
+2026-09-17 **代码示例执行策略已部署**，版本 `8d8d69b8-6452-4c49-9ae9-4173cea1c8c0`，100% 流量。写/解释代码默认不调用沙箱，明确运行或实际数据/文件任务按需执行；代码在前、对应输出在后。此次隔离发布仅包含两处提示规则调整，未携带工作树中的远程排队改动。91 项回归和三条真实模型验证通过，见 [部署与验证](../../docs/design/iphone/code-blocks-20260917/worker-policy-release/README.md)。
+
+2026-09-16 **云端异步回复任务已部署**（版本 `0a601f87-f1b3-4a0c-a0dc-365aef1ac97a`）：生成由云端任务持有，手机断网或退出后可恢复补读；发送去重、显式停止与正文/游标一致保存已接入。部署顺序、验证和边界见 [异步回复说明](../../docs/design/iphone/async-replies-20260916/README.md)。
+
 2026-09-13 最新模型更新：手机云端聊天目录精简为 DeepSeek V4.1 Flash（`deepseek-flash`）与 GPT-5.6，思考档位按官方文档及真实请求验证；43 项测试通过并已部署。图片生成仍受当前 sub2api 分组权限限制。当前目录、测试证据与发布版本见 [模型能力验证](../../docs/design/iphone/model-capabilities-20260913/README.md)，优先于下方历史记录。
 
 2026-09-13 更新：已启用**仅指定邮箱可用的云端模型账号模式**，复用 DeepSeek 与 sub2api 本地配置；云端登录拥有独立权限，不授予远程电脑控制。普通模型、目录、语音和沙箱现要求云端账号会话，旧固定设备令牌不再用于这些接口。配置、同步脚本及验证见 [云端模型与授权](../../docs/design/iphone/cloud-models/README.md)。下方单用户设备令牌配置是此前版本的历史说明。
@@ -48,6 +54,17 @@ npm run build  # wrangler deploy --dry-run，不发布
 
 免费额度适合轻量请求；图片/长上下文的 JSON 处理可能超过免费 CPU 限制，不能承诺完整 AI 应用永久免费。模型服务单独计费。
 
+## 云端模型清单（手机可改）
+
+服务商、接口地址和 API 密钥仍由 `scripts/sync-cloud-models.mjs` 写入 `CLOUD_PROVIDERS` Secret；启用哪些模型、默认用哪个，改由 `CloudModelSettings` Durable Object 保存，管理员在 iPhone「设置 → 云端模型」中增删。
+
+- `GET /v1/models`：返回启用清单，附 `revision` 和 `can_edit`。未保存过清单时沿用 `CLOUD_PROVIDERS` 里的精选模型。
+- `GET /v1/models/available`（管理员）：实时读取各服务商 `/models` 目录，过滤嵌入、语音、图像等非对话模型。
+- `PUT /v1/models/enabled`（管理员）：`{models, default_model, revision}`。只接受已启用、精选或服务商目录中存在的模型；`revision` 不一致返回 409。
+- 管理员由 `CLOUD_ADMIN_EMAILS`（逗号分隔，Secret）指定；未设置时任何人都不能修改。
+- 新加入的模型不带思考参数（显示“服务默认”），只有精选或官方文档确认的模型才有思考档位。
+- 同步脚本重新部署服务商后，已保存的清单保持不变；属于已删除服务商的模型会自动失效。
+
 ## 桌面 Exa 与豆包
 
 已获用户授权，将桌面 Exa 与原生豆包配置保存为 `EXA_API_KEY`、`DOUBAO_API_KEY`、`DOUBAO_APP_ID` Secret。当前豆包使用新API Key模式，APP_ID为空；资源为 `volc.seedasr.sauc.duration`。普通代码部署保留这些Secret。
@@ -78,3 +95,9 @@ iPhone没有联网开关。Worker向模型提供web_search，搜索完成后继�
 接口为 `GET /v1/recall/status`、`POST /v1/recall/sync`、`POST /v1/recall/memory`，都沿用账号认证。聊天请求可传 `recall: { enabled: true, auto_memory: false, timezone: "Asia/Shanghai" }`；这些参数不会转发给模型供应商。未配置 R2 时显式返回 503。旧客户端未开启时沿用现有聊天流程。
 
 设计、容量、删除语义、测试和发布边界见 [实施记录](../../docs/design/iphone/cross-chat-recall/implementation.md)。此目录与 iOS 包需一同发布才能启用；创建 R2 桶不等于已发布。
+
+## 云端回复实时订阅
+
+`GET /v1/chat/jobs/{id}/events?after={cursor}` 使用原有云端账号鉴权，按持久化序号补读，再推送 SSE。每个 `data:` 是原分页协议的 `{state,last,events,failure?}` JSON；只有消费到 `last` 后终态才生效。客户端按最后成功应用的序号重连。
+
+事件持久化后唤醒订阅者，快速事件以 40 ms 窗口合并；读取按背压拉取，不为慢客户端积攒额外事件队列。每任务最多 8 个订阅，15 秒心跳、60 秒连接轮换。断开订阅不取消 alarm 拥有的生成；`POST /cancel` 才停止任务。原 GET 分页接口保留，方便旧客户端和回退使用。上线时先部署 Worker，再分发 iOS；2026-09-16 已部署版本 `51e229f1-6acf-4cf6-b620-98a831882d61`，100% 流量；真实云端订阅和断线续接验证通过，见 [发布记录](../../docs/design/iphone/streaming-20260916/release-2026091607/README.md)。

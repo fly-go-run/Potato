@@ -23,7 +23,7 @@ final class WorkspaceStore: ObservableObject {
     @Published var recallSyncing = false
     private var recallSyncTask: Task<RecallStatus, Error>?
     let storage: LocalStorage
-    private let streamConfiguration: URLSessionConfiguration
+    let streamConfiguration: URLSessionConfiguration
     private let tokenProvider: (() -> String)?
     private var task: Task<Void, Never>?
     private var modelFetch: (id: UUID, endpoint: String?, token: String, task: Task<Void, Error>)?

@@ -119,3 +119,12 @@ test('file budget evicts the oldest artifacts and preserves original user files'
  assert.deepEqual(runner.currentFiles.map(f => f.name), ['input.csv', 'b.png', 'c.png', 'd.png']);
  await runner.run('print(2)', new AbortController().signal);
 });
+
+test('action titles accompany both live and completed execution without becoming code', async () => {
+ let rounds = 0, runs = 0;
+ const response = await chatWithSearch(body, new URL('https://model.example'), env, new AbortController().signal, async () => {
+  if (rounds++ === 0) return sse({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'deck', function: { name: 'run_python', arguments: JSON.stringify({ code: 'print(1)', description: '生成演示文稿' }) } }] }, finish_reason: 'tool_calls' }] }, '[DONE]');
+  return sse({ choices: [{ delta: { content: 'done' } }] }, '[DONE]');
+ }, env.UPSTREAM_API_KEY, 'owner', undefined, { files: [], currentFiles: [], run: async source => { runs++; assert.equal(source, 'print(1)'); return result; } });
+ const text = await response.text(); assert.equal(runs, 1); assert.equal(text.match(/"title":"生成演示文稿"/g)?.length, 2);
+});

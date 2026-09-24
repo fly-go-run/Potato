@@ -27,7 +27,8 @@ enum ModelNaming {
     /// A readable name for a model ID. Service-provided names are kept; only an expiry suffix is removed.
     static func displayName(id: String, name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty && trimmed != id { return withoutExpiry(trimmed) }
+        // A name that only repeats the bare model ID is not a service-provided name.
+        if !trimmed.isEmpty && trimmed != id && trimmed != id.split(separator: "/").last.map(String.init) { return withoutExpiry(trimmed) }
         let base = withoutExpiry(String(id.split(separator: "/").last ?? Substring(id)))
         let tokens = base.split(whereSeparator: { $0 == "-" || $0 == "_" || $0 == " " }).map(String.init)
         guard !tokens.isEmpty else { return id }

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		02775FF44A7B202A5F55F469 /* SidebarGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C4A8FCDA1DE4D34C3A8712 /* SidebarGesture.swift */; };
+		02F334F196EA006638E9C623 /* CloudModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC420ECA1912B1808E83E2F0 /* CloudModels.swift */; };
 		038B6A7B6A4018A130B14EA3 /* KeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 277DE1B7A819B3FDDE1AE9AF /* KeychainTests.swift */; };
 		074BCC9C9F6F192996661381 /* RemoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C72C66AEA4708EF749D1D0EE /* RemoteView.swift */; };
 		09330AF43513EB9D7BC7D821 /* LiveConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F14C8FB3032E47682E9C8D /* LiveConnectionTests.swift */; };
@@ -96,6 +97,7 @@
 		C57A18DD8E3829F1BBCD4E7E /* DocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91E774BA045C46615831CA0F /* DocumentView.swift */; };
 		C69EBA3E85223410C2E44746 /* AttachmentSheetUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92776C71DCFD3E36972D3183 /* AttachmentSheetUITests.swift */; };
 		C7A55C05C09204FD35F03C50 /* RecallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EDBF50559E09A74625F0A74 /* RecallView.swift */; };
+		CBAC805895EEC0E2F370BC41 /* CloudModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9F5278D83702B516862513 /* CloudModelsTests.swift */; };
 		CF6AED5C9EA195B0B447B630 /* WebSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3FFCF482A4E008EB4F066B2 /* WebSearch.swift */; };
 		CFBA67FB0DC105D2A67D52F3 /* RemoteOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA2A8C05C00B98A67B87B84 /* RemoteOutbox.swift */; };
 		D09AB63E35472C1444BF5B95 /* LongInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 788086505432F687EB328FDF /* LongInputTests.swift */; };
@@ -226,6 +228,7 @@
 		C5EA924F521F435A764DE51D /* LibraryPreviewFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryPreviewFixtures.swift; sourceTree = "<group>"; };
 		C72C66AEA4708EF749D1D0EE /* RemoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteView.swift; sourceTree = "<group>"; };
 		C9FCB68E163F6C6937B70BCE /* RemoteMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteMessageView.swift; sourceTree = "<group>"; };
+		CC9F5278D83702B516862513 /* CloudModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudModelsTests.swift; sourceTree = "<group>"; };
 		D3994A9136DDAB166E469B66 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		D42F0A4E1E53EC006D154143 /* VoiceComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceComposer.swift; sourceTree = "<group>"; };
 		D57D462F948D31E556B4872C /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
@@ -250,6 +253,7 @@
 		F95E41F64685477CDB65A2C9 /* LanguageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageTests.swift; sourceTree = "<group>"; };
 		F9ED5CA91084CE93991F9998 /* RecentPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentPhotos.swift; sourceTree = "<group>"; };
 		FC2CA5D59F2A5C2C18DC116C /* DraftHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftHistoryView.swift; sourceTree = "<group>"; };
+		FC420ECA1912B1808E83E2F0 /* CloudModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudModels.swift; sourceTree = "<group>"; };
 		FCA2A8C05C00B98A67B87B84 /* RemoteOutbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteOutbox.swift; sourceTree = "<group>"; };
 		FD2DF7482AC62A24953EB379 /* SandboxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxService.swift; sourceTree = "<group>"; };
 		FE4355A43B1F8F64F737B39F /* RemoteTaskObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTaskObservation.swift; sourceTree = "<group>"; };
@@ -301,6 +305,7 @@
 			children = (
 				8BB911839EF0AD42FE59AF84 /* ActivityPresentationTests.swift */,
 				52099DBBEAF3644830FE2832 /* CloudAccountTests.swift */,
+				CC9F5278D83702B516862513 /* CloudModelsTests.swift */,
 				8E24A153441C985B80F0F2FD /* CloudReplyTests.swift */,
 				6044C806D489C6EE74C09BFA /* CodeExecutionTests.swift */,
 				1DCFEEE7FC3158D105D3B6CE /* CodeHighlightingTests.swift */,
@@ -361,6 +366,7 @@
 				E01E2465B14E4A4FF462BD50 /* ChatChrome.swift */,
 				5E5944163B604D283DE5AC68 /* ChatService.swift */,
 				8C765278791966BF9DBF54C9 /* CloudAccount.swift */,
+				FC420ECA1912B1808E83E2F0 /* CloudModels.swift */,
 				58AC0AC769B643BE0A8988B8 /* CloudReply.swift */,
 				5C57524247E5284BD3B4FC41 /* CodeExecution.swift */,
 				D5D310F208BEB2CC2006BC42 /* CodeExecutionPreview.swift */,
@@ -594,6 +600,7 @@
 			files = (
 				5C8BCF7697971AB5BBD4FAD1 /* ActivityPresentationTests.swift in Sources */,
 				5D6C2E254A3E8969B11CF7F8 /* CloudAccountTests.swift in Sources */,
+				CBAC805895EEC0E2F370BC41 /* CloudModelsTests.swift in Sources */,
 				97676B5A5E704C6A84C846EF /* CloudReplyTests.swift in Sources */,
 				5C431C4EF9062679E2A78805 /* CodeExecutionTests.swift in Sources */,
 				2670F9A96F040227DB9AD763 /* CodeHighlightingTests.swift in Sources */,
@@ -634,6 +641,7 @@
 				37CE4A273E48EE5FDC8EA660 /* ChatChrome.swift in Sources */,
 				9501CF2CA34F0C56E8295109 /* ChatService.swift in Sources */,
 				22CAC4EB1D0405FBBFD1253D /* CloudAccount.swift in Sources */,
+				02F334F196EA006638E9C623 /* CloudModels.swift in Sources */,
 				B5146B270E81C604E3EAB69A /* CloudReply.swift in Sources */,
 				AC37BAAE854D9E5E496BF78C /* CodeExecution.swift in Sources */,
 				9A8EFD07F974C6DCC1A4DC37 /* CodeExecutionPreview.swift in Sources */,

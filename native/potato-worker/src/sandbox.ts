@@ -4,7 +4,7 @@ declare global { interface Env { E2B_API_KEY?: string } }
 type InputFile = { name: string; base64: string };
 export type SandboxInput = { code: string; files: InputFile[] };
 type Artifact = { name: string; mime: string; base64: string };
-const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', pdf: 'application/pdf', csv: 'text/csv', txt: 'text/plain', md: 'text/markdown', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', pdf: 'application/pdf', csv: 'text/csv', txt: 'text/plain', md: 'text/markdown', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
 export function validateSandbox(value: unknown): SandboxInput {
   const body = value as Partial<SandboxInput> | null;
   if (!body || typeof body.code !== 'string' || !body.code.trim() || body.code.length > 32_000) throw new Error('Expected Python code up to 32000 characters.');

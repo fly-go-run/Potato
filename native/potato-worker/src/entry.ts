@@ -1,3 +1,5 @@
+export { ChatJob } from './chat-job';
+export { CloudModelSettings } from './cloud-model-store';
 import { handleRemoteAccount } from './remote-auth';
 import chat from './index';
 import { handleRemote, response } from './remote';
