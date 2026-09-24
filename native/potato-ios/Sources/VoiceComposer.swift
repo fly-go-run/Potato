@@ -184,10 +184,10 @@ struct VoiceComposerPanel: View {
                     })
                 Button { voice.finish(send: true) } label: {
                     Group {
-                        if voice.finishing { ProgressView().tint(Palette.onInk) }
+                        if voice.finishing { ProgressView().tint(Palette.onAccent) }
                         else { Image(systemName: "checkmark").font(.system(size: 21, weight: .medium)) }
-                    }.foregroundStyle(Palette.onInk).frame(width: 33, height: 33)
-                        .background(voice.canSubmit || voice.finishing ? Palette.ink : Color.secondary.opacity(0.4), in: Circle()).frame(width: 44, height: 44)
+                    }.foregroundStyle(Palette.onAccent).frame(width: 33, height: 33)
+                        .background(voice.canSubmit || voice.finishing ? Palette.accent : Color.secondary.opacity(0.4), in: Circle()).frame(width: 44, height: 44)
                 }.disabled(!voice.canSubmit).accessibilityLabel(L10n.tr("结束录音并发送")).accessibilityIdentifier("send-voice")
             }
         }

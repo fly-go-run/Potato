@@ -79,8 +79,8 @@ struct LibraryFileDetail: View {
                         if let reason = store.storage.libraryChatLimitation(item.attachment) { Text(reason).font(.caption).foregroundStyle(Palette.secondary).multilineTextAlignment(.center) }
                         HStack(spacing: 10) {
                             Button { use(newChat: false) } label: {
-                                HStack { if preparing { ProgressView().tint(Palette.onInk) }; Text(L10n.tr("用于对话")).font(.body.weight(.semibold)) }.frame(maxWidth: .infinity, minHeight: 50)
-                            }.foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule()).accessibilityIdentifier("library-use")
+                                HStack { if preparing { ProgressView().tint(Palette.onAccent) }; Text(L10n.tr("用于对话")).font(.body.weight(.semibold)) }.frame(maxWidth: .infinity, minHeight: 50)
+                            }.foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule()).accessibilityIdentifier("library-use")
                             Menu { Button(L10n.tr("用于新对话")) { use(newChat: true) } } label: { Image(systemName: "chevron.down").frame(width: 48, height: 48).chatGlass(in: Circle()) }.accessibilityLabel(L10n.tr("选择目标对话"))
                         }.disabled(preparing || store.storage.libraryChatLimitation(item.attachment) != nil)
                     }

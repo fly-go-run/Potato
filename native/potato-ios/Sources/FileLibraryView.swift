@@ -200,7 +200,8 @@ struct LibraryView: View {
     }
     private var emptyState: some View {
         VStack(spacing: 14) {
-            Image(systemName: search.isEmpty ? (showTrash ? "trash" : "doc.on.doc") : "magnifyingglass").font(.system(size: 36)).foregroundStyle(Palette.secondary)
+            if search.isEmpty && showTrash { Image(systemName: "trash").font(.system(size: 36)).foregroundStyle(Palette.secondary) }
+            else { BrandIllustration(scene: search.isEmpty ? .papers : .search) }
             Text(search.isEmpty ? (showTrash ? L10n.tr("最近删除为空") : nothingSaved ? L10n.tr("还没有资料") : category == .images ? L10n.tr("还没有图片") : category == .documents ? L10n.tr("还没有文档") : L10n.tr("还没有资料")) : L10n.tr("没有找到相关资料")).font(.title3.weight(.semibold))
             if !search.isEmpty { Button(L10n.tr("清除搜索")) { search = "" } }
             else if nothingSaved { addMenu(label: true) }
@@ -245,7 +246,7 @@ struct LibraryView: View {
             Button(L10n.tr("从文件导入"), systemImage: "folder") { showFiles = true }
             Button(L10n.tr("粘贴文本"), systemImage: "doc.on.clipboard") { showText = true }
         } label: {
-            if label { Text(L10n.tr("添加资料")).padding(.horizontal, 22).frame(minHeight: 48).foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule()) }
+            if label { Text(L10n.tr("添加资料")).padding(.horizontal, 22).frame(minHeight: 48).foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule()) }
             else { Image(systemName: "plus").font(.system(size: 26)).frame(width: 52, height: 52).chatGlass(in: Circle(), interactive: true) }
         }.disabled(progress != nil).accessibilityLabel(L10n.tr("添加资料")).accessibilityIdentifier("library-add")
     }

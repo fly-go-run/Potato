@@ -70,7 +70,7 @@ struct RemoteView: View {
                             if store.profile == nil {
                                 Button { showLogin = true } label: {
                                     Text(L10n.tr("登录账号")).font(.body.weight(.semibold)).frame(maxWidth: 260, minHeight: 46)
-                                        .foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule())
+                                        .foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule())
                                 }.buttonStyle(.plain).accessibilityIdentifier("remote-sign-in")
                             }
                             Button { showPairing = true } label: {
@@ -205,7 +205,7 @@ struct RemoteView: View {
                 .accessibilityLabel(voice ? L10n.tr("语音指令") : L10n.tr("新远程任务")).accessibilityIdentifier(voice ? "remote-voice" : "remote-new-task")
         }
     }
-    private func composeIcon(voice: Bool) -> some View { Image(systemName: voice ? "waveform" : "square.and.pencil").font(.system(size: 21)).foregroundStyle(Palette.onInk).frame(width: 46, height: 46).background(Palette.ink, in: Circle()) }
+    private func composeIcon(voice: Bool) -> some View { Image(systemName: voice ? "waveform" : "square.and.pencil").font(.system(size: 21)).foregroundStyle(voice ? Palette.ink : Palette.onAccent).frame(width: 46, height: 46).background(voice ? Palette.surface : Palette.accent, in: Circle()) }
     private var deviceManagement: some View {
         NavigationStack {
             List {
@@ -444,8 +444,8 @@ struct RemoteTaskView: View {
                 if running, let target = snapshot.flatMap(RemoteStopRequest.init(snapshot:)) {
                     Button { stopTarget = target; stopConfirmation = true } label: {
                         Image(systemName: "stop.fill").font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(hasPrompt ? Palette.ink : Palette.onInk).frame(width: 38, height: 38)
-                            .background(hasPrompt ? Palette.canvas : Palette.ink, in: Circle())
+                            .foregroundStyle(hasPrompt ? Palette.accent : Palette.onAccent).frame(width: 38, height: 38)
+                            .background(hasPrompt ? Palette.canvas : Palette.accent, in: Circle())
                             .frame(width: 44, height: 44).contentShape(Circle())
                     }.disabled(busy || !confirmed).accessibilityLabel(L10n.tr("停止任务")).accessibilityIdentifier("remote-stop").composerControl()
                 }
@@ -454,8 +454,8 @@ struct RemoteTaskView: View {
                         if busy { ProgressView().frame(width: 44, height: 44) }
                         else {
                             Image(systemName: "arrow.up").font(.system(size: 21, weight: .medium))
-                                .foregroundStyle(Palette.onInk).frame(width: 38, height: 38)
-                                .background(canSend ? Palette.ink : Palette.secondary.opacity(0.35), in: Circle())
+                                .foregroundStyle(Palette.onAccent).frame(width: 38, height: 38)
+                                .background(canSend ? Palette.accent : Palette.secondary.opacity(0.35), in: Circle())
                                 .frame(width: 44, height: 44).contentShape(Circle())
                         }
                     }.disabled(!canSend).accessibilityLabel(usesQueue ? L10n.tr("发送消息，默认排队") : running ? L10n.tr("补充当前任务") : L10n.tr("发送到电脑")).accessibilityIdentifier("remote-send").composerControl()
@@ -503,6 +503,7 @@ struct RemoteTaskView: View {
                         ForEach(snapshot.questions.filter { $0.status == "pending" }) { question in RemoteQuestionCard(question: question, busy: busy || !confirmed) { args in act("answer", args) } }
                         if !running && snapshot.outcome?.status == "failed" { Label(snapshot.outcome?.error?.message ?? L10n.tr("本轮任务失败，请检查后重试。"), systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.red) }
                     } else if chat == nil { if !dictation.active { VStack(spacing: 10) {
+                        BrandIllustration(scene: .computer).padding(.bottom, 6)
                         Text(L10n.tr("让电脑帮你做点什么")).font(.title2.weight(.semibold)).foregroundStyle(Palette.ink)
                         Text(project.map { L10n.tr("在“\($0.name)”项目中开始对话") } ?? L10n.tr("发条消息，在电脑上继续完成。"))
                             .font(.subheadline).foregroundStyle(Palette.secondary)
@@ -989,7 +990,7 @@ private struct RemoteApprovalSheet: View {
                         Text(L10n.tr("允许"))
                             .font(.body.weight(.medium)).multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity, minHeight: 48).padding(.horizontal, 8)
-                            .foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule())
+                            .foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule())
                     }.buttonStyle(.plain).accessibilityIdentifier("remote-approval-allow")
                 }.disabled(busy || !confirmed || !available)
             }.font(.footnote).dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 12)

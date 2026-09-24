@@ -17,7 +17,13 @@ struct ConversationHistoryView: View {
         NavigationStack {
             List {
                 if filtered.isEmpty {
-                    ContentUnavailableView(search.isEmpty ? (showTrash ? L10n.tr("最近删除为空") : L10n.tr("从一段对话开始")) : L10n.tr("没有找到相关对话"), systemImage: search.isEmpty ? "bubble.left.and.bubble.right" : "magnifyingglass", description: Text(search.isEmpty ? L10n.tr("你的对话会保存在这台 iPhone。") : L10n.tr("试试标题或消息里的其他关键词。")))
+                    ContentUnavailableView {
+                        VStack(spacing: 14) {
+                            if search.isEmpty && showTrash { Image(systemName: "trash").font(.system(size: 36)).foregroundStyle(Palette.secondary) }
+                            else { BrandIllustration(scene: search.isEmpty ? .chat : .search) }
+                            Text(search.isEmpty ? (showTrash ? L10n.tr("最近删除为空") : L10n.tr("从一段对话开始")) : L10n.tr("没有找到相关对话"))
+                        }
+                    } description: { Text(search.isEmpty ? L10n.tr("你的对话会保存在这台 iPhone。") : L10n.tr("试试标题或消息里的其他关键词。")) }
                         .listRowBackground(Color.clear)
                 }
                 ForEach(filtered) { chat in
@@ -361,7 +367,7 @@ struct WorkspaceSidebar: View {
                 }.padding(.horizontal, 10).padding(.bottom, 16)
             }
             HStack {
-                Button(action: newChat) { Label(L10n.tr("新对话"), systemImage: "plus").font(.body.weight(.medium)).dynamicTypeSize(...DynamicTypeSize.xxxLarge).lineLimit(1).padding(.horizontal, 20).frame(minHeight: 48).foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule()) }.accessibilityIdentifier("sidebar-new-chat")
+                Button(action: newChat) { Label(L10n.tr("新对话"), systemImage: "plus").font(.body.weight(.medium)).dynamicTypeSize(...DynamicTypeSize.xxxLarge).lineLimit(1).padding(.horizontal, 20).frame(minHeight: 48).foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule()) }.accessibilityIdentifier("sidebar-new-chat")
                 Spacer()
                 Button(action: settings) { Image(systemName: "gearshape").font(.system(size: 20)).frame(width: 48, height: 48).contentShape(Circle()) }.buttonStyle(.plain).chatGlass(in: Circle(), interactive: true).accessibilityLabel(L10n.tr("设置")).accessibilityIdentifier("sidebar-settings")
             }.padding(.horizontal, 22).padding(.vertical, 12)

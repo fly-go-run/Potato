@@ -179,7 +179,7 @@ struct AuthorizationBanner: View {
             Text(manualConnection ? L10n.tr("连接令牌无效") : L10n.tr("登录已过期")).font(.subheadline.weight(.medium)).lineLimit(2)
             Spacer(minLength: 8)
             Button(manualConnection ? L10n.tr("检查设置") : L10n.tr("重新登录"), action: signIn).font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 14).frame(minHeight: 36).foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule())
+                .padding(.horizontal, 14).frame(minHeight: 36).foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule())
                 .frame(minHeight: 44).accessibilityIdentifier("authorization-sign-in")
         }.padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 2)
             .chatGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))

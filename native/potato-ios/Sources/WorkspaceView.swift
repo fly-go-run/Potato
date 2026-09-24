@@ -430,14 +430,14 @@ struct WorkspaceView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 18) {
-                    Image("PotatoMark").resizable().scaledToFit().frame(width: 48, height: 48).clipShape(Circle()).accessibilityHidden(true)
+                    WelcomePotato(haptics: store.settings.haptics)
                     Text(L10n.tr("今天，想聊什么？"))
                         .font(.system(.title2, design: .rounded).weight(.medium))
                         .multilineTextAlignment(.center)
                     if store.requiresSignIn {
                         Button { inputFocused = false; modal = .signIn } label: {
                             Text(L10n.tr("登录 Potato 账号")).font(.body.weight(.semibold)).padding(.horizontal, 22).frame(minHeight: 46)
-                                .foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule())
+                                .foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule())
                         }.buttonStyle(.plain).accessibilityIdentifier("welcome-sign-in").padding(.top, 4)
                     }
                 }
@@ -631,7 +631,7 @@ struct WorkspaceView: View {
                     else { sendInput() }
                     if store.settings.haptics { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
                 } label: {
-                    Image(systemName: store.isGenerating ? "stop.fill" : "arrow.up").font(.system(size: store.isGenerating ? 16 : 21, weight: .medium)).foregroundStyle(Palette.onInk).frame(width: 38, height: 38).background(canSend || store.isGenerating ? Palette.ink : Palette.secondary.opacity(0.35), in: Circle()).frame(width: 44, height: 44).contentShape(Circle())
+                    Image(systemName: store.isGenerating ? "stop.fill" : "arrow.up").font(.system(size: store.isGenerating ? 16 : 21, weight: .medium)).foregroundStyle(Palette.onAccent).frame(width: 38, height: 38).background(canSend || store.isGenerating ? Palette.accent : Palette.secondary.opacity(0.35), in: Circle()).frame(width: 44, height: 44).contentShape(Circle())
                 }.disabled(!store.isGenerating && !canSend).accessibilityLabel(store.isGenerating ? L10n.tr("停止生成") : L10n.tr("发送")).accessibilityIdentifier(store.isGenerating ? "stop-generation" : "send-message").composerControl()
             }
             }
@@ -665,7 +665,7 @@ struct WorkspaceView: View {
             HStack(spacing: 10) {
                 if failure == AuthorizationFailure.message {
                     Button { inputFocused = false; modal = store.settings.cloudAccount != nil ? .signIn : .settings } label: {
-                        Text(store.settings.cloudAccount != nil ? L10n.tr("重新登录") : L10n.tr("检查设置")).font(.subheadline.weight(.semibold)).padding(.horizontal, 16).frame(minHeight: 36).foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule())
+                        Text(store.settings.cloudAccount != nil ? L10n.tr("重新登录") : L10n.tr("检查设置")).font(.subheadline.weight(.semibold)).padding(.horizontal, 16).frame(minHeight: 36).foregroundStyle(Palette.onAccent).background(Palette.accent, in: Capsule())
                     }.buttonStyle(.plain).frame(minHeight: 44).accessibilityIdentifier("failure-sign-in")
                 }
                 if message.id == chat.messages.last?.id {

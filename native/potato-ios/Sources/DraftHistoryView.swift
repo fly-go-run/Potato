@@ -30,7 +30,7 @@ struct DraftHistoryView: View {
                             .background(Palette.canvas).navigationTitle(L10n.tr("版本预览")).navigationBarTitleDisplayMode(.inline)
                             .safeAreaInset(edge: .bottom) {
                                 Button(L10n.tr("恢复此版本")) { draft.restore(version); dismiss() }
-                                    .buttonStyle(.borderedProminent).foregroundStyle(Palette.onInk).controlSize(.large).frame(maxWidth: .infinity).padding(16).background(.regularMaterial)
+                                    .buttonStyle(.borderedProminent).foregroundStyle(Palette.onAccent).controlSize(.large).frame(maxWidth: .infinity).padding(16).background(.regularMaterial)
                                     .accessibilityIdentifier("restore-draft-version")
                             }
                     }

@@ -25,17 +25,3 @@ private struct Shimmer: ViewModifier {
 extension View {
     func shimmering(_ active: Bool = true) -> some View { modifier(Shimmer(active: active)) }
 }
-
-/// Shown after sending, before anything of the reply has arrived.
-struct ReplyPendingDot: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { context in
-            let phase = reduceMotion ? 1 : (sin(context.date.timeIntervalSinceReferenceDate * .pi / 0.7) + 1) / 2
-            Circle().fill(Palette.ink)
-                .frame(width: 12, height: 12)
-                .scaleEffect(0.75 + 0.25 * phase)
-                .opacity(0.45 + 0.55 * phase)
-        }.frame(width: 24, height: 24, alignment: .leading)
-    }
-}

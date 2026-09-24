@@ -7,7 +7,7 @@ struct PotatoMobileApp: App {
             WorkspaceView()
                 .environment(\.locale, AppLocalization.shared.locale)
                 .onReceive(NotificationCenter.default.publisher(for: NSLocale.currentLocaleDidChangeNotification)) { _ in AppLocalization.shared.refreshSystemLanguage() }
-                .tint(Palette.ink)
+                .tint(Palette.accent)
         }
     }
 }
@@ -48,6 +48,9 @@ enum Palette {
     static let surface = adaptive(.white, UIColor(white: 0.12, alpha: 1))
     static let grouped = adaptive(UIColor(white: 0.97, alpha: 1), UIColor(white: 0.075, alpha: 1))
     static let onInk = adaptive(.white, UIColor(white: 0.10, alpha: 1))
+    /// Caramel from the icon's potato, for primary actions only.
+    static let accent = adaptive(UIColor(red: 0.722, green: 0.451, blue: 0.235, alpha: 1), UIColor(red: 0.902, green: 0.682, blue: 0.447, alpha: 1))
+    static let onAccent = adaptive(.white, UIColor(red: 0.12, green: 0.10, blue: 0.086, alpha: 1))
     static let line = adaptive(.black.withAlphaComponent(0.085), .white.withAlphaComponent(0.14))
     static let glassEdge = adaptive(.white.withAlphaComponent(0.6), .white.withAlphaComponent(0.12))
     static let fileAccent = adaptive(UIColor(red: 0.56, green: 0.32, blue: 0.23, alpha: 1), UIColor(red: 0.91, green: 0.68, blue: 0.52, alpha: 1))
