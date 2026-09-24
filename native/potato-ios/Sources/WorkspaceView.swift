@@ -47,8 +47,8 @@ struct WorkspaceView: View {
     }
     @Environment(\.scenePhase) private var scenePhase
     private enum Modal: Identifiable {
-        case history, settings, memories, models, retryModels(ChatMessage), signIn, share(URL), preview([Attachment], Int)
-        var id: String { switch self { case .history: "history"; case .settings: "settings"; case .memories: "memories"; case .models: "models"; case .retryModels(let message): "retry-models-\(message.id)"; case .signIn: "sign-in"; case .share(let url): url.absoluteString; case .preview(let attachments, let index): attachments[index].id.uuidString } }
+        case history, settings, models, retryModels(ChatMessage), signIn, share(URL), preview([Attachment], Int)
+        var id: String { switch self { case .history: "history"; case .settings: "settings"; case .models: "models"; case .retryModels(let message): "retry-models-\(message.id)"; case .signIn: "sign-in"; case .share(let url): url.absoluteString; case .preview(let attachments, let index): attachments[index].id.uuidString } }
     }
     init() {
         // Keep startup and persistence inside StateObject's lazy initialization.
@@ -260,7 +260,6 @@ struct WorkspaceView: View {
                 switch item {
                 case .history: ConversationHistoryView(store: store)
                 case .settings: SettingsView(store: store, appearancePreview: $appearancePreview)
-                case .memories: RecallView(store: store)
                 case .models: LocalModelPicker(store: store, openConnection: { modal = .settings }, signIn: { modal = .signIn })
                 case .retryModels(let message):
                     LocalModelPicker(store: store, openConnection: {}, signIn: { modal = .signIn }, retryMessage: message, regenerate: { choice in
@@ -400,7 +399,6 @@ struct WorkspaceView: View {
                         Button(chat.pinned ? L10n.tr("取消置顶") : L10n.tr("置顶"), systemImage: "pin") { store.update { $0.pinned.toggle() }; store.persist() }
                         Button(L10n.tr("分享对话"), systemImage: "square.and.arrow.up") { shareText(chat.messages.map { "## \($0.role == "user" ? L10n.tr("我") : "Potato")\n\n\($0.displayText)" }.joined(separator: "\n\n")) }
                     }
-                    Button(L10n.tr("记忆与历史"), systemImage: "brain") { inputFocused = false; modal = .memories }
                     if AppEnvironment.isUITesting { Button(L10n.tr("打开示例文稿"), systemImage: "doc.text") { store.addExample(); documentVisible = true } }
                     if !chat.messages.isEmpty {
                         Divider()

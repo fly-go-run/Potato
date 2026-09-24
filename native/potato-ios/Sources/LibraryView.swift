@@ -81,6 +81,7 @@ struct SettingsView: View {
     @State private var connectionSucceeded = false
     @State private var versionTaps = 0
     @State private var developerNotice: String?
+    @State private var confirmingTrashAll = false
     private enum Field: Hashable { case endpoint, model, token }
     @FocusState private var focusedField: Field?
     init(store: WorkspaceStore, appearancePreview: Binding<AppAppearance?>) {
@@ -96,6 +97,9 @@ struct SettingsView: View {
     private var appearance: Binding<AppAppearance> { Binding(get: { store.settings.appearanceMode }, set: { store.settings.appearanceMode = $0; store.persist() }) }
     private var language: Binding<AppLanguage> { Binding(get: { store.settings.languageMode }, set: { store.settings.languageMode = $0; AppLocalization.shared.selection = $0; store.persist() }) }
     private var haptics: Binding<Bool> { Binding(get: { store.settings.haptics }, set: { store.settings.haptics = $0; store.persist() }) }
+    /// Only a signed-in account's catalog offers a choice; a manual connection names its model directly.
+    private var defaultModels: [LocalModelEntry] { store.settings.cloudAccount != nil && !store.settings.demo ? store.settings.currentCatalog?.models ?? [] : [] }
+    private var defaultModel: Binding<String> { Binding(get: { store.settings.model }, set: { store.settings.model = $0; configuration.model = $0; store.persist() }) }
     var body: some View {
         NavigationStack {
             Form {
@@ -104,25 +108,34 @@ struct SettingsView: View {
                     Picker(L10n.tr("外观"), selection: appearance) {
                         ForEach(AppAppearance.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
                     }.pickerStyle(.segmented).accessibilityIdentifier("appearance-picker")
-                } header: { Text(L10n.tr("外观")) }
-                Section {
                     Picker(L10n.tr("语言"), selection: language) {
                         ForEach(AppLanguage.allCases, id: \.self) { language in Text(language.title).tag(language) }
                     }.accessibilityIdentifier("language-picker")
-                } header: { Text(L10n.tr("语言")) }
-                if showsDeveloper { developerSections }
+                    Toggle(L10n.tr("触感反馈"), isOn: haptics)
+                } header: { Text(L10n.tr("通用")) }
                 Section(L10n.tr("个性化")) {
                     NavigationLink {
                         CustomInstructionsView(store: store)
                     } label: {
                         HStack { Text(L10n.tr("自定义指令")); Spacer(minLength: 12); Text(instructionsSummary).foregroundStyle(Palette.secondary).lineLimit(1) }
                     }.accessibilityIdentifier("custom-instructions-open")
-                    Toggle(L10n.tr("触感反馈"), isOn: haptics)
+                    NavigationLink {
+                        RecallView(store: store)
+                    } label: {
+                        HStack { Text(L10n.tr("记忆")); Spacer(minLength: 12); Text(store.settings.recallEnabled == true ? L10n.tr("已开启") : L10n.tr("未开启")).foregroundStyle(Palette.secondary) }
+                    }.accessibilityIdentifier("settings-memory")
+                    if defaultModels.count > 1 {
+                        Picker(L10n.tr("新对话默认模型"), selection: defaultModel) {
+                            ForEach(defaultModels) { model in Text(model.displayName).tag(model.id) }
+                        }.accessibilityIdentifier("default-model-picker")
+                    }
                 }
-                Section {
-                    Label(L10n.tr("对话与附件保存在本机"), systemImage: "iphone")
-                    Button(L10n.tr("照片、相机与麦克风权限"), systemImage: "hand.raised") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
-                } header: { Text(L10n.tr("数据与隐私")) }
+                if showsDeveloper { developerSections }
+                Section(L10n.tr("数据")) {
+                    Button(L10n.tr("照片、相机与麦克风权限")) { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
+                    Button(L10n.tr("删除所有对话"), role: .destructive) { confirmingTrashAll = true }
+                        .disabled(store.visibleConversations.allSatisfy(\.isEmptyShell)).accessibilityIdentifier("trash-all-conversations")
+                }
                 Section {
                     Button { tapVersion() } label: {
                         VStack(spacing: 4) {
@@ -137,6 +150,9 @@ struct SettingsView: View {
                     ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { save() }.bold().accessibilityIdentifier("save-settings") }
                     ToolbarItemGroup(placement: .keyboard) { Spacer(); Button(L10n.tr("收起键盘")) { focusedField = nil }.accessibilityIdentifier("dismiss-settings-keyboard") }
                 }
+                .confirmationDialog(L10n.tr("删除所有对话？"), isPresented: $confirmingTrashAll, titleVisibility: .visible) {
+                    Button(L10n.tr("删除所有对话"), role: .destructive) { store.trashAll(); dismiss() }
+                } message: { Text(L10n.tr("可以在最近删除中恢复。")) }
                 .alert(L10n.tr("无法保存"), isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button(L10n.tr("知道了"), role: .cancel) {} } message: { Text(error ?? "") }
         }.presentationDragIndicator(.visible)
             .sheet(isPresented: $showCloud) { CloudAccountView(store: store, connected: { dismiss() }) }
@@ -160,7 +176,7 @@ struct SettingsView: View {
                     Image(systemName: "person.crop.circle.fill").font(.system(size: 36)).foregroundStyle(Palette.secondary).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(account.email).font(.body.weight(.medium)).lineLimit(1)
-                        Text(store.authorizationExpired ? L10n.tr("登录已过期") : L10n.tr("已登录 · 云端模型可用")).font(.footnote).foregroundStyle(store.authorizationExpired ? Color.orange : Palette.secondary)
+                        if store.authorizationExpired { Text(L10n.tr("登录已过期")).font(.footnote).foregroundStyle(Color.orange) }
                     }
                 }.padding(.vertical, 4)
                 Button(store.authorizationExpired ? L10n.tr("重新登录") : L10n.tr("管理账号")) { showCloud = true }.accessibilityIdentifier("cloud-model-login")
@@ -174,8 +190,6 @@ struct SettingsView: View {
                         Text("Potato").font(.title3.bold())
                         if !store.settings.demo, let host = store.settings.validatedURL?.host {
                             Text(store.authorizationExpired ? L10n.tr("自定义服务 · 连接令牌无效") : L10n.tr("已连接自定义服务 · \(host)")).font(.subheadline).foregroundStyle(store.authorizationExpired ? Color.orange : Palette.secondary).lineLimit(2)
-                        } else {
-                            Text(L10n.tr("登录后即可开始对话。")).font(.subheadline).foregroundStyle(Palette.secondary)
                         }
                     }
                 }.padding(.vertical, 6)

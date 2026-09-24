@@ -27,7 +27,7 @@ struct SearchSourcesButton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let active = runs.last, active.state == "searching", showsActivity {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L10n.tr("正在搜索网页")).font(.subheadline) }.accessibilityIdentifier("web-search-progress")
+                Text(L10n.tr("正在搜索网页")).font(.subheadline).foregroundStyle(Palette.secondary).shimmering().accessibilityIdentifier("web-search-progress")
                 Text(active.query).font(.caption).foregroundStyle(Palette.secondary).lineLimit(2)
             }
             if showsActivity && runs.last?.state == "failed" { Label(L10n.tr("搜索未成功"), systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(Palette.secondary) }

@@ -1,19 +1,22 @@
 import XCTest
 final class RecallUITests: XCTestCase {
+    private func openMemory(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 10)); app.buttons["connection-settings"].tap()
+        XCTAssertTrue(app.buttons["settings-memory"].waitForExistence(timeout: 5)); app.buttons["settings-memory"].tap()
+    }
     func testRecallSettingsPersistAndClearlyExplainCloudSync() {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--reset", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
         app.launch()
-        XCTAssertTrue(app.buttons["more"].waitForExistence(timeout: 10))
-        app.buttons["more"].tap(); app.buttons["记忆与历史"].tap()
-        let toggle = app.switches["跨对话检索"]
+        openMemory(app)
+        let toggle = app.switches["参考历史对话"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5)); XCTAssertEqual(toggle.value as? String, "0")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "同步到你的账号")).firstMatch.exists)
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap(); XCTAssertEqual(toggle.value as? String, "1")
         let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "recall-settings"; capture.lifetime = .keepAlways; add(capture)
-        app.buttons["完成"].tap(); app.terminate()
+        app.terminate()
         app.launchArguments.removeAll { $0 == "--reset" }; app.launch()
-        XCTAssertTrue(app.buttons["more"].waitForExistence(timeout: 10)); app.buttons["more"].tap(); app.buttons["记忆与历史"].tap()
+        openMemory(app)
         XCTAssertTrue(toggle.waitForExistence(timeout: 5)); XCTAssertEqual(toggle.value as? String, "1")
     }
     func testHistorySourceOpensOriginalMessage() {

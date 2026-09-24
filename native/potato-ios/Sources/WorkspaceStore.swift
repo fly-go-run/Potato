@@ -132,6 +132,17 @@ final class WorkspaceStore: ObservableObject {
         }
         persist(); invalidateLocalRecall(id); syncRecallInBackground(cleanup: true)
     }
+    /// Moves every conversation to Recently Deleted and starts a fresh one.
+    func trashAll() {
+        if generatingID != nil { stop() }
+        let now = Date()
+        for i in conversations.indices where conversations[i].deletedAt == nil && !conversations[i].isEmptyShell {
+            conversations[i].deletedAt = now; invalidateLocalRecall(conversations[i].id)
+        }
+        if let empty = conversations.first(where: { $0.deletedAt == nil }) { selectedID = empty.id }
+        else { let chat = Conversation(); conversations.append(chat); selectedID = chat.id }
+        persist(); syncRecallInBackground(cleanup: true)
+    }
     func rename(_ id: UUID, to title: String) {
         let value = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return }
@@ -195,7 +206,6 @@ final class WorkspaceStore: ObservableObject {
             try choice?.validate(settings: settings)
         } catch { self.error = error.localizedDescription; return false }
         var versions = old.versions ?? []
-        versions.append(ReplyVersion(activityOrder: old.activityOrder, modelChoice: old.modelChoice, reasoning: old.reasoning, recalls: old.recalls, codeRuns: old.codeRuns, searches: old.searches, execution: old.execution, attachments: old.attachments, text: old.text, state: old.state, failure: old.failure, date: old.createdAt))
         update { $0.messages.removeLast() }
         generate(previousVersions: versions, choice: choice)
         return true

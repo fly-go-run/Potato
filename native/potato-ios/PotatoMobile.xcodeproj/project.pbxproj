@@ -10,6 +10,7 @@
 		02775FF44A7B202A5F55F469 /* SidebarGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C4A8FCDA1DE4D34C3A8712 /* SidebarGesture.swift */; };
 		02F334F196EA006638E9C623 /* CloudModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC420ECA1912B1808E83E2F0 /* CloudModels.swift */; };
 		038B6A7B6A4018A130B14EA3 /* KeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 277DE1B7A819B3FDDE1AE9AF /* KeychainTests.swift */; };
+		060017DB7550ED2DD0A4ECEA /* Shimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C2005F0A824FFB2275521A /* Shimmer.swift */; };
 		074BCC9C9F6F192996661381 /* RemoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C72C66AEA4708EF749D1D0EE /* RemoteView.swift */; };
 		09330AF43513EB9D7BC7D821 /* LiveConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F14C8FB3032E47682E9C8D /* LiveConnectionTests.swift */; };
 		0A8EBB8BB1BC2C932A269A8C /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A65A3DD12F859AF79004B90 /* SpeechService.swift */; };
@@ -244,6 +245,7 @@
 		DE43ECD088E93552B6288FAE /* RemoteDraftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDraftTests.swift; sourceTree = "<group>"; };
 		DFBF4B1D8E1342C867A9477D /* RecallTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallTests.swift; sourceTree = "<group>"; };
 		E01E2465B14E4A4FF462BD50 /* ChatChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatChrome.swift; sourceTree = "<group>"; };
+		E2C2005F0A824FFB2275521A /* Shimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shimmer.swift; sourceTree = "<group>"; };
 		E3B56B7362AF32F541A98610 /* RemoteTaskObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTaskObservationTests.swift; sourceTree = "<group>"; };
 		E3DCC927879B2D3670683261 /* LibraryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryUITests.swift; sourceTree = "<group>"; };
 		E8D03FD079682004F6AB481E /* RecallUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallUITests.swift; sourceTree = "<group>"; };
@@ -406,6 +408,7 @@
 				8F7019309A3F26C3C7BCDD99 /* ReplyActions.swift */,
 				3415D7F175B235CC10FA870F /* ReplyProcess.swift */,
 				FD2DF7482AC62A24953EB379 /* SandboxService.swift */,
+				E2C2005F0A824FFB2275521A /* Shimmer.swift */,
 				59C4A8FCDA1DE4D34C3A8712 /* SidebarGesture.swift */,
 				9A65A3DD12F859AF79004B90 /* SpeechService.swift */,
 				A6F44A9877ED24226AE5EF3B /* StreamingMarkdown.swift */,
@@ -680,6 +683,7 @@
 				0C9C4B3B5C5D1F0544924630 /* ReplyActions.swift in Sources */,
 				13FE63C0875894B7A2174EAB /* ReplyProcess.swift in Sources */,
 				237A34BEAC1752FAD9A8C662 /* SandboxService.swift in Sources */,
+				060017DB7550ED2DD0A4ECEA /* Shimmer.swift in Sources */,
 				02775FF44A7B202A5F55F469 /* SidebarGesture.swift in Sources */,
 				0A8EBB8BB1BC2C932A269A8C /* SpeechService.swift in Sources */,
 				3CAC3AC3D68E0C67D38A58F3 /* StreamingMarkdown.swift in Sources */,

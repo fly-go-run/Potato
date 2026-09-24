@@ -2,34 +2,32 @@ import SwiftUI
 
 struct RecallView: View {
     @ObservedObject var store: WorkspaceStore
-    @Environment(\.dismiss) private var dismiss
     @State private var editing: PersonalMemory?
     @State private var text = ""
     @State private var editorVisible = false
     @State private var busy = false
     @State private var failure: String?
     var body: some View {
-        NavigationStack {
             Form {
                 Section {
-                    Toggle(L10n.tr("跨对话检索"), isOn: Binding(get: { store.settings.recallEnabled == true }, set: { store.settings.recallEnabled = $0; store.persist(); if $0 { store.syncRecallInBackground() } }))
-                    Toggle(L10n.tr("自动记录长期记忆"), isOn: Binding(get: { store.settings.automaticMemory == true }, set: { store.settings.automaticMemory = $0; store.persist() })).disabled(store.settings.recallEnabled != true)
+                    Toggle(L10n.tr("参考历史对话"), isOn: Binding(get: { store.settings.recallEnabled == true }, set: { store.settings.recallEnabled = $0; store.persist(); if $0 { store.syncRecallInBackground() } }))
+                    Toggle(L10n.tr("自动记住重要信息"), isOn: Binding(get: { store.settings.automaticMemory == true }, set: { store.settings.automaticMemory = $0; store.persist() })).disabled(store.settings.recallEnabled != true)
                 } footer: { Text(L10n.tr("开启后，对话文字会同步到你的账号，供回答时参考。")) }
+                if store.settings.recallEnabled != nil {
                 Section {
                     if let notice = store.recallNotice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
                     Button { store.syncRecallInBackground(cleanup: true) } label: { HStack { Text(L10n.tr("立即同步历史")); if store.recallSyncing { Spacer(); ProgressView() } } }.disabled(store.recallSyncing || store.settings.recallEnabled == nil || store.settings.demo)
                 }
+                }
                 memorySection
-                conversationSection
+                if store.settings.recallEnabled == true { conversationSection }
             }
-            .navigationTitle(L10n.tr("记忆与历史")).navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { dismiss() } } }
+            .navigationTitle(L10n.tr("记忆")).navigationBarTitleDisplayMode(.inline)
             .task { if !store.settings.demo { await store.refreshMemories() } }
             .sheet(isPresented: $editorVisible) {
                 memoryEditor
             }
             .alert(L10n.tr("记忆操作未完成"), isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) { Button(L10n.tr("好")) { failure = nil } } message: { Text(failure ?? "") }
-        }
     }
     private var memorySection: some View {
                 Section {
@@ -46,7 +44,7 @@ struct RecallView: View {
                         }
                     }
                     Button(L10n.tr("添加记忆"), systemImage: "plus") { editing = nil; text = ""; editorVisible = true }.disabled(store.settings.demo)
-                } header: { Text(L10n.tr("长期记忆")) }
+                } header: { Text(L10n.tr("已保存的记忆")) }
 
     }
     private var conversationSection: some View {
@@ -81,7 +79,7 @@ struct RecallSourcesView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if runs.last?.state == "searching" { HStack { ProgressView().controlSize(.small); Text(L10n.tr("正在检索历史与记忆…")).font(.caption) } }
+            if runs.last?.state == "searching" { Text(L10n.tr("正在检索历史与记忆")).font(.caption).foregroundStyle(Palette.secondary).shimmering() }
             if let failed = runs.last(where: { $0.state == "failed" }) { Text(failed.message ?? L10n.tr("历史检索未完成")).font(.caption).foregroundStyle(.secondary) }
             if !sources.isEmpty {
                 DisclosureGroup(L10n.tr("检索到的历史 · \(sources.count) 条"), isExpanded: $expanded) {

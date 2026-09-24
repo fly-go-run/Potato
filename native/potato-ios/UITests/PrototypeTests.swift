@@ -203,10 +203,9 @@ final class PrototypeTests: XCTestCase {
         XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 10)); app.buttons["connection-settings"].tap()
         let probe = app.buttons["test-connection"]
         func revealProbe() {
-            for _ in 0..<4 where !probe.exists {
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).press(forDuration: 0.05,
-                    thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
-            }
+            // Developer options sit below the everyday settings. Scroll the form itself so a drag never lands on a row as a tap.
+            let form = app.collectionViews.firstMatch
+            for _ in 0..<6 where !probe.exists { form.swipeUp(velocity: .slow) }
         }
         revealProbe()
         XCTAssertTrue(probe.waitForExistence(timeout: 3)); XCTAssertFalse(probe.isEnabled)
@@ -221,8 +220,8 @@ final class PrototypeTests: XCTestCase {
         capture(app, "20-connection-setup")
         app.buttons["取消"].tap()
         XCTAssertTrue(app.buttons["connection-settings"].waitForExistence(timeout: 3)); app.buttons["connection-settings"].tap()
-        XCTAssertEqual(app.textFields["endpoint"].value as? String, "完整接口地址（HTTPS）")
         revealProbe()
+        XCTAssertEqual(app.textFields["endpoint"].value as? String, "完整接口地址（HTTPS）")
         XCTAssertFalse(app.buttons["test-connection"].isEnabled)
     }
 

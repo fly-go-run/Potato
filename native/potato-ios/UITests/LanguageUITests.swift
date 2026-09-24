@@ -22,7 +22,7 @@ final class LanguageUITests: XCTestCase {
         openSettings()
         choose("English")
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 4))
-        XCTAssertTrue(app.staticTexts["Appearance"].exists)
+        XCTAssertTrue(app.staticTexts["General"].exists)
         capture(app, "language-english")
         app.buttons["save-settings"].tap()
         XCTAssertTrue(app.buttons["connection-settings"].label.hasPrefix("Model and reasoning"))
