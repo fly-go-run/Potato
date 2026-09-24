@@ -336,6 +336,7 @@ struct WorkspaceSidebar: View {
                 Text("Potato").font(.title2.weight(.semibold)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 Spacer()
                 Button { searchVisible.toggle() } label: { Image(systemName: "magnifyingglass").font(.system(size: 20)).frame(width: 44, height: 44).contentShape(Circle()) }.accessibilityLabel(L10n.tr("搜索会话"))
+                Button(action: history) { Image(systemName: "ellipsis").font(.system(size: 20)).frame(width: 44, height: 44).contentShape(Circle()) }.accessibilityLabel(L10n.tr("管理对话与最近删除")).accessibilityIdentifier("sidebar-history-manage")
             }.padding(.horizontal, 22).padding(.top, 8)
             if searchVisible || !search.isEmpty {
                 HStack { Image(systemName: "magnifyingglass"); TextField(L10n.tr("搜索标题和消息"), text: $search).focused($searching).accessibilityIdentifier("sidebar-search").onAppear { searching = true } }
@@ -346,24 +347,15 @@ struct WorkspaceSidebar: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if search.isEmpty {
                         sidebarAction(L10n.tr("资料库"), icon: "books.vertical", selected: librarySelected, action: library).accessibilityIdentifier("sidebar-library")
-                        sidebarAction(L10n.tr("远程"), icon: "desktopcomputer", selected: remoteSelected, action: selectRemote).accessibilityIdentifier("sidebar-remote")
+                        sidebarAction(L10n.tr("远程"), icon: "laptopcomputer.and.iphone", selected: remoteSelected, action: selectRemote).accessibilityIdentifier("sidebar-remote")
                     }
                     if !chats.filter(\.pinned).isEmpty {
                         heading(L10n.tr("置顶"))
                         ForEach(chats.filter(\.pinned)) { row($0) }
                     }
                     ForEach(Array(periods.enumerated()), id: \.element.0) { index, group in
-                        HStack {
-                            heading(search.isEmpty ? group.0.title : (index == 0 ? L10n.tr("搜索结果") : group.0.title))
-                            Spacer()
-                            if index == 0 {
-                                Button(action: history) { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel(L10n.tr("管理对话与最近删除")).accessibilityIdentifier("sidebar-history-manage")
-                            }
-                        }
+                        heading(search.isEmpty ? group.0.title : (index == 0 ? L10n.tr("搜索结果") : group.0.title))
                         ForEach(group.1) { row($0) }
-                    }
-                    if periods.isEmpty {
-                        HStack { Spacer(); Button(action: history) { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel(L10n.tr("管理对话与最近删除")).accessibilityIdentifier("sidebar-history-manage") }
                     }
                     if chats.isEmpty { Text(search.isEmpty ? L10n.tr("从一段新对话开始") : L10n.tr("没有找到相关对话")).font(.subheadline).foregroundStyle(Palette.secondary).padding(18) }
                 }.padding(.horizontal, 10).padding(.bottom, 16)
@@ -384,7 +376,9 @@ struct WorkspaceSidebar: View {
     private func sidebarAction(_ title: String, icon: String, selected: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 20)).frame(width: 24).accessibilityHidden(true)
+                // Device symbols carry a gray screen layer; drop it so every row is a plain outline.
+                Image(systemName: icon).font(.system(size: 20)).symbolRenderingMode(.palette).foregroundStyle(Palette.ink, .clear)
+                    .frame(width: 24).accessibilityHidden(true)
                 Text(title).font(.body.weight(.medium)).fixedSize(horizontal: false, vertical: true)
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 6)
                 .frame(minHeight: 48).background(selected ? Palette.muted : .clear, in: RoundedRectangle(cornerRadius: 13, style: .continuous))

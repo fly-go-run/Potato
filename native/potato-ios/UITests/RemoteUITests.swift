@@ -193,11 +193,11 @@ final class RemoteUITests: XCTestCase {
         app.buttons["sidebar-remote"].tap()
         XCTAssertTrue(app.textFields["remote-search"].waitForExistence(timeout: 3))
         app.textFields["remote-search"].tap(); app.textFields["remote-search"].typeText("Potato")
-        XCTAssertTrue(app.buttons["在Potato新建任务"].waitForExistence(timeout: 3))
-        XCTAssertFalse(app.buttons["在dynamo新建任务"].exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "remote-project-", "/Potato")).firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "remote-project-", "/dynamo")).firstMatch.exists)
         capture(app, "remote-search")
         app.buttons["清除搜索"].tap()
-        XCTAssertTrue(app.buttons["在dynamo新建任务"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "remote-project-", "/dynamo")).firstMatch.waitForExistence(timeout: 3))
     }
     func testEmptyRemotePairingValidationAndLocalChatReturn() {
         let app = launch(preview: false)

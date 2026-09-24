@@ -134,23 +134,22 @@ enum ConversationPeriod: Int, CaseIterable {
     }
 }
 
-/// One icon and color per file family, shared by chat cards and the library.
+/// One neutral icon per file family, shared by chat cards and the library.
 struct FileKind {
     let symbol: String
     let label: String
-    let tint: Color
     init(filename: String, type: String = "") {
         switch (filename as NSString).pathExtension.lowercased() {
-        case "ppt", "pptx", "key": symbol = "rectangle.on.rectangle.angled"; label = L10n.tr("演示文稿"); tint = Color(red: 0.84, green: 0.40, blue: 0.20)
-        case "pdf": symbol = "doc.richtext"; label = L10n.tr("PDF 文档"); tint = Color(red: 0.80, green: 0.22, blue: 0.20)
-        case "xls", "xlsx", "csv", "numbers": symbol = "tablecells"; label = L10n.tr("电子表格"); tint = Color(red: 0.16, green: 0.55, blue: 0.32)
-        case "doc", "docx", "pages", "rtf": symbol = "doc.text"; label = L10n.tr("Word 文档"); tint = Color(red: 0.19, green: 0.40, blue: 0.80)
-        case "md", "markdown", "txt": symbol = "text.alignleft"; label = L10n.tr("文本"); tint = Color(red: 0.42, green: 0.42, blue: 0.40)
-        case "py", "js", "ts", "swift", "json", "html", "css", "sh": symbol = "chevron.left.forwardslash.chevron.right"; label = L10n.tr("代码"); tint = Color(red: 0.45, green: 0.33, blue: 0.70)
-        case "zip", "gz", "tar": symbol = "doc.zipper"; label = L10n.tr("压缩包"); tint = Color(red: 0.55, green: 0.45, blue: 0.30)
+        case "ppt", "pptx", "key": symbol = "play.rectangle"; label = L10n.tr("演示文稿")
+        case "pdf": symbol = "doc.richtext"; label = L10n.tr("PDF 文档")
+        case "xls", "xlsx", "csv", "numbers": symbol = "tablecells"; label = L10n.tr("电子表格")
+        case "doc", "docx", "pages", "rtf": symbol = "doc.text"; label = L10n.tr("Word 文档")
+        case "md", "markdown", "txt": symbol = "text.alignleft"; label = L10n.tr("文本")
+        case "py", "js", "ts", "swift", "json", "html", "css", "sh": symbol = "chevron.left.forwardslash.chevron.right"; label = L10n.tr("代码")
+        case "zip", "gz", "tar": symbol = "doc.zipper"; label = L10n.tr("压缩包")
         default:
-            if type.hasPrefix("image/") { symbol = "photo"; label = L10n.tr("图片"); tint = Color(red: 0.19, green: 0.40, blue: 0.80) }
-            else { symbol = "doc"; label = L10n.tr("文件"); tint = Color(red: 0.42, green: 0.42, blue: 0.40) }
+            if type.hasPrefix("image/") { symbol = "photo"; label = L10n.tr("图片") }
+            else { symbol = "doc"; label = L10n.tr("文件") }
         }
     }
     /// "llm_inference-overview.pptx" → "Llm inference overview".

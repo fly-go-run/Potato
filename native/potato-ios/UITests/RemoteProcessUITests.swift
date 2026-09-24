@@ -24,7 +24,17 @@ final class RemoteProcessUITests: XCTestCase {
     }
     private func status(_ app: XCUIApplication, _ value: String, timeout: Double = 10) {
         let item = app.staticTexts["remote-current-status"]
-        if ["正在思考", "执行命令", "正在回复"].contains(value) {
+        if value == "正在思考" {
+            // A confirmed thought is named by the process row alone; an unconfirmed one falls back to the status line.
+            let row = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "remote-process-toggle", value)).firstMatch
+            let indicator = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@ AND label == %@", ["remote-activity-spinner", "remote-static-activity"], value)).firstMatch
+            let shown = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in row.exists || indicator.exists }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [shown], timeout: timeout), .completed)
+            XCTAssertFalse(row.exists && indicator.exists, "正在思考 is shown twice")
+            XCTAssertFalse(item.exists)
+            return
+        }
+        if ["正在执行", "正在回复"].contains(value) {
             let indicator = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@ AND label == %@", ["remote-activity-spinner", "remote-static-activity"], value)).firstMatch
             XCTAssertTrue(indicator.waitForExistence(timeout: timeout))
             XCTAssertFalse(item.exists)
@@ -61,13 +71,14 @@ final class RemoteProcessUITests: XCTestCase {
         XCTAssertTrue(text.contains("我再确认一下名称。"))
         XCTAssertTrue(text.contains("你想先打开哪一个？"))
         app.buttons["close-text-selection"].tap()
-        let process = app.buttons["remote-process-toggle"]
+        // Commentary stays between the groups it introduced; the first group holds the opening thought.
+        let process = app.buttons["remote-process-toggle-0"]
         if !process.isHittable { app.scrollViews["remote-conversation"].swipeDown() }
         process.tap()
-        XCTAssertTrue(app.buttons["activity-step-reasoning2"].waitForExistence(timeout: 5))
-        capture(app, "remote-conversation-process")
-        app.buttons["activity-step-reasoning"].tap()
+        // A group holding only a thought opens straight into it.
+        XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["activity-reasoning"].label.contains("The user asks"))
+        capture(app, "remote-conversation-process")
         app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
         app.buttons["remote-conversation-options"].tap()
         XCTAssertTrue(app.buttons["置顶对话"].waitForExistence(timeout: 3))
@@ -93,14 +104,14 @@ final class RemoteProcessUITests: XCTestCase {
 
     func testThinkingToolReplyCompletionAndDisclosure() {
         control("thinking"); let app = launch(); status(app, "正在思考")
-        XCTAssertTrue(spinner(app).exists)
-        // A ScrollView's offscreen pull-to-refresh spinner remains in the AX tree.
-        XCTAssertEqual(app.activityIndicators.allElementsBoundByIndex.filter { !$0.frame.isEmpty && app.frame.contains($0.frame) && $0.isHittable }.count, 1)
+        XCTAssertFalse(spinner(app).exists)
         app.buttons["remote-process-toggle"].tap()
         app.buttons["activity-step-reasoning"].tap()
         XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 5)); capture(app, "remote-thinking-expanded")
         app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
-        control("tool"); status(app, "执行命令")
+        control("tool"); status(app, "正在执行")
+        // A ScrollView's offscreen pull-to-refresh spinner remains in the AX tree.
+        XCTAssertEqual(app.activityIndicators.allElementsBoundByIndex.filter { !$0.frame.isEmpty && app.frame.contains($0.frame) && $0.isHittable }.count, 1)
         app.buttons["remote-process-toggle"].tap(); capture(app, "remote-tool-active"); app.buttons["activity-close"].tap()
         control("reply"); status(app, "正在回复")
         XCTAssertFalse(app.buttons["remote-copy-reply"].exists)
@@ -122,17 +133,20 @@ final class RemoteProcessUITests: XCTestCase {
         control("offline"); status(app, "连接中断，任务状态未确认")
         XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-send"].isEnabled); XCTAssertFalse(app.buttons["remote-stop"].isEnabled)
         XCTAssertEqual(input(app).value as? String, "keep draft"); capture(app, "remote-offline-draft-keyboard")
-        control("tool"); status(app, "执行命令")
+        control("tool"); status(app, "正在执行")
         XCTAssertTrue(spinner(app).exists); XCTAssertTrue(app.buttons["remote-send"].isEnabled); XCTAssertEqual(input(app).value as? String, "keep draft")
         capture(app, "remote-reconnected")
     }
     func testSlowRequestsExpireSnapshotAndModelLookupDoesNotBlockChat() {
         control("thinking", overviewDelay: 12); let app = launch(); status(app, "正在思考", timeout: 5)
-        control("thinking", delay: 12)
-        status(app, "正在确认任务状态…", timeout: 14)
-        XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-stop"].isEnabled)
-        XCTAssertTrue(app.staticTexts["remote-last-status"].exists); capture(app, "remote-slow-request-stale")
-        control("complete"); status(app, "本轮任务已完成", timeout: 18)
+        // A slow poll keeps the last known state on screen; only acting waits for confirmation.
+        control("thinking", delay: 15)
+        let stop = app.buttons["remote-stop"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == false"), object: stop)], timeout: 14), .completed)
+        status(app, "正在思考", timeout: 1); XCTAssertFalse(app.staticTexts["remote-last-status"].exists)
+        status(app, "正在确认任务状态…", timeout: 25)
+        XCTAssertFalse(spinner(app).exists); XCTAssertTrue(app.staticTexts["remote-last-status"].exists); capture(app, "remote-slow-request-stale")
+        control("complete"); status(app, "本轮任务已完成", timeout: 30)
     }
     func testApprovalQuestionStopAndFailureUseRealStates() {
         control("approval"); let app = launch(); XCTAssertTrue(app.staticTexts["remote-approval-title"].waitForExistence(timeout: 10))
@@ -177,17 +191,18 @@ final class RemoteProcessUITests: XCTestCase {
         let disabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false"), object: allow)
         XCTAssertEqual(XCTWaiter.wait(for: [disabled], timeout: 10), .completed)
         control("complete")
-        XCTAssertTrue(app.staticTexts["这项审批已处理或已过期，请关闭面板查看最新状态。"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["这项审批已处理或已过期。"].waitForExistence(timeout: 10))
         XCTAssertFalse(allow.isEnabled)
         capture(app, "remote-approval-expired-large")
     }
     func testBackgroundRequiresReconfirmationWithReducedMotion() {
         control("thinking"); let app = launch(reduceMotion: true); status(app, "正在思考")
-        XCTAssertFalse(spinner(app).exists); XCTAssertTrue(app.images["remote-static-activity"].exists)
+        XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.images["remote-static-activity"].exists)
         input(app).tap(); input(app).typeText("background draft"); capture(app, "remote-reduced-motion")
         XCUIDevice.shared.press(.home)
         control("complete", delay: 12); app.activate()
-        status(app, "正在确认任务状态…", timeout: 5); XCTAssertFalse(spinner(app).exists)
+        // A brief absence keeps the last known state on screen, but sending waits for a fresh poll.
+        XCTAssertTrue(app.images["remote-static-activity"].waitForExistence(timeout: 5)); XCTAssertFalse(spinner(app).exists)
         XCTAssertFalse(app.buttons["remote-send"].isEnabled); XCTAssertEqual(input(app).value as? String, "background draft")
         capture(app, "remote-foreground-unconfirmed")
         control("complete"); status(app, "本轮任务已完成", timeout: 18)
@@ -198,10 +213,10 @@ final class RemoteProcessUITests: XCTestCase {
         XCTAssertTrue(app.sheets.buttons["停止任务"].waitForExistence(timeout: 3))
         control("tool", runID: "replacement-run")
         // Polling changes the underlying snapshot while the confirmation remains open.
-        status(app, "执行命令")
+        status(app, "正在执行")
         app.sheets.buttons["停止任务"].tap()
         XCTAssertTrue(app.staticTexts["原任务已结束或改变，未停止其他任务，请刷新后确认"].waitForExistence(timeout: 8))
-        status(app, "执行命令"); XCTAssertTrue(spinner(app).exists)
+        status(app, "正在执行"); XCTAssertTrue(spinner(app).exists)
         capture(app, "remote-stale-stop-rejected")
         app.buttons["remote-stop"].tap(); app.sheets.buttons["停止任务"].tap()
         status(app, "本轮任务已停止")

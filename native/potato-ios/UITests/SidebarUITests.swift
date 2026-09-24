@@ -38,7 +38,7 @@ final class SidebarUITests: XCTestCase {
     }
     func testVerticalScrollActuallyMovesContentWithoutOpeningDrawer() {
         let app = launch(extra: ["--sidebar-long-list-preview"])
-        let row = app.buttons["在dynamo新建任务"]
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "remote-project-", "/dynamo")).firstMatch
         let before = row.frame.minY
         drag(app, from: CGVector(dx: 0.55, dy: 0.73), to: CGVector(dx: 0.56, dy: 0.39))
         XCTAssertFalse(app.buttons["close-sidebar"].exists)

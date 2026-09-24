@@ -38,7 +38,7 @@ struct RemoteView: View {
                 Menu {
                     if store.profile == nil { Button(L10n.tr("登录 Potato 账号"), systemImage: "person.crop.circle") { showLogin = true } }
                     Button(L10n.tr("通过配对码添加电脑"), systemImage: "plus") { showPairing = true }
-                    Button(L10n.tr("管理电脑"), systemImage: "desktopcomputer") { showDevices = true }
+                    Button(L10n.tr("管理电脑"), systemImage: "laptopcomputer") { showDevices = true }
                     Button(L10n.tr("刷新"), systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                 } label: { Image(systemName: "ellipsis").font(.title3).frame(width: 44, height: 44) }.chatGlass(in: Circle()).accessibilityLabel(L10n.tr("远程选项")).accessibilityIdentifier("remote-options")
             }.padding(.horizontal, 18).padding(.vertical, 8)
@@ -93,12 +93,13 @@ struct RemoteView: View {
                             sectionTitle(L10n.tr("项目"))
                             ForEach(visibleDevices) { device in
                                 ForEach(projects(device)) { project in
-                                    HStack(spacing: 10) {
-                                        NavigationLink { RemoteProjectView(device: device, project: project, chats: chats(device).filter { $0.project_path == project.path }, settings: settings) } label: {
-                                            HStack(spacing: 14) { Image(systemName: "folder").font(.title3).foregroundStyle(Palette.ink); rowTitle(project.name, device: device); Spacer(minLength: 0) }.frame(minHeight: 48).contentShape(Rectangle())
-                                        }.buttonStyle(RemoteDirectoryRowStyle()).accessibilityIdentifier("remote-project-\(device.id)-\(project.path)")
-                                        Button { newTask = RemoteDestination(device: device, project: project) } label: { Image(systemName: "square.and.pencil").font(.title3).foregroundStyle(Palette.secondary).frame(width: 44, height: 48) }.accessibilityLabel(L10n.tr("在\(project.name)新建任务"))
-                                    }.disabled(store.online[device.id] != true)
+                                    // The project page carries the new-task button; the list keeps it as a shortcut only.
+                                    NavigationLink { RemoteProjectView(device: device, project: project, chats: chats(device).filter { $0.project_path == project.path }, settings: settings) } label: {
+                                        HStack(spacing: 14) { Image(systemName: "folder").font(.title3).foregroundStyle(Palette.ink); rowTitle(project.name, device: device); Spacer(minLength: 0) }.frame(minHeight: 48).contentShape(Rectangle())
+                                    }.buttonStyle(RemoteDirectoryRowStyle()).accessibilityIdentifier("remote-project-\(device.id)-\(project.path)")
+                                        .contextMenu { Button(L10n.tr("在\(project.name)新建任务"), systemImage: "square.and.pencil") { newTask = RemoteDestination(device: device, project: project) } }
+                                        .accessibilityAction(named: L10n.tr("在\(project.name)新建任务")) { newTask = RemoteDestination(device: device, project: project) }
+                                        .disabled(store.online[device.id] != true)
                                 }
                             }
                         }
@@ -179,7 +180,6 @@ struct RemoteView: View {
             HStack(spacing: 7) {
                 if id != nil {
                     Circle().fill(online == true ? Color(red: 0.12, green: 0.71, blue: 0.5) : Color.gray.opacity(online == false ? 1 : 0.35)).frame(width: 7, height: 7)
-                    Image(systemName: "laptopcomputer")
                 }
                 Text(name).lineLimit(1)
             }
@@ -216,7 +216,7 @@ struct RemoteView: View {
                     }
                 }
                 ForEach(store.devices) { device in Section(device.name) {
-                    Label(store.connectionLabel(device), systemImage: "desktopcomputer")
+                    Label(store.connectionLabel(device), systemImage: "laptopcomputer")
                     if device.owner != nil {
                         Text(L10n.tr("撤销后，所有手机都无法再控制这台电脑。")).font(.footnote).foregroundStyle(Palette.secondary)
                         Button(L10n.tr("撤销此电脑的远程访问"), role: .destructive) { Task { await store.revoke(device); if selectedDevice == device.id { selectedDevice = nil } } }
@@ -258,7 +258,7 @@ struct RemoteView: View {
         NavigationStack {
             Form {
                 Section(L10n.tr("连接你的电脑")) {
-                    Label(L10n.tr("电脑 Potato → 设置 → 能力 → iPhone 远程控制"), systemImage: "desktopcomputer")
+                    Label(L10n.tr("电脑 Potato → 设置 → 能力 → iPhone 远程控制"), systemImage: "laptopcomputer")
                     SecureField(L10n.tr("粘贴完整配对码"), text: $pairing).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("remote-pairing-code")
                     Button { pairingBusy = true; pairingError = nil; Task { pairingError = await store.pair(pairing); pairingBusy = false; if pairingError == nil { pairing = ""; showPairing = false } } } label: { HStack { if pairingBusy { ProgressView() }; Text(L10n.tr("连接电脑")) } }.disabled(pairing.isEmpty || pairingBusy).accessibilityIdentifier("remote-pair-submit")
                 }
@@ -319,6 +319,7 @@ struct RemoteTaskView: View {
     @State private var reviewedPending: RemotePendingSend?
     @State private var showUnconfirmedRecords = false
     @State private var followBottom = true
+    @State private var latestOffscreen = true
     @State private var promptFocused = false
     @State private var promptSelection: NSRange?
     @State private var inputExpanded = false
@@ -340,19 +341,26 @@ struct RemoteTaskView: View {
         return systemReduceMotion
     }
     private var confirmed: Bool { observation.isCurrent(at: observedNow) && scenePhase == .active }
+    /// What the page shows: the last known state until polls have really fallen behind.
+    /// Stopping, approving and sending still wait for `confirmed`.
+    private var stale: Bool { chat != nil && observation.isStale(at: observedNow) }
+    private var settled: Bool { scenePhase == .active && !stale }
     private var running: Bool { snapshot?.status == "running" }
     private var supportsQueue: Bool { snapshot?.outbox_protocol == 1 }
     private var usesQueue: Bool { supportsQueue && (running || snapshot?.outbox?.items.isEmpty == false) }
     private var canAct: Bool { chat == nil || confirmed }
     private var canSend: Bool { !busy && canAct && snapshot?.outbox?.interrupt != true && pending == nil && draft.storageError == nil && !dictation.active && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var activityVisible: Bool { confirmed && running && snapshot?.needsUserResponse != true }
+    private var activityVisible: Bool { settled && running && snapshot?.needsUserResponse != true }
+    /// A confirmed thought is named by its own process row; a status line would only repeat it.
+    private var processRowSpeaks: Bool { activityVisible && confirmed && snapshot?.isThinking == true }
 
-    private var modelLabel: String {
-        if running && !supportsQueue { return L10n.tr("沿用当前任务配置") }
-        guard let choice = draft.modelChoice else { return L10n.tr("跟随电脑") }
+    /// The model the next message will use: the chosen one, else the computer's own.
+    private var modelParts: (name: String, effort: String?) {
+        guard let choice = draft.modelChoice ?? modelCatalog?.active else { return (L10n.tr("跟随电脑"), nil) }
         let name = modelCatalog?.models.first(where: { $0.matches(choice) })?.name ?? choice.model
-        return "\(name) · \(remoteEffortName(choice.reasoning_effort))"
+        return (name, remoteEffortName(choice.reasoning_effort))
     }
+    private var modelLabel: String { [modelParts.name, modelParts.effort].compactMap { $0 }.joined(separator: " · ") }
     private var scrollRevision: String {
         guard let snapshot else { return "empty" }
         let messages = snapshot.displayMessages
@@ -360,29 +368,42 @@ struct RemoteTaskView: View {
         return "\(queueRevision)|\(pending?.id ?? "")|\(snapshot.outbox?.interrupt ?? false)|\(messages.count)|\(messages.last?.text ?? "")|\(snapshot.approvals.map(\.id))|\(snapshot.questions.filter { $0.status == "pending" }.map(\.id))|\(snapshot.status)|\(snapshot.outcome?.status ?? "")"
     }
     @ViewBuilder private var conversationStatus: some View {
-        if chat != nil {
+        if chat != nil && !processRowSpeaks {
             if snapshot == nil && observation.failure == nil {
-                ProgressView().controlSize(.small).accessibilityLabel(L10n.tr("正在读取任务状态"))
+                ReplyPendingDot().accessibilityElement().accessibilityLabel(L10n.tr("正在读取任务状态"))
             } else {
+                let title = activityVisible ? snapshot?.phaseTitle ?? "" : observation.title(snapshot: snapshot, at: observedNow)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         if activityVisible {
-                            if reduceMotion { Image(systemName: "ellipsis").accessibilityLabel(observation.title(snapshot: snapshot, at: observedNow)).accessibilityIdentifier("remote-static-activity") }
-                            else { ProgressView().controlSize(.small).accessibilityLabel(observation.title(snapshot: snapshot, at: observedNow)).accessibilityIdentifier("remote-activity-spinner") }
-                        } else if !confirmed { Image(systemName: observation.failure == nil ? "arrow.triangle.2.circlepath" : "wifi.exclamationmark").font(.system(size: 16)) }
-                        if !activityVisible {
-                            Text(observation.title(snapshot: snapshot, at: observedNow)).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-current-status")
+                            // One line while the computer works: a pulsing dot and what it is doing.
+                            if reduceMotion { Image(systemName: "ellipsis").accessibilityLabel(title).accessibilityIdentifier("remote-static-activity") }
+                            else { ReplyPendingDot().accessibilityElement().accessibilityLabel(title).accessibilityIdentifier("remote-activity-spinner") }
+                            Text(title).font(.subheadline).lineLimit(1).shimmering(!reduceMotion).accessibilityHidden(true)
+                        } else {
+                            if stale { Image(systemName: observation.failure == nil ? "arrow.triangle.2.circlepath" : "wifi.exclamationmark").font(.system(size: 16)) }
+                            Text(title).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-current-status")
                         }
                         Spacer(minLength: 0)
-                        if !confirmed { Button(L10n.tr("刷新")) { Task { await refresh() } }.fixedSize().frame(minHeight: 44).disabled(loading).accessibilityIdentifier("remote-status-refresh") }
+                        if stale { Button(L10n.tr("刷新")) { Task { await refresh() } }.fixedSize().frame(minHeight: 44).disabled(loading).accessibilityIdentifier("remote-status-refresh") }
                     }
-                    if !confirmed, let snapshot { Text(L10n.tr("上次确认：\(snapshot.activityTitle)")).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-last-status") }
+                    if stale, let snapshot { Text(L10n.tr("上次确认：\(snapshot.activityTitle)")).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-last-status") }
                 }.font(.footnote).foregroundStyle(Palette.secondary).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .contain)
             }
         }
     }
 
+    /// "Potato · MacBook Pro": the project first, as on the desktop.
+    private var headerSubtitle: String {
+        let path = project?.path ?? chat?.project_path
+        let name = project?.name ?? path.map { ($0 as NSString).lastPathComponent }
+        return [name, device.name].compactMap { $0?.isEmpty == false ? $0 : nil }.joined(separator: " · ")
+    }
+    private var promptPlaceholder: String {
+        if usesQueue { return L10n.tr("排队到本轮之后…") }
+        return running ? L10n.tr("补充当前任务…") : L10n.tr("问问 Potato")
+    }
     private var hasPrompt: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     private var remoteComposer: some View {
@@ -394,11 +415,11 @@ struct RemoteTaskView: View {
             } else {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
-                    Text(usesQueue ? L10n.tr("继续补充…") : L10n.tr("问问 Potato")).font(.body).foregroundStyle(Palette.secondary)
+                    Text(promptPlaceholder).font(.body).foregroundStyle(Palette.secondary)
                         .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 ComposerTextInput(text: $draft.text, selection: $promptSelection, focused: $promptFocused,
-                                  placeholder: usesQueue ? L10n.tr("继续补充…") : L10n.tr("问问 Potato"),
+                                  placeholder: promptPlaceholder,
                                   minimumHeight: 40,
                                   maximumHeight: UIFont.preferredFont(forTextStyle: .body).lineHeight * (dynamicTypeSize.isAccessibilitySize ? 3 : 6) + 4,
                                   identifier: "remote-prompt")
@@ -407,7 +428,7 @@ struct RemoteTaskView: View {
             HStack(spacing: 4) {
                 Button { promptFocused = false; showModels = true; Task { await reloadModels() } } label: {
                     HStack(spacing: 6) {
-                        Text(running && !supportsQueue ? L10n.tr("当前任务配置") : modelLabel).lineLimit(1)
+                        (Text(modelParts.name) + Text(modelParts.effort.map { " " + $0 } ?? "").foregroundStyle(Palette.secondary)).lineLimit(1)
                         if !running || supportsQueue { Image(systemName: "chevron.down").font(.system(size: 11)) }
                     }.font(.subheadline).padding(.horizontal, 12).frame(minHeight: 36)
                         .background(Palette.ink.opacity(0.045), in: Capsule()).frame(minHeight: 44).contentShape(Capsule())
@@ -458,11 +479,10 @@ struct RemoteTaskView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     if let error { Label(error, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.red); Button(L10n.tr("刷新任务状态")) { Task { await refresh() } } }
                     if let receiptNotice { Text(receiptNotice).font(.subheadline).foregroundStyle(Palette.secondary).accessibilityIdentifier("remote-recovered-send") }
-                    if let failure = observation.failure { Text(failure).font(.footnote).foregroundStyle(Palette.secondary).accessibilityIdentifier("remote-connection-error") }
                     if let snapshot {
                         let rows = RemoteConversationRow.make(snapshot.displayMessages)
                         ForEach(rows) { row in
-                            RemoteConversationRowView(row: row, running: running && row.id == rows.last(where: \.isAssistantTurn)?.id, confirmed: confirmed, activeProcessID: snapshot.activeProcessID, onExpand: { followBottom = false; promptFocused = false })
+                            RemoteConversationRowView(row: row, running: running && row.id == rows.last(where: \.isAssistantTurn)?.id, confirmed: settled, activeProcessID: snapshot.activeProcessID, onExpand: { followBottom = false; promptFocused = false })
                         }
                         ForEach(snapshot.approvals.filter { !resolvedApprovals.contains($0.id) }) { approval in
                             Button {
@@ -487,7 +507,7 @@ struct RemoteTaskView: View {
                         Text(project.map { L10n.tr("在“\($0.name)”项目中开始对话") } ?? L10n.tr("发条消息，在电脑上继续完成。"))
                             .font(.subheadline).foregroundStyle(Palette.secondary)
                     }.multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 64) } }
-                    if confirmed && (running || ["cancelled", "failed"].contains(snapshot?.outcome?.status ?? "")) { conversationStatus }
+                    if settled && (running || ["cancelled", "failed"].contains(snapshot?.outcome?.status ?? "")) { conversationStatus }
                     if running && snapshot.flatMap(RemoteStopRequest.init(snapshot:)) == nil {
                         Text(L10n.tr("电脑端版本过旧，请在电脑上停止任务。"))
                             .font(.footnote).foregroundStyle(Palette.secondary)
@@ -499,6 +519,7 @@ struct RemoteTaskView: View {
                     Color.clear.frame(height: 1).id("remote-bottom")
                 }.padding(20).background(ScrollActivityObserver { followBottom = false; promptFocused = false })
             }.accessibilityIdentifier("remote-conversation").scrollClipDisabled()
+                .onLatestOffscreenChange { offscreen in latestOffscreen = offscreen; if !offscreen { followBottom = true } }
                 .refreshable { await refresh() }
                 .scrollDismissesKeyboard(.interactively)
                 .contentShape(Rectangle())
@@ -506,7 +527,7 @@ struct RemoteTaskView: View {
                 .onAppear { if chat != nil { proxy.scrollTo("remote-bottom", anchor: .bottom) } }
                 .onChange(of: scrollRevision) { _, _ in if followBottom { proxy.scrollTo("remote-bottom", anchor: .bottom) } }
                 .overlay(alignment: .bottom) {
-                    if !followBottom {
+                    if !followBottom && latestOffscreen {
                         IconButton(symbol: "arrow.down", label: L10n.tr("回到最新消息"), id: "remote-scroll-latest") {
                             followBottom = true; proxy.scrollTo("remote-bottom", anchor: .bottom)
                         }.chatGlass(in: Circle(), interactive: true).padding(.bottom, 10)
@@ -515,7 +536,7 @@ struct RemoteTaskView: View {
             }
             .chatBar(edge: .bottom) {
                 VStack(spacing: 8) {
-                    if !confirmed, chat != nil {
+                    if stale {
                         conversationStatus.padding(12)
                             .background(Palette.canvas, in: RoundedRectangle(cornerRadius: 18))
                     }
@@ -544,8 +565,7 @@ struct RemoteTaskView: View {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 3) {
                         Text(chat?.name ?? L10n.tr("新对话")).font(.headline).lineLimit(1)
-                        Label(device.name, systemImage: "desktopcomputer").labelStyle(.titleAndIcon)
-                            .font(.caption2).foregroundStyle(Palette.secondary).lineLimit(1)
+                        Text(headerSubtitle).font(.footnote).foregroundStyle(Palette.secondary).lineLimit(1)
                             .accessibilityLabel(L10n.tr("执行电脑，\(device.name)"))
                     }.dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .accessibilityIdentifier("remote-conversation-title")
@@ -634,7 +654,7 @@ struct RemoteTaskView: View {
             .fullScreenCover(isPresented: $inputExpanded, onDismiss: {
                 if restoreInputAfterExpansion { promptFocused = true }
             }) {
-                ExpandedComposer(text: $draft.text, selection: $promptSelection, attachmentCount: 0, canSend: canSend,
+                ExpandedComposer(text: $draft.text, selection: $promptSelection, canSend: canSend,
                                  collapse: { inputExpanded = false }, send: {
                     restoreInputAfterExpansion = false; inputExpanded = false; send()
                 })
@@ -668,7 +688,7 @@ struct RemoteTaskView: View {
                     let now = Date()
                     // Only invalidate the view when freshness changes; long Markdown
                     // replies should not be reconstructed for an invisible clock tick.
-                    if observation.isCurrent(at: observedNow) != observation.isCurrent(at: now) { observedNow = now }
+                    if observation.isCurrent(at: observedNow) != observation.isCurrent(at: now) || observation.isStale(at: observedNow) != observation.isStale(at: now) { observedNow = now }
                     try? await Task.sleep(for: .seconds(1))
                 }
             }

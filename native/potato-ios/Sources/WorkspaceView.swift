@@ -27,6 +27,8 @@ struct WorkspaceView: View {
     @State private var editedText = ""
     @State private var toast: String?
     @State private var followBottom = true
+    /// Whether the newest content is below the visible area; stays true where it cannot be measured (iOS 17).
+    @State private var latestOffscreen = true
     @StateObject private var speech = ReplySpeech()
     @StateObject private var voice = VoiceComposer()
     @State private var inputSelection: NSRange?
@@ -321,7 +323,7 @@ struct WorkspaceView: View {
             }
         }.foregroundStyle(Palette.ink).background(Palette.canvas.ignoresSafeArea())
             .fullScreenCover(isPresented: $inputExpanded, onDismiss: { if restoreInputAfterExpansion { inputFocused = true } }) {
-                ExpandedComposer(text: prompt, selection: $inputSelection, attachmentCount: chat.pendingAttachments.count, canSend: canSend, collapse: { inputExpanded = false }, send: {
+                ExpandedComposer(text: prompt, selection: $inputSelection, canSend: canSend, collapse: { inputExpanded = false }, send: {
                     restoreInputAfterExpansion = false; inputExpanded = false; sendInput()
                 })
             }
@@ -407,6 +409,14 @@ struct WorkspaceView: View {
                 } label: { Image(systemName: "ellipsis").font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44).contentShape(Circle()) }.accessibilityLabel(L10n.tr("更多")).accessibilityIdentifier("more")
             }.padding(.horizontal, 3).chatGlass(in: Capsule())
         }.padding(.horizontal, 16).padding(.vertical, 8)
+            .overlay {
+                // Centred between the buttons, whatever their widths.
+                if !chat.messages.isEmpty {
+                    Text(chat.displayTitle).font(.headline).lineLimit(1).padding(.horizontal, 120).allowsHitTesting(false)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                        .accessibilityAddTraits(.isHeader).accessibilityIdentifier("chat-title")
+                }
+            }
     }
     private var contextPreview: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -448,7 +458,7 @@ struct WorkspaceView: View {
                     ForEach(chat.messages) { message in messageRow(message).id(message.id) }
                     if let draft = chat.draft {
                         Button { inputFocused = false; documentVisible = true } label: {
-                            HStack(spacing: 14) { Image(systemName: "doc.text").font(.system(size: 24)); VStack(alignment: .leading, spacing: 6) { Text(draft.title).font(.headline).fixedSize(horizontal: false, vertical: true); Text(L10n.tr("工作文稿 · 点按继续编辑")).font(.footnote).foregroundStyle(Palette.secondary) }; Spacer(minLength: 0); Image(systemName: "chevron.right").font(.footnote) }.padding(18).background(Palette.surface, in: RoundedRectangle(cornerRadius: 18))
+                            HStack(spacing: 14) { Image(systemName: "doc.text").font(.system(size: 24)); Text(draft.title).font(.headline).fixedSize(horizontal: false, vertical: true); Spacer(minLength: 0); Image(systemName: "chevron.right").font(.footnote) }.padding(18).background(Palette.surface, in: RoundedRectangle(cornerRadius: 18))
                         }.buttonStyle(.plain).accessibilityIdentifier("open-document")
                     }
                     Color.clear.frame(height: 1).id("bottom")
@@ -458,6 +468,11 @@ struct WorkspaceView: View {
                     })
                     .background(ScrollActivityObserver { followBottom = false; inputFocused = false })
             }.accessibilityIdentifier("conversation").scrollDismissesKeyboard(.interactively).scrollClipDisabled()
+                .onLatestOffscreenChange { offscreen in
+                    latestOffscreen = offscreen
+                    // Scrolling back down to the end resumes following new text.
+                    if !offscreen { followBottom = true }
+                }
                 .onAppear { if let focus = store.recallFocusID { proxy.scrollTo(focus, anchor: .top) } else { proxy.scrollTo("bottom", anchor: .bottom) } }
                 .onChange(of: store.recallFocusID) { _, id in if let id { followBottom = false; proxy.scrollTo(id, anchor: .top) } }
                 // Follow after layout and only when its height actually changes,
@@ -475,13 +490,19 @@ struct WorkspaceView: View {
                 }
                 .onChange(of: chat.messages.count) { _, _ in followBottom = true; proxy.scrollTo("bottom", anchor: .bottom) }
                 .overlay(alignment: .bottom) {
-                    if !followBottom {
+                    if !followBottom && latestOffscreen {
                         IconButton(symbol: "arrow.down", label: L10n.tr("回到最新消息"), id: "scroll-latest") {
                             followBottom = true; animate { proxy.scrollTo("bottom", anchor: .bottom) }
                         }.chatGlass(in: Circle(), interactive: true).padding(.bottom, 10)
                     }
                 }
         }
+    }
+    /// The slide image a code step rendered for this deck; those pages stay in the tool details, not the chat.
+    private func deckCover(_ attachment: Attachment, in message: ChatMessage) -> Attachment? {
+        guard (attachment.name as NSString).pathExtension.lowercased() == "pptx" else { return nil }
+        let previewIDs = Set(message.displayCodeRuns.flatMap { $0.attachmentIDs ?? [] })
+        return message.displayAttachments.first { $0.isImage && previewIDs.contains($0.id) }
     }
     private func messageRow(_ message: ChatMessage) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -494,18 +515,12 @@ struct WorkspaceView: View {
                 }.padding(16).background(Palette.muted, in: RoundedRectangle(cornerRadius: 22)) }
                     .contextMenu { Button(L10n.tr("复制"), systemImage: "doc.on.doc") { copy(message.displayText) }; Button(L10n.tr("编辑并重新发送"), systemImage: "pencil") { editedText = message.text; editingMessage = message }.disabled(store.generatingID != nil) }
             } else {
-                ReplyActivityView(message: message, storage: store.storage, onExpand: { followBottom = false; inputFocused = false }).id(message.selectedVersionID ?? message.id)
+                replyTimeline(message).id(message.selectedVersionID ?? message.id)
                 let outputs = message.displayAttachments
-                ForEach(outputs.filter { !$0.isImage }) { attachment in DeliverableCard(attachment: attachment) { showPreview(attachment, among: outputs) } }
-                if message.state == .streaming, let notice = message.cloudReply?.notice {
-                    Label(notice, systemImage: "arrow.triangle.2.circlepath").font(.caption).foregroundStyle(Palette.secondary).accessibilityIdentifier("cloud-reply-status")
+                ForEach(outputs.filter { !$0.isImage }) { attachment in DeliverableCard(attachment: attachment, storage: store.storage, cover: deckCover(attachment, in: message)) { showPreview(attachment, among: outputs) } }
+                if message.showsStatusLine {
+                    TurnStatusLine(title: message.phaseTitle, identifier: message.cloudReply?.notice == nil ? "generating" : "cloud-reply-status")
                 }
-                if message.cloudReply?.notice == nil && message.text.isEmpty && message.state == .streaming && message.displayReasoning == nil && message.displaySearches.isEmpty && message.displayCodeRuns.isEmpty { ProgressView().controlSize(.small).accessibilityLabel(L10n.tr("正在准备回复")).accessibilityIdentifier("generating") }
-                if !message.displayText.isEmpty { StreamingMarkdown(text: message.displayText, streaming: message.state == .streaming).id(message.selectedVersionID ?? message.id).environment(\.openURL, OpenURLAction { url in
-                    if url.scheme == "potato", url.host == "conversation", let id = UUID(uuidString: url.lastPathComponent), let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "message" })?.value,
-                       let source = message.displayRecalls.flatMap(\.sources).first(where: { $0.conversation == id.uuidString.lowercased() && $0.id == query.lowercased() }) { store.openRecallSource(source); return .handled }
-                    return url.scheme == "potato" ? .discarded : .systemAction
-                }) }
                 if let failure = message.displayFailure {
                     if isBareFailure(message) { failureRow(message, failure: failure) }
                     else { Label(failure, systemImage: "exclamationmark.circle").font(.footnote).foregroundStyle(.red) }
@@ -513,7 +528,6 @@ struct WorkspaceView: View {
                 if message.displayState == .stopped { Text(L10n.tr("已停止生成")).font(.caption).foregroundStyle(Palette.secondary) }
                 if !message.displayRecalls.isEmpty { RecallSourcesView(runs: message.displayRecalls, store: store) }
                 if !message.displaySearches.isEmpty { SearchSourcesButton(runs: message.displaySearches, showsActivity: false) }
-                if message.state == .streaming && message.text.isEmpty && message.displayReasoning == nil && !message.displaySearches.isEmpty && message.displaySearches.last?.state != "searching" { ProgressView().controlSize(.small).accessibilityLabel(L10n.tr("正在整理搜索结果")) }
                 // A deck's rendered pages belong to the tool details. Keep unrelated
                 // images and legacy images visible when no producing call is known.
                 let hasDeck = outputs.contains { ($0.name as NSString).pathExtension.lowercased() == "pptx" }
@@ -533,6 +547,29 @@ struct WorkspaceView: View {
                 }
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    /// Commentary and the steps it led to, in the order they happened.
+    @ViewBuilder private func replyTimeline(_ message: ChatMessage) -> some View {
+        let segments = message.turnSegments
+        let streaming = message.state == .streaming
+        let lastActivity = segments.lastIndex { if case .activity = $0 { true } else { false } }
+        if !segments.isEmpty { VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
+                let last = index == segments.count - 1
+                switch segment {
+                case .activity(_, let steps):
+                    ActivitySummaryView(steps: steps, running: streaming && last, endState: index == lastActivity ? message.displayState.rawValue : "complete",
+                                        storage: store.storage, replyStarted: !last, identifier: index == lastActivity ? "activity-summary" : "activity-summary-\(index)",
+                                        onExpand: { followBottom = false; inputFocused = false })
+                case .text(_, let text):
+                    StreamingMarkdown(text: text, streaming: streaming && last).environment(\.openURL, OpenURLAction { url in
+                        if url.scheme == "potato", url.host == "conversation", let id = UUID(uuidString: url.lastPathComponent), let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "message" })?.value,
+                           let source = message.displayRecalls.flatMap(\.sources).first(where: { $0.conversation == id.uuidString.lowercased() && $0.id == query.lowercased() }) { store.openRecallSource(source); return .handled }
+                        return url.scheme == "potato" ? .discarded : .systemAction
+                    })
+                }
+            }
+        } }
     }
     private var composer: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -578,14 +615,15 @@ struct WorkspaceView: View {
                 Button { inputFocused = false; showAttachments = true } label: {
                     Image(systemName: "plus").font(.system(size: 19)).frame(width: 36, height: 36).background(Palette.ink.opacity(0.045), in: Circle()).frame(width: 44, height: 44).contentShape(Circle())
                 }.accessibilityLabel(L10n.tr("添加附件")).accessibilityIdentifier("add-attachment").composerControl()
-                Button { inputFocused = false; modal = store.requiresSignIn ? .signIn : store.settings.validatedURL == nil ? .settings : .models } label: {
+                // Before sign-in the welcome screen owns the call to action; no model to pick yet.
+                if !store.requiresSignIn { Button { inputFocused = false; modal = store.settings.validatedURL == nil ? .settings : .models } label: {
                     HStack(spacing: 6) {
-                        Text(store.requiresSignIn ? L10n.tr("登录后使用") : store.settings.demo ? L10n.tr("本地体验") : store.settings.modelEntry(store.localModelChoice.model).displayName).lineLimit(1)
+                        Text(store.settings.demo ? L10n.tr("本地体验") : store.settings.modelEntry(store.localModelChoice.model).displayName).lineLimit(1)
                         if !store.settings.demo && (store.localModelChoice.thinkingMode != nil || store.localModelChoice.reasoningEffort != nil) {
                             Text(store.localModelChoice.compactThinkingLabel).foregroundStyle(Palette.secondary).lineLimit(1).fixedSize()
                         }
                     }.font(.subheadline).dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 12).frame(minHeight: 36).background(Palette.ink.opacity(0.045), in: Capsule()).frame(minHeight: 44).contentShape(Capsule())
-                }.accessibilityLabel(store.requiresSignIn ? L10n.tr("登录后使用") : L10n.tr("模型与思考，\(store.settings.demo ? L10n.tr("本地体验") : store.localModelChoice.model)，\(store.localModelChoice.thinkingLabel)")).accessibilityIdentifier("connection-settings").composerControl()
+                }.accessibilityLabel(L10n.tr("模型与思考，\(store.settings.demo ? L10n.tr("本地体验") : store.localModelChoice.model)，\(store.localModelChoice.thinkingLabel)")).accessibilityIdentifier("connection-settings").composerControl() }
                 Spacer(minLength: 0)
                 IconButton(symbol: "mic", label: L10n.tr("开始语音输入"), id: "voice-input") { if store.requiresSignIn { inputFocused = false; modal = .signIn; return }; let selection = inputSelection; expandAfterVoice = false; inputFocused = false; speech.stop(); voice.start(store: store, selection: selection) }.background { Circle().fill(Palette.ink.opacity(0.045)).frame(width: 36, height: 36) }.disabled(importing || store.generatingID != nil).composerControl()
                 Button {
@@ -695,3 +733,17 @@ struct ActivitySheet: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 #Preview { WorkspaceView() }
+
+extension View {
+    /// Reports whether the end of the scroll content sits more than a line below the visible area.
+    @ViewBuilder func onLatestOffscreenChange(_ action: @escaping (Bool) -> Void) -> some View {
+        if #available(iOS 18.0, *) {
+            onScrollGeometryChange(for: Bool.self) { geometry in
+                let maxOffset = geometry.contentSize.height + geometry.contentInsets.bottom - geometry.containerSize.height
+                return maxOffset - geometry.contentOffset.y > 40
+            } action: { _, offscreen in action(offscreen) }
+        } else {
+            self
+        }
+    }
+}

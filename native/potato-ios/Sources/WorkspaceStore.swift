@@ -206,6 +206,7 @@ final class WorkspaceStore: ObservableObject {
             try choice?.validate(settings: settings)
         } catch { self.error = error.localizedDescription; return false }
         var versions = old.versions ?? []
+        versions.append(ReplyVersion(activityOrder: old.activityOrder, activityAnchors: old.activityAnchors, modelChoice: old.modelChoice, reasoning: old.reasoning, recalls: old.recalls, codeRuns: old.codeRuns, searches: old.searches, execution: old.execution, attachments: old.attachments, text: old.text, state: old.state, failure: old.failure, date: old.createdAt))
         update { $0.messages.removeLast() }
         generate(previousVersions: versions, choice: choice)
         return true

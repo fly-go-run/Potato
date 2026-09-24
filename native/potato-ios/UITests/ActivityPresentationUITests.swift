@@ -4,9 +4,9 @@ final class ActivityPresentationUITests: XCTestCase {
     func testPresentationFailurePreviewAndDelivery() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reset", "--activity-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]; app.launch()
         XCTAssertTrue(app.buttons["activity-summary"].waitForExistence(timeout: 10))
-        let thought = app.buttons["activity-summary-reasoning"]
-        XCTAssertTrue(thought.exists); XCTAssertTrue(thought.label.contains("先整理推理优化"))
-        thought.tap(); XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["activity-summary"].label.contains("已思考 7 秒 · 运行 3 段代码"))
+        app.buttons["activity-summary"].tap(); app.buttons["activity-step-reasoning"].tap()
+        XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 5))
         app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
         capture(app, "ppt-01-chat")
         app.buttons["activity-summary"].tap()

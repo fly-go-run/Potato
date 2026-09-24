@@ -9,7 +9,7 @@ enum ActivityPreview {
         do {
             let artifacts = try JSONDecoder().decode([SandboxArtifact].self, from: Data(artifactJSON.utf8))
             let files = try store.importExecutionArtifacts(artifacts)
-            var reply = ChatMessage(role: "assistant", text: "演示文稿已生成。预览图和 PPTX 文件都可以打开查看。")
+            var reply = ChatMessage(role: "assistant", text: "共 6 页：推理瓶颈、KV 缓存、连续批处理和投机解码，最后一页是选型建议。")
             reply.reasoning = ReasoningTrace(text: "先整理推理优化的三个主题，再生成演示文稿并检查输出。", state: .complete, elapsed: 7)
             reply.codeRuns = [
                 CodeExecutionRun(id: "draft", title: "生成演示文稿", state: "failed", code: "build_presentation()", result: SandboxExecution(status: "failed", stdout: "", stderr: "ValueError: unsupported shape type", error: "首次生成失败，已保留执行记录。", text: "", artifacts: [])),

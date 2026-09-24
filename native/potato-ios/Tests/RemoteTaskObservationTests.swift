@@ -62,6 +62,8 @@ final class RemoteTaskObservationTests: XCTestCase {
         let answer: [String: Any] = ["id": "a", "role": "assistant", "kind": "message", "text": "answer", "status": "in_progress"]
         XCTAssertEqual(try snapshot(messages: [reasoning]).activityTitle, "正在思考")
         XCTAssertEqual(try snapshot(messages: [reasoning, tool]).activityTitle, "执行命令")
+        XCTAssertEqual(try snapshot(messages: [reasoning, tool]).phaseTitle, "正在执行")
+        XCTAssertEqual(try snapshot(messages: [reasoning]).phaseTitle, "正在思考")
         XCTAssertEqual(try snapshot(messages: [reasoning, tool]).activeProcessID, "t")
         XCTAssertEqual(try snapshot(messages: [reasoning, tool, answer]).activityTitle, "正在回复")
         XCTAssertNil(try snapshot(messages: [reasoning, tool, answer]).activeProcessID)
@@ -77,5 +79,16 @@ final class RemoteTaskObservationTests: XCTestCase {
         XCTAssertEqual(try snapshot(status: "idle", outcome: "cancelled").activityTitle, "本轮任务已停止")
         XCTAssertEqual(try snapshot(status: "idle", outcome: "failed").activityTitle, "本轮任务失败")
         XCTAssertEqual(try snapshot(status: "idle", outcome: "completed").activityTitle, "本轮任务已完成")
+    }
+    func testStalenessIgnoresOneSlowPollButNotALongAbsence() {
+        let start = Date(); var state = RemoteTaskObservation()
+        XCTAssertFalse(state.isStale(at: start))
+        state.received(requestedAt: start)
+        XCTAssertFalse(state.isCurrent(at: start.addingTimeInterval(10)))
+        XCTAssertFalse(state.isStale(at: start.addingTimeInterval(10)))
+        state.suspend(); state.resume()
+        XCTAssertTrue(state.isStale(at: start.addingTimeInterval(RemoteTaskObservation.staleAfter + 1)))
+        state.received(requestedAt: start); state.failed("offline")
+        XCTAssertTrue(state.isStale(at: start))
     }
 }

@@ -122,7 +122,6 @@ struct ComposerTextInput: UIViewRepresentable {
 struct ExpandedComposer: View {
     @Binding var text: String
     @Binding var selection: NSRange?
-    let attachmentCount: Int
     let canSend: Bool
     let collapse: () -> Void
     let send: () -> Void
@@ -137,7 +136,6 @@ struct ExpandedComposer: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { Button(L10n.tr("收起"), systemImage: "arrow.down.right.and.arrow.up.left", action: collapse).accessibilityIdentifier("collapse-input") }
                     ToolbarItem(placement: .topBarTrailing) { Button(L10n.tr("发送"), systemImage: "arrow.up", action: send).bold().disabled(!canSend).accessibilityIdentifier("send-expanded-input") }
-                    ToolbarItem(placement: .bottomBar) { Text(L10n.tr("\(text.count) 字") + (attachmentCount > 0 ? L10n.tr(" · \(attachmentCount) 个附件") : "")).font(.caption).foregroundStyle(Palette.secondary).accessibilityIdentifier("expanded-input-count") }
                 }
         }.interactiveDismissDisabled()
     }

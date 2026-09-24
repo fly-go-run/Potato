@@ -177,11 +177,10 @@ struct LibraryView: View {
             }.scrollTargetLayout()
         }
     }
-    private func metadata(_ item: LibraryItem) -> String {
-        "\(item.format) · \(item.sizeLabel) · \(item.dateLabel)"
-    }
+    // The name already carries the extension; size lives in file info.
+    private func metadata(_ item: LibraryItem) -> String { item.dateLabel }
     private func selectionMark(_ item: LibraryItem) -> some View {
-        Image(systemName: selected.contains(item.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(selected.contains(item.id) ? Color.blue : Palette.secondary)
+        Image(systemName: selected.contains(item.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(selected.contains(item.id) ? Palette.ink : Palette.secondary)
             .accessibilityLabel(selected.contains(item.id) ? L10n.tr("已选择") : L10n.tr("未选择"))
     }
     private func open(_ item: LibraryItem) {
@@ -319,7 +318,7 @@ struct LibraryThumbnail: View {
                     Text(String(text.prefix(500))).font(.system(size: 9)).foregroundStyle(Palette.ink).padding(8)
                 } else {
                     let kind = FileKind(filename: item.attachment.name, type: item.attachment.type)
-                    Image(systemName: kind.symbol).font(.title2).foregroundStyle(kind.tint).frame(maxWidth: .infinity, maxHeight: .infinity).background(kind.tint.opacity(0.08))
+                    Image(systemName: kind.symbol).font(.title2).foregroundStyle(Palette.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }.frame(width: geometry.size.width, height: geometry.size.height).clipped()
         }.task(id: item.attachment.filename) {

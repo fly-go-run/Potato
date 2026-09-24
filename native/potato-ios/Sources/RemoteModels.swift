@@ -106,7 +106,7 @@ struct RemoteModelPicker: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) { Text(title); if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) } }
                 Spacer(minLength: 8)
-                if selected { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.blue).accessibilityHidden(true) }
+                if selected { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Palette.ink).accessibilityHidden(true) }
             }.padding(.vertical, 5).frame(minHeight: 44).contentShape(Rectangle())
         }.accessibilityIdentifier(id).accessibilityValue(selected ? L10n.tr("已选择") : L10n.tr("未选择"))
     }

@@ -16,8 +16,6 @@ struct DocumentPanel: View {
         VStack(spacing: 0) {
             Capsule().fill(Palette.line).frame(width: 38, height: 5).padding(.top, 10).padding(.bottom, 5).accessibilityHidden(true)
             HStack(spacing: 12) {
-                Image(systemName: "doc").font(.title2).frame(width: 42, height: 42).background(Palette.canvas, in: RoundedRectangle(cornerRadius: 12))
-                Text(L10n.tr("工作文稿")).font(.headline)
                 Spacer(minLength: 0)
                 IconButton(symbol: "square.and.pencil", label: L10n.tr("编辑文稿"), id: "edit-document") { editText = draft.markdown; editing = true }
                 IconButton(symbol: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", label: expanded ? L10n.tr("收起文稿") : L10n.tr("展开文稿"), id: "expand-document") {
@@ -32,8 +30,7 @@ struct DocumentPanel: View {
                         MarkdownContent(text: markdown, toggleChecklist: { ordinal in draft.toggleMarkdownCheckbox(ordinal) })
                     } else {
                         Text(draft.title).font(.system(size: titleSize, weight: .bold)).fixedSize(horizontal: false, vertical: true).padding(.bottom, 10)
-                        Text(L10n.tr("周末计划 · 已保存在本机")).font(.subheadline).foregroundStyle(Palette.secondary)
-                        Divider().padding(.vertical, 10)
+                        Divider().padding(.bottom, 10)
                         Text(L10n.tr("只安排两件想做的事，给临时起意留点余地。")).font(.body).lineSpacing(5)
                         ForEach($draft.sections) { $section in
                             Text(section.title).font(.title3.weight(.semibold)).padding(.top, 10).padding(.bottom, 8)
@@ -137,10 +134,6 @@ struct MarkdownContent: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.line, lineWidth: 1).allowsHitTesting(false) }
                             .excludesSidebarGesture().accessibilityIdentifier("markdown-table-scroll")
-                        // Wide tables continue off screen; say so instead of silently clipping columns.
-                        if (rows.map(\.count).max() ?? 0) >= 4 {
-                            Label(L10n.tr("左右滑动查看完整表格"), systemImage: "arrow.left.and.right").font(.caption2).foregroundStyle(Palette.secondary).accessibilityHidden(true)
-                        }
                     }
                 case .divider: Divider().padding(.vertical, 4)
                 }

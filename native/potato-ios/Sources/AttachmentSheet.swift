@@ -123,24 +123,14 @@ struct AttachmentSheet: View {
         }.accessibilityIdentifier(id)
     }
 
+    // Only ask before the first decision; after a denial the system picker ("所有照片") still works.
     @ViewBuilder private var photoAccess: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(recent.authorization == .authorized || recent.authorization == .limited ? L10n.tr("暂无可显示的照片") : L10n.tr("快速添加最近照片"))
-                .font(.subheadline.weight(.medium))
-            if recent.authorization == .notDetermined {
-                Button { Task { await recent.requestAccess() } } label: {
-                    Text(L10n.tr("允许访问照片")).font(.subheadline.weight(.semibold)).padding(.horizontal, 14).frame(minHeight: 34)
-                        .foregroundStyle(Palette.onInk).background(Palette.ink, in: Capsule()).frame(minHeight: 44).contentShape(Rectangle())
-                }.accessibilityIdentifier("attachment-photo-permission")
-            } else if recent.authorization == .denied {
-                Button { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } } label: {
-                    Text(L10n.tr("前往设置")).font(.subheadline.weight(.semibold)).padding(.horizontal, 14).frame(minHeight: 34)
-                        .overlay { Capsule().stroke(Palette.line, lineWidth: 1) }.frame(minHeight: 44).contentShape(Rectangle())
-                }.accessibilityIdentifier("attachment-photo-settings")
-            } else {
-                Text(L10n.tr("也可以从“所有照片”中选择。")).font(.footnote).foregroundStyle(Palette.secondary)
-            }
-        }.font(.subheadline).frame(width: 205, height: 112, alignment: .leading)
+        if recent.authorization == .notDetermined {
+            Button { Task { await recent.requestAccess() } } label: {
+                VStack(spacing: 10) { Image(systemName: "photo.on.rectangle").font(.system(size: 26)); Text(L10n.tr("最近照片")).font(.subheadline) }
+                    .frame(width: 104, height: 112).background(Palette.ink.opacity(0.05), in: RoundedRectangle(cornerRadius: 20))
+            }.accessibilityLabel(L10n.tr("允许访问照片")).accessibilityIdentifier("attachment-photo-permission")
+        }
     }
 
     private func photoButton(_ asset: PHAsset) -> some View {

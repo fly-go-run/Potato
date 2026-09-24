@@ -23,7 +23,6 @@ struct LibraryFileDetail: View {
         }.background(Palette.canvas).foregroundStyle(Palette.ink).excludesSidebarGesture()
             .navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .principal) { Text(L10n.tr("预览")).font(.headline) }
                 ToolbarItem(placement: .topBarTrailing) {
                     if let item {
                         Menu {
@@ -60,10 +59,8 @@ struct LibraryFileDetail: View {
     }
     private func content(_ item: LibraryItem) -> some View {
         VStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(item.attachment.name).font(.title3.weight(.semibold)).textSelection(.enabled).accessibilityIdentifier("library-detail-title")
-                Text("\(item.format) · \(item.sizeLabel)").font(.caption).foregroundStyle(Palette.secondary)
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20)
+            Text(item.attachment.name).font(.title3.weight(.semibold)).textSelection(.enabled).accessibilityIdentifier("library-detail-title")
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20)
             if !FileManager.default.fileExists(atPath: store.storage.url(for: item.attachment).path) {
                 ContentUnavailableView(L10n.tr("文件已不可用"), systemImage: "exclamationmark.doc", description: Text(L10n.tr("请返回资料库重新导入原文件。")))
             } else if let fullText {

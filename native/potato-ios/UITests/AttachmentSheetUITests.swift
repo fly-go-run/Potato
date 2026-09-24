@@ -157,7 +157,7 @@ final class AttachmentSheetUITests: XCTestCase {
         let deny = system.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "不允许", "Don't Allow")).firstMatch
         XCTAssertTrue(deny.waitForExistence(timeout: 5), system.debugDescription)
         deny.tap()
-        XCTAssertTrue(app.buttons["attachment-photo-settings"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["attachment-photo-permission"].waitForNonExistence(timeout: 5))
         capture(app, "attachments-07-denied")
         app.buttons["attachment-all-photos"].tap()
         let cancel = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "取消", "Cancel")).firstMatch

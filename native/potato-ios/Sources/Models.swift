@@ -15,6 +15,7 @@ struct Attachment: Identifiable, Codable, Equatable {
 enum MessageState: String, Codable { case complete, streaming, stopped, failed }
 struct ReplyVersion: Identifiable, Codable, Equatable {
     var activityOrder: [String]? = nil
+    var activityAnchors: [String: Int]? = nil
     var modelChoice: LocalModelChoice? = nil
     var reasoning: ReasoningTrace? = nil
     var recalls: [RecallRun]? = nil
@@ -31,6 +32,8 @@ struct ReplyVersion: Identifiable, Codable, Equatable {
 struct ChatMessage: Identifiable, Codable, Equatable {
     var cloudReply: CloudReply? = nil
     var activityOrder: [String]? = nil
+    /// UTF-16 offset of the reply text when each activity began; nil on older replies.
+    var activityAnchors: [String: Int]? = nil
     var modelChoice: LocalModelChoice? = nil
     var displayModelChoice: LocalModelChoice? { if let selectedVersion { return selectedVersion.modelChoice }; return modelChoice }
     var reasoning: ReasoningTrace? = nil

@@ -40,7 +40,7 @@ struct ReplyActions: View {
     private var empty: Bool { message.displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var body: some View {
         HStack(spacing: 0) {
-            action(symbol: copied ? "checkmark" : "square.on.square", label: copied ? L10n.tr("已复制回复") : L10n.tr("复制回复"), id: "copy-reply") {
+            action(symbol: copied ? "checkmark" : "doc.on.doc", label: copied ? L10n.tr("已复制回复") : L10n.tr("复制回复"), id: "copy-reply") {
                 UIPasteboard.general.string = message.displayText; copied = true
             }.disabled(empty)
             if isLast { action(symbol: "arrow.clockwise", label: L10n.tr("重新生成"), id: "retry-message", perform: retry).disabled(busy) }

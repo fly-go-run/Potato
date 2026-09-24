@@ -16,7 +16,7 @@ final class ProductPolishUITests: XCTestCase {
         let app = launch(["--first-run-preview"])
         XCTAssertTrue(app.buttons["welcome-sign-in"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["close-document"].exists)
-        XCTAssertTrue(app.buttons["connection-settings"].label.contains("登录后使用"))
+        XCTAssertFalse(app.buttons["connection-settings"].exists)
         capture(app, "first-run-welcome")
         let input = app.descendants(matching: .any).matching(identifier: "composer-input").firstMatch
         input.tap(); input.typeText("第一条消息")

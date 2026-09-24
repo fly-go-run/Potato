@@ -10,11 +10,12 @@ struct StreamingTextBuffer {
 
     init(visible: String = "") { self.visible = visible }
 
-    mutating func update(_ text: String, animated: Bool, now: Double) {
+    /// `pace` is how long each arrival takes to reveal; match it to how often text arrives.
+    mutating func update(_ text: String, animated: Bool, now: Double, pace: Double = 0.24) {
         guard animated, text.hasPrefix(visible) else { reset(text); return }
         characters = Array(text)
         offset = visible.count
-        deadline = now + 0.24
+        deadline = now + pace
         // Do not make the first character wait for the display timer.
         if visible.isEmpty, let first = characters.first { visible.append(first); offset = 1 }
     }
@@ -34,23 +35,27 @@ struct StreamingTextBuffer {
 struct StreamingMarkdown: View {
     let text: String
     let streaming: Bool
+    var pace = 0.24
+    var codeBackground: Color = Palette.canvas
+    var codeBorder: Color = .clear
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var phase
     @State private var buffer = StreamingTextBuffer()
     private var animated: Bool { streaming && !reduceMotion && phase == .active }
     private var now: Double { ProcessInfo.processInfo.systemUptime }
 
-    init(text: String, streaming: Bool) {
+    init(text: String, streaming: Bool, pace: Double = 0.24, codeBackground: Color = Palette.canvas, codeBorder: Color = .clear) {
         self.text = text
         self.streaming = streaming
+        self.pace = pace; self.codeBackground = codeBackground; self.codeBorder = codeBorder
         // A remounted reply already has received text. Replaying it from an empty
         // buffer collapses the row and makes scroll-to-bottom jump backwards.
         _buffer = State(initialValue: StreamingTextBuffer(visible: text))
     }
 
     var body: some View {
-        MarkdownContent(text: animated ? buffer.visible : text, streaming: streaming)
-            .onChange(of: text, initial: true) { _, value in buffer.update(value, animated: animated, now: now) }
+        MarkdownContent(text: animated ? buffer.visible : text, streaming: streaming, codeBackground: codeBackground, codeBorder: codeBorder)
+            .onChange(of: text, initial: true) { _, value in buffer.update(value, animated: animated, now: now, pace: pace) }
             .onChange(of: animated) { _, _ in buffer.reset(text) }
             .task(id: animated) {
                 guard animated else { return }
