@@ -161,6 +161,8 @@ struct SettingsView: View {
                 } message: { Text(L10n.tr("可以在最近删除中恢复。")) }
                 .alert(L10n.tr("无法保存"), isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button(L10n.tr("知道了"), role: .cancel) {} } message: { Text(error ?? "") }
         }.presentationDragIndicator(.visible)
+            // Settings keeps system control colors; the brand color stays on primary actions.
+            .tint(nil)
             .sheet(isPresented: $showCloud) { CloudAccountView(store: store, connected: { dismiss() }) }
             .onChange(of: configuration.endpoint) { _, value in
                 configuration.modelCatalog = nil
