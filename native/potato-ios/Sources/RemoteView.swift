@@ -226,7 +226,7 @@ struct RemoteView: View {
                     }
                 } }
                 Button(L10n.tr("添加电脑")) { showDevices = false; showPairing = true }
-            }.navigationTitle(L10n.tr("管理电脑")).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { showDevices = false } } }
+            }.warmGroupedBackground().navigationTitle(L10n.tr("管理电脑")).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { showDevices = false } } }
         }
     }
     private var loginSheet: some View {

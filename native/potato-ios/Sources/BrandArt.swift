@@ -1,79 +1,88 @@
 import SwiftUI
 import UIKit
 
-/// The app icon's potato and sprout as vectors, so they can move and follow dark mode.
+/// The app icon's mascot and sprout as vectors, so they can move and follow dark mode.
 /// Geometry is copied from Assets/generate-app-icon.py (1024 pt icon space).
-private enum PotatoGeometry {
-    static let body = SVGPath.parse("M859.4 553.7C863.3 581.6 851.4 615.1 834.8 642.8C818.2 670.5 788.6 696.9 759.8 720.0C730.9 743.1 697.8 763.9 661.7 781.4C625.5 798.9 584.7 815.5 542.8 824.9C501.0 834.4 453.1 839.9 410.5 838.3C367.9 836.6 322.7 828.3 287.4 814.8C252.0 801.3 218.9 780.3 198.6 757.1C178.3 734.0 167.3 703.9 165.6 676.0C163.8 648.2 174.4 617.7 188.3 590.1C202.2 562.5 223.1 535.2 248.9 510.7C274.7 486.2 306.6 461.0 343.2 443.0C379.7 424.9 425.7 409.8 468.4 402.6C511.0 395.4 557.7 396.0 598.9 399.8C640.1 403.6 680.2 412.7 715.7 425.3C751.2 438.0 788.1 454.1 812.0 475.5C836.0 496.9 855.6 525.8 859.4 553.7Z")
-    static let eyes: [(CGPoint, CGFloat)] = [(CGPoint(x: 352, y: 648), 1), (CGPoint(x: 561, y: 694), 0.85), (CGPoint(x: 677, y: 560), 0.75)]
-    static let sproutBase = CGPoint(x: 572, y: 408), sproutScale: CGFloat = 1.1
-    /// Square box around potato and sprout.
-    static let bounds = CGRect(x: 160, y: 170, width: 710, height: 710)
-    static let base = CGPoint(x: 516, y: 830)
+private enum MascotGeometry {
+    static let body = SVGPath.parse("M815.9 610.0C812.4 638.8 798.8 667.8 784.4 693.3C770.0 718.8 750.4 741.7 729.3 763.2C708.2 784.7 685.3 805.8 657.9 822.3C630.5 838.8 598.2 854.8 564.9 862.0C531.6 869.2 492.5 870.6 458.4 865.5C424.2 860.4 389.4 846.8 359.9 831.3C330.5 815.7 303.7 794.8 281.6 772.4C259.5 750.0 239.7 724.1 227.4 697.0C215.1 670.0 207.3 638.8 207.8 610.0C208.4 581.2 217.4 550.3 230.7 524.0C244.0 497.6 265.1 472.9 287.7 451.9C310.3 430.9 337.4 412.3 366.3 398.0C395.1 383.6 427.8 371.8 460.7 365.8C493.7 359.9 530.1 358.3 564.0 362.1C598.0 365.9 633.3 375.1 664.2 388.5C695.2 401.9 726.2 420.5 749.7 442.5C773.2 464.5 794.2 492.4 805.3 520.3C816.3 548.3 819.4 581.2 815.9 610.0Z")
+    /// Top and bottom of the body, for its vertical gradient.
+    static let top: CGFloat = 358, bottom: CGFloat = 862
+    static let freckles: [(CGPoint, CGFloat, Double)] = [(CGPoint(x: 332, y: 567), 9, 0.5), (CGPoint(x: 692, y: 509), 8, 0.5), (CGPoint(x: 656, y: 761), 7, 0.45)]
+    static let eyeCentres = [CGPoint(x: 436.5, y: 600), CGPoint(x: 587.5, y: 600)], eyeScale: CGFloat = 1.18
+    static let sproutBase = CGPoint(x: 508, y: 360)
+    /// Square box around body and sprout.
+    static let bounds = CGRect(x: 163, y: 165, width: 705, height: 705)
+    static let base = CGPoint(x: 512, y: 862)
 }
 
 /// The sprout in its own space: the stem starts at the origin and grows up.
 private enum SproutGeometry {
-    static let stem = SVGPath.parse("M0 0C-2 -34 8 -66 30 -92")
-    static let bigLeaf = SVGPath.parse("M26 -86C44 -148 104 -178 170 -168C158 -104 100 -70 26 -86Z")
-    static let smallLeaf = SVGPath.parse("M8 -46C-18 -92 -70 -108 -116 -92C-96 -46 -44 -30 8 -46Z")
-    static let rib = SVGPath.parse("M40 -92C74 -114 110 -134 146 -154")
+    static let stem = SVGPath.parse("M0 0C-2 -30 4 -56 20 -78")
+    static let bigLeaf = SVGPath.parse("M0 0C20 -70 86 -112 166 -108C150 -34 80 6 0 0Z")
+    static let smallLeaf = SVGPath.parse("M0 0C-18 -58 -72 -90 -136 -84C-122 -26 -62 6 0 0Z")
     /// Square box around the sprout with its origin near the bottom centre.
-    static let bounds = CGRect(x: -128, y: -218, width: 310, height: 310)
+    static let bounds = CGRect(x: -98, y: -215, width: 240, height: 240)
 }
 
 enum BrandColor {
     static func hex(_ value: UInt32) -> Color {
         Color(red: Double(value >> 16 & 255) / 255, green: Double(value >> 8 & 255) / 255, blue: Double(value & 255) / 255)
     }
-    static let potatoLight = hex(0xE6AE72), potatoBase = hex(0xC98545), potatoShade = hex(0xB06C35), eye = hex(0x955326)
-    static let leafA = hex(0x79B060), leafB = hex(0x5E9A4B), rib = hex(0xA6D38A)
+    static let potatoLight = hex(0xE6AE72), potatoBase = hex(0xC98545)
+    static let skin = hex(0xDFA266), skinTop = hex(0xF6C98E), skinBottom = hex(0xE8AE6E), freckle = hex(0xB97638)
+    static let eyeTop = hex(0x2E3A5C), eyeBottom = hex(0x1B2238), eyeGlint = hex(0xBFF3FF)
+    static let stem = hex(0x4E9C4F), leafA = hex(0x6CBF67), leafB = hex(0x56AB57)
 }
 
 extension GraphicsContext {
     func drawSprout() {
-        stroke(SproutGeometry.stem, with: .color(BrandColor.leafB), style: StrokeStyle(lineWidth: 22, lineCap: .round))
-        fill(SproutGeometry.bigLeaf, with: .color(BrandColor.leafA))
-        stroke(SproutGeometry.rib, with: .color(BrandColor.rib.opacity(0.7)), style: StrokeStyle(lineWidth: 7, lineCap: .round))
-        fill(SproutGeometry.smallLeaf, with: .color(BrandColor.leafB))
+        stroke(SproutGeometry.stem, with: .color(BrandColor.stem), style: StrokeStyle(lineWidth: 22, lineCap: .round))
+        var big = self
+        big.translateBy(x: 20, y: -74); big.rotate(by: .degrees(-14)); big.scaleBy(x: 0.78, y: 0.78)
+        big.fill(SproutGeometry.bigLeaf, with: .color(BrandColor.leafA))
+        var small = self
+        small.translateBy(x: 14, y: -62); small.rotate(by: .degrees(4)); small.scaleBy(x: 0.72, y: 0.72)
+        small.fill(SproutGeometry.smallLeaf, with: .color(BrandColor.leafB))
     }
 
-    /// Draws the potato in icon space; `scale` converts icon points to screen points for the blur.
-    func drawPotato(scale: CGFloat) {
-        let body = PotatoGeometry.body
+    /// Draws the mascot in icon space; `scale` converts icon points to screen points for the blur.
+    func drawMascot(scale: CGFloat) {
+        let body = MascotGeometry.body
+        fill(body, with: .color(BrandColor.skin))
         var inside = self
         inside.clip(to: body)
-        // A shifted copy leaves a darker crescent along the lower edge.
-        inside.fill(Path(CGRect(x: 0, y: 0, width: 1024, height: 1024)), with: .color(BrandColor.potatoShade))
-        inside.fill(body.offsetBy(dx: -16, dy: -26), with: .linearGradient(Gradient(colors: [BrandColor.potatoLight, BrandColor.potatoBase]), startPoint: CGPoint(x: 236, y: 466), endPoint: CGPoint(x: 744, y: 782)))
+        inside.fill(body.offsetBy(dx: -18, dy: -30), with: .linearGradient(Gradient(colors: [BrandColor.skinTop, BrandColor.skinBottom]), startPoint: CGPoint(x: 512, y: MascotGeometry.top - 30), endPoint: CGPoint(x: 512, y: MascotGeometry.bottom - 30)))
         var glow = inside
-        glow.addFilter(.blur(radius: 26 * scale))
-        glow.translateBy(x: 346, y: 535); glow.rotate(by: .degrees(-22))
-        glow.fill(Path(ellipseIn: CGRect(x: -92, y: -40, width: 184, height: 80)), with: .color(.white.opacity(0.28)))
-        for (center, size) in PotatoGeometry.eyes {
-            var eye = self
-            eye.translateBy(x: center.x, y: center.y); eye.rotate(by: .degrees(-13))
-            eye.fill(Path(ellipseIn: CGRect(x: -15 * size, y: -9 * size, width: 30 * size, height: 18 * size)), with: .color(BrandColor.eye))
+        glow.addFilter(.blur(radius: 72 * scale))
+        glow.translateBy(x: 404, y: 454); glow.rotate(by: .degrees(-24))
+        glow.fill(Path(ellipseIn: CGRect(x: -108, y: -50, width: 216, height: 100)), with: .color(Color(red: 1, green: 0.945, blue: 0.855).opacity(0.55)))
+        for (centre, radius, opacity) in MascotGeometry.freckles {
+            fill(Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: 2 * radius, height: 2 * radius)), with: .color(BrandColor.freckle.opacity(opacity)))
+        }
+        let s = MascotGeometry.eyeScale
+        for centre in MascotGeometry.eyeCentres {
+            let eye = Path(roundedRect: CGRect(x: centre.x - 15 * s, y: centre.y - 32 * s, width: 30 * s, height: 64 * s), cornerRadius: 15 * s)
+            fill(eye, with: .linearGradient(Gradient(colors: [BrandColor.eyeTop, BrandColor.eyeBottom]), startPoint: CGPoint(x: centre.x, y: centre.y - 32 * s), endPoint: CGPoint(x: centre.x, y: centre.y + 32 * s)))
+            fill(Path(roundedRect: CGRect(x: centre.x - 5 * s, y: centre.y - 23 * s, width: 9 * s, height: 19 * s), cornerRadius: 4.5 * s), with: .color(BrandColor.eyeGlint.opacity(0.9)))
         }
         var sprout = self
-        sprout.translateBy(x: PotatoGeometry.sproutBase.x, y: PotatoGeometry.sproutBase.y)
-        sprout.scaleBy(x: PotatoGeometry.sproutScale, y: PotatoGeometry.sproutScale)
+        sprout.translateBy(x: MascotGeometry.sproutBase.x, y: MascotGeometry.sproutBase.y)
         sprout.drawSprout()
     }
 }
 
-/// The potato from the app icon, optionally rocking on its base.
+/// The mascot from the app icon, optionally rocking on its base.
 struct PotatoMark: View {
     var size: CGFloat
     var tilt: Double = 0
     var body: some View {
         Canvas { context, canvas in
-            let box = PotatoGeometry.bounds, scale = canvas.width / box.width
+            let box = MascotGeometry.bounds, scale = canvas.width / box.width
             context.scaleBy(x: scale, y: scale)
             context.translateBy(x: -box.minX, y: -box.minY)
-            let base = PotatoGeometry.base
+            let base = MascotGeometry.base
             context.translateBy(x: base.x, y: base.y); context.rotate(by: .degrees(tilt)); context.translateBy(x: -base.x, y: -base.y)
-            context.drawPotato(scale: scale)
+            context.drawMascot(scale: scale)
         }.frame(width: size, height: size).accessibilityHidden(true)
     }
 }
@@ -104,13 +113,13 @@ struct ReplyPendingDot: View {
     }
 }
 
-/// The welcome potato; a tap makes it wobble.
+/// The welcome mascot; a tap makes it wobble.
 struct WelcomePotato: View {
     var haptics = true
     @State private var wobble = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        PotatoMark(size: 76)
+        PotatoMark(size: 84)
             .keyframeAnimator(initialValue: 0.0, trigger: wobble) { mark, angle in
                 mark.rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 0.93))
             } keyframes: { _ in

@@ -21,7 +21,7 @@ struct RecallView: View {
                 }
                 memorySection
                 if store.settings.recallEnabled == true { conversationSection }
-            }
+            }.warmGroupedBackground()
             .navigationTitle(L10n.tr("记忆")).navigationBarTitleDisplayMode(.inline)
             .task { if !store.settings.demo { await store.refreshMemories() } }
             .sheet(isPresented: $editorVisible) {

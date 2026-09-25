@@ -98,7 +98,7 @@ struct CloudModelsView: View {
                     save(models.enumerated().filter { !offsets.contains($0.offset) }.map(\.element.id), defaultModel: defaultModel)
                 }
             }
-        }
+        }.warmGroupedBackground()
         .navigationTitle(L10n.tr("云端模型")).navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -149,7 +149,7 @@ private struct CloudModelPicker: View {
                     ProgressView(L10n.tr("正在读取模型…")).frame(maxWidth: .infinity)
                 }
                 if let failure { Text(failure).foregroundStyle(.red) }
-            }
+            }.warmGroupedBackground()
             .searchable(text: $search, prompt: L10n.tr("搜索模型"))
             .navigationTitle(L10n.tr("添加模型")).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { dismiss() } } }

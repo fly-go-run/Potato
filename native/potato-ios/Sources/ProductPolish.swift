@@ -175,7 +175,7 @@ struct AuthorizationBanner: View {
     let signIn: () -> Void
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "person.crop.circle.badge.exclamationmark").font(.system(size: 18)).foregroundStyle(.orange).accessibilityHidden(true)
+            Image(systemName: "person.crop.circle.badge.exclamationmark").font(.system(size: 18)).foregroundStyle(.red).accessibilityHidden(true)
             Text(manualConnection ? L10n.tr("连接令牌无效") : L10n.tr("登录已过期")).font(.subheadline.weight(.medium)).lineLimit(2)
             Spacer(minLength: 8)
             Button(manualConnection ? L10n.tr("检查设置") : L10n.tr("重新登录"), action: signIn).font(.subheadline.weight(.semibold))

@@ -349,7 +349,7 @@ private struct LibraryTextEditor: View {
                     TextEditor(text: $text).frame(minHeight: 240).accessibilityIdentifier("library-text-content")
                     PasteButton(payloadType: String.self) { text = $0.joined(separator: "\n") }
                 }
-            }.scrollDismissesKeyboard(.interactively).navigationTitle(L10n.tr("保存文本")).navigationBarTitleDisplayMode(.inline)
+            }.warmGroupedBackground().scrollDismissesKeyboard(.interactively).navigationTitle(L10n.tr("保存文本")).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("取消")) { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("保存")) {

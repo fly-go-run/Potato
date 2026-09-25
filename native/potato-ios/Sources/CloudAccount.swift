@@ -94,7 +94,7 @@ struct CloudAccountView: View {
                 }
                 if let issue = issue ?? remote.error { Section { Text(issue).foregroundStyle(.red).accessibilityIdentifier("cloud-connection-error") } }
                 Section { Text(L10n.tr("目前仅限受邀邮箱。")).font(.footnote).foregroundStyle(Palette.secondary) }
-            }.navigationTitle(L10n.tr("Potato 账号")).navigationBarTitleDisplayMode(.inline)
+            }.warmGroupedBackground().navigationTitle(L10n.tr("Potato 账号")).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("完成")) { dismiss() }.disabled(connecting || remote.signingIn) } }
         }
         .task(id: phase == .active && remote.login != nil) {

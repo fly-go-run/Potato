@@ -1,87 +1,76 @@
-# Source for the app icon: `python3 generate-app-icon.py` writes AppIcon*.svg, then export each at 1024 px
-# into Assets.xcassets/AppIcon.appiconset. BrandArt.swift copies the potato and sprout geometry.
-import math, sys
-def blob(cx,cy,a,b,rot,perturb,n=14):
-    pts=[]
+# Source for the app icon ("探头·夜": the potato rises like a moon into a night sky).
+# `python3 generate-app-icon.py` writes AppIcon.svg; export it at 1024 px to
+# Assets.xcassets/AppIcon.appiconset/AppIcon.png (the dark variant uses the same art,
+# the tinted variant is its grayscale). BrandArt.swift copies the mascot and sprout geometry.
+import math
+
+def smooth(pts):
+    n = len(pts); d = f"M{pts[0][0]:.1f} {pts[0][1]:.1f}"
     for i in range(n):
-        t=2*math.pi*i/n
-        r=1+sum(amp*math.cos(k*t+ph) for k,amp,ph in perturb)
-        x=a*r*math.cos(t); y=b*r*math.sin(t)
-        c,s=math.cos(rot),math.sin(rot)
-        pts.append((cx+x*c-y*s, cy+x*s+y*c))
-    # closed Catmull-Rom -> cubic bezier
-    d=f"M{pts[0][0]:.1f} {pts[0][1]:.1f}"
-    for i in range(n):
-        p0,p1,p2,p3=pts[i-1],pts[i],pts[(i+1)%n],pts[(i+2)%n]
-        c1=(p1[0]+(p2[0]-p0[0])/6, p1[1]+(p2[1]-p0[1])/6)
-        c2=(p2[0]-(p3[0]-p1[0])/6, p2[1]-(p3[1]-p1[1])/6)
-        d+=f"C{c1[0]:.1f} {c1[1]:.1f} {c2[0]:.1f} {c2[1]:.1f} {p2[0]:.1f} {p2[1]:.1f}"
-    return d+"Z", pts
-ROT=math.radians(-10)
-PERT=[(2,0.03,0.9),(3,0.022,-0.5),(4,0.012,0.3)]
-CX,CY,A,B=506,616,342,216
-body,_=blob(CX,CY,A,B,ROT,PERT,16)
-def at(u,v):
-    # point in potato local coords (u,v in -1..1) -> icon coords
-    x=A*u; y=B*v; c,s=math.cos(ROT),math.sin(ROT)
-    return CX+x*c-y*s, CY+x*s+y*c
-def theme(dark=False, tint=False):
-    bg=("#2A2521","#1D1916") if dark else ("#FFFBF4","#F5EADB")
-    base,light,shade,eye="#C98545","#E6AE72","#B06C35","#955326"
-    leafA,leafB,stem,rib="#79B060","#5E9A4B","#5E9A4B","#A6D38A"
-    if tint:
-        bg=("#1C1C1C","#141414"); base,light,shade,eye="#CFCFCF","#F2F2F2","#AFAFAF","#8A8A8A"; leafA,leafB,stem,rib="#CFCFCF","#B0B0B0","#B0B0B0","#E8E8E8"
-    return locals()
-def icon(dark=False,tint=False,mask=True):
-    T=theme(dark,tint)
-    o=[f'<defs><linearGradient id="bg{dark}{tint}" x1="0" y1="0" x2="0" y2="1"><stop stop-color="{T["bg"][0]}"/><stop offset="1" stop-color="{T["bg"][1]}"/></linearGradient>'
-       f'<clipPath id="body{dark}{tint}"><path d="{body}"/></clipPath>'
-       f'<radialGradient id="sh{dark}{tint}" cx="50%" cy="50%" r="50%"><stop stop-color="#000" stop-opacity=".16"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>']
-    o.append(f'<rect width="1024" height="1024" fill="url(#bg{dark}{tint})"/>')
-    # soft ground shadow
-    o.append(f'<ellipse cx="{CX+10}" cy="{CY+205}" rx="270" ry="34" fill="url(#sh{dark}{tint})"/>')
-    g0=at(-0.7,-0.9); g1=at(0.6,0.95)
-    o.append(f'<defs><linearGradient id="pg{dark}{tint}" gradientUnits="userSpaceOnUse" x1="{g0[0]:.0f}" y1="{g0[1]:.0f}" x2="{g1[0]:.0f}" y2="{g1[1]:.0f}"><stop stop-color="{T["light"]}"/><stop offset="1" stop-color="{T["base"]}"/></linearGradient>'
-             f'<filter id="blur{dark}{tint}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter></defs>')
-    o.append(f'<g clip-path="url(#body{dark}{tint})"><rect width="1024" height="1024" fill="{T["shade"]}"/>'
-             f'<path d="{body}" transform="translate(-16 -26)" fill="url(#pg{dark}{tint})"/>')
-    hx,hy=at(-0.42,-0.5)
-    o.append(f'<ellipse cx="{hx:.0f}" cy="{hy:.0f}" rx="92" ry="40" transform="rotate(-22 {hx:.0f} {hy:.0f})" fill="#FFFFFF" opacity="{0.10 if tint else 0.28}" filter="url(#blur{dark}{tint})"/></g>')
-    # eyes: small tilted ellipses with a light lip
-    for (u,v,s) in [(-0.46,0.02,1.0),(0.12,0.40,0.85),(0.52,-0.12,0.75)]:
-        x,y=at(u,v)
-        o.append(f'<ellipse cx="{x:.0f}" cy="{y:.0f}" rx="{15*s:.0f}" ry="{9*s:.0f}" transform="rotate(-13 {x:.0f} {y:.0f})" fill="{T["eye"]}"/>')
-    # sprout from top-right eye region
-    bx,by=at(0.30,-0.93)
-    o.append(f'<g transform="translate({bx:.0f} {by+8:.0f}) scale(1.1)">'
-             f'<path d="M0 0C-2 -34 8 -66 30 -92" stroke="{T["stem"]}" stroke-width="22" stroke-linecap="round" fill="none"/>'
-             # big right leaf
-             f'<path d="M26 -86C44 -148 104 -178 170 -168C158 -104 100 -70 26 -86Z" fill="{T["leafA"]}"/>'
-             f'<path d="M40 -92C74 -114 110 -134 146 -154" stroke="{T["rib"]}" stroke-width="7" stroke-linecap="round" fill="none" opacity=".7"/>'
-             # small left leaf
-             f'<path d="M8 -46C-18 -92 -70 -108 -116 -92C-96 -46 -44 -30 8 -46Z" fill="{T["leafB"]}"/>'
-             '</g>')
-    g="".join(o)
-    return g
-def sheet():
-    W,H=1600,1600
-    s=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"><rect width="{W}" height="{H}" fill="#EFECE7"/>']
-    variants=[("light",False,False),("dark",True,False),("tint",False,True)]
-    for i,(n,d,t) in enumerate(variants):
-        s.append(f'<svg x="{40+i*520}" y="40" width="480" height="480" viewBox="0 0 1024 1024"><clipPath id="m{n}"><rect width="1024" height="1024" rx="229"/></clipPath><g clip-path="url(#m{n})">{icon(d,t)}</g></svg>')
-    for row,wall in enumerate(("#CFDDEA","#15171C")):
-        y=580+row*340
-        s.append(f'<rect x="40" y="{y}" width="1520" height="300" rx="36" fill="{wall}"/>')
-        for j,sz in enumerate((180,120,60,40)):
-            x=100+[0,260,460,600][j]
-            d= row==1 and j<2 and False
-            s.append(f'<svg x="{x}" y="{y+150-sz/2}" width="{sz}" height="{sz}" viewBox="0 0 1024 1024"><clipPath id="k{row}{j}"><rect width="1024" height="1024" rx="229"/></clipPath><g clip-path="url(#k{row}{j})">{icon(dark=(row==1 and j>=0 and False))}</g></svg>')
-        # dark home screen with dark icon variant
-        if row==1:
-            for j,sz in enumerate((180,120,60)):
-                x=900+[0,260,460][j]
-                s.append(f'<svg x="{x}" y="{y+150-sz/2}" width="{sz}" height="{sz}" viewBox="0 0 1024 1024"><clipPath id="kd{j}"><rect width="1024" height="1024" rx="229"/></clipPath><g clip-path="url(#kd{j})">{icon(dark=True)}</g></svg>')
-    s.append('</svg>'); return "".join(s)
-open("AppIcon.svg","w").write(f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">{icon()}</svg>')
-open("AppIcon-dark.svg","w").write(f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">{icon(True)}</svg>')
-open("AppIcon-tinted.svg","w").write(f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">{icon(False,True)}</svg>')
+        p0, p1, p2, p3 = pts[i - 1], pts[i], pts[(i + 1) % n], pts[(i + 2) % n]
+        c1 = (p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6)
+        c2 = (p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6)
+        d += f"C{c1[0]:.1f} {c1[1]:.1f} {c2[0]:.1f} {c2[1]:.1f} {p2[0]:.1f} {p2[1]:.1f}"
+    return d + "Z"
+
+def blob(cx, cy, rx, ry, wobble):
+    pts = []
+    for i in range(18):
+        t = 2 * math.pi * i / 18
+        r = 1 + sum(a * math.cos(k * t + ph) for k, a, ph in wobble)
+        pts.append((cx + rx * r * math.cos(t), cy + ry * r * math.sin(t)))
+    return smooth(pts)
+
+def star(cx, cy, r, fill, opacity):
+    k = r * .12
+    return (f'<path d="M{cx} {cy-r}Q{cx+k} {cy-k} {cx+r} {cy}Q{cx+k} {cy+k} {cx} {cy+r}'
+            f'Q{cx-k} {cy+k} {cx-r} {cy}Q{cx-k} {cy-k} {cx} {cy-r}Z" fill="{fill}" opacity="{opacity}"/>')
+
+LEAF_R = "M0 0C20 -70 86 -112 166 -108C150 -34 80 6 0 0Z"
+LEAF_L = "M0 0C-18 -58 -72 -90 -136 -84C-122 -26 -62 6 0 0Z"
+
+def sprout(x, y, s):
+    tx, ty = x + 20 * s, y - 78 * s
+    return (f'<path d="M{x} {y}C{x-2*s:.1f} {y-30*s:.1f} {x+4*s:.1f} {y-56*s:.1f} {tx:.1f} {ty:.1f}" stroke="#4E9C4F" stroke-width="{22*s:.1f}" stroke-linecap="round" fill="none"/>'
+            f'<g transform="translate({tx:.1f} {ty+4*s:.1f}) rotate(-14) scale({.78*s:.3f})"><path d="{LEAF_R}" fill="#6CBF67"/></g>'
+            f'<g transform="translate({tx-6*s:.1f} {ty+16*s:.1f}) rotate(4) scale({.72*s:.3f})"><path d="{LEAF_L}" fill="#56AB57"/></g>')
+
+def eyes(cx, cy, s, gap):
+    o = ""
+    for side in (-1, 1):
+        x = cx + side * gap * s
+        o += (f'<rect x="{x-15*s:.1f}" y="{cy-32*s:.1f}" width="{30*s:.1f}" height="{64*s:.1f}" rx="{15*s:.1f}" fill="url(#eye)"/>'
+              f'<rect x="{x-5*s:.1f}" y="{cy-23*s:.1f}" width="{9*s:.1f}" height="{19*s:.1f}" rx="{4.5*s:.1f}" fill="#BFF3FF" opacity=".9"/>')
+    return o
+
+CX, CY, RX, RY = 512, 934, 410, 336
+body = blob(CX, CY, RX, RY, [(2, .02, 1.5), (3, .015, 1.6)])
+hx, hy = CX - RX * .36, CY - RY * .62
+art = (
+    '<rect width="1024" height="1024" fill="url(#bg)"/>'
+    '<circle cx="512" cy="840" r="540" fill="url(#aura)"/>'
+    + star(772, 292, 48, "#FFE7A8", .95) + star(850, 404, 22, "#FFFFFF", .8) + star(250, 360, 18, "#C9C3FF", .8)
+    + f'<path d="{body}" fill="#DFA266"/>'
+    f'<g clip-path="url(#pc)"><path d="{body}" transform="translate(-18 -30)" fill="url(#pf)"/>'
+    f'<ellipse cx="{hx:.0f}" cy="{hy:.0f}" rx="{RX*.36:.0f}" ry="{RY*.2:.0f}" transform="rotate(-24 {hx:.0f} {hy:.0f})" fill="#FFF1DA" opacity=".55" filter="url(#soft)"/>'
+    f'<path d="{body}" fill="none" stroke="url(#rim)" stroke-width="26" filter="url(#glow)"/></g>'
+    f'<circle cx="{CX-RX*.6:.0f}" cy="{CY-RY*.17:.0f}" r="9" fill="#B97638" opacity=".5"/>'
+    f'<circle cx="{CX+RX*.6:.0f}" cy="{CY-RY*.4:.0f}" r="8" fill="#B97638" opacity=".5"/>'
+    + eyes(512, 752, 1.2, 66) + sprout(508, 604, 1.15)
+)
+defs = (
+    '<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#262B4A"/><stop offset="1" stop-color="#12152A"/></linearGradient>'
+    '<radialGradient id="aura"><stop offset=".3" stop-color="#FFB27A" stop-opacity=".4"/><stop offset=".65" stop-color="#7F8CFF" stop-opacity=".3"/><stop offset="1" stop-color="#7F8CFF" stop-opacity="0"/></radialGradient>'
+    f'<clipPath id="pc"><path d="{body}"/></clipPath>'
+    '<linearGradient id="pf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#F6C98E"/><stop offset="1" stop-color="#E8AE6E"/></linearGradient>'
+    '<linearGradient id="eye" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2E3A5C"/><stop offset="1" stop-color="#1B2238"/></linearGradient>'
+    '<linearGradient id="rim" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#B9C2FF" stop-opacity=".9"/><stop offset=".45" stop-color="#B9C2FF" stop-opacity="0"/></linearGradient>'
+    '<filter id="soft" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="26"/></filter>'
+    '<filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="14"/></filter>'
+)
+with open("AppIcon.svg", "w") as f:
+    f.write(f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs>{defs}</defs>{art}</svg>')
+
+if __name__ == "__main__":
+    # Geometry used by BrandArt.swift for the in-app mascot (full body, not cropped).
+    print("mascot body:", blob(512, 610, 300, 252, [(2, .028, 1.5), (3, .018, 1.6), (4, .012, .3)]))

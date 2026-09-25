@@ -46,7 +46,7 @@ enum Palette {
     static let secondary = adaptive(UIColor(red: 0.44, green: 0.44, blue: 0.42, alpha: 1), UIColor(white: 0.68, alpha: 1))
     static let muted = adaptive(UIColor(red: 0.94, green: 0.937, blue: 0.917, alpha: 1), UIColor(white: 0.16, alpha: 1))
     static let surface = adaptive(.white, UIColor(white: 0.12, alpha: 1))
-    static let grouped = adaptive(UIColor(white: 0.97, alpha: 1), UIColor(white: 0.075, alpha: 1))
+    static let grouped = adaptive(UIColor(red: 0.953, green: 0.945, blue: 0.925, alpha: 1), UIColor(white: 0.075, alpha: 1))
     static let onInk = adaptive(.white, UIColor(white: 0.10, alpha: 1))
     /// Caramel from the icon's potato, for primary actions only.
     static let accent = adaptive(UIColor(red: 0.722, green: 0.451, blue: 0.235, alpha: 1), UIColor(red: 0.902, green: 0.682, blue: 0.447, alpha: 1))
@@ -55,4 +55,17 @@ enum Palette {
     static let glassEdge = adaptive(.white.withAlphaComponent(0.6), .white.withAlphaComponent(0.12))
     static let fileAccent = adaptive(UIColor(red: 0.56, green: 0.32, blue: 0.23, alpha: 1), UIColor(red: 0.91, green: 0.68, blue: 0.52, alpha: 1))
     static let fileBackground = adaptive(UIColor(red: 0.98, green: 0.94, blue: 0.91, alpha: 1), UIColor(red: 0.23, green: 0.17, blue: 0.14, alpha: 1))
+}
+
+/// Grouped lists and forms sit on a warm ground in light mode, matching the canvas; dark mode keeps the system look.
+private struct WarmGroupedBackground: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    func body(content: Content) -> some View {
+        content.scrollContentBackground(scheme == .dark ? .automatic : .hidden)
+            .background(scheme == .dark ? Color.clear : Palette.grouped)
+    }
+}
+
+extension View {
+    func warmGroupedBackground() -> some View { modifier(WarmGroupedBackground()) }
 }

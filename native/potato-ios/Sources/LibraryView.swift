@@ -150,7 +150,7 @@ struct SettingsView: View {
                         }.frame(maxWidth: .infinity)
                     }.buttonStyle(.plain).accessibilityIdentifier("settings-version")
                 }.listRowBackground(Color.clear)
-            }.scrollDismissesKeyboard(.interactively).navigationTitle(L10n.tr("设置")).navigationBarTitleDisplayMode(.inline)
+            }.warmGroupedBackground().scrollDismissesKeyboard(.interactively).navigationTitle(L10n.tr("设置")).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     if developerDirty { ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("取消")) { dismiss() }.accessibilityIdentifier("discard-settings") } }
                     ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { save() }.bold().accessibilityIdentifier("save-settings") }
@@ -182,7 +182,7 @@ struct SettingsView: View {
                     Image(systemName: "person.crop.circle.fill").font(.system(size: 36)).foregroundStyle(Palette.secondary).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(account.email).font(.body.weight(.medium)).lineLimit(1)
-                        if store.authorizationExpired { Text(L10n.tr("登录已过期")).font(.footnote).foregroundStyle(Color.orange) }
+                        if store.authorizationExpired { Text(L10n.tr("登录已过期")).font(.footnote).foregroundStyle(Color.red) }
                     }
                 }.padding(.vertical, 4)
                 Button(store.authorizationExpired ? L10n.tr("重新登录") : L10n.tr("管理账号")) { showCloud = true }.accessibilityIdentifier("cloud-model-login")
@@ -195,7 +195,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Potato").font(.title3.bold())
                         if !store.settings.demo, let host = store.settings.validatedURL?.host {
-                            Text(store.authorizationExpired ? L10n.tr("自定义服务 · 连接令牌无效") : L10n.tr("已连接自定义服务 · \(host)")).font(.subheadline).foregroundStyle(store.authorizationExpired ? Color.orange : Palette.secondary).lineLimit(2)
+                            Text(store.authorizationExpired ? L10n.tr("自定义服务 · 连接令牌无效") : L10n.tr("已连接自定义服务 · \(host)")).font(.subheadline).foregroundStyle(store.authorizationExpired ? Color.red : Palette.secondary).lineLimit(2)
                         }
                     }
                 }.padding(.vertical, 6)
@@ -300,7 +300,7 @@ struct CustomInstructionsView: View {
             Section {
                 TextEditor(text: $text).frame(minHeight: 200).accessibilityIdentifier("custom-instructions")
             } header: { Text(L10n.tr("希望 Potato 了解什么")) } footer: { Text(L10n.tr("例如职业、常用语言、回答长度和语气。")) }
-        }.navigationTitle(L10n.tr("自定义指令")).navigationBarTitleDisplayMode(.inline)
+        }.warmGroupedBackground().navigationTitle(L10n.tr("自定义指令")).navigationBarTitleDisplayMode(.inline)
             .onChange(of: text) { _, value in
                 let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
                 store.settings.customInstructions = trimmed.isEmpty ? nil : String(value.prefix(4000))

@@ -105,7 +105,7 @@ struct LibraryFileDetail: View {
                         }
                     }
                 }
-            }.navigationTitle(L10n.tr("文件信息")).navigationBarTitleDisplayMode(.inline)
+            }.warmGroupedBackground().navigationTitle(L10n.tr("文件信息")).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { showInfo = false } } }
         }
     }
