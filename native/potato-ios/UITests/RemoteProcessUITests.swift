@@ -131,7 +131,7 @@ final class RemoteProcessUITests: XCTestCase {
         XCTAssertTrue(app.buttons["remote-stop"].isHittable)
         XCTAssertTrue(app.buttons["remote-send"].isHittable)
         XCTAssertLessThan(input(app).frame.maxY, app.buttons["remote-send"].frame.minY)
-        control("offline"); status(app, "连接中断，任务状态未确认")
+        control("offline"); status(app, "连接中断")
         XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.buttons["remote-send"].isEnabled); XCTAssertFalse(app.buttons["remote-stop"].isEnabled)
         XCTAssertEqual(input(app).value as? String, "keep draft"); capture(app, "remote-offline-draft-keyboard")
         control("tool"); status(app, "正在执行")
@@ -144,9 +144,9 @@ final class RemoteProcessUITests: XCTestCase {
         control("thinking", delay: 15)
         let stop = app.buttons["remote-stop"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == false"), object: stop)], timeout: 14), .completed)
-        status(app, "正在思考", timeout: 1); XCTAssertFalse(app.staticTexts["remote-last-status"].exists)
-        status(app, "正在确认任务状态…", timeout: 25)
-        XCTAssertFalse(spinner(app).exists); XCTAssertTrue(app.staticTexts["remote-last-status"].exists); capture(app, "remote-slow-request-stale")
+        status(app, "正在思考", timeout: 1)
+        status(app, "正在重新连接…", timeout: 25)
+        XCTAssertFalse(spinner(app).exists); capture(app, "remote-slow-request-stale")
         control("complete"); status(app, "本轮任务已完成", timeout: 30)
     }
     func testApprovalQuestionStopAndFailureUseRealStates() {
@@ -224,15 +224,13 @@ final class RemoteProcessUITests: XCTestCase {
     }
     func testOldComputerRequiresUpdateBeforeStopping() {
         control("thinking", stopProtocol: 0); let app = launch(large: true); status(app, "正在思考")
-        XCTAssertTrue(app.staticTexts["remote-stop-update-required"].exists)
-        XCTAssertTrue(app.frame.contains(app.staticTexts["remote-stop-update-required"].frame))
         XCTAssertFalse(app.buttons["remote-stop"].exists)
         capture(app, "remote-old-computer-stop")
     }
     func testLargeTextOfflineStatusAndKeyboardAreReachable() {
         control("thinking"); let app = launch(large: true); status(app, "正在思考")
         input(app).tap(); input(app).typeText("draft")
-        control("offline"); status(app, "连接中断，任务状态未确认")
+        control("offline"); status(app, "连接中断")
         XCTAssertTrue(input(app).isHittable); XCTAssertTrue(app.buttons["remote-status-refresh"].isHittable)
         XCTAssertLessThanOrEqual(input(app).frame.maxY, app.keyboards.firstMatch.frame.minY)
         XCTAssertTrue(app.frame.contains(input(app).frame))

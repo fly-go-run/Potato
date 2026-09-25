@@ -31,6 +31,11 @@ pub(crate) fn display_messages(frames: &[Value]) -> Value {
                 data["name"].as_str().map(|name| format!("{}\n{}",name,data["arguments"].as_str().map(str::to_owned).unwrap_or_else(||data["arguments"].to_string())))
             }).collect::<Vec<_>>().join("\n")).unwrap_or_default()};
             let mut row = json!({"id":id,"role":frame["role"],"kind":frame["type"],"text":text,"status":frame["metadata"]["activity"]["state"].as_str().map(|s|json!(s)).unwrap_or_else(||frame["status"].clone())});
+            if frame["role"] == "user" {
+                if let Some(operation) = frame["metadata"]["remote_operation_id"].as_str() {
+                    row["remote_operation_id"] = json!(operation);
+                }
+            }
             if matches!(frame["type"].as_str(), Some("function_call" | "function_call_output")) {
                 if let Some(data) = frame["content"].as_array().and_then(|blocks| blocks.iter().map(|block| &block["data"]).find(|data| data.get("call_id").is_some())) {
                     let fields: &[&str] = if frame["type"] == "function_call" { &["call_id", "name", "arguments"] } else { &["call_id", "name", "output", "state"] };
@@ -59,6 +64,17 @@ pub(crate) fn display_messages(frames: &[Value]) -> Value {
     if start > 0 {rows.insert(0,json!({"id":"remote-history-notice","role":"system","kind":"notice","text":"这里显示最近 120 条消息，更早内容可在电脑查看。"}));}
     for row in &mut rows { let text = string(row,"text"); if text.chars().count() > 8000 { row["text"] = json!(format!("{}\n…内容较长，请在电脑查看全文",text.chars().take(8000).collect::<String>())); } }
     json!(rows)
+}
+
+fn remote_outbox_view(queue: &Value) -> Value {
+    let items: Vec<Value> = queue["items"].as_array().into_iter().flatten().map(|item| {
+        let blocks = item["request"]["input"][0]["content"].as_array();
+        let text = blocks.into_iter().flatten().filter_map(|block| block["text"].as_str()).collect::<Vec<_>>().join("\n");
+        let attachments = blocks.into_iter().flatten().filter(|block| block["type"] != "text").count();
+        json!({"id":item["id"],"state":item["state"],"text":text,"attachments":attachments})
+    }).collect();
+    // Never send request contexts, model credentials, or inline attachment data.
+    json!({"items":items,"paused":queue["paused"],"reason":queue["reason"],"interrupt":queue["interrupt"]})
 }
 
 impl Runtime {
@@ -245,6 +261,9 @@ impl Runtime {
         if op == "chat" {
             let chat = self.db()?.chat(required(args,"chat_id")?)?;
             let session = required(&chat,"session_id")?;
+            // Read pending items before history. If dispatch happens in between,
+            // the phone can deduplicate by operation ID instead of losing a bubble.
+            let outbox = self.outbox_request(&json!({"session_id":session}))?;
             let mut value = self.request("GET", &format!("/api/chats/{}",segment(required(&chat,"id")?)),Value::Null).await?;
             value["messages"] = display_messages(value["messages"].as_array().map(Vec::as_slice).unwrap_or_default());
             value["chat"] = chat.clone();
@@ -252,13 +271,15 @@ impl Runtime {
             value["approval_scope_protocol"] = json!(1);
                 value["approvals"] = self.request("GET", &format!("/api/approval/list?session_id={}",segment(session)),Value::Null).await?["pending_approvals"].clone();
             value["questions"] = self.request("GET", &format!("/api/questions?session_id={}",segment(session)),Value::Null).await?["questions"].clone();
+            value["outbox_protocol"] = json!(1);
+            value["outbox"] = remote_outbox_view(&outbox);
             let runs = lock(&self.runs)?;
             value["live"] = if let Some(run) = runs.get(session) { lock(&run.replay)?.remote_snapshot() } else {json!([])};
             value["running_request_id"] = runs.get(session).map(|run|json!(run.request_id)).unwrap_or(Value::Null);
             value["stop_protocol"] = json!(1);
             return Ok(value);
         }
-        if !matches!(op,"send"|"stop"|"approval"|"answer"|"pin") { return Err(Error::new(403,"不支持的远程操作")); }
+        if !matches!(op,"send"|"stop"|"approval"|"answer"|"pin"|"outbox") { return Err(Error::new(403,"不支持的远程操作")); }
         let id = required(command,"id")?;
         uuid::Uuid::parse_str(id).map_err(|_|Error::new(400,"无效的操作编号"))?;
         let fingerprint = format!("{:x}",Sha256::digest(json!({"op":op,"args":args}).to_string().as_bytes()));
@@ -279,6 +300,15 @@ impl Runtime {
                         else { chat["session_id"] == format!("remote-{id}") }
                     });
                     if let Some(chat) = chat {
+                        if matches!(args["delivery_mode"].as_str(), Some("queue" | "interrupt")) {
+                            let queue = db.get("follow_up_outbox", json!({}))?;
+                            let session = required(&chat,"session_id")?;
+                            if queue[session]["receipts"].as_array().is_some_and(|ids| ids.iter().any(|v|v == id)) {
+                                let result = json!({"chat":chat,"delivery":"recovered"});
+                                db.put(&key,&json!({"fingerprint":fingerprint,"result":result}))?;
+                                return Ok(result);
+                            }
+                        }
                         let history = db.history(required(&chat,"id")?,false)
                             .map_err(|_|Error::new(409,"原指令记录暂时无法核对，请在电脑检查；不会重复发送"))?;
                         let accepted = history.iter().any(|frame|
@@ -307,6 +337,32 @@ impl Runtime {
             if prompt.len() > 32000 {return Err(Error::new(400,"消息过长"));}
             let chat = if let Some(chat_id) = args["chat_id"].as_str() { self.db()?.chat(chat_id)? } else {json!({"session_id":format!("remote-{id}")})};
             let session = required(&chat,"session_id")?;
+            if let Some(mode) = args.get("delivery_mode") {
+                if !matches!(mode.as_str(), Some("queue" | "interrupt")) {
+                    return Err(Error::new(422,"发送方式无效"));
+                }
+                if args["chat_id"].as_str().is_none() || chat["archived"] == true {
+                    return Err(Error::new(422,"请先打开未归档的会话"));
+                }
+                let immediate = mode == "interrupt";
+                if immediate && args.get("expected_run_id").is_none() {
+                    return Err(Error::new(422,"请刷新任务后再打断发送"));
+                }
+                let mut context = json!({"last_user_message":prompt});
+                if let Some(path) = chat["project_path"].as_str() { context["potato.coding_project_dir"] = json!(path); }
+                let mut request = json!({"session_id":session,"user_id":"default","channel":"console","stream":true,
+                    "input":[{"role":"user","content":[{"type":"text","text":prompt}]}],
+                    "request_context":context,"remote_operation_id":id});
+                if let Some(choice) = args.get("model_choice") {
+                    self.remote_model_connection(choice)?;
+                    request["remote_model"] = choice.clone();
+                }
+                let mut body = json!({"session_id":session,"action":"add","id":id,"request":request,"immediate":immediate});
+                if immediate { body["expected_run_id"] = args["expected_run_id"].clone(); }
+                self.outbox_request(&body)?;
+                self.notify_background(session);
+                return Ok(json!({"chat":chat,"delivery":if immediate {"interrupting"} else {"queued"}}));
+            }
             if let Some(expected) = args.get("expected_run_id") {
                 let expected = expected.as_str().filter(|s|!s.is_empty()).ok_or_else(||Error::new(422,"任务状态无效，请刷新"))?;
                 if args.get("model_choice").is_some() { return Err(Error::new(422,"运行中的补充指令沿用当前任务配置")); }
@@ -346,6 +402,22 @@ impl Runtime {
         let chat = self.db()?.chat(required(args,"chat_id")?)?;
         let session = required(&chat,"session_id")?;
         match op {
+            "outbox" => {
+                let action = required(args,"action")?;
+                if !matches!(action,"delete"|"save"|"promote"|"pause"|"resume") {
+                    return Err(Error::new(422,"不支持的队列操作"));
+                }
+                if chat["archived"] == true { return Err(Error::new(422,"请先恢复归档会话")); }
+                let mut body = json!({"session_id":session,"action":action,"id":args["item_id"],"text":args["text"]});
+                if action == "promote" {
+                    if args.get("expected_run_id").is_none() { return Err(Error::new(422,"请刷新任务后再打断发送")); }
+                    body["expected_run_id"] = args["expected_run_id"].clone();
+                }
+                if action == "save" && required(args,"text")?.len() > 32000 { return Err(Error::new(400,"消息过长")); }
+                let result = self.outbox_request(&body)?;
+                self.notify_background(session);
+                Ok(remote_outbox_view(&result))
+            },
             "stop" => {
                 let expected = args["expected_run_id"].as_str().filter(|id| !id.is_empty())
                     .ok_or_else(||Error::new(422,"请更新手机端并刷新任务后再停止"))?;

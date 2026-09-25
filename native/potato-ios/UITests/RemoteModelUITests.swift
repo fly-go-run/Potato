@@ -75,14 +75,14 @@ final class RemoteModelUITests: XCTestCase {
         var app = launch(); let input = open(app); picker(app)
         app.buttons["remote-model-one"].tap(); reveal(app, "remote-effort-low").tap(); app.buttons["remote-model-done"].tap()
         input.tap(); input.typeText("fixture-model-timeout"); app.buttons["remote-send"].tap()
-        XCTAssertTrue(app.buttons["重试确认发送结果"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["remote-retry-pending"].waitForExistence(timeout: 8))
         XCTAssertFalse(app.buttons["remote-model-settings"].isEnabled)
         capture(app, "remote-model-pending-immutable")
         app.terminate(); app = launch(reset: false); _ = open(app)
-        XCTAssertTrue(app.buttons["重试确认发送结果"].waitForExistence(timeout: 5))
-        app.buttons["重试确认发送结果"].tap()
+        XCTAssertTrue(app.buttons["remote-retry-pending"].waitForExistence(timeout: 5))
+        app.buttons["remote-retry-pending"].tap()
         XCTAssertTrue(reply(app, containing: "\"reasoning_effort\": \"low\"").waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["重试确认发送结果"].exists)
+        XCTAssertFalse(app.buttons["remote-retry-pending"].exists)
     }
     func testRunningFollowupKeepsTaskConfigurationAndRunIdentity() {
         let app = launch(); let input = open(app)

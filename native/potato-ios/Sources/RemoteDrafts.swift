@@ -52,30 +52,21 @@ struct RemoteDraftRecord: Codable {
     var otherDrafts: [String] = []
 }
 
-struct RemoteLegacyDraft {
-    let key: String
-    let text: String
-    let pending: RemotePendingSend?
-}
-
 /// One atomic document lets acknowledgment move a draft from a temporary slot
 /// to its server conversation without a crash window between two key writes.
 struct RemoteDraftRepository {
     let file: URL
-    let legacyDefaults: UserDefaults
     private struct Database: Codable {
         var version = 1
         var drafts: [String: RemoteDraftRecord] = [:]
-        var claimedLegacy: [String: RemoteTargetIdentity] = [:]
         var unconfirmed: [String: [RemotePendingSend]]? = nil
     }
-    init(file: URL? = nil, legacyDefaults: UserDefaults? = nil) {
+    init(file: URL? = nil) {
         let testing = ProcessInfo.processInfo.arguments.contains("--ui-testing")
         let root = testing
             ? FileManager.default.temporaryDirectory.appendingPathComponent("PotatoRemoteUITests")
             : FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("PotatoRemote")
         self.file = file ?? root.appendingPathComponent("drafts.json")
-        self.legacyDefaults = legacyDefaults ?? (testing ? UserDefaults(suiteName: "PotatoRemoteUITests")! : .standard)
     }
     private func read() throws -> Database {
         guard FileManager.default.fileExists(atPath: file.path) else { return Database() }
@@ -181,35 +172,6 @@ struct RemoteDraftRepository {
         record.text = text; database.drafts[address.key] = record
         try write(database)
     }
-    func legacy(device: RemoteDevice, chatID: String?, projectPath: String?) throws -> RemoteLegacyDraft? {
-        let key = "remote-draft-\(device.account)-\(chatID ?? projectPath ?? "new")"
-        guard try read().claimedLegacy[key] == nil else { return nil }
-        let text = legacyDefaults.string(forKey: key) ?? ""
-        let data = legacyDefaults.data(forKey: key + "-pending")
-        let pending: RemotePendingSend?
-        do { pending = try data.map { try JSONDecoder().decode(RemotePendingSend.self, from: $0) } }
-        catch { throw LocalFailure.message(L10n.tr("旧版待确认指令无法读取，原记录已保留，未重新发送。")) }
-        guard !text.isEmpty || pending != nil else { return nil }
-        return RemoteLegacyDraft(key: key, text: text, pending: pending)
-    }
-    func claimLegacy(_ legacy: RemoteLegacyDraft, device: RemoteDevice, at address: RemoteDraftAddress) throws -> RemoteDraftAddress {
-        var database = try read()
-        guard database.claimedLegacy[legacy.key] == nil else { throw LocalFailure.message(L10n.tr("这份旧草稿已在另一处恢复，请重新打开会话。")) }
-        guard address.target == RemoteTargetIdentity(device), legacy.pending?.target == nil || legacy.pending?.target == address.target else { throw LocalFailure.message(L10n.tr("旧指令已属于其他电脑，不能重新分配。")) }
-        // The user confirms the missing target; retain the original operation ID
-        // and payload. A first conversation's old slot may contain a follow-up.
-        let pending = legacy.pending.map { $0.bound(to: device) }
-        let destination = pending?.chatID.map { address.conversation($0) } ?? address
-        var record = try load(destination)
-        guard record.pending == nil else { throw LocalFailure.message(L10n.tr("此会话已有待确认指令，请先处理后再恢复旧稿。")) }
-        if !record.text.isEmpty && record.text != legacy.text && !record.otherDrafts.contains(record.text) { record.otherDrafts.append(record.text) }
-        record.text = legacy.text; record.pending = pending
-        database.drafts[destination.key] = record
-        database.claimedLegacy[legacy.key] = address.target
-        try write(database)
-        // Keep the old defaults as an archive; claimedLegacy prevents reuse.
-        return destination
-    }
     static func resetTestStorage() {
         #if DEBUG
         guard ProcessInfo.processInfo.arguments.contains("--ui-testing"), ProcessInfo.processInfo.arguments.contains("--reset") else { return }
@@ -225,13 +187,9 @@ struct RemoteDraftRepository {
     @Published private(set) var pending: RemotePendingSend?
     @Published private(set) var otherDrafts: [String] = []
     @Published private(set) var archived: [RemotePendingSend] = []
-    @Published private(set) var legacy: RemoteLegacyDraft?
-    @Published private(set) var legacyError: String?
     @Published private(set) var storageError: String?
     private(set) var address: RemoteDraftAddress
     private let repository: RemoteDraftRepository
-    private let device: RemoteDevice
-    private let initialChatID: String?
     private let projectPath: String?
     private var applying = false
     private var dirty = false
@@ -239,7 +197,7 @@ struct RemoteDraftRepository {
     private var saveTask: Task<Void, Never>?
 
     init(device: RemoteDevice, chatID: String? = nil, projectPath: String? = nil, repository: RemoteDraftRepository = RemoteDraftRepository()) {
-        self.device = device; self.initialChatID = chatID; self.projectPath = projectPath; self.repository = repository
+        self.projectPath = projectPath; self.repository = repository
         address = RemoteDraftAddress(device: device, chatID: chatID, projectPath: projectPath)
     }
     func load() {
@@ -248,8 +206,6 @@ struct RemoteDraftRepository {
             apply(try repository.load(address))
             archived = try repository.archived(for: address.target)
         } catch { storageError = error.localizedDescription }
-        do { legacy = try repository.legacy(device: device, chatID: initialChatID, projectPath: projectPath) }
-        catch { legacyError = error.localizedDescription }
     }
     private func apply(_ record: RemoteDraftRecord) {
         applying = true; text = record.text; pending = record.pending; otherDrafts = record.otherDrafts; modelChoice = record.modelChoice
@@ -297,13 +253,6 @@ struct RemoteDraftRepository {
         if let storageError { throw LocalFailure.message(storageError) }
         try repository.archiveUnconfirmed(request, at: address)
         apply(try repository.load(address)); archived = try repository.archived(for: address.target)
-    }
-    func restoreLegacy() throws {
-        guard let legacy else { return }
-        flush()
-        if let storageError { throw LocalFailure.message(storageError) }
-        address = try repository.claimLegacy(legacy, device: device, at: address)
-        apply(try repository.load(address)); self.legacy = nil
     }
     func chooseOtherDraft(_ value: String) throws {
         flush()

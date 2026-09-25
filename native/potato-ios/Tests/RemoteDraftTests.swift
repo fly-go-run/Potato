@@ -3,19 +3,14 @@ import XCTest
 
 @MainActor final class RemoteDraftTests: XCTestCase {
     private var directory: URL!
-    private var suite: String!
-    private var defaults: UserDefaults!
     private var repository: RemoteDraftRepository!
     private let first = RemoteDevice(id: "first", name: "First Mac", relay: URL(string: "https://fixture.invalid")!, owner: "account")
     private let second = RemoteDevice(id: "second", name: "Second Mac", relay: URL(string: "https://fixture.invalid")!, owner: "account")
     override func setUp() async throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        suite = "PotatoDraftTests-" + UUID().uuidString
-        defaults = UserDefaults(suiteName: suite)!
-        repository = RemoteDraftRepository(file: directory.appendingPathComponent("drafts.json"), legacyDefaults: defaults)
+        repository = RemoteDraftRepository(file: directory.appendingPathComponent("drafts.json"))
     }
     override func tearDown() async throws {
-        defaults.removePersistentDomain(forName: suite)
         try? FileManager.default.removeItem(at: directory)
     }
     private func session(_ device: RemoteDevice? = nil, chatID: String? = nil) -> RemoteDraftSession {
@@ -136,46 +131,6 @@ import XCTest
         XCTAssertThrowsError(try model.prepareSend())
         XCTAssertNil(model.pending)
     }
-    private func seedLegacy(chatID: String? = nil) throws -> String {
-        let key = "remote-draft-\(first.account)-new"
-        defaults.set("Old editable draft", forKey: key)
-        let raw: [String: Any] = ["id": "old-operation", "text": "Original old instruction", "chatID": chatID as Any? ?? NSNull(), "projectPath": NSNull()]
-        defaults.set(try JSONSerialization.data(withJSONObject: raw), forKey: key + "-pending")
-        return key
-    }
-    func testLegacyDraftCannotDispatchUntilItsTargetIsConfirmed() throws {
-        let key = try seedLegacy()
-        let model = session()
-        XCTAssertTrue(model.text.isEmpty); XCTAssertNil(model.pending); XCTAssertNotNil(model.legacy)
-        let old = try XCTUnwrap(model.legacy?.pending)
-        XCTAssertThrowsError(try old.arguments(for: first))
-        try model.restoreLegacy()
-        XCTAssertEqual(model.text, "Old editable draft")
-        XCTAssertEqual(model.pending?.id, "old-operation")
-        XCTAssertEqual(model.pending?.text, "Original old instruction")
-        XCTAssertEqual(model.pending?.target, RemoteTargetIdentity(first))
-        XCTAssertNotNil(defaults.data(forKey: key + "-pending"), "Keep the original record as an archive.")
-        XCTAssertNil(session(second).legacy)
-        XCTAssertNil(session(second).pending)
-    }
-    func testLegacyFollowupMovesToItsExistingConversationAndCannotBeClaimedTwice() throws {
-        _ = try seedLegacy(chatID: "existing-chat")
-        let model = session()
-        let other = session(second)
-        try model.restoreLegacy()
-        XCTAssertEqual(model.address.kind, "chat")
-        XCTAssertEqual(model.address.value, "existing-chat")
-        XCTAssertEqual(session(chatID: "existing-chat").pending?.id, "old-operation")
-        XCTAssertThrowsError(try other.restoreLegacy())
-        XCTAssertNil(session().pending)
-    }
-    func testLegacyDraftDoesNotOverwriteExistingText() throws {
-        _ = try seedLegacy()
-        let model = session(); model.text = "A newer draft"; model.flush()
-        try model.restoreLegacy()
-        XCTAssertEqual(model.text, "Old editable draft")
-        XCTAssertEqual(model.otherDrafts, ["A newer draft"])
-    }
     func testCorruptRepositoryIsNotOverwrittenOrSent() throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let bytes = Data("broken original".utf8)
@@ -212,7 +167,7 @@ import XCTest
         let record = RemoteDraftRecord(text: "text", pending: request)
         let rawRecord = try JSONSerialization.jsonObject(with: JSONEncoder().encode(record))
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try JSONSerialization.data(withJSONObject: ["version": 1, "drafts": [a.key: rawRecord], "claimedLegacy": [:]]).write(to: repository.file)
+        try JSONSerialization.data(withJSONObject: ["version": 1, "drafts": [a.key: rawRecord]]).write(to: repository.file)
         XCTAssertThrowsError(try repository.load(a))
     }
     func testMismatchedAcknowledgementCannotMoveAnExistingConversation() throws {
@@ -221,16 +176,6 @@ import XCTest
         XCTAssertThrowsError(try model.acknowledge(request, chatID: "wrong-chat"))
         XCTAssertEqual(session(chatID: "original-chat").pending, request)
         XCTAssertNil(session(chatID: "wrong-chat").pending)
-    }
-    func testUnreadableLegacyIsPreservedAndWarningSurvivesNewDraftEdits() throws {
-        let key = "remote-draft-\(first.account)-new-pending"
-        let bytes = Data("old damaged record".utf8); defaults.set(bytes, forKey: key)
-        let model = session()
-        XCTAssertNotNil(model.legacyError)
-        model.text = "A separate new draft"; model.flush()
-        XCTAssertNotNil(model.legacyError)
-        XCTAssertNil(model.pending)
-        XCTAssertEqual(defaults.data(forKey: key), bytes)
     }
     func testQueuedBubbleAppearsImmediatelyAndDeduplicatesByOperation() throws {
         let model = session(chatID: "chat"); model.text = "Same text"

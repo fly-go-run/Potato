@@ -11,11 +11,10 @@ final class RemoteUITests: XCTestCase {
     private func capture(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
-    private func launchDraftFixture(reset: Bool = true, legacy: Bool = false) -> XCUIApplication {
+    private func launchDraftFixture(reset: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--remote-preview", "--remote-draft-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
         if reset { app.launchArguments.append("--reset") }
-        if legacy { app.launchArguments.append("--remote-legacy-draft-preview") }
         app.launch(); return app
     }
     private func openDraft(_ app: XCUIApplication, second: Bool = false) -> XCUIElement {
@@ -46,27 +45,6 @@ final class RemoteUITests: XCTestCase {
         XCTAssertEqual(input.value as? String, "only-second-mac")
         capture(app, "draft-second-computer-after-relaunch")
     }
-    func testLegacyDraftRequiresExplicitTargetConfirmation() {
-        let app = launchDraftFixture(legacy: true)
-        let input = openDraft(app)
-        XCTAssertFalse((input.value as? String ?? "").contains("旧版"))
-        app.buttons["remote-legacy-draft"].tap()
-        XCTAssertTrue(app.buttons["remote-confirm-legacy-draft"].waitForExistence(timeout: 3))
-        capture(app, "draft-legacy-target-review")
-        app.buttons["取消"].tap()
-        XCTAssertFalse((input.value as? String ?? "").contains("旧版"))
-        app.buttons["remote-legacy-draft"].tap()
-        app.buttons["remote-confirm-legacy-draft"].tap()
-        XCTAssertTrue(app.buttons["重试确认发送结果"].waitForExistence(timeout: 5))
-        XCTAssertEqual(input.value as? String, "旧版草稿：先核对目标电脑")
-        XCTAssertFalse(app.buttons["remote-send"].isEnabled)
-        capture(app, "draft-legacy-restored-without-dispatch")
-        backToRemoteHome(app)
-        let second = openDraft(app, second: true)
-        XCTAssertFalse((second.value as? String ?? "").contains("旧版"))
-        XCTAssertFalse(app.buttons["重试确认发送结果"].exists)
-        XCTAssertFalse(app.buttons["remote-legacy-draft"].exists)
-    }
     func testAcknowledgedRemoteDraftReopensInItsConversation() throws {
         guard ProcessInfo.processInfo.environment["POTATO_IOS_DRAFT_UI"] == "1" else { throw XCTSkip("Requires scripts/remote-draft-fixture.py on loopback") }
         var app = launchDraftFixture()
@@ -90,18 +68,18 @@ final class RemoteUITests: XCTestCase {
         var app = launchDraftFixture()
         var input = openDraft(app); input.tap(); input.typeText("fixture-timeout")
         app.buttons["remote-send"].tap()
-        XCTAssertTrue(app.buttons["重试确认发送结果"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["remote-retry-pending"].waitForExistence(timeout: 10))
         app.terminate(); app = launchDraftFixture(reset: false)
         input = openDraft(app)
-        XCTAssertTrue(app.buttons["重试确认发送结果"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["remote-retry-pending"].waitForExistence(timeout: 5))
         input.tap(); input.typeText("-edited-but-not-sent")
         let editedDraft = try XCTUnwrap(input.value as? String)
         XCTAssertTrue(editedDraft.contains("fixture-timeout"))
         XCTAssertTrue(editedDraft.contains("-edited-but-not-sent"))
-        app.buttons["重试确认发送结果"].tap()
+        app.buttons["remote-retry-pending"].tap()
         XCTAssertTrue(app.staticTexts["DRAFT_FIXTURE_OK: fixture-timeout"].waitForExistence(timeout: 10))
         XCTAssertEqual(input.value as? String, editedDraft, "Receipt confirmation must preserve exactly the edited draft, wherever the insertion caret was.")
-        XCTAssertFalse(app.buttons["重试确认发送结果"].exists)
+        XCTAssertFalse(app.buttons["remote-retry-pending"].exists)
         capture(app, "draft-timeout-recovered-with-original-payload")
     }
     func testRecoveredReceiptShowsSavedInputWithoutClaimingCompletion() throws {
@@ -109,12 +87,11 @@ final class RemoteUITests: XCTestCase {
         var app = launchDraftFixture()
         var input = openDraft(app); input.tap(); input.typeText("fixture-recovered")
         app.buttons["remote-send"].tap()
-        XCTAssertTrue(app.buttons["重试确认发送结果"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["remote-retry-pending"].waitForExistence(timeout: 10))
         app.terminate(); app = launchDraftFixture(reset: false); input = openDraft(app)
-        app.buttons["重试确认发送结果"].tap()
-        XCTAssertTrue(app.staticTexts["remote-recovered-send"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["remote-recovered-send"].label.contains("不代表执行已完成"))
-        XCTAssertFalse(app.buttons["重试确认发送结果"].exists)
+        app.buttons["remote-retry-pending"].tap()
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["remote-retry-pending"])
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 10), .completed)
         XCTAssertFalse((input.value as? String ?? "").contains("fixture-recovered"))
         capture(app, "draft-saved-input-recovered")
     }
@@ -124,24 +101,12 @@ final class RemoteUITests: XCTestCase {
         var input = openDraft(app); input.tap(); input.typeText("fixture-uncertain")
         app.buttons["remote-send"].tap()
         XCTAssertTrue(app.buttons["remote-review-pending"].waitForExistence(timeout: 10))
+        let operation = (app.staticTexts["remote-pending-text"].value as? String)
         app.buttons["remote-review-pending"].tap()
-        let finish = app.buttons["remote-archive-unconfirmed"]
-        XCTAssertTrue(finish.waitForExistence(timeout: 5)); XCTAssertFalse(finish.isEnabled)
-        let operation = (app.staticTexts["remote-unconfirmed-text"].value as? String)
-        app.buttons["取消"].tap()
-        XCTAssertTrue(app.buttons["重试确认发送结果"].exists)
-        app.buttons["remote-review-pending"].tap()
-        let understood = app.switches["remote-understand-unconfirmed"]
-        for _ in 0..<5 { if understood.isHittable { break }; app.swipeUp() }
-        // SwiftUI exposes the whole labelled row as the switch's AX frame.
-        // Tap the visible switch at the trailing edge, not the label's center.
-        understood.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.5)).tap()
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: finish)
-        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 3), .completed)
-        for _ in 0..<5 { if finish.isHittable { break }; app.swipeUp() }
-        XCTAssertTrue(finish.isEnabled); capture(app, "draft-unconfirmed-review"); finish.tap()
+        let finish = app.buttons["放弃这条消息"].firstMatch
+        XCTAssertTrue(finish.waitForExistence(timeout: 5)); capture(app, "draft-unconfirmed-review"); finish.tap()
         XCTAssertTrue(app.buttons["remote-unconfirmed-records"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["重试确认发送结果"].exists)
+        XCTAssertFalse(app.buttons["remote-retry-pending"].exists)
         XCTAssertFalse((input.value as? String ?? "").contains("fixture-uncertain"))
         app.terminate(); app = launchDraftFixture(reset: false); input = openDraft(app)
         app.buttons["remote-unconfirmed-records"].tap()

@@ -1,7 +1,6 @@
 // App interface text. Conversation content and model instructions are not localized.
 " · %@ 个附件" = " · Attachments: %@";
 " · 回复分支" = " · Reply branch";
-" · 已保留上次列表" = " · Previous list retained";
 " · 状态待确认" = " · Status unconfirmed";
 " · 编辑副本" = " · Edited copy";
 " 未发送，已有文字已保留。" = " Not sent. Your text has been kept.";
@@ -26,7 +25,6 @@
 "上一个回复版本" = "Previous reply version";
 "上次执行中" = "Previously running";
 "上次生成已中断，内容已保留。" = "The previous generation was interrupted. Content is kept.";
-"上次确认：%@" = "Last confirmed: %@";
 "上滑发送" = "Swipe up to send";
 "下一个回复版本" = "Next reply version";
 "中" = "Medium";
@@ -73,7 +71,6 @@
 "保存失败：%@。请保留应用并检查设备可用空间。" = "Save failed: %@. Keep the app installed and check available storage.";
 "保存文本" = "Save text";
 "保存的文本" = "Saved text";
-"保留记录并结束等待" = "Keep record and stop waiting";
 "偏好" = "Preferences";
 "停止任务" = "Stop task";
 "停止刚才查看的这一轮任务？" = "Stop the task you just viewed?";
@@ -81,7 +78,6 @@
 "停止生成" = "Stop generation";
 "停止等待" = "Stop waiting";
 "允许" = "Allow";
-"允许读取、列举和搜索此目录" = "Allow reading, listing, and searching this directory";
 "全部" = "All";
 "关闭" = "Close";
 "关闭侧栏" = "Close sidebar";
@@ -118,16 +114,12 @@
 "历史来源格式无效。" = "Invalid history source format.";
 "历史检索未完成" = "History search did not finish";
 "历史请求过于频繁，请稍后重试。" = "Too many history requests. Try again later.";
-"原会话编号：%@" = "Original conversation ID: %@";
 "原始输入代码" = "Original input code";
 "原对话不在此设备，或已删除、排除。" = "The original conversation is not on this device, or was deleted or excluded.";
 "原对话已切换回复版本，请重新检索。" = "The original conversation's reply version changed. Search again.";
 "原消息内容已改变，请重新检索。" = "The original message changed. Search again.";
-"原目标：新任务" = "Original target: new task";
 "原编号对应的记录不一致，未结束等待。" = "The record for the original ID does not match. Still waiting.";
 "参与检索的对话" = "Searchable conversations";
-"及其子目录。" = " and its subfolders.";
-"发条消息，在电脑上继续完成。" = "Send a message to continue on your computer.";
 "发送" = "Send";
 "发送到电脑" = "Send to computer";
 "发送回执与本地记录不一致，草稿已保留。" = "The delivery receipt does not match local records. Your draft is kept.";
@@ -200,7 +192,6 @@
 "已复制回复" = "Reply copied";
 "已完成" = "Completed";
 "已录满60秒，文字会保留在输入框。" = "The 60-second recording limit was reached. Your text stays in the input field.";
-"已找回电脑保存的这条指令，没有重复发送。指令已保存不代表执行已完成，请查看任务内容与状态。" = "The saved command was recovered without resending. Saved does not mean execution is complete; check the task content and status.";
 "已收到模型回复，流式连接正常。" = "Model reply received. Streaming connection works.";
 "已暂停" = "Paused";
 "已暂停更新" = "Updates paused";
@@ -219,7 +210,6 @@
 "当前连接没有访问权限。" = "This connection does not have access.";
 "录音已中断，已有文字已保留，未发送。" = "Recording was interrupted. Your text has been kept and was not sent.";
 "录音转换失败。" = "Recording conversion failed.";
-"待确认指令" = "Unconfirmed command";
 "待确认指令已改变，请重新核对。" = "The unconfirmed command changed. Review it again.";
 "待确认指令的目标与这台电脑不一致，原记录已保留。" = "The unconfirmed command targets a different computer. Original records are kept.";
 "待确认记录的电脑信息不一致，原文件已保留。" = "Computer information in the unconfirmed record does not match. The original file is kept.";
@@ -235,13 +225,10 @@
 "思考过程" = "Reasoning";
 "恢复" = "Restore";
 "恢复到输入框" = "Restore to input";
-"恢复旧版草稿" = "Recover legacy draft";
 "恢复此版本" = "Restore this version";
-"恢复的远程任务" = "Recovered remote task";
 "恢复资料" = "Restore item";
 "想调整哪一部分？" = "What would you like to change?";
 "我" = "Me";
-"我已了解这条指令可能已执行" = "I understand this command may have run";
 "我已登录，刷新" = "I have signed in — refresh";
 "我的 iPhone" = "My iPhone";
 "我的 iPhone · 云端模型" = "My iPhone · Cloud models";
@@ -318,20 +305,15 @@
 "无法恢复云端回复（%@），已保留内容。请检查服务版本或重新生成。" = "Cannot recover cloud reply (%@). Content is kept. Check the service version or regenerate.";
 "无法提取 %@ 的文字。扫描版 PDF 请先转换成文字或图片。" = "Cannot extract text from %@. Convert scanned PDFs to text or images first.";
 "无法连接服务器，请检查服务是否可用。" = "Cannot connect to the server. Check that the service is available.";
-"旧指令已属于其他电脑，不能重新分配。" = "The legacy command belongs to another computer and cannot be reassigned.";
-"旧版待确认指令无法读取，原记录已保留，未重新发送。" = "Cannot read the legacy unconfirmed command. The original record is kept and was not resent.";
-"旧版没有完整保存草稿的目标电脑。请先核对，这份内容是否属于“%@”。" = "The previous version did not fully record the target computer. Confirm whether this draft belongs to “%@”.";
 "昨天" = "Yesterday";
 "显示完整内容" = "Show full content";
 "普通对话使用示例回复，不发送对话或附件。模型列表和“测试连接”会访问配置的服务。" = "Conversations use sample replies and do not upload messages or attachments. The model list and Test Connection still contact the configured service.";
 "暂无可用模型，请刷新云端列表。" = "No models available. Refresh the cloud list.";
 "暂无可用模型，请在更多模型中添加。" = "No models available. Add one in More Models.";
 "暂时无法同步，连接恢复后会自动继续。" = "Cannot sync right now. Sync will resume when the connection recovers.";
-"暂时无法更新，显示上次列表" = "Cannot refresh right now. Showing the previous list.";
 "暂时无法确认连接" = "Cannot confirm connection right now";
 "暂时无法读取模型列表（%@），已保留当前选择。" = "Cannot load models right now (%@). Your selection is kept.";
 "暂时无法读取电脑列表" = "Cannot load computers right now";
-"暂时无法连接，下拉重试" = "Cannot connect right now. Pull to retry.";
 "暗色" = "Dark";
 "更多" = "More";
 "更多模型" = "More models";
@@ -376,7 +358,6 @@
 "本机保存失败，请检查可用空间；云端回复仍可恢复。" = "Local save failed. Check available storage. The cloud reply can still be recovered.";
 "本轮代码执行次数超过限制。" = "Too many code executions in this turn.";
 "本轮任务失败" = "Task failed";
-"本轮任务失败，请检查后重试。" = "This task failed. Check it and try again.";
 "本轮任务已停止" = "Task stopped";
 "本轮任务已完成" = "Task completed";
 "本轮工具结果过大，已保留收到的内容。" = "Tool results are too large. Received content is kept.";
@@ -391,9 +372,6 @@
 "查看另外保存的草稿" = "View other saved drafts";
 "查看完整对话" = "View full conversation";
 "查看目录" = "List directory";
-"核对并处理这条指令" = "Review this command";
-"核对待确认指令" = "Review unconfirmed command";
-"核对旧版草稿" = "Review legacy draft";
 "核对登录验证码" = "Verify the sign-in code";
 "格式" = "Format";
 "模型与思考，%@" = "Model and reasoning, %@";
@@ -431,7 +409,6 @@
 "正在整理结果…" = "Organizing results…";
 "正在检索历史与记忆…" = "Searching history and memories…";
 "正在确认云端是否已接收，联网后自动恢复。" = "Confirming cloud receipt. Recovery will continue when you reconnect.";
-"正在确认任务状态…" = "Confirming task status…";
 "正在等待服务恢复，稍后自动同步回复。" = "Waiting for the service to recover. The reply will sync automatically.";
 "正在编辑" = "Editing";
 "正在请求云端停止…" = "Requesting cloud stop…";
@@ -442,7 +419,6 @@
 "正在读取电脑上的模型…" = "Loading models from your computer…";
 "正在读取项目和会话" = "Loading projects and conversations";
 "正在连接" = "Connecting";
-"此会话已有待确认指令，请先处理后再恢复旧稿。" = "Handle this conversation's unconfirmed command before restoring the old draft.";
 "此会话已有待确认的指令，请先确认发送结果。" = "This conversation already has an unconfirmed command. Confirm its delivery first.";
 "此会话的模型属于之前的服务，请重新选择当前服务的模型。草稿已保留。" = "This conversation's model belongs to the previous service. Choose a model from the current service. Your draft is kept.";
 "此地址无法自动读取模型列表，可手动填写服务提供的模型名称。" = "Models cannot be loaded automatically from this address. Enter a model name provided by the service.";
@@ -494,7 +470,6 @@
 "电脑已配置：%@" = "Configured on computer: %@";
 "电脑操作" = "Computer action";
 "电脑正在处理…" = "Your computer is working…";
-"电脑正在等待你确认这次操作。允许仅对本次请求生效。" = "Your computer is waiting for approval. Allowing applies only to this request.";
 "电脑离线" = "Computer offline";
 "电脑连接失败，请检查网络后刷新。" = "Cannot connect to the computer. Check your network and refresh.";
 "登录 Potato" = "Sign in to Potato";
@@ -505,7 +480,6 @@
 "登录获准的账号后，自动加载云端模型。模型密钥保存在服务器，电脑无需在线。" = "Sign in with an authorized account to load cloud models. Model keys stay on the server; your computer does not need to be online.";
 "登录账号" = "Sign in";
 "知道了" = "Got it";
-"确认属于这台电脑并恢复" = "Confirm computer and recover";
 "离线" = "Offline";
 "移到最近删除" = "Move to recently deleted";
 "移除 %@" = "Remove %@";
@@ -540,7 +514,6 @@
 "置顶" = "Pinned";
 "置顶对话" = "Pin conversation";
 "自动" = "Automatic";
-"自动审查未能完成，需要你确认这次操作。" = "Automatic review could not finish. Please confirm this action.";
 "自动记录长期记忆" = "Automatically save long-term memories";
 "自动跟随系统外观。预览后点击保存应用更改。" = "Automatic follows your system appearance. Preview, then tap Save to apply.";
 "补充当前任务" = "Steer current task";
@@ -575,7 +548,6 @@
 "请恢复原云端账号连接，以同步这条回复。" = "Reconnect the original cloud account to sync this reply.";
 "请更新手机与电脑，以使用模型设置。" = "Update your phone and computer apps to use model settings.";
 "请更新电脑端，以使用所选模型与思考设置。" = "Update the computer app to use the selected model and reasoning settings.";
-"请检查网络后重试。" = "Check your connection and try again.";
 "请求较多，请稍后再运行。" = "The service is busy. Try running it later.";
 "请求过于频繁或额度不足，请稍后再试。" = "Too many requests or insufficient quota. Try again later.";
 "请粘贴电脑生成的完整配对码。" = "Paste the full pairing code generated on your computer.";
@@ -619,7 +591,6 @@
 "还没有文档" = "No documents yet";
 "还没有消息" = "No messages yet";
 "这一次操作将在系统沙箱外执行" = "This action will run outside the system sandbox";
-"这份旧草稿已在另一处恢复，请重新打开会话。" = "This legacy draft was recovered elsewhere. Reopen the conversation.";
 "这台电脑尚不支持手机选择模型，请更新电脑端。发送时仍跟随电脑设置。" = "Update the computer app to select models from your phone. Messages currently follow the computer settings.";
 "这台电脑未提供可选档位。使用服务默认，或保留电脑已有配置。" = "This computer offers no selectable levels. Use the service default or keep its existing settings.";
 "这是本地体验模式，尚未调用模型。你的消息和附件已保存在这台 iPhone。连接模型后，可以在这里获得真实回复；也可以先编辑、勾选和分享示例文稿。" = "This is local demo mode; no model has been called. Your messages and attachments are saved on this iPhone. Connect a model for real replies, or edit, check off, and share the sample document.";
@@ -629,12 +600,10 @@
 "远程" = "Remote";
 "远程草稿暂时无法读取，原记录已保留。请勿卸载应用。" = "Cannot read remote drafts right now. Original records are kept. Do not uninstall the app.";
 "远程选项" = "Remote options";
-"连接中断，任务状态未确认" = "Connection interrupted; task status unconfirmed";
 "连接中断，已保留收到的内容。可以重新生成。" = "Connection interrupted. Received content is kept. You can regenerate the reply.";
 "连接令牌已失效，请检查设置。" = "Your connection token expired. Check Settings.";
 "连接令牌（可选）" = "Connection token (optional)";
 "连接你的电脑" = "Connect your computer";
-"连接尚未确认，恢复后可继续审批。" = "Connection is unconfirmed. You can approve after reconnecting.";
 "连接已取消。" = "Connection cancelled.";
 "连接已改变，请重新读取模型列表。" = "Connection changed. Reload the model list.";
 "连接已改变，请重新连接云端模型。" = "Connection changed. Reconnect cloud models.";
@@ -664,7 +633,6 @@
 "重新生成" = "Regenerate";
 "重新读取" = "Reload";
 "重新连接" = "Reconnect";
-"重试确认发送结果" = "Retry delivery confirmation";
 "长期记忆" = "Long-term memory";
 "问问 Potato" = "Ask Potato";
 "队列已暂停" = "Queue paused";
@@ -680,7 +648,6 @@
 "高" = "High";
 "麦克风权限未开启，请在系统设置中允许访问。" = "Microphone access is disabled. Allow it in system settings.";
 "默认" = "Default";
-"，连接后自动更新" = "; updates when connected";
 "编辑前" = "Before editing";
 "恢复版本前" = "Before restoring";
 "勾选前" = "Before checklist change";
@@ -806,11 +773,6 @@
 "还没有项目或会话" = "No projects or conversations yet";
 "撤销后，所有手机都无法再控制这台电脑。" = "After revoking, no phone can control this computer.";
 "只移除这台 iPhone 上的配对。" = "Removes the pairing from this iPhone only.";
-"电脑端版本过旧，请在电脑上停止任务。" = "The computer app is out of date. Stop the task on the computer.";
-"发送结果未确认。" = "Delivery not confirmed.";
-"它可能已经执行，请先在电脑上确认。" = "It may have already run. Check on the computer first.";
-"以下指令可能已执行，请先在电脑上确认。" = "These commands may have already run. Check on the computer first.";
-"这条指令可能已执行，请先在电脑上确认。" = "This command may have already run. Check on the computer first.";
 "这项审批已处理或已过期。" = "This approval was already handled or has expired.";
 "添加模型" = "Add Model";
 "已启用" = "Enabled";
@@ -844,5 +806,12 @@
 "查阅记忆" = "Check memory";
 "最近照片" = "Recent photos";
 "正在生成" = "Generating";
+"暂时无法连接" = "Can’t connect right now";
+"连接中断" = "Connection lost";
+"正在重新连接…" = "Reconnecting…";
+"未确认是否送达" = "Delivery unknown";
+"放弃" = "Discard";
+"这条消息可能已在电脑上执行" = "This message may already have run on your computer";
+"放弃这条消息" = "Discard Message";
 "来源" = "Sources";
 "参考了历史对话" = "Used past conversations";

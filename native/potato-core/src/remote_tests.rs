@@ -31,6 +31,17 @@ fn display_messages_keeps_tool_call_structure() {
 }
 
 fn command(op: &str, args: Value) -> Value { json!({"id":uuid::Uuid::new_v4().to_string(),"op":op,"args":args}) }
+#[test]
+fn display_messages_exposes_user_operation_for_queue_transition() {
+    let mut user = crate::protocol::message("u", "message", "user", json!([crate::protocol::text("u", "任务", false)]), "completed");
+    user["metadata"] = json!({"remote_operation_id":"queued-operation","private_field":"hidden"});
+    let mut assistant = user.clone(); assistant["id"] = json!("a"); assistant["role"] = json!("assistant");
+    let rows = crate::remote::display_messages(&[user, assistant]);
+    assert_eq!(rows[0]["remote_operation_id"], "queued-operation");
+    assert!(rows[0].get("metadata").is_none());
+    assert!(rows[1].get("remote_operation_id").is_none());
+}
+
 fn running(core: &Runtime, session: &str) -> Value {
     let chat = core.db().unwrap().ensure_chat(session,"原来的桌面任务").unwrap();
     lock(&core.runs).unwrap().insert(session.into(),Run{request_id:"desktop-request".into(),accepting_steering:true,cancel:CancellationToken::new(),replay:Arc::new(Mutex::new(Replay::new("desktop-request".into(),Arc::new(|_|Ok(())))))});
@@ -292,4 +303,69 @@ async fn remote_directory_approval_uses_declared_scope_and_directory() {
     lock(&core.approvals).unwrap().insert("once".into(), Approval {view:json!({"root_session_id":"scope","user_id":"default","allow_directory":false}),reply:tx});
     assert_eq!(core.remote_command(&command("approval",json!({"chat_id":chat["id"],"request_id":"once","allow":true,"scope":"persistent_directory"}))).await.unwrap_err().status,400);
     assert!(lock(&core.approvals).unwrap().contains_key("once"));
+}
+
+#[tokio::test]
+async fn remote_outbox_queues_in_order_without_steering_and_recovers_receipts() {
+    let dir = tempfile::tempdir().unwrap(); let core = Runtime::open(dir.path()).unwrap();
+    let chat = running(&core,"phone-queue");
+    let mut requests = Vec::new();
+    for text in ["第一条", "第二条", "第三条"] {
+        let request = command("send",json!({"chat_id":chat["id"],"text":text,"delivery_mode":"queue"}));
+        assert_eq!(core.remote_command(&request).await.unwrap()["delivery"],"queued");
+        core.remote_command(&request).await.unwrap();
+        requests.push(request);
+    }
+    let snapshot = core.remote_command(&command("chat",json!({"chat_id":chat["id"]}))).await.unwrap();
+    assert_eq!(snapshot["outbox_protocol"],1);
+    assert_eq!(snapshot["outbox"]["items"].as_array().unwrap().iter().map(|v|v["text"].as_str().unwrap()).collect::<Vec<_>>(),vec!["第一条","第二条","第三条"]);
+    assert!(snapshot["outbox"]["items"][0].get("request").is_none());
+    assert!(core.db().unwrap().history(chat["id"].as_str().unwrap(),false).unwrap().is_empty());
+    assert!(!lock(&core.runs).unwrap()["phone-queue"].cancel.is_cancelled());
+    let key = format!("remote_receipt:{}",requests[0]["id"].as_str().unwrap());
+    let mut receipt = core.db().unwrap().get(&key,Value::Null).unwrap();
+    receipt.as_object_mut().unwrap().remove("result");
+    core.db().unwrap().put(&key,&receipt).unwrap();
+    assert_eq!(core.remote_command(&requests[0]).await.unwrap()["delivery"],"recovered");
+    assert_eq!(core.outbox_request(&json!({"session_id":"phone-queue"})).unwrap()["items"].as_array().unwrap().len(),3);
+}
+
+#[tokio::test]
+async fn remote_outbox_interrupt_is_atomic_and_preserves_other_messages() {
+    let dir = tempfile::tempdir().unwrap(); let core = Runtime::open(dir.path()).unwrap();
+    let chat = running(&core,"phone-interrupt");
+    core.remote_command(&command("send",json!({"chat_id":chat["id"],"text":"later","delivery_mode":"queue"}))).await.unwrap();
+    let before = core.db().unwrap().get("follow_up_outbox",Value::Null).unwrap();
+    for expected in [json!("old-run"), Value::Null] {
+        assert_eq!(core.remote_command(&command("send",json!({"chat_id":chat["id"],"text":"urgent","delivery_mode":"interrupt","expected_run_id":expected}))).await.unwrap_err().status,412);
+        assert_eq!(core.db().unwrap().get("follow_up_outbox",Value::Null).unwrap(),before);
+        assert!(!lock(&core.runs).unwrap()["phone-interrupt"].cancel.is_cancelled());
+    }
+    let urgent = command("send",json!({"chat_id":chat["id"],"text":"urgent","delivery_mode":"interrupt","expected_run_id":"desktop-request"}));
+    core.remote_command(&urgent).await.unwrap();
+    core.remote_command(&urgent).await.unwrap();
+    let q = core.outbox_request(&json!({"session_id":"phone-interrupt"})).unwrap();
+    assert_eq!(q["items"].as_array().unwrap().len(),2);
+    assert_eq!(q["items"][0]["id"],urgent["id"]);
+    assert_eq!(q["items"][1],before["phone-interrupt"]["items"][0]);
+    assert!(lock(&core.runs).unwrap()["phone-interrupt"].cancel.is_cancelled());
+    assert_eq!(lock(&core.runs).unwrap().len(),1);
+}
+
+#[tokio::test]
+async fn remote_outbox_management_is_scoped_and_edit_preserves_position() {
+    let dir = tempfile::tempdir().unwrap(); let core = Runtime::open(dir.path()).unwrap();
+    let chat = running(&core,"phone-manage"); let other = running(&core,"other-chat");
+    let queued = command("send",json!({"chat_id":chat["id"],"text":"before","delivery_mode":"queue"}));
+    core.remote_command(&queued).await.unwrap();
+    assert_eq!(core.remote_command(&command("outbox",json!({"chat_id":other["id"],"action":"delete","item_id":queued["id"]}))).await.unwrap_err().status,404);
+    let edited = core.remote_command(&command("outbox",json!({"chat_id":chat["id"],"action":"save","item_id":queued["id"],"text":"after"}))).await.unwrap();
+    assert_eq!(edited["items"][0]["text"],"after");
+    assert_eq!(core.remote_command(&command("outbox",json!({"chat_id":chat["id"],"action":"promote","item_id":queued["id"],"expected_run_id":"old-run"}))).await.unwrap_err().status,412);
+    let paused = core.remote_command(&command("outbox",json!({"chat_id":chat["id"],"action":"pause"}))).await.unwrap();
+    assert_eq!(paused["paused"],true);
+    let resumed = core.remote_command(&command("outbox",json!({"chat_id":chat["id"],"action":"resume"}))).await.unwrap();
+    assert_eq!(resumed["paused"],false);
+    let deleted = core.remote_command(&command("outbox",json!({"chat_id":chat["id"],"action":"delete","item_id":queued["id"]}))).await.unwrap();
+    assert!(deleted["items"].as_array().unwrap().is_empty());
 }

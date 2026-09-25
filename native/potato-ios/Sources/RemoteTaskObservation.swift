@@ -39,9 +39,9 @@ struct RemoteTaskObservation {
     }
     func title(snapshot: RemoteSnapshot?, at now: Date) -> String {
         if suspended { return L10n.tr("已暂停更新") }
-        if failure != nil { return L10n.tr("连接中断，任务状态未确认") }
+        if failure != nil { return L10n.tr("连接中断") }
         if snapshot == nil { return L10n.tr("正在读取任务状态…") }
-        if isStale(at: now) { return L10n.tr("正在确认任务状态…") }
+        if isStale(at: now) { return L10n.tr("正在重新连接…") }
         return snapshot!.activityTitle
     }
 }

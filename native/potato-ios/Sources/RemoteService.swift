@@ -38,11 +38,8 @@ struct RemoteApproval: Decodable, Identifiable {
     var review_rationale: String? = nil
     var review_failure: String? = nil
     var id: String { request_id }
-    var reviewExplanation: String {
-        if let failure = review_failure, !failure.isEmpty { return L10n.tr("自动审查未能完成，需要你确认这次操作。") }
-        if let rationale = review_rationale, !rationale.isEmpty { return rationale }
-        return L10n.tr("电脑正在等待你确认这次操作。允许仅对本次请求生效。")
-    }
+    /// The reviewer's own words only; the sheet title already asks for approval.
+    var reviewExplanation: String? { review_rationale.flatMap { $0.isEmpty ? nil : $0 } }
     private var arguments: [String: Any] { (action_detail.flatMap { $0.data(using: .utf8) }.flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: Any] ?? [:] }
     var command: String? { arguments["command"] as? String }
     var workingDirectory: String? { arguments["cwd"] as? String }
@@ -168,9 +165,6 @@ struct RemoteAck: Decodable {}
 struct RemoteSent: Decodable {
     let chat: RemoteChat
     var delivery: String? = nil
-    var recoveryNotice: String? {
-        delivery == "recovered" ? L10n.tr("已找回电脑保存的这条指令，没有重复发送。指令已保存不代表执行已完成，请查看任务内容与状态。") : nil
-    }
 }
 
 struct RemoteAccountProfile: Codable, Equatable {
@@ -266,12 +260,6 @@ struct RemoteDirectoryClient {
             }
             if ProcessInfo.processInfo.arguments.contains("--remote-draft-preview") {
                 devices = devices.map { RemoteDevice(id: $0.id, name: $0.name, relay: URL(string: "http://127.0.0.1:19013")!, owner: "draft-fixture-account") }
-                if ProcessInfo.processInfo.arguments.contains("--remote-legacy-draft-preview"), ProcessInfo.processInfo.arguments.contains("--reset") {
-                    let key = "remote-draft-\(devices[0].account)-new"
-                    defaults.set("旧版草稿：先核对目标电脑", forKey: key)
-                    let request = RemotePendingSend(id: "00000000-0000-4000-8000-000000000099", text: "旧版待确认指令", chatID: nil, projectPath: nil, target: nil)
-                    defaults.set(try? JSONEncoder().encode(request), forKey: key + "-pending")
-                }
             }
             for device in devices { online[device.id] = true }
             overviews[devices[0].id] = RemoteOverview(chats: [
