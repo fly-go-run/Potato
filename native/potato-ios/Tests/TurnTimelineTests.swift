@@ -26,21 +26,28 @@ final class TurnTimelineTests: XCTestCase {
         let frames = [frame("c", "assistant", "function_call", text: "list_directory\n{\"path\":\"~/Desktop\"}"), frame("o", "tool", "function_call_output", text: "entries")]
         let steps = ActivityStep.remote(frames, running: false, confirmed: true, activeID: nil)
         XCTAssertEqual(steps.count, 1); XCTAssertEqual(steps[0].output, "entries")
-        XCTAssertEqual(steps.actionSummary, "查看 1 个目录")
+        XCTAssertEqual(steps.actionSummary, "查看目录")
     }
-    func testSummaryNamesActionsAndCountsDistinctFiles() {
+    func testSettledThoughtNameNeverChanges() {
+        // Thinking again after a tool must not relabel an earlier, collapsed thought row.
+        let resumed = ActivityStep(id: "reasoning", title: "正在思考", symbol: "sparkle", state: "streaming", reasoning: true, duration: 3)
+        let settled = ActivityStep(id: "reasoning", title: "已思考 3 秒", symbol: "sparkle", state: "complete", reasoning: true, duration: 3)
+        XCTAssertEqual([resumed].actionSummary, "思考过程")
+        XCTAssertEqual([settled].actionSummary, "思考过程")
+    }
+    func testSummaryNamesActionsInOrderWithoutCounts() {
         let frames = [frame("1", "assistant", "function_call", name: "read_file", arguments: #"{"path":"a.md"}"#),
                       frame("2", "assistant", "function_call", name: "read_file", arguments: #"{"path":"a.md"}"#),
                       frame("3", "assistant", "function_call", name: "read_file", arguments: #"{"path":"b.md"}"#),
                       frame("4", "assistant", "function_call", name: "execute_shell_command", arguments: #"{"command":"npm test\nextra"}"#),
                       frame("5", "assistant", "function_call", name: "execute_shell_command", arguments: #"{"command":"ls"}"#)]
         let steps = ActivityStep.remote(frames, running: false, confirmed: true, activeID: nil)
-        XCTAssertEqual(steps.actionSummary, "读取 2 个文件、执行 2 条命令")
+        XCTAssertEqual(steps.actionSummary, "读取文件、执行命令")
         XCTAssertEqual(steps[3].title, "npm test")
         XCTAssertEqual(frames[3].processTitle, "执行命令")
         AppLocalization.shared.selection = .english
-        XCTAssertEqual(steps.actionSummary, "Read 2 files, ran 2 commands")
-        XCTAssertEqual(Array(steps.prefix(1)).actionSummary, "Read a file")
+        XCTAssertEqual(steps.actionSummary, "Read files, ran commands")
+        XCTAssertEqual(Array(steps.prefix(1)).actionSummary, "Read files")
     }
 
     func testLocalReplySplitsTextAtRecordedActivities() {

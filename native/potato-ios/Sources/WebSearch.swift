@@ -33,7 +33,7 @@ struct SearchSourcesButton: View {
             if showsActivity && runs.last?.state == "failed" { Label(L10n.tr("搜索未成功"), systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(Palette.secondary) }
             if showsActivity && runs.last?.state == "stopped" { Text(L10n.tr("搜索已停止")).font(.caption).foregroundStyle(Palette.secondary) }
             if !sources.isEmpty {
-                Button { showing = true } label: { Label(L10n.tr("查看 \(sources.count) 个来源"), systemImage: "globe").font(.subheadline).frame(minHeight: 44) }.accessibilityIdentifier("search-sources")
+                Button { showing = true } label: { Label(L10n.tr("来源"), systemImage: "globe").font(.subheadline).frame(minHeight: 44) }.accessibilityIdentifier("search-sources")
             } else if showsActivity && runs.last?.state == "complete" { Text(L10n.tr("未找到可用的网页来源")).font(.caption).foregroundStyle(Palette.secondary) }
         }.sheet(isPresented: $showing) { SearchSourcesSheet(runs: runs, sources: sources) }
     }

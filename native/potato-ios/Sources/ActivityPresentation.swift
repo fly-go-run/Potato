@@ -9,8 +9,6 @@ struct ActivityStep: Identifiable {
     var symbol: String
     var state: String
     var kind = ActivityKind.other
-    /// The file a step touched, so summaries count files rather than calls.
-    var target: String? = nil
     var input = ""
     var language = "plaintext"
     var output = ""
@@ -91,36 +89,39 @@ struct ActivitySummaryView: View {
     let steps: [ActivityStep]
     let running: Bool
     var confirmed = true
-    var endState = "complete"
     var storage: LocalStorage? = nil
-    var replyStarted = false
+    /// The reply is thinking now, even when its thought sits in an earlier group (local replies keep one).
+    var thinking = false
     var identifier = "activity-summary"
     var onExpand: () -> Void = {}
     @State private var showing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var thought: ActivityStep? { steps.last(where: \.reasoning) }
     private var tools: [ActivityStep] { steps.filter { !$0.reasoning } }
     private var current: ActivityStep? { tools.last(where: \.isRunning) }
-    /// In progress until the answer itself starts; then the row settles into a summary.
-    private var active: Bool { running && confirmed && (current != nil || thought?.isRunning == true || !replyStarted) }
+    /// The newest group of a reply still in progress. The dot under the reply says it is
+    /// still going; this row only names the work, and shimmers while a step is under way.
+    private var live: Bool { running && confirmed }
+    private var working: Bool { live && (current != nil || thinking || thought?.isRunning == true) }
     private var title: String {
-        if active { return current?.title ?? L10n.tr("正在思考") }
-        var parts: [String] = []
-        if let thought, !tools.isEmpty, !thought.isRunning, let seconds = thought.duration.map({ max(1, Int($0.rounded())) }) {
-            parts.append(L10n.tr("已思考 \(seconds) 秒"))
+        if live {
+            if let current { return current.title }
+            if thinking || thought?.isRunning == true { return L10n.tr("正在思考") }
+            // Between steps keep naming the latest one; flipping to a summary and back reads as flicker.
+            if steps.last?.reasoning == false, let latest = tools.last { return latest.title }
         }
-        parts.append(steps.actionSummary)
-        if ["stopped", "cancelled"].contains(endState) { parts.append(L10n.tr("已停止")) }
-        else if endState == "failed" { parts.append(L10n.tr("已中断")) }
-        return parts.joined(separator: " · ")
+        // Stopped or failed is said once under the reply, not again on this row.
+        return steps.actionSummary
     }
     var body: some View {
         if !steps.isEmpty {
             Button { onExpand(); showing = true } label: {
                 HStack(spacing: 6) {
-                    Text(title).font(.subheadline).lineLimit(1).shimmering(active)
+                    Text(title).font(.subheadline).lineLimit(1).shimmering(working).contentTransition(.opacity)
                     Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).accessibilityHidden(true)
                     Spacer(minLength: 0)
                 }.foregroundStyle(Palette.secondary).frame(minHeight: 44).contentShape(Rectangle())
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: title)
             }.buttonStyle(.plain).accessibilityIdentifier(identifier)
                 .accessibilityLabel(L10n.tr("\(title)，查看过程"))
                 .sheet(isPresented: $showing) {
@@ -406,7 +407,7 @@ extension ActivityStep {
             let symbol = isReasoning ? "sparkle" : command != nil ? "terminal" : (message.name?.contains("read") == true ? "book" : "doc.text")
             var kind = ActivityKind(tool: message.toolName)
             if kind == .other && command != nil { kind = .command }
-            steps.append(ActivityStep(id: message.id, title: title, symbol: symbol, state: state, kind: kind, target: path,
+            steps.append(ActivityStep(id: message.id, title: title, symbol: symbol, state: state, kind: kind,
                                       input: command ?? message.arguments ?? "", language: command == nil ? "json" : "bash",
                                       output: isReasoning ? message.text : output.isEmpty && message.arguments == nil ? message.text : output, reasoning: isReasoning, rawInput: command != nil ? message.arguments : nil))
             if !isOutput, let call = message.callID, !call.isEmpty { callIndices[call] = steps.count - 1 }

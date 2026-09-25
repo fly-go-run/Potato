@@ -57,9 +57,10 @@ extension View {
 
     /// Text scrolling under the floating header fades softly instead of colliding with the buttons;
     /// the composer edge keeps no effect so the last lines stay crisp.
-    @ViewBuilder func chatScrollEdges(_ edges: Edge.Set = .vertical) -> some View {
+    /// `solidTop`: a titled bar gets a crisp edge; floating buttons keep the soft fade.
+    @ViewBuilder func chatScrollEdges(_ edges: Edge.Set = .vertical, solidTop: Bool = false) -> some View {
         if #available(iOS 26.0, *) {
-            scrollEdgeEffectStyle(.soft, for: .top).scrollEdgeEffectHidden(true, for: edges.subtracting(.top))
+            scrollEdgeEffectStyle(solidTop ? .hard : .soft, for: .top).scrollEdgeEffectHidden(true, for: edges.subtracting(.top))
         } else {
             self
         }

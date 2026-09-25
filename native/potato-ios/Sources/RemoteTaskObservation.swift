@@ -64,16 +64,12 @@ extension RemoteSnapshot {
         if !latest.isProcess && latest.isStreaming { return L10n.tr("正在回复") }
         return L10n.tr("电脑正在处理…")
     }
-    /// The status line under a running reply names the kind of work; the group row names the step.
+    /// Spoken by the dot under a running reply; the group row above names the step.
     var phaseTitle: String {
         guard status == "running", !needsUserResponse,
               let latest = displayMessages.last(where: { $0.role != "user" && !$0.isNotice }),
               latest.isProcess, latest.kind != "reasoning", latest.isStreaming else { return activityTitle }
         return L10n.tr("正在执行")
-    }
-    /// The newest process row is a thought still streaming; that row already says 正在思考.
-    var isThinking: Bool {
-        activeProcessID != nil && displayMessages.last(where: { $0.role != "user" && !$0.isNotice })?.kind == "reasoning"
     }
     var needsUserResponse: Bool { !approvals.isEmpty || questions.contains(where: { $0.status == "pending" }) }
     var activeProcessID: String? {

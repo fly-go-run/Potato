@@ -31,8 +31,8 @@ final class CodeExecutionUITests: XCTestCase {
         let app = launch(hold: true)
         XCTAssertTrue(app.buttons["activity-summary"].waitForExistence(timeout: 8))
         app.buttons["stop-generation"].tap()
-        let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "已停止"), object: app.buttons["activity-summary"])
-        XCTAssertEqual(XCTWaiter.wait(for: [expected], timeout: 8), .completed)
+        // Said once under the reply; the process row keeps naming what ran.
+        XCTAssertTrue(app.staticTexts["已停止生成"].waitForExistence(timeout: 8))
         app.buttons["activity-summary"].tap(); app.buttons["activity-step-code:python-fixture"].tap()
         XCTAssertTrue(app.staticTexts["已停止"].waitForExistence(timeout: 5)); capture(app, "activity-stopped")
     }

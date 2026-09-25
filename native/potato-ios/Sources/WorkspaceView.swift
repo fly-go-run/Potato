@@ -409,14 +409,6 @@ struct WorkspaceView: View {
                 } label: { Image(systemName: "ellipsis").font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44).contentShape(Circle()) }.accessibilityLabel(L10n.tr("更多")).accessibilityIdentifier("more")
             }.padding(.horizontal, 3).chatGlass(in: Capsule())
         }.padding(.horizontal, 16).padding(.vertical, 8)
-            .overlay {
-                // Centred between the buttons, whatever their widths.
-                if !chat.messages.isEmpty {
-                    Text(chat.displayTitle).font(.headline).lineLimit(1).padding(.horizontal, 120).allowsHitTesting(false)
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                        .accessibilityAddTraits(.isHeader).accessibilityIdentifier("chat-title")
-                }
-            }
     }
     private var contextPreview: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -518,14 +510,16 @@ struct WorkspaceView: View {
                 replyTimeline(message).id(message.selectedVersionID ?? message.id)
                 let outputs = message.displayAttachments
                 ForEach(outputs.filter { !$0.isImage }) { attachment in DeliverableCard(attachment: attachment, storage: store.storage, cover: deckCover(attachment, in: message)) { showPreview(attachment, among: outputs) } }
-                if message.showsStatusLine {
-                    TurnStatusLine(title: message.phaseTitle, identifier: message.cloudReply?.notice == nil ? "generating" : "cloud-reply-status")
+                if message.state == .streaming {
+                    // Recall runs before the model and has no row of its own, so the dot names it.
+                    let recalling = message.displayRecalls.last?.state == "searching" ? L10n.tr("正在检索历史与记忆") : ""
+                    TurnStatusLine(title: message.cloudReply?.notice ?? recalling, label: message.phaseTitle, identifier: message.cloudReply?.notice == nil ? "generating" : "cloud-reply-status")
                 }
                 if let failure = message.displayFailure {
                     if isBareFailure(message) { failureRow(message, failure: failure) }
                     else { Label(failure, systemImage: "exclamationmark.circle").font(.footnote).foregroundStyle(.red) }
                 }
-                if message.displayState == .stopped { Text(L10n.tr("已停止生成")).font(.caption).foregroundStyle(Palette.secondary) }
+                if message.displayState == .stopped && message.displayFailure == nil { Text(L10n.tr("已停止生成")).font(.caption).foregroundStyle(Palette.secondary) }
                 if !message.displayRecalls.isEmpty { RecallSourcesView(runs: message.displayRecalls, store: store) }
                 if !message.displaySearches.isEmpty { SearchSourcesButton(runs: message.displaySearches, showsActivity: false) }
                 // A deck's rendered pages belong to the tool details. Keep unrelated
@@ -558,18 +552,20 @@ struct WorkspaceView: View {
                 let last = index == segments.count - 1
                 switch segment {
                 case .activity(_, let steps):
-                    ActivitySummaryView(steps: steps, running: streaming && last, endState: index == lastActivity ? message.displayState.rawValue : "complete",
-                                        storage: store.storage, replyStarted: !last, identifier: index == lastActivity ? "activity-summary" : "activity-summary-\(index)",
+                    ActivitySummaryView(steps: steps, running: streaming && last, storage: store.storage, thinking: message.displayReasoning?.state == .streaming,
+                                        identifier: index == lastActivity ? "activity-summary" : "activity-summary-\(index)",
                                         onExpand: { followBottom = false; inputFocused = false })
+                        .transition(.opacity)
                 case .text(_, let text):
                     StreamingMarkdown(text: text, streaming: streaming && last).environment(\.openURL, OpenURLAction { url in
                         if url.scheme == "potato", url.host == "conversation", let id = UUID(uuidString: url.lastPathComponent), let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "message" })?.value,
                            let source = message.displayRecalls.flatMap(\.sources).first(where: { $0.conversation == id.uuidString.lowercased() && $0.id == query.lowercased() }) { store.openRecallSource(source); return .handled }
                         return url.scheme == "potato" ? .discarded : .systemAction
-                    })
+                    }).transition(.opacity)
                 }
             }
-        } }
+        // A new step or paragraph fades in rather than popping into place.
+        }.animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: segments.map(\.id)) }
     }
     private var composer: some View {
         VStack(alignment: .leading, spacing: 6) {

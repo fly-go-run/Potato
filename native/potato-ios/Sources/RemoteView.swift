@@ -351,8 +351,6 @@ struct RemoteTaskView: View {
     private var canAct: Bool { chat == nil || confirmed }
     private var canSend: Bool { !busy && canAct && snapshot?.outbox?.interrupt != true && pending == nil && draft.storageError == nil && !dictation.active && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var activityVisible: Bool { settled && running && snapshot?.needsUserResponse != true }
-    /// A confirmed thought is named by its own process row; a status line would only repeat it.
-    private var processRowSpeaks: Bool { activityVisible && confirmed && snapshot?.isThinking == true }
 
     /// The model the next message will use: the chosen one, else the computer's own.
     private var modelParts: (name: String, effort: String?) {
@@ -368,7 +366,7 @@ struct RemoteTaskView: View {
         return "\(queueRevision)|\(pending?.id ?? "")|\(snapshot.outbox?.interrupt ?? false)|\(messages.count)|\(messages.last?.text ?? "")|\(snapshot.approvals.map(\.id))|\(snapshot.questions.filter { $0.status == "pending" }.map(\.id))|\(snapshot.status)|\(snapshot.outcome?.status ?? "")"
     }
     @ViewBuilder private var conversationStatus: some View {
-        if chat != nil && !processRowSpeaks {
+        if chat != nil {
             if snapshot == nil && observation.failure == nil {
                 ReplyPendingDot().accessibilityElement().accessibilityLabel(L10n.tr("正在读取任务状态"))
             } else {
@@ -376,10 +374,10 @@ struct RemoteTaskView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         if activityVisible {
-                            // One line while the computer works: a pulsing dot and what it is doing.
+                            // The dot stays put while the computer works, as on local replies;
+                            // the rows above name the work, so the phase is only spoken.
                             if reduceMotion { Image(systemName: "ellipsis").accessibilityLabel(title).accessibilityIdentifier("remote-static-activity") }
                             else { ReplyPendingDot().accessibilityElement().accessibilityLabel(title).accessibilityIdentifier("remote-activity-spinner") }
-                            Text(title).font(.subheadline).lineLimit(1).shimmering(!reduceMotion).accessibilityHidden(true)
                         } else {
                             if stale { Image(systemName: observation.failure == nil ? "arrow.triangle.2.circlepath" : "wifi.exclamationmark").font(.system(size: 16)) }
                             Text(title).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-current-status")
@@ -558,10 +556,13 @@ struct RemoteTaskView: View {
                     if let notice = dictation.notice { Text(notice).font(.footnote).foregroundStyle(Palette.secondary).accessibilityIdentifier("voice-notice") }
                     remoteComposer
                 }.dynamicTypeSize(...DynamicTypeSize.xxxLarge).padding(.horizontal, 16).padding(.bottom, 8).padding(.top, dictation.active ? 24 : 6)
-            }.chatScrollEdges()
+            }.chatScrollEdges(solidTop: true)
+                .overlay(alignment: .top) { Rectangle().fill(Palette.line).frame(height: 0.5).accessibilityHidden(true) }
         }.foregroundStyle(Palette.ink).background(Palette.canvas.ignoresSafeArea())
             .navigationTitle(chat?.name ?? L10n.tr("新对话")).navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            // A remote task names its computer and project, so its bar stays readable over scrolling text.
+            .toolbarBackground(Palette.canvas.opacity(0.94), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 3) {

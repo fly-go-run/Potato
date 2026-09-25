@@ -25,12 +25,10 @@ final class RemoteProcessUITests: XCTestCase {
     private func status(_ app: XCUIApplication, _ value: String, timeout: Double = 10) {
         let item = app.staticTexts["remote-current-status"]
         if value == "正在思考" {
-            // A confirmed thought is named by the process row alone; an unconfirmed one falls back to the status line.
+            // The process row names the thought; the dot below it stays without text of its own.
             let row = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "remote-process-toggle", value)).firstMatch
-            let indicator = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@ AND label == %@", ["remote-activity-spinner", "remote-static-activity"], value)).firstMatch
-            let shown = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in row.exists || indicator.exists }, object: nil)
-            XCTAssertEqual(XCTWaiter.wait(for: [shown], timeout: timeout), .completed)
-            XCTAssertFalse(row.exists && indicator.exists, "正在思考 is shown twice")
+            XCTAssertTrue(row.waitForExistence(timeout: timeout))
+            XCTAssertLessThanOrEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", value)).count, 1, "正在思考 is shown twice")
             XCTAssertFalse(item.exists)
             return
         }
@@ -104,14 +102,17 @@ final class RemoteProcessUITests: XCTestCase {
 
     func testThinkingToolReplyCompletionAndDisclosure() {
         control("thinking"); let app = launch(); status(app, "正在思考")
-        XCTAssertFalse(spinner(app).exists)
+        // The dot stays at the tail while the row names the thought.
+        XCTAssertTrue(spinner(app).exists)
+        // A lone thought opens straight into its text.
         app.buttons["remote-process-toggle"].tap()
-        app.buttons["activity-step-reasoning"].tap()
         XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 5)); capture(app, "remote-thinking-expanded")
         app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
         control("tool"); status(app, "正在执行")
-        // A ScrollView's offscreen pull-to-refresh spinner remains in the AX tree.
-        XCTAssertEqual(app.activityIndicators.allElementsBoundByIndex.filter { !$0.frame.isEmpty && app.frame.contains($0.frame) && $0.isHittable }.count, 1)
+        // One live indicator: the tail dot. No system spinner on screen (the ScrollView's
+        // offscreen pull-to-refresh spinner remains in the AX tree, so filter to visible ones).
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "remote-activity-spinner").count, 1)
+        XCTAssertEqual(app.activityIndicators.allElementsBoundByIndex.filter { !$0.frame.isEmpty && app.frame.contains($0.frame) && $0.isHittable }.count, 0)
         app.buttons["remote-process-toggle"].tap(); capture(app, "remote-tool-active"); app.buttons["activity-close"].tap()
         control("reply"); status(app, "正在回复")
         XCTAssertFalse(app.buttons["remote-copy-reply"].exists)
@@ -197,7 +198,7 @@ final class RemoteProcessUITests: XCTestCase {
     }
     func testBackgroundRequiresReconfirmationWithReducedMotion() {
         control("thinking"); let app = launch(reduceMotion: true); status(app, "正在思考")
-        XCTAssertFalse(spinner(app).exists); XCTAssertFalse(app.images["remote-static-activity"].exists)
+        XCTAssertFalse(spinner(app).exists); XCTAssertTrue(app.images["remote-static-activity"].exists)
         input(app).tap(); input(app).typeText("background draft"); capture(app, "remote-reduced-motion")
         XCUIDevice.shared.press(.home)
         control("complete", delay: 12); app.activate()

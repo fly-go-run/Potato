@@ -19,6 +19,18 @@ final class ReplySpeech: NSObject, ObservableObject, AVSpeechSynthesizerDelegate
     }
 }
 
+/// Quiet enough to sit under every reply: a small glyph, lighter than the text,
+/// still a full-height touch target. The row lines its first glyph up with the reply.
+struct ReplyActionGlyph: View {
+    let symbol: String
+    static let width: CGFloat = 36
+    static let inset: CGFloat = (width - 15) / 2
+    var body: some View {
+        Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(Palette.secondary.opacity(0.75))
+            .frame(width: Self.width, height: 44).contentShape(Rectangle())
+    }
+}
+
 struct ReplyActions: View {
     let message: ChatMessage
     let isLast: Bool
@@ -46,7 +58,7 @@ struct ReplyActions: View {
             if isLast { action(symbol: "arrow.clockwise", label: L10n.tr("重新生成"), id: "retry-message", perform: retry).disabled(busy) }
             action(symbol: "ellipsis", label: L10n.tr("回复更多操作"), id: "reply-more") { panel = .more }
             Spacer(minLength: 0)
-        }.foregroundStyle(Palette.secondary)
+        }.padding(.leading, -ReplyActionGlyph.inset)
             .alert(L10n.tr("已保存到资料库"), isPresented: $librarySaved) { Button(L10n.tr("好"), role: .cancel) {} }
             .onChange(of: message.displayText) { _, _ in copied = false }
             .task(id: copied) { if copied { try? await Task.sleep(for: .seconds(2)); if !Task.isCancelled { copied = false } } }
@@ -64,10 +76,8 @@ struct ReplyActions: View {
             }
     }
     private func action(symbol: String, label: String, id: String, perform: @escaping () -> Void) -> some View {
-        Button(action: perform) {
-            Image(systemName: symbol).font(.system(size: 18, weight: .regular))
-                .frame(width: 44, height: 44).contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityLabel(label).accessibilityIdentifier(id)
+        Button(action: perform) { ReplyActionGlyph(symbol: symbol) }
+            .buttonStyle(.plain).accessibilityLabel(label).accessibilityIdentifier(id)
     }
     private var morePanel: some View {
         NavigationStack {

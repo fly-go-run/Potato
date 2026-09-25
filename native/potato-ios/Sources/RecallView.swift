@@ -79,10 +79,9 @@ struct RecallSourcesView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if runs.last?.state == "searching" { Text(L10n.tr("正在检索历史与记忆")).font(.caption).foregroundStyle(Palette.secondary).shimmering() }
             if let failed = runs.last(where: { $0.state == "failed" }) { Text(failed.message ?? L10n.tr("历史检索未完成")).font(.caption).foregroundStyle(.secondary) }
             if !sources.isEmpty {
-                DisclosureGroup(L10n.tr("参考了 \(sources.count) 段历史"), isExpanded: $expanded) {
+                DisclosureGroup(L10n.tr("参考了历史对话"), isExpanded: $expanded) {
                     ForEach(sources, id: \.identity) { source in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(source.title).font(.subheadline.bold())

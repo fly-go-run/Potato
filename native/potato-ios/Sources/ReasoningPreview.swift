@@ -43,6 +43,27 @@ final class ReasoningPreview: URLProtocol {
                     try await Task.sleep(for: .seconds(2))
                     self.done(); return
                 }
+                if mode == "timeline" {
+                    // Every hand-off in one reply: thought → commentary → tool → thought again → answer.
+                    try await Task.sleep(for: .seconds(1.5))
+                    self.emit(["choices": [["delta": ["reasoning_content": "先把小数位对齐，再比较相同数位。"]]]])
+                    try await Task.sleep(for: .seconds(3))
+                    for chunk in ["我先查一下", "小数比较的规则，", "再对照两个数。"] {
+                        self.emit(["choices": [["delta": ["content": chunk]]]]); try await Task.sleep(for: .milliseconds(250))
+                    }
+                    try await Task.sleep(for: .seconds(0.8))
+                    self.emit(["potato_search": ["id": "fixture-search", "query": "十进制小数比较规则", "state": "searching", "results": []]])
+                    try await Task.sleep(for: .seconds(3.5))
+                    self.emit(["potato_search": ["id": "fixture-search", "query": "十进制小数比较规则", "state": "complete", "results": []]])
+                    try await Task.sleep(for: .seconds(1.2))
+                    self.emit(["choices": [["delta": ["reasoning_content": "\n继续核对：9.8 等于 9.80，十分位 8 大于 1。"]]]])
+                    try await Task.sleep(for: .seconds(3))
+                    for chunk in ["\n\n**9.8 更大。**", " 把 9.8 写成 9.80，", "就能逐位比较：", "整数位相同，", "十分位 8 > 1，", "所以 9.80 > 9.11。"] {
+                        self.emit(["choices": [["delta": ["content": chunk]]]]); try await Task.sleep(for: .milliseconds(300))
+                    }
+                    try await Task.sleep(for: .seconds(0.5))
+                    self.done(); return
+                }
                 try await Task.sleep(for: .seconds(2))
                 self.emit(["choices": [["delta": ["reasoning_content": "先把小数位对齐，再比较相同数位。"]]]])
                 try await Task.sleep(for: .seconds(mode == "hold" ? 30 : 7))
