@@ -152,7 +152,6 @@ impl Potato {
         state: &str,
         finished: bool,
         elapsed: Option<u64>,
-        answering: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let source = self
@@ -170,10 +169,7 @@ impl Potato {
         } else {
             None
         };
-        let open = process_is_open(
-            self.chat.process_open.get(&key).copied(),
-            finished || (answering && waiting.is_none()),
-        );
+        let open = process_is_open(self.chat.process_open.get(&key).copied(), finished);
         let seconds = if active {
             self.chat.run_started.map(|t| t.elapsed().as_secs())
         } else {
@@ -189,8 +185,6 @@ impl Potato {
             "已停止".into()
         } else if !active && !finished {
             "已中断".into()
-        } else if answering {
-            format!("已执行 {count} 个步骤 · 正在回答")
         } else if finished {
             if count > 0 {
                 format!("执行了 {count} 个步骤")
@@ -262,7 +256,6 @@ impl Potato {
             .filter(|(_, m)| is_call(m) && step_state(m, active) == StepState::Running)
             .count();
         let pending = active
-            && !answering
             && waiting.is_none()
             && !rows
                 .iter()
@@ -318,15 +311,9 @@ impl Potato {
             }
         }
         if pending {
-            let writing = self
-                .turn
-                .messages
-                .iter()
-                .rev()
-                .find(|m| m["type"] != "reasoning")
-                .is_some_and(|m| answer_text(m) && phase(m) != "commentary");
+            // Text after a group settles it, so the live group only waits on thinking.
             let placeholder = json!({"id":format!("pending-{key}"),"role":"assistant","type":"reasoning",
-                "status":"in_progress","content":"","metadata":{"activity_label":if writing {"正在回答"} else {"正在思考"}}});
+                "status":"in_progress","content":"","metadata":{"activity_label":"正在思考"}});
             details = details.child(self.process_step(
                 usize::MAX - index,
                 &placeholder,
@@ -719,16 +706,21 @@ mod tests {
         assert_eq!(round_elapsed(&[(0, call)]), Some(2));
     }
     #[test]
-    fn reasoning_status_and_explicit_final_phase_control_early_collapse() {
+    fn any_text_after_reasoning_settles_the_group_and_manual_choice_wins() {
         let reasoning = json!({"id":"r","type":"reasoning","role":"assistant","status":"completed","content":"summary"});
         let mut answer =
             json!({"type":"message","role":"assistant","status":"in_progress","content":"answer"});
-        for (phase, expected) in [("", false), ("commentary", false), ("final_answer", true)] {
+        for phase in ["", "commentary", "final_answer"] {
             answer["phase"] = json!(phase);
             let blocks = chat_blocks(&[reasoning.clone(), answer.clone()], true, "in_progress");
-            assert!(
-                matches!(&blocks[0], ChatBlock::Process {answering, ..} if *answering == expected)
-            );
+            assert!(matches!(
+                &blocks[0],
+                ChatBlock::Process {
+                    active: false,
+                    finished: true,
+                    ..
+                }
+            ));
         }
         let open = process_is_open(Some(true), true);
         assert!(open, "manual inspection must survive automatic collapse");

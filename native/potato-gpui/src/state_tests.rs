@@ -173,7 +173,6 @@ impl gpui::Render for ProcessControl {
                 "completed",
                 true,
                 Some(176),
-                false,
                 cx,
             )
         })
@@ -387,9 +386,8 @@ fn reading_live_process_survives_completion_without_opening_old_history(cx: &mut
             json!({"id":"new-user", "role":"user", "content":"new"}),
         ];
         app.streaming = true;
-        app.turn.messages = vec![
-            json!({"id":"live", "role":"assistant", "phase":"commentary", "content":"checking"}),
-        ];
+        app.turn.messages =
+            vec![json!({"id":"live", "role":"assistant", "type":"function_call", "content":[]})];
         app.preserve_process_reading();
         assert!(!app.chat.process_open.contains_key("reading:old-tool"));
         assert!(app.chat.process_open["reading:live"]);

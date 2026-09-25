@@ -551,9 +551,8 @@ impl Potato {
                         finished,
                         state,
                         elapsed,
-                        answering,
                         ..
-                    } => self.process_view(index, &rows, &state, finished, elapsed, answering, cx),
+                    } => self.process_view(index, &rows, &state, finished, elapsed, cx),
                 });
             }
             if self.streaming && !has_active_process {

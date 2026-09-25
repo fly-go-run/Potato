@@ -75,7 +75,6 @@ pub enum ChatBlock {
         active: bool,
         state: String,
         elapsed: Option<u64>,
-        answering: bool,
     },
 }
 
@@ -98,9 +97,37 @@ pub(crate) fn answer_text(message: &Value) -> bool {
 fn visible(message: &Value) -> bool {
     is_call(message) || is_output(message) || !message_text(message).trim().is_empty()
 }
-/// Unphased assistant text stays in the same body throughout the run. Only
-/// explicit commentary, reasoning and tools belong to the collapsible process.
-/// A message-completed event alone never enables final-answer actions.
+enum Segment {
+    Text(usize),
+    Group(Vec<usize>),
+}
+/// Split one turn into text and activity in the order they happened: each
+/// assistant text starts a new segment, and the tools it leads to follow it.
+fn segments(rows: &[(usize, Value)], range: std::ops::Range<usize>) -> Vec<Segment> {
+    let mut out: Vec<Segment> = vec![];
+    for n in range.filter(|&n| visible(&rows[n].1)) {
+        let m = &rows[n].1;
+        if answer_text(m) {
+            out.push(Segment::Text(n));
+            continue;
+        }
+        // Providers may create the answer placeholder before the reasoning
+        // item, then update both in place. Reasoning that directly follows
+        // text belongs before it; a later tool still starts its own group.
+        let before = match out.last() {
+            Some(Segment::Text(_)) if m["type"] == "reasoning" => out.len() - 1,
+            _ => out.len(),
+        };
+        match before.checked_sub(1).map(|k| &mut out[k]) {
+            Some(Segment::Group(group)) => group.push(n),
+            _ => out.insert(before, Segment::Group(vec![n])),
+        }
+    }
+    out
+}
+/// Replies read in time order: text, the activity it led to, more text.
+/// Only the trailing activity of a live turn stays open; once text follows
+/// a group, that group is settled. Final-answer actions need a completed turn.
 pub fn chat_blocks(messages: &[Value], streaming: bool, latest_status: &str) -> Vec<ChatBlock> {
     let rows = presentation(messages);
     let mut blocks = vec![];
@@ -127,9 +154,6 @@ pub fn chat_blocks(messages: &[Value], streaming: bool, latest_status: &str) -> 
         } else {
             saved["status"].as_str().unwrap_or("")
         };
-        // Providers may create the answer placeholder before the reasoning
-        // item, then update both in place. A trailing reasoning item must not
-        // hide the completed answer; a later tool call still prevents it.
         let last_content = (start..end)
             .rev()
             .find(|&n| visible(&rows[n].1) && rows[n].1["type"] != "reasoning");
@@ -143,57 +167,59 @@ pub fn chat_blocks(messages: &[Value], streaming: bool, latest_status: &str) -> 
                 )
         });
         let finished = !active && candidate.is_some() && matches!(state, "" | "completed");
-        let bodies: Vec<_> = (start..end)
-            .filter(|&n| answer_text(&rows[n].1) && phase(&rows[n].1) != "commentary")
-            .collect();
-        let process: Vec<_> = rows[start..end]
+        let segments = segments(&rows, start..end);
+        let groups = segments
             .iter()
-            .enumerate()
-            .filter(|(n, (_, m))| !bodies.contains(&(start + n)) && visible(m))
-            .map(|(_, row)| row.clone())
-            .collect();
-        if !process.is_empty() {
-            let inferred = if active {
-                "in_progress"
-            } else if !state.is_empty() {
-                state
-            } else if rows[start..end]
-                .iter()
-                .any(|(_, m)| !is_call(m) && !is_output(m) && m["status"] == "cancelled")
-            {
-                "cancelled"
-            } else if finished {
-                "completed"
-            } else {
-                "incomplete"
-            };
-            blocks.push(ChatBlock::Process {
-                index: rows[start].0,
-                rows: process,
-                finished,
-                active,
-                state: inferred.into(),
-                elapsed: saved["elapsed"]
-                    .as_u64()
-                    .or_else(|| crate::process::round_elapsed(&rows[start..end])),
-                answering: active
-                    && bodies.iter().any(|&n| {
-                        matches!(phase(&rows[n].1), "final" | "final_answer") && visible(&rows[n].1)
-                    })
-                    && !rows[start..end].iter().any(|(_, m)| {
-                        is_call(m)
-                            && crate::process::step_state(m, true)
-                                == crate::process::StepState::Running
-                    }),
-            });
-        }
-        for n in bodies {
-            let (index, message) = rows[n].clone();
-            blocks.push(ChatBlock::Message {
-                index,
-                message,
-                final_answer: finished && Some(n) == candidate,
-            });
+            .filter(|s| matches!(s, Segment::Group(_)))
+            .count();
+        let count = segments.len();
+        for (k, segment) in segments.into_iter().enumerate() {
+            match segment {
+                Segment::Text(n) => {
+                    let (index, message) = rows[n].clone();
+                    blocks.push(ChatBlock::Message {
+                        index,
+                        message,
+                        final_answer: finished && Some(n) == candidate,
+                    });
+                }
+                Segment::Group(group) => {
+                    let group: Vec<_> = group.into_iter().map(|n| rows[n].clone()).collect();
+                    let last = k + 1 == count;
+                    let (group_active, group_finished, group_state) = if !last {
+                        (false, true, "completed")
+                    } else if active {
+                        (true, false, "in_progress")
+                    } else if !state.is_empty() {
+                        (false, finished, state)
+                    } else if rows[start..end]
+                        .iter()
+                        .any(|(_, m)| !is_call(m) && !is_output(m) && m["status"] == "cancelled")
+                    {
+                        (false, finished, "cancelled")
+                    } else if finished {
+                        (false, true, "completed")
+                    } else {
+                        (false, false, "incomplete")
+                    };
+                    // A run-level duration only describes the reply when it has one group.
+                    let elapsed = if groups == 1 {
+                        saved["elapsed"]
+                            .as_u64()
+                            .or_else(|| crate::process::round_elapsed(&rows[start..end]))
+                    } else {
+                        crate::process::round_elapsed(&group)
+                    };
+                    blocks.push(ChatBlock::Process {
+                        index: group[0].0,
+                        rows: group,
+                        finished: group_finished,
+                        active: group_active,
+                        state: group_state.into(),
+                        elapsed,
+                    });
+                }
+            }
         }
         start = end;
     }
@@ -780,54 +806,93 @@ mod tests {
         ));
     }
     #[test]
-    fn completed_turn_groups_narration_and_tools_before_one_final_answer() {
+    fn completed_turn_interleaves_text_and_activity_in_time_order() {
         let messages = vec![
             message("user", "message", "question"),
+            message("assistant", "reasoning", "thinking"),
             {
                 let mut m = message("assistant", "message", "checking files");
                 m["phase"] = json!("commentary");
                 m
             },
-            message("assistant", "reasoning", "thinking"),
             json!({"type":"function_call","role":"assistant","content":[{"data":{"call_id":"x"}}]}),
             json!({"type":"function_call_output","role":"tool","content":[{"data":{"call_id":"x","output":"done"}}]}),
+            message("assistant", "message", "found it, running tests"),
+            json!({"type":"function_call","role":"assistant","content":[{"data":{"call_id":"y"}}]}),
+            json!({"type":"function_call_output","role":"tool","content":[{"data":{"call_id":"y","output":"ok"}}]}),
             message("assistant", "message", "final answer"),
         ];
         let blocks = chat_blocks(&messages, false, "");
-        assert_eq!(blocks.len(), 3);
-        assert!(matches!(
-            &blocks[0],
-            ChatBlock::Message {
-                final_answer: false,
-                ..
-            }
-        ));
+        let shape: Vec<_> = blocks
+            .iter()
+            .map(|b| match b {
+                ChatBlock::Message {
+                    index,
+                    final_answer,
+                    ..
+                } => (*index, 'm', *final_answer),
+                ChatBlock::Process {
+                    index, finished, ..
+                } => (*index, 'p', *finished),
+            })
+            .collect();
+        assert_eq!(
+            shape,
+            vec![
+                (0, 'm', false),
+                (1, 'p', true),
+                (2, 'm', false),
+                (3, 'p', true),
+                (5, 'm', false),
+                (6, 'p', true),
+                (8, 'm', true),
+            ]
+        );
         assert!(
-            matches!(&blocks[1], ChatBlock::Process { rows, finished: true, active: false, .. } if rows.len()==3 && !rows[2].1["tool_result"].is_null())
+            matches!(&blocks[3], ChatBlock::Process { rows, .. } if rows.len()==1 && !rows[0].1["tool_result"].is_null())
+        );
+        // Live frames create the text placeholder before its reasoning; the
+        // reply still reads in the same order as the saved history.
+        let mut live_order = messages.clone();
+        live_order.swap(1, 2);
+        let live_blocks = chat_blocks(&live_order, false, "");
+        assert!(matches!(
+            &live_blocks[1],
+            ChatBlock::Process { index: 2, .. }
+        ));
+        assert!(matches!(
+            &live_blocks[2],
+            ChatBlock::Message { index: 1, .. }
+        ));
+        // While streaming, groups followed by text are already settled.
+        let live = chat_blocks(&messages, true, "");
+        assert!(
+            live.iter()
+                .all(|b| !matches!(b, ChatBlock::Process { active: true, .. }))
         );
         assert!(matches!(
-            &blocks[2],
-            ChatBlock::Message {
-                index: 5,
-                final_answer: true,
-                ..
-            }
-        ));
-        let live = chat_blocks(&messages, true, "");
-        assert!(matches!(
-            &live[1],
-            ChatBlock::Process {
-                finished: false,
-                active: true,
-                ..
-            }
-        ));
-        assert_eq!(live.len(), 3, "unphased live text stays in the body");
-        assert!(matches!(
-            &live[2],
-            ChatBlock::Message {
-                index: 5,
+            live.last(),
+            Some(ChatBlock::Message {
+                index: 8,
                 final_answer: false,
+                ..
+            })
+        ));
+        let running = chat_blocks(&messages[..7], true, "");
+        assert!(matches!(
+            running.last(),
+            Some(ChatBlock::Process {
+                index: 6,
+                active: true,
+                finished: false,
+                ..
+            })
+        ));
+        assert!(matches!(
+            &running[3],
+            ChatBlock::Process {
+                active: false,
+                finished: true,
                 ..
             }
         ));
@@ -902,14 +967,19 @@ mod tests {
                     ..
                 }
             )));
-            assert!(matches!(
-                &blocks[0],
-                ChatBlock::Process {
-                    finished: false,
-                    ..
-                }
-            ));
+            assert!(matches!(&blocks[1], ChatBlock::Message { index: 1, .. }));
         }
+        // A turn that ends in activity keeps that activity open as unfinished.
+        let tool = json!({"role":"assistant", "type":"function_call", "content":[]});
+        let blocks = chat_blocks(
+            &[message("assistant", "message", "trying"), tool],
+            false,
+            "failed",
+        );
+        assert!(matches!(
+            &blocks[1],
+            ChatBlock::Process { finished: false, state, .. } if state == "failed"
+        ));
     }
     #[test]
     fn tool_ids_never_pair_across_user_turns() {
@@ -996,8 +1066,8 @@ mod tests {
         commentary["phase"] = json!("commentary");
         assert!(matches!(
             &chat_blocks(&[commentary], false, "completed")[0],
-            ChatBlock::Process {
-                finished: false,
+            ChatBlock::Message {
+                final_answer: false,
                 ..
             }
         ));
@@ -1027,8 +1097,10 @@ mod tests {
             message("assistant", "message", "answer"),
             message("assistant", "reasoning", "summary"),
         ];
+        let blocks = chat_blocks(&rows, false, "completed");
+        assert!(matches!(&blocks[0], ChatBlock::Process { index: 1, .. }));
         assert!(matches!(
-            chat_blocks(&rows, false, "completed").last(),
+            blocks.last(),
             Some(ChatBlock::Message {
                 final_answer: true,
                 index: 0,
