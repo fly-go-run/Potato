@@ -89,7 +89,7 @@ final class MarkdownRenderCache {
         var current = Set<String>()
         for block in parsed {
             switch block {
-            case .heading(_, let value), .paragraph(let value), .list(_, let value), .quote(let value): current.insert(value)
+            case .heading(_, let value), .paragraph(let value), .list(_, let value, _), .quote(let value): current.insert(value)
             case .table(let rows): rows.forEach { current.formUnion($0) }
             default: break
             }
