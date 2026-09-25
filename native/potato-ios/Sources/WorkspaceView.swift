@@ -103,6 +103,36 @@ struct WorkspaceView: View {
                 chat.messages = [ChatMessage(role: "assistant", text: markdown)]
             }
         }
+        if testing && ProcessInfo.processInfo.arguments.contains("--markdown-preview") {
+            let markdown = """
+            三种部署方式的对比：
+
+            | | 方案 A：本地部署 | 方案 B：云端托管 | 方案 C：混合 |
+            |---|:---|:---:|---:|
+            | 成本 | 一次性投入较高，需要自备服务器和运维人员 | 按量付费 | 中等 |
+            | 延迟 | 低 | 取决于网络，跨区域访问可能超过 200ms | 低 |
+            | 数据安全 | 数据完全留在内网<br>适合合规要求高的场景 | 依赖云厂商 | 敏感数据留本地 |
+            | 命令 | `grep a \\| wc -l` | `npm i` | |
+
+            | 项目 | 状态 |
+            |---|---|
+            | 计划 | 完成 |
+
+            ## **建议**
+            1. 先上云端托管
+               验证需求后再评估
+               - 关注月度账单
+               - 预留迁移脚本
+            2. 数据量大时切换混合方案
+
+            > 成本估算基于公开报价
+            > 实际以合同为准
+            """
+            value.update { chat in
+                chat.draft = nil; chat.input = ""; chat.pendingAttachments = []
+                chat.messages = [ChatMessage(role: "user", text: "对比一下部署方案"), ChatMessage(role: "assistant", text: markdown)]
+            }
+        }
         if testing && ProcessInfo.processInfo.arguments.contains("--sidebar-long-chat-preview") {
             value.update { chat in
                 chat.draft = nil; chat.input = ""; chat.pendingAttachments = []

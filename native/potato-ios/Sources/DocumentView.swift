@@ -100,18 +100,20 @@ struct MarkdownContent: View {
             ForEach(Array(renderCache.blocks(for: text, streaming: streaming).enumerated()), id: \.offset) { index, block in
                 switch block {
                 case .heading(let level, let value):
-                    Text(value).font(level == 1 ? .title2.bold() : level == 2 ? .title3.bold() : .headline).padding(.top, 6).textSelection(.enabled)
+                    Text(inline(value)).font(level == 1 ? .title2.bold() : level == 2 ? .title3.bold() : .headline).padding(.top, 6).textSelection(.enabled)
                 case .paragraph(let value):
                     Text(inline(value)).lineSpacing(5).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                case .list(let marker, let value):
-                    if (marker == "☑" || marker == "☐"), let toggleChecklist {
-                        Button {
-                            let preceding = renderCache.blocks(for: text, streaming: streaming).prefix(index).filter { if case .list(let marker, _) = $0 { return marker == "☑" || marker == "☐" }; return false }.count
-                            toggleChecklist(preceding)
-                        } label: { HStack(alignment: .top, spacing: 10) { Image(systemName: marker == "☑" ? "checkmark.square.fill" : "square"); Text(inline(value)).strikethrough(marker == "☑").frame(maxWidth: .infinity, alignment: .leading) }.frame(minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel(value).accessibilityValue(marker == "☑" ? L10n.tr("已完成") : L10n.tr("未完成"))
-                    } else {
-                        HStack(alignment: .top, spacing: 10) { Group { if marker == "☑" || marker == "☐" { Image(systemName: marker == "☑" ? "checkmark.square" : "square") } else { Text(marker) } }.foregroundStyle(Palette.secondary); Text(inline(value)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }.lineSpacing(4)
-                    }
+                case .list(let marker, let value, let level):
+                    Group {
+                        if (marker == "☑" || marker == "☐"), let toggleChecklist {
+                            Button {
+                                let preceding = renderCache.blocks(for: text, streaming: streaming).prefix(index).filter { if case .list(let marker, _, _) = $0 { return marker == "☑" || marker == "☐" }; return false }.count
+                                toggleChecklist(preceding)
+                            } label: { HStack(alignment: .top, spacing: 10) { Image(systemName: marker == "☑" ? "checkmark.square.fill" : "square"); Text(inline(value)).strikethrough(marker == "☑").frame(maxWidth: .infinity, alignment: .leading) }.frame(minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityLabel(value).accessibilityValue(marker == "☑" ? L10n.tr("已完成") : L10n.tr("未完成"))
+                        } else {
+                            HStack(alignment: .top, spacing: 10) { Group { if marker == "☑" || marker == "☐" { Image(systemName: marker == "☑" ? "checkmark.square" : "square") } else { Text(marker == "•" && level > 0 ? "◦" : marker) } }.foregroundStyle(Palette.secondary); Text(inline(value)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }.lineSpacing(4)
+                        }
+                    }.padding(.leading, CGFloat(level) * 20)
                 case .quote(let value):
                     HStack(spacing: 12) { Rectangle().fill(Palette.line).frame(width: 3); Text(inline(value)).foregroundStyle(Palette.secondary).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }.fixedSize(horizontal: false, vertical: true)
                 case .code(let language, let value):
@@ -123,18 +125,14 @@ struct MarkdownContent: View {
                     }.background(codeBackground, in: RoundedRectangle(cornerRadius: 12))
                         .overlay { RoundedRectangle(cornerRadius: 12).stroke(codeBorder, lineWidth: 1) }
                 case .table(let rows):
-                    VStack(alignment: .leading, spacing: 6) {
-                        ScrollView(.horizontal) {
-                            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-                                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                                    GridRow { ForEach(Array(row.enumerated()), id: \.offset) { _, cell in Text(inline(cell)).font(index == 0 ? .subheadline.bold() : .subheadline).frame(minWidth: 90, maxWidth: 220, alignment: .leading).padding(12).background(index == 0 ? Palette.muted : Palette.canvas).border(Palette.line, width: 0.5) } }
-                                }
-                            }.textSelection(.enabled)
-                        }.scrollIndicators(.visible)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.line, lineWidth: 1).allowsHitTesting(false) }
+                    // A table that fits keeps its own width instead of a full-width frame with an empty tail.
+                    ViewThatFits(in: .horizontal) {
+                        table(rows)
+                        ScrollView(.horizontal) { table(rows) }.scrollIndicators(.visible)
                             .excludesSidebarGesture().accessibilityIdentifier("markdown-table-scroll")
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.line, lineWidth: 1).allowsHitTesting(false) }
                 case .divider: Divider().padding(.vertical, 4)
                 }
             }
@@ -142,6 +140,52 @@ struct MarkdownContent: View {
     }
     private func inline(_ value: String) -> AttributedString {
         renderCache.inline(value)
+    }
+    private func table(_ rows: [[String]]) -> some View {
+        MarkdownTableLayout(columns: rows.first?.count ?? 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                    Text(inline(cell)).font(index == 0 ? .subheadline.bold() : .subheadline).padding(12)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .background(index == 0 ? Palette.muted : Palette.canvas).border(Palette.line, width: 0.5)
+                }
+            }
+        }.textSelection(.enabled)
+    }
+}
+
+/// Columns take their widest cell within the cap and every cell fills its row, so wrapped text
+/// is not truncated and backgrounds and borders stay continuous (Grid did neither).
+private struct MarkdownTableLayout: Layout {
+    let columns: Int
+    var minWidth: CGFloat = 114, maxWidth: CGFloat = 244
+    struct Metrics { var widths: [CGFloat] = [], heights: [CGFloat] = [] }
+    func makeCache(subviews: Subviews) -> Metrics {
+        guard columns > 0 else { return Metrics() }
+        var widths = Array(repeating: minWidth, count: columns)
+        for (index, cell) in subviews.enumerated() {
+            widths[index % columns] = max(widths[index % columns], min(maxWidth, cell.sizeThatFits(.unspecified).width.rounded(.up)))
+        }
+        let heights = stride(from: 0, to: subviews.count, by: columns).map { start in
+            subviews[start..<min(start + columns, subviews.count)].enumerated().map { column, cell in
+                cell.sizeThatFits(ProposedViewSize(width: widths[column], height: nil)).height.rounded(.up)
+            }.max() ?? 0
+        }
+        return Metrics(widths: widths, heights: heights)
+    }
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Metrics) -> CGSize {
+        CGSize(width: cache.widths.reduce(0, +), height: cache.heights.reduce(0, +))
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Metrics) {
+        var y = bounds.minY
+        for (row, height) in cache.heights.enumerated() {
+            var x = bounds.minX
+            for (column, width) in cache.widths.enumerated() where row * columns + column < subviews.count {
+                subviews[row * columns + column].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(width: width, height: height))
+                x += width
+            }
+            y += height
+        }
     }
 }
 

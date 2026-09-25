@@ -139,6 +139,13 @@ final class MarkdownTests: XCTestCase {
         XCTAssertTrue(blocks.contains(.list("•", "第一条")))
         XCTAssertTrue(blocks.contains(.table([["项目", "状态"], ["计划", "完成"]])))
     }
+    func testModelShapedTablesListsAndQuotes() {
+        XCTAssertEqual(MarkdownBlock.parse("| | A | B |\n|---|:---:|---|\n| 成本 | 高<br>需运维 | |\n| 命令 | `a \\| b` |\n| x | 1 | 2 | 3 |"),
+                       [.table([["", "A", "B"], ["成本", "高\n需运维", ""], ["命令", "`a | b`", ""], ["x", "1", "2"]])])
+        XCTAssertEqual(MarkdownBlock.parse("1. 安装\n   先确认版本\n   - 子项\n     - 更深\n2. 运行\n\n正文\n- 新列表"),
+                       [.list("1.", "安装\n先确认版本"), .list("•", "子项", level: 1), .list("•", "更深", level: 2), .list("2.", "运行"), .paragraph("正文"), .list("•", "新列表")])
+        XCTAssertEqual(MarkdownBlock.parse("> 第一行\n>\n>第三行\n正文"), [.quote("第一行\n\n第三行"), .paragraph("正文")])
+    }
 }
 
 final class DraftEditingTests: XCTestCase {
