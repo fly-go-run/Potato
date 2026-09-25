@@ -159,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn remote_model_request_reaches_chat_and_responses_wire_without_changing_desktop() {
-        for (responses, effort) in [(false, Some("low")), (true, Some("high")), (false, None)] {
+        for (responses, effort, queued) in [(false, Some("low"), false), (true, Some("high"), false), (false, None, false), (false, Some("low"), true)] {
             let tmp = tempfile::tempdir().unwrap();
             let core = Runtime::open(tmp.path()).unwrap();
             let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -201,10 +201,19 @@ mod tests {
                 (header, body)
             });
             let before = core.db().unwrap().get("active", Value::Null).unwrap();
-            let request = command(
+            let mut request = command(
                 json!({"text":"synthetic wire verification","model_choice":choice(json!(effort))}),
             );
+            if queued {
+                let chat = core.db().unwrap().ensure_chat("queued-wire-session", "Queue wire test").unwrap();
+                request["args"]["chat_id"] = chat["id"].clone();
+                request["args"]["delivery_mode"] = json!("queue");
+            }
             let receipt = core.remote_command(&request).await.unwrap();
+            if queued {
+                assert_eq!(receipt["delivery"], "queued");
+                core.tick_outbox().unwrap();
+            }
             let (header, body) = tokio::time::timeout(std::time::Duration::from_secs(15), captured)
                 .await
                 .unwrap()

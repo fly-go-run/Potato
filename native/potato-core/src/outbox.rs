@@ -32,6 +32,18 @@ impl Runtime {
         let _gate = lock(&self.outbox_gate)?;
         let runs = lock(&self.runs)?;
         let action = string(body, "action");
+        // Remote interruption is bound to the run the phone actually observed.
+        // Check under the same locks as promotion/cancellation, before any write.
+        if action == "promote" || action == "add" && body["immediate"] == true {
+            if let Some(expected) = body.get("expected_run_id") {
+                if !expected.is_null() && expected.as_str().is_none_or(str::is_empty) {
+                    return Err(Error::new(422, "任务编号无效，请刷新"));
+                }
+                if runs.get(session).map(|run| run.request_id.as_str()) != expected.as_str() {
+                    return Err(Error::new(412, "原任务已结束或改变，未打断其他任务，请刷新后重试"));
+                }
+            }
+        }
         // Match and cancel under the same run lock. A stale phone must not
         // pause the follow-up queue or cancel a replacement run.
         if action == "stop" {
@@ -227,7 +239,9 @@ impl Runtime {
             saved[session] = q.clone();
             self.db()?.put(KEY, &saved)?;
             let emit: Emit = Arc::new(|_| Ok(()));
-            match self.start(uuid::Uuid::new_v4().to_string(), request, emit) {
+            let request_id = request["remote_operation_id"].as_str()
+                .map(str::to_owned).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+            match self.start(request_id, request, emit) {
                 Ok(()) => {
                     q["items"].as_array_mut().unwrap().remove(0);
                     q["interrupt"] = json!(false);
