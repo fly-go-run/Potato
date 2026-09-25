@@ -5,11 +5,11 @@ final class RemotePresentationTests: XCTestCase {
     func testApprovalDecodesReviewReasonAndOldDesktopPayload() throws {
         let legacy = try JSONDecoder().decode(RemoteApproval.self, from: Data(#"{"request_id":"old"}"#.utf8))
         XCTAssertNil(legacy.review_rationale)
-        XCTAssertTrue(legacy.reviewExplanation.contains("本次请求"))
+        XCTAssertNil(legacy.reviewExplanation)
         let reviewed = try JSONDecoder().decode(RemoteApproval.self, from: Data(#"{"request_id":"new","review_rationale":"需要额外授权","review_outcome":"ask_user"}"#.utf8))
         XCTAssertEqual(reviewed.reviewExplanation, "需要额外授权")
         let failed = try JSONDecoder().decode(RemoteApproval.self, from: Data(#"{"request_id":"failed","review_failure":"timeout"}"#.utf8))
-        XCTAssertTrue(failed.reviewExplanation.contains("未能完成"))
+        XCTAssertNil(failed.reviewExplanation, "The sheet title already asks; the raw failure stays in the details")
     }
     private func message(_ id: String, _ role: String, _ kind: String, text: String = "正文", status: String = "completed", callID: String? = nil, name: String? = nil, arguments: String? = nil, output: String? = nil, state: String? = nil) -> RemoteMessage {
         RemoteMessage(id: id, role: role, kind: kind, text: text, status: status, callID: callID, name: name, arguments: arguments, output: output, state: state)

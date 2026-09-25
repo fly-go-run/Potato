@@ -2,12 +2,12 @@ import XCTest
 @testable import PotatoMobile
 
 final class RemoteTaskObservationTests: XCTestCase {
-    func testRecoveredReceiptNoticeIsExplicitAndOlderReceiptsStillDecode() throws {
+    func testRecoveredAndOlderReceiptsDecode() throws {
         let chat: [String: Any] = ["id": "test", "session_id": "test", "name": "Test"]
         let old = try JSONDecoder().decode(RemoteSent.self, from: JSONSerialization.data(withJSONObject: ["chat": chat]))
-        XCTAssertNil(old.recoveryNotice)
+        XCTAssertNil(old.delivery)
         let recovered = try JSONDecoder().decode(RemoteSent.self, from: JSONSerialization.data(withJSONObject: ["chat": chat, "delivery": "recovered"]))
-        XCTAssertTrue(recovered.recoveryNotice?.contains("不代表执行已完成") == true)
+        XCTAssertEqual(recovered.delivery, "recovered")
     }
     func testStopRequiresDeclaredProtocolAndCapturesOneExactRun() throws {
         var value = try snapshot()
@@ -40,7 +40,7 @@ final class RemoteTaskObservationTests: XCTestCase {
         state.failed("offline")
         XCTAssertFalse(state.isCurrent(at: now.addingTimeInterval(1)))
         XCTAssertEqual(state.confirmedAt, now)
-        XCTAssertEqual(state.title(snapshot: try snapshot(), at: now), "连接中断，任务状态未确认")
+        XCTAssertEqual(state.title(snapshot: try snapshot(), at: now), "连接中断")
         state.received(requestedAt: now.addingTimeInterval(10))
         XCTAssertTrue(state.isCurrent(at: now.addingTimeInterval(11)))
         XCTAssertNil(state.failure)

@@ -21,6 +21,7 @@ struct RemoteView: View {
     @State private var pairingBusy = false
     @State private var pairingError: String?
     @State private var newTask: RemoteDestination?
+    @State private var removal: RemoteDevice?
     @Environment(\.scenePhase) private var scenePhase
     private var visibleDevices: [RemoteDevice] { store.devices.filter { selectedDevice == nil || selectedDevice == $0.id } }
     private var connectedDevices: [RemoteDevice] { visibleDevices.filter { store.online[$0.id] == true } }
@@ -81,7 +82,6 @@ struct RemoteView: View {
                     } else if store.devices.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Label(L10n.tr("暂时无法读取电脑列表"), systemImage: "wifi.exclamationmark").font(.subheadline)
-                            Text(L10n.tr("请检查网络后重试。")).font(.footnote).foregroundStyle(Palette.secondary)
                             Button(L10n.tr("重新连接")) { Task { await store.refresh() } }.frame(minHeight: 44).accessibilityIdentifier("remote-directory-retry")
                         }.padding(.vertical, 28)
                     } else {
@@ -144,15 +144,9 @@ struct RemoteView: View {
             .sheet(isPresented: $showPairing, onDismiss: { pairingError = nil }) { pairingSheet }
     }
     private var connectionSummary: String? {
-        let hasSavedList = visibleDevices.contains { store.overviews[$0.id] != nil }
-        if store.error != nil || visibleDevices.contains(where: { store.deviceIssues[$0.id] != nil }) {
-            return hasSavedList ? L10n.tr("暂时无法更新，显示上次列表") : L10n.tr("暂时无法连接，下拉重试")
-        }
+        if store.error != nil || visibleDevices.contains(where: { store.deviceIssues[$0.id] != nil }) { return L10n.tr("暂时无法连接") }
         let offline = visibleDevices.filter { store.online[$0.id] == false }.count
-        if offline > 0 {
-            let name = visibleDevices.count == 1 ? L10n.tr("电脑离线") : L10n.tr("\(offline) 台电脑离线")
-            return name + (hasSavedList ? L10n.tr(" · 已保留上次列表") : L10n.tr("，连接后自动更新"))
-        }
+        if offline > 0 { return visibleDevices.count == 1 ? L10n.tr("电脑离线") : L10n.tr("\(offline) 台电脑离线") }
         return nil
     }
     private var directoryPlaceholder: some View {
@@ -217,16 +211,18 @@ struct RemoteView: View {
                 }
                 ForEach(store.devices) { device in Section(device.name) {
                     Label(store.connectionLabel(device), systemImage: "laptopcomputer")
-                    if device.owner != nil {
-                        Text(L10n.tr("撤销后，所有手机都无法再控制这台电脑。")).font(.footnote).foregroundStyle(Palette.secondary)
-                        Button(L10n.tr("撤销此电脑的远程访问"), role: .destructive) { Task { await store.revoke(device); if selectedDevice == device.id { selectedDevice = nil } } }
-                    } else {
-                        Text(L10n.tr("只移除这台 iPhone 上的配对。")).font(.footnote).foregroundStyle(Palette.secondary)
-                        Button(L10n.tr("从这台 iPhone 移除"), role: .destructive) { store.forget(device); if selectedDevice == device.id { selectedDevice = nil } }
-                    }
+                    Button(device.owner != nil ? L10n.tr("撤销此电脑的远程访问") : L10n.tr("从这台 iPhone 移除"), role: .destructive) { removal = device }
                 } }
                 Button(L10n.tr("添加电脑")) { showDevices = false; showPairing = true }
-            }.navigationTitle(L10n.tr("管理电脑")).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { showDevices = false } } }
+            }.confirmationDialog(removal?.owner != nil ? L10n.tr("撤销后，所有手机都无法再控制这台电脑。") : L10n.tr("只移除这台 iPhone 上的配对。"),
+                                 isPresented: Binding(get: { removal != nil }, set: { if !$0 { removal = nil } }), titleVisibility: .visible, presenting: removal) { device in
+                if device.owner != nil {
+                    Button(L10n.tr("撤销此电脑的远程访问"), role: .destructive) { Task { await store.revoke(device); if selectedDevice == device.id { selectedDevice = nil } } }
+                } else {
+                    Button(L10n.tr("从这台 iPhone 移除"), role: .destructive) { store.forget(device); if selectedDevice == device.id { selectedDevice = nil } }
+                }
+            }
+            .navigationTitle(L10n.tr("管理电脑")).navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.tr("完成")) { showDevices = false } } }
         }
     }
     private var loginSheet: some View {
@@ -302,7 +298,6 @@ struct RemoteTaskView: View {
     @State private var modelIssue: String?
     @State private var modelsLoading = false
     @State private var showModels = false
-    @State private var showLegacyRecovery = false
     @State private var showOtherDrafts = false
     @State private var error: String?
     @State private var busy = false
@@ -315,8 +310,7 @@ struct RemoteTaskView: View {
     @State private var approvalBusy = false
     @State private var stopConfirmation = false
     @State private var stopTarget: RemoteStopRequest?
-    @State private var receiptNotice: String?
-    @State private var reviewedPending: RemotePendingSend?
+    @State private var discardPending: RemotePendingSend?
     @State private var showUnconfirmedRecords = false
     @State private var followBottom = true
     @State private var latestOffscreen = true
@@ -385,7 +379,6 @@ struct RemoteTaskView: View {
                         Spacer(minLength: 0)
                         if stale { Button(L10n.tr("刷新")) { Task { await refresh() } }.fixedSize().frame(minHeight: 44).disabled(loading).accessibilityIdentifier("remote-status-refresh") }
                     }
-                    if stale, let snapshot { Text(L10n.tr("上次确认：\(snapshot.activityTitle)")).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("remote-last-status") }
                 }.font(.footnote).foregroundStyle(Palette.secondary).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .contain)
             }
@@ -476,7 +469,6 @@ struct RemoteTaskView: View {
                 // lazy height estimation oscillating with keyboard resizing and scrollTo.
                 VStack(alignment: .leading, spacing: 24) {
                     if let error { Label(error, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.red); Button(L10n.tr("刷新任务状态")) { Task { await refresh() } } }
-                    if let receiptNotice { Text(receiptNotice).font(.subheadline).foregroundStyle(Palette.secondary).accessibilityIdentifier("remote-recovered-send") }
                     if let snapshot {
                         let rows = RemoteConversationRow.make(snapshot.displayMessages)
                         ForEach(rows) { row in
@@ -499,18 +491,12 @@ struct RemoteTaskView: View {
                             }.buttonStyle(.plain).accessibilityIdentifier("remote-open-approval")
                         }
                         ForEach(snapshot.questions.filter { $0.status == "pending" }) { question in RemoteQuestionCard(question: question, busy: busy || !confirmed) { args in act("answer", args) } }
-                        if !running && snapshot.outcome?.status == "failed" { Label(snapshot.outcome?.error?.message ?? L10n.tr("本轮任务失败，请检查后重试。"), systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.red) }
-                    } else if chat == nil { if !dictation.active { VStack(spacing: 10) {
+                        if !running && snapshot.outcome?.status == "failed", let reason = snapshot.outcome?.error?.message, !reason.isEmpty { Label(reason, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.red) }
+                    } else if chat == nil && !dictation.active {
                         Text(L10n.tr("让电脑帮你做点什么")).font(.title2.weight(.semibold)).foregroundStyle(Palette.ink)
-                        Text(project.map { L10n.tr("在“\($0.name)”项目中开始对话") } ?? L10n.tr("发条消息，在电脑上继续完成。"))
-                            .font(.subheadline).foregroundStyle(Palette.secondary)
-                    }.multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 64) } }
-                    if settled && (running || ["cancelled", "failed"].contains(snapshot?.outcome?.status ?? "")) { conversationStatus }
-                    if running && snapshot.flatMap(RemoteStopRequest.init(snapshot:)) == nil {
-                        Text(L10n.tr("电脑端版本过旧，请在电脑上停止任务。"))
-                            .font(.footnote).foregroundStyle(Palette.secondary)
-                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge).accessibilityIdentifier("remote-stop-update-required")
+                            .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 64)
                     }
+                    if settled && (running || ["cancelled", "failed"].contains(snapshot?.outcome?.status ?? "")) { conversationStatus }
                     RemoteQueuedMessages(queue: snapshot?.outbox, pending: pending, sending: busy,
                                          delivered: Set(snapshot?.displayMessages.compactMap(\.remoteOperationID) ?? []),
                                          enabled: confirmed && !busy && pending == nil, action: queueAction)
@@ -539,18 +525,25 @@ struct RemoteTaskView: View {
                             .background(Palette.canvas, in: RoundedRectangle(cornerRadius: 18))
                     }
                     if let issue = draft.storageError { Text(issue).font(.footnote).foregroundStyle(.red) }
-                    if let issue = draft.legacyError { Text(issue).font(.footnote).foregroundStyle(Palette.secondary) }
-                    if draft.legacy != nil { Button(L10n.tr("恢复旧版草稿")) { showLegacyRecovery = true }.frame(minHeight: 44).accessibilityIdentifier("remote-legacy-draft") }
                     if !draft.otherDrafts.isEmpty { Button(L10n.tr("查看另外保存的草稿")) { showOtherDrafts = true }.frame(minHeight: 44).accessibilityIdentifier("remote-other-drafts") }
                     if !draft.archived.isEmpty { Button(L10n.tr("未确认指令记录（\(draft.archived.count)）")) { showUnconfirmedRecords = true }.frame(minHeight: 44).accessibilityIdentifier("remote-unconfirmed-records") }
                     if let pending, !busy {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(L10n.tr("发送结果未确认。")).font(.footnote).foregroundStyle(Palette.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(pending.text).font(.footnote).lineLimit(2)
-                            if let choice = pending.modelChoice { Text("\(choice.model) · \(remoteEffortName(choice.reasoning_effort))").font(.caption).foregroundStyle(Palette.secondary) }
-                            Button(L10n.tr("重试确认发送结果")) { transmit(pending) }.frame(minHeight: 44)
-                            Button(L10n.tr("核对并处理这条指令")) { promptFocused = false; reviewedPending = pending }.frame(minHeight: 44).accessibilityIdentifier("remote-review-pending")
-                        }.padding(12).background(Palette.muted, in: RoundedRectangle(cornerRadius: 16))
+                                .accessibilityIdentifier("remote-pending-text").accessibilityValue(pending.id)
+                            HStack(spacing: 16) {
+                                Text(L10n.tr("未确认是否送达")).font(.footnote).foregroundStyle(Palette.secondary)
+                                Spacer(minLength: 0)
+                                Button(L10n.tr("放弃")) { promptFocused = false; discardPending = pending }.frame(minHeight: 44).accessibilityIdentifier("remote-review-pending")
+                                    .confirmationDialog(L10n.tr("这条消息可能已在电脑上执行"), isPresented: Binding(get: { discardPending != nil }, set: { if !$0 { discardPending = nil } }),
+                                                        titleVisibility: .visible, presenting: discardPending) { request in
+                                        Button(L10n.tr("放弃这条消息"), role: .destructive) {
+                                            do { try draft.archiveUnconfirmed(request); error = nil } catch { self.error = error.localizedDescription }
+                                        }
+                                    }
+                                Button(L10n.tr("重试")) { transmit(pending) }.frame(minHeight: 44).accessibilityIdentifier("remote-retry-pending")
+                            }
+                        }.padding(.horizontal, 12).padding(.top, 8).background(Palette.muted, in: RoundedRectangle(cornerRadius: 16))
                     }
                     if let notice = dictation.notice { Text(notice).font(.footnote).foregroundStyle(Palette.secondary).accessibilityIdentifier("voice-notice") }
                     remoteComposer
@@ -593,34 +586,6 @@ struct RemoteTaskView: View {
                     do { try draft.chooseModel(choice); modelIssue = nil } catch { modelIssue = error.localizedDescription }
                 }, reload: { Task { await reloadModels() } })
             }
-            .sheet(isPresented: $showLegacyRecovery) {
-                NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text(L10n.tr("旧版没有完整保存草稿的目标电脑。请先核对，这份内容是否属于“\(device.name)”。"))
-                            if let legacy = draft.legacy {
-                                Text(legacy.text.isEmpty ? legacy.pending?.text ?? "" : legacy.text).textSelection(.enabled)
-                                if let pending = legacy.pending {
-                                    Text(L10n.tr("待确认指令")).font(.headline)
-                                    Text(pending.text).textSelection(.enabled)
-                                    Text(L10n.tr("它可能已经执行，请先在电脑上确认。")).font(.footnote).foregroundStyle(.secondary)
-                                }
-                            }
-                            Button(L10n.tr("确认属于这台电脑并恢复")) {
-                                do {
-                                    try draft.restoreLegacy()
-                                    if draft.address.kind == "chat", chat?.id != draft.address.value {
-                                        chat = RemoteChat(id: draft.address.value, session_id: "", name: L10n.tr("恢复的远程任务"), status: nil, pinned: nil, project_path: project?.path)
-                                        Task { await refresh() }
-                                    }
-                                    showLegacyRecovery = false
-                                } catch { self.error = error.localizedDescription; showLegacyRecovery = false }
-                            }.frame(minHeight: 44).accessibilityIdentifier("remote-confirm-legacy-draft")
-                        }.padding(20)
-                    }.navigationTitle(L10n.tr("核对旧版草稿")).navigationBarTitleDisplayMode(.inline)
-                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("取消")) { showLegacyRecovery = false } } }
-                }
-            }
             .sheet(isPresented: $showOtherDrafts) {
                 NavigationStack {
                     List(draft.otherDrafts, id: \.self) { value in
@@ -635,19 +600,11 @@ struct RemoteTaskView: View {
                         .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("关闭")) { showOtherDrafts = false } } }
                 }
             }
-            .sheet(item: $reviewedPending) { request in
-                RemotePendingReview(request: request, deviceName: device.name) {
-                    try draft.archiveUnconfirmed(request)
-                    error = nil; reviewedPending = nil
-                }
-            }
             .sheet(isPresented: $showUnconfirmedRecords) {
                 NavigationStack {
-                    List {
-                        Text(L10n.tr("以下指令可能已执行，请先在电脑上确认。")).font(.subheadline)
-                        ForEach(draft.archived, id: \.id) { request in
-                            RemoteUnconfirmedDetails(request: request, deviceName: device.name)
-                        }
+                    List(draft.archived, id: \.id) { request in
+                        Text(request.text).textSelection(.enabled).padding(.vertical, 8)
+                            .accessibilityIdentifier("remote-unconfirmed-text").accessibilityValue(request.id)
                     }.navigationTitle(L10n.tr("未确认指令记录")).navigationBarTitleDisplayMode(.inline)
                         .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("关闭")) { showUnconfirmedRecords = false } } }
                 }
@@ -777,10 +734,11 @@ struct RemoteTaskView: View {
                     snapshot?.outbox?.items.append(.init(id: request.id, text: request.text, state: "pending", attachments: 0))
                 }
                 try draft.acknowledge(request, chatID: result.chat.id)
-                chat = result.chat; error = nil; receiptNotice = result.recoveryNotice; await refresh()
+                chat = result.chat; error = nil; await refresh()
             } catch {
-                self.error = error.localizedDescription
+                // While the request is still pending, its card already says so and offers a retry.
                 if let failure = error as? RemoteFailure, [400, 403, 404, 412, 422].contains(failure.status) {
+                    self.error = error.localizedDescription
                     do { try draft.reject(request) } catch { self.error = error.localizedDescription }
                 }
             }
@@ -800,8 +758,8 @@ struct RemoteTaskView: View {
     }
     private func presentNextApproval() {
         guard confirmed, !busy, !approvalBusy, presentedApproval == nil,
-              !showModels, !showLegacyRecovery, !showOtherDrafts, !showUnconfirmedRecords,
-              reviewedPending == nil, !stopConfirmation, !dictation.active,
+              !showModels, !showOtherDrafts, !showUnconfirmedRecords,
+              discardPending == nil, !stopConfirmation, !dictation.active,
               let approval = snapshot?.approvals.first(where: { !seenApprovals.contains($0.id) && !resolvedApprovals.contains($0.id) }) else { return }
         promptFocused = false; approvalError = nil
         seenApprovals.insert(approval.id); presentedApproval = approval
@@ -829,44 +787,6 @@ struct RemoteTaskView: View {
         guard let chat, !busy, observation.isCurrent(at: Date()), scenePhase == .active else {return}; busy = true; error = nil; followBottom = true
         var args = arguments; args["chat_id"] = chat.id
         Task { defer {busy = false}; do { let _: RemoteAck = try await RemoteService.rpc(device, op: op, args: args); await refresh() } catch { self.error = error.localizedDescription } }
-    }
-}
-
-private struct RemoteUnconfirmedDetails: View {
-    let request: RemotePendingSend
-    let deviceName: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(deviceName).font(.headline)
-            Text(request.chatID.map { L10n.tr("原会话编号：\($0)") } ?? L10n.tr("原目标：新任务")).font(.footnote).foregroundStyle(.secondary)
-            if let project = request.projectPath { Text(project).font(.footnote).textSelection(.enabled) }
-            Text(request.text).textSelection(.enabled).accessibilityIdentifier("remote-unconfirmed-text").accessibilityValue(request.id)
-            if let choice = request.modelChoice { Text("\(choice.model) · \(remoteEffortName(choice.reasoning_effort))").font(.footnote) }
-        }.padding(.vertical, 8)
-    }
-}
-
-private struct RemotePendingReview: View {
-    let request: RemotePendingSend
-    let deviceName: String
-    let archive: () throws -> Void
-    @State private var understood = false
-    @State private var issue: String?
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section { RemoteUnconfirmedDetails(request: request, deviceName: deviceName) }
-                Section {
-                    Text(L10n.tr("这条指令可能已执行，请先在电脑上确认。"))
-                    Toggle(L10n.tr("我已了解这条指令可能已执行"), isOn: $understood).accessibilityIdentifier("remote-understand-unconfirmed")
-                    Button(L10n.tr("保留记录并结束等待")) { do { try archive() } catch { issue = error.localizedDescription } }
-                        .disabled(!understood).accessibilityIdentifier("remote-archive-unconfirmed")
-                    if let issue { Text(issue).foregroundStyle(.red) }
-                }
-            }.navigationTitle(L10n.tr("核对待确认指令")).navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.tr("取消")) { dismiss() } } }
-        }
     }
 }
 
@@ -952,7 +872,7 @@ private struct RemoteApprovalSheet: View {
                         Text(approval.findings_summary ?? approval.tool_name ?? L10n.tr("电脑操作")).font(.headline)
                         if let command = approval.command { Text(command).font(.callout.monospaced()).textSelection(.enabled) }
                         if let directory = approval.workingDirectory { Label(directory, systemImage: "folder").font(.footnote).textSelection(.enabled) }
-                        Text(approval.reviewExplanation).font(.subheadline).foregroundStyle(Palette.secondary)
+                        if let reason = approval.reviewExplanation { Text(reason).font(.subheadline).foregroundStyle(Palette.secondary) }
                     }
                     if approval.unsandboxed { Label(L10n.tr("这一次操作将在系统沙箱外执行"), systemImage: "exclamationmark.shield").font(.footnote) }
                     if supportsScopes && approval.supportsDirectoryGrant {
@@ -965,12 +885,10 @@ private struct RemoteApprovalSheet: View {
                     Divider().overlay(Palette.line)
                     DisclosureGroup(L10n.tr("操作详情"), isExpanded: $detailsExpanded) {
                         VStack(alignment: .leading, spacing: 12) {
-                            if directory != nil {
-                                Text(L10n.tr("允许读取、列举和搜索此目录") + (approval.directory_recursive == false ? "。" : L10n.tr("及其子目录。") )).font(.subheadline)
-                            }
-                            Text(approval.reviewExplanation).font(.subheadline)
+                            // Other requests already show the summary and review reason above.
+                            if directory != nil, let reason = approval.reviewExplanation { Text(reason).font(.subheadline) }
                             if let reason = approval.justification, !reason.isEmpty { Text(reason).font(.subheadline) }
-                            if let summary = approval.findings_summary { Text(summary).font(.subheadline) }
+                            if directory != nil, let summary = approval.findings_summary { Text(summary).font(.subheadline) }
                             if let target = approval.exact_target { Text(target).textSelection(.enabled) }
                             if let details = approval.action_detail { Text(details).font(.footnote.monospaced()).textSelection(.enabled) }
                             if let failure = approval.review_failure { Text(failure).textSelection(.enabled) }
@@ -980,7 +898,7 @@ private struct RemoteApprovalSheet: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 if !available { Text(L10n.tr("这项审批已处理或已过期。")).foregroundStyle(Palette.secondary) }
-                else if !confirmed { Label(L10n.tr("连接尚未确认，恢复后可继续审批。"), systemImage: "wifi.exclamationmark").foregroundStyle(Palette.secondary) }
+                else if !confirmed { Label(L10n.tr("连接中断"), systemImage: "wifi.exclamationmark").foregroundStyle(Palette.secondary) }
                 if let issue { Text(issue).foregroundStyle(.red).accessibilityIdentifier("remote-approval-error") }
                 if busy { ProgressView(L10n.tr("正在提交…")) }
                 HStack(spacing: 20) {
