@@ -4,7 +4,7 @@ final class ActivityPresentationUITests: XCTestCase {
     func testPresentationFailurePreviewAndDelivery() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reset", "--activity-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]; app.launch()
         XCTAssertTrue(app.buttons["activity-summary"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["activity-summary"].label.contains("已思考 7 秒 · 运行 3 段代码"))
+        XCTAssertTrue(app.buttons["activity-summary"].label.contains("运行代码"))
         app.buttons["activity-summary"].tap(); app.buttons["activity-step-reasoning"].tap()
         XCTAssertTrue(app.staticTexts["activity-reasoning"].waitForExistence(timeout: 5))
         app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()

@@ -19,6 +19,10 @@ struct StreamingTextBuffer {
         // Do not make the first character wait for the display timer.
         if visible.isEmpty, let first = characters.first { visible.append(first); offset = 1 }
     }
+    /// Finish what is still hidden within `window`, instead of snapping it in.
+    mutating func hurry(now: Double, within window: Double) {
+        if pending { deadline = min(deadline, now + window) }
+    }
     mutating func advance(now: Double) {
         guard pending else { return }
         let remainingTicks = max(1, Int(ceil((deadline - now) / 0.032)))
@@ -41,8 +45,12 @@ struct StreamingMarkdown: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var phase
     @State private var buffer = StreamingTextBuffer()
-    private var animated: Bool { streaming && !reduceMotion && phase == .active }
+    private var live: Bool { !reduceMotion && phase == .active }
+    /// Keeps revealing after the stream ends: a remote reply's last poll often brings
+    /// the final sentences and "done" together, and they should not land all at once.
+    private var revealing: Bool { live && (streaming || buffer.pending) }
     private var now: Double { ProcessInfo.processInfo.systemUptime }
+    private static let settle = 0.45
 
     init(text: String, streaming: Bool, pace: Double = 0.24, codeBackground: Color = Palette.canvas, codeBorder: Color = .clear) {
         self.text = text
@@ -54,11 +62,12 @@ struct StreamingMarkdown: View {
     }
 
     var body: some View {
-        MarkdownContent(text: animated ? buffer.visible : text, streaming: streaming, codeBackground: codeBackground, codeBorder: codeBorder)
-            .onChange(of: text, initial: true) { _, value in buffer.update(value, animated: animated, now: now, pace: pace) }
-            .onChange(of: animated) { _, _ in buffer.reset(text) }
-            .task(id: animated) {
-                guard animated else { return }
+        MarkdownContent(text: live ? buffer.visible : text, streaming: streaming || revealing && buffer.pending, codeBackground: codeBackground, codeBorder: codeBorder)
+            .onChange(of: text, initial: true) { _, value in buffer.update(value, animated: live, now: now, pace: streaming ? pace : Self.settle) }
+            .onChange(of: streaming) { _, value in if !value { buffer.hurry(now: now, within: Self.settle) } }
+            .onChange(of: live) { _, _ in buffer.reset(text) }
+            .task(id: revealing) {
+                guard revealing else { return }
                 while !Task.isCancelled {
                     do { try await Task.sleep(for: .milliseconds(32)) } catch { return }
                     if buffer.pending { buffer.advance(now: now) }

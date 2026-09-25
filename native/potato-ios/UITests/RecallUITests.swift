@@ -22,7 +22,7 @@ final class RecallUITests: XCTestCase {
     func testHistorySourceOpensOriginalMessage() {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reset", "--recall-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
         app.launch()
-        let history = app.buttons["参考了 1 段历史"]
+        let history = app.buttons["参考了历史对话"]
         XCTAssertTrue(history.waitForExistence(timeout: 10)); history.tap()
         XCTAssertTrue(app.buttons["查看原对话"].waitForExistence(timeout: 5))
         app.buttons["查看原对话"].tap()

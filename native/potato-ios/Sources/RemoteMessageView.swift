@@ -72,6 +72,7 @@ struct RemoteConversationRowView: View {
     var confirmed = true
     var activeProcessID: String? = nil
     var onExpand: () -> Void = {}
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         if let message = row.messages.first {
             if message.role == "user" {
@@ -95,17 +96,20 @@ struct RemoteConversationRowView: View {
                         case .process(let messages):
                             // Only the newest group can still be working; earlier ones settle into summaries.
                             RemoteProcessView(messages: messages, running: running && last, confirmed: confirmed, activeProcessID: activeProcessID,
-                                              replyStarted: !last, identifier: index == lastProcess ? "remote-process-toggle" : "remote-process-toggle-\(index)", onExpand: onExpand)
+                                              identifier: index == lastProcess ? "remote-process-toggle" : "remote-process-toggle-\(index)", onExpand: onExpand)
+                                .transition(.opacity)
                         case .text(let answer):
                             // Polls land every two seconds; pace the newest text across the gap.
                             StreamingMarkdown(text: answer.text, streaming: running && last, pace: 1.6, codeBackground: Palette.muted, codeBorder: Palette.line)
-                                .tint(.blue)
+                                .tint(.blue).transition(.opacity)
                         }
                     }
                     if !row.replyText.isEmpty && !running {
                         RemoteReplyActions(text: row.replyText)
                     }
+                // A poll can bring several frames at once; let them fade in rather than pop.
                 }.frame(maxWidth: .infinity, alignment: .leading)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: segments.map(\.id))
             }
         }
     }
@@ -116,12 +120,11 @@ private struct RemoteProcessView: View {
     let running: Bool
     let confirmed: Bool
     let activeProcessID: String?
-    var replyStarted = false
     var identifier = "remote-process-toggle"
     let onExpand: () -> Void
     var body: some View {
         ActivitySummaryView(steps: ActivityStep.remote(messages, running: running, confirmed: confirmed, activeID: activeProcessID),
-                            running: running, confirmed: confirmed, replyStarted: replyStarted, identifier: identifier, onExpand: onExpand)
+                            running: running, confirmed: confirmed, identifier: identifier, onExpand: onExpand)
     }
 }
 
@@ -133,15 +136,15 @@ private struct RemoteReplyActions: View {
         HStack(spacing: 0) {
             Button {
                 UIPasteboard.general.string = text; copied = true
-            } label: { Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 18)).frame(width: 44, height: 44).contentShape(Rectangle()) }
+            } label: { ReplyActionGlyph(symbol: copied ? "checkmark" : "doc.on.doc") }
                 .accessibilityLabel(copied ? L10n.tr("已复制回复") : L10n.tr("复制回复")).accessibilityIdentifier("remote-copy-reply")
             Menu {
                 Button(L10n.tr("选择文字"), systemImage: "text.cursor") { selecting = true }.accessibilityIdentifier("remote-select-reply")
                 ShareLink(item: text) { Label(L10n.tr("分享回复"), systemImage: "square.and.arrow.up") }.accessibilityIdentifier("remote-share-reply")
-            } label: { Image(systemName: "ellipsis").font(.system(size: 18)).frame(width: 44, height: 44).contentShape(Rectangle()) }
+            } label: { ReplyActionGlyph(symbol: "ellipsis") }
                 .accessibilityLabel(L10n.tr("回复更多操作")).accessibilityIdentifier("remote-reply-more")
             Spacer(minLength: 0)
-        }.buttonStyle(.plain).foregroundStyle(Palette.secondary)
+        }.buttonStyle(.plain).padding(.leading, -ReplyActionGlyph.inset)
             .onChange(of: text) { _, _ in copied = false }
             .task(id: copied) { if copied { try? await Task.sleep(for: .seconds(2)); if !Task.isCancelled { copied = false } } }
             .sheet(isPresented: $selecting) { ReplyTextSelection(text: text) }

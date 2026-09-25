@@ -45,28 +45,29 @@ final class ReasoningUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["generating"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.staticTexts["正在准备回复…"].exists)
         capture(app, "quiet-reply-waiting")
-        waitLabel(app.buttons["activity-summary"], "正在思考"); XCTAssertFalse(app.descendants(matching: .any)["generating"].exists)
+        // The dot stays at the tail while the thought row names the work.
+        waitLabel(app.buttons["activity-summary"], "正在思考"); XCTAssertTrue(app.descendants(matching: .any)["generating"].exists)
         openReasoning(app); capture(app, "reasoning-active-detail")
         waitLabel(app.staticTexts["activity-reasoning"], "十分位的 8 大于 1")
         app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap()
         XCTAssertTrue(app.buttons["stop-generation"].waitForNonExistence(timeout: 15)); capture(app, "reasoning-complete")
         app.terminate(); let restored = launch(reset: false)
-        waitLabel(restored.buttons["activity-summary"], "已思考"); openReasoning(restored)
+        waitLabel(restored.buttons["activity-summary"], "思考过程"); openReasoning(restored)
         XCTAssertTrue(restored.staticTexts["activity-reasoning"].label.contains("十分位的 8 大于 1")); capture(restored, "reasoning-restored")
     }
     func testStoppingReasoningKeepsContentAndClockWithReducedMotion() {
         let app = launch("hold", reduceMotion: true); app.buttons["send-message"].tap()
         waitLabel(app.buttons["activity-summary"], "正在思考"); openReasoning(app); capture(app, "reasoning-reduced-motion-active")
         app.buttons["activity-back"].tap(); app.buttons["activity-close"].tap(); app.buttons["stop-generation"].tap()
-        waitLabel(app.buttons["activity-summary"], "已停止"); openReasoning(app)
+        XCTAssertTrue(app.staticTexts["已停止生成"].waitForExistence(timeout: 20)); waitLabel(app.buttons["activity-summary"], "思考过程"); openReasoning(app)
         XCTAssertTrue(app.staticTexts["已停止"].waitForExistence(timeout: 5)); capture(app, "reasoning-stopped")
         app.terminate(); let restored = launch("hold", reset: false, reduceMotion: true)
-        waitLabel(restored.buttons["activity-summary"], "已停止"); openReasoning(restored)
+        XCTAssertTrue(restored.staticTexts["已停止生成"].waitForExistence(timeout: 10)); waitLabel(restored.buttons["activity-summary"], "思考过程"); openReasoning(restored)
         XCTAssertTrue(restored.staticTexts["activity-reasoning"].label.contains("先把小数位对齐"))
     }
     func testInterruptedReasoningIsRetainedWithoutRunningAnimation() {
         let app = launch("interrupted"); app.buttons["send-message"].tap()
-        waitLabel(app.buttons["activity-summary"], "正在思考"); waitLabel(app.buttons["activity-summary"], "已中断")
+        waitLabel(app.buttons["activity-summary"], "正在思考"); waitLabel(app.buttons["activity-summary"], "思考过程")
         XCTAssertFalse(app.buttons["stop-generation"].exists); openReasoning(app)
         XCTAssertTrue(app.staticTexts["未成功"].waitForExistence(timeout: 5)); capture(app, "reasoning-interrupted")
     }
@@ -78,6 +79,6 @@ final class ReasoningUITests: XCTestCase {
         XCTAssertTrue(app.buttons["activity-step-search:fixture-search"].exists); capture(app, "reasoning-paused-for-search")
         waitLabel(app.buttons["activity-step-reasoning"], "进行中", timeout: 15); capture(app, "reasoning-resumed-after-search")
         app.buttons["activity-close"].tap()
-        XCTAssertTrue(app.buttons["stop-generation"].waitForNonExistence(timeout: 20)); waitLabel(app.buttons["activity-summary"], "搜索 1 次网页")
+        XCTAssertTrue(app.buttons["stop-generation"].waitForNonExistence(timeout: 20)); waitLabel(app.buttons["activity-summary"], "搜索网页")
     }
 }

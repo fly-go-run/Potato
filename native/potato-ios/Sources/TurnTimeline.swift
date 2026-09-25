@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// What a step did, so a group reads "读取 2 个文件、执行 3 条命令" rather than "5 个步骤".
+/// What a step did, so a group reads "读取文件、执行命令" rather than "5 个步骤".
 enum ActivityKind: CaseIterable {
     case read, list, find, write, edit, command, web, memory, code, image, other
 
@@ -19,49 +19,39 @@ enum ActivityKind: CaseIterable {
         }
     }
 
-    func phrase(_ count: Int) -> String {
-        let one = count == 1
+    /// What was done, not how many times; the process sheet lists every step.
+    /// English is past tense here, while the same Chinese words as step titles are imperative there.
+    var phrase: String {
+        let english = AppLocalization.shared.selection.resolved() == .english
         switch self {
-        case .read: return one ? L10n.tr("读取 1 个文件") : L10n.tr("读取 \(count) 个文件")
-        case .list: return one ? L10n.tr("查看 1 个目录") : L10n.tr("查看 \(count) 个目录")
-        case .find: return one ? L10n.tr("搜索 1 次文件") : L10n.tr("搜索 \(count) 次文件")
-        case .write: return one ? L10n.tr("写入 1 个文件") : L10n.tr("写入 \(count) 个文件")
-        case .edit: return one ? L10n.tr("编辑 1 个文件") : L10n.tr("编辑 \(count) 个文件")
-        case .command: return one ? L10n.tr("执行 1 条命令") : L10n.tr("执行 \(count) 条命令")
-        case .web: return one ? L10n.tr("搜索 1 次网页") : L10n.tr("搜索 \(count) 次网页")
-        case .memory: return one ? L10n.tr("查阅 1 次记忆") : L10n.tr("查阅 \(count) 次记忆")
-        case .code: return one ? L10n.tr("运行 1 段代码") : L10n.tr("运行 \(count) 段代码")
-        case .image: return one ? L10n.tr("生成 1 次图片") : L10n.tr("生成 \(count) 次图片")
-        case .other: return one ? L10n.tr("调用 1 个工具") : L10n.tr("调用 \(count) 个工具")
+        case .read: return english ? "Read files" : "读取文件"
+        case .list: return english ? "Listed folders" : "查看目录"
+        case .find: return english ? "Searched files" : "搜索文件"
+        case .write: return english ? "Wrote files" : "写入文件"
+        case .edit: return english ? "Edited files" : "编辑文件"
+        case .command: return english ? "Ran commands" : "执行命令"
+        case .web: return english ? "Searched the web" : "搜索网页"
+        case .memory: return english ? "Checked memory" : "查阅记忆"
+        case .code: return english ? "Ran code" : "运行代码"
+        case .image: return english ? "Generated images" : "生成图片"
+        case .other: return english ? "Used tools" : "调用工具"
         }
     }
 }
 
 extension Array where Element == ActivityStep {
-    /// Names what the tools did, in the order they first happened. File steps
-    /// count distinct files; thinking is only named when nothing else ran.
+    /// Names what the tools did, in the order they first happened; a group
+    /// that only thought is "思考过程". No counts or seconds: that is sheet detail.
     var actionSummary: String {
-        let tools = filter { !$0.reasoning }
-        guard !tools.isEmpty else {
-            guard let thought = last(where: \.reasoning) else { return "" }
-            if let seconds = thought.duration.map({ Swift.max(1, Int($0.rounded())) }), !thought.isRunning { return L10n.tr("已思考 \(seconds) 秒") }
-            return L10n.tr("思考过程")
-        }
         var order: [ActivityKind] = []
-        var counts: [ActivityKind: Int] = [:]
-        var targets: [ActivityKind: Set<String>] = [:]
-        for step in tools {
-            if !order.contains(step.kind) { order.append(step.kind) }
-            if let target = step.target, [.read, .write, .edit].contains(step.kind) {
-                if targets[step.kind, default: []].insert(target).inserted { counts[step.kind, default: 0] += 1 }
-            } else { counts[step.kind, default: 0] += 1 }
-        }
-        return ActivityKind.join(order.map { $0.phrase(counts[$0] ?? 1) })
+        for step in self where !step.reasoning && !order.contains(step.kind) { order.append(step.kind) }
+        guard !order.isEmpty else { return contains(where: \.reasoning) ? L10n.tr("思考过程") : "" }
+        return ActivityKind.join(order.map(\.phrase))
     }
 }
 
 extension ActivityKind {
-    /// "读取 1 个文件、执行 3 条命令" / "Read a file, ran 3 commands".
+    /// "读取文件、执行命令" / "Read files, ran commands".
     static func join(_ phrases: [String]) -> String {
         guard AppLocalization.shared.selection.resolved() == .english else { return phrases.joined(separator: "、") }
         return phrases.enumerated().map { index, phrase in
@@ -121,28 +111,24 @@ extension ChatMessage {
     }
 }
 
-/// The single line under a reply in progress: a pulsing dot and what is happening now.
+/// The tail of a reply in progress. The dot stays in this one place from sending to the
+/// last word, so hand-offs between thinking, tools and text never make it vanish or jump;
+/// the rows above name the work. Text beside it is only for what no row can say.
 struct TurnStatusLine: View {
-    let title: String
-    var animated = true
+    var title = ""
+    /// What VoiceOver hears: the current phase, even when nothing is written.
+    var label = ""
     var identifier = "turn-status"
     var body: some View {
         HStack(spacing: 8) {
             ReplyPendingDot()
-            // While the answer itself streams, the dot alone says it is still going.
-            if !title.isEmpty { Text(title).font(.subheadline).foregroundStyle(Palette.secondary).lineLimit(1).shimmering(animated) }
+            if !title.isEmpty { Text(title).font(.subheadline).foregroundStyle(Palette.secondary).lineLimit(1).shimmering() }
         }.frame(minHeight: 28, alignment: .leading)
-            .accessibilityElement(children: .ignore).accessibilityLabel(title.isEmpty ? L10n.tr("正在生成") : title).accessibilityIdentifier(identifier)
+            .accessibilityElement(children: .ignore).accessibilityLabel(title.isEmpty ? label.isEmpty ? L10n.tr("正在生成") : label : title).accessibilityIdentifier(identifier)
     }
 }
 
 extension ChatMessage {
-    /// A streaming thought is named by its own activity row; a status line would only repeat it.
-    var showsStatusLine: Bool {
-        guard state == .streaming else { return false }
-        guard cloudReply?.notice == nil, let trace = displayReasoning else { return true }
-        return trace.state != .streaming || trace.text.isEmpty
-    }
     /// What the in-progress reply is doing, for the status line.
     var phaseTitle: String {
         if let notice = cloudReply?.notice { return notice }
